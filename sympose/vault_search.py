@@ -82,7 +82,7 @@ def _base_match_result(entry: dict[str, Any], match_type: str, tags: list[str]) 
         "match_type": match_type,
         "line_no": 1,
         "snippet": "",
-        "title": meta.get("title") or meta.get("name") or _stem(file),
+        "title": str(meta.get("title") or meta.get("name") or _stem(file)),
         "tags": tags,
     }
 
