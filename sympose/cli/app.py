@@ -8,12 +8,14 @@ inert or mock, since nothing backs them yet. Event handling and the
 actual command/streaming behavior live in `dispatch.py`/`runtime.py`/
 `turns.py`/`picker.py`, split out to hold the 200-LOC-per-file cap."""
 
+from rich.style import Style
+from rich.text import Text
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import VerticalScroll
 from textual.widgets import Input, OptionList, Static
 
-from sympose import engine
+from sympose import engine, persona_files
 from sympose.cli import dispatch, picker, share, state
 from sympose.cli import transcript as transcript_mod
 from sympose.cli.composer import ComposerInput
@@ -99,6 +101,9 @@ class SymposeCLI(App):
         transcript_mod.mount_line(self, "Talking to the real engine now — local by default.", "system")
         transcript_mod.mount_line(self, "Type a message, or / for commands.", "system")
         share.announce(self)  # a cloud model in use is said out loud (ADR 031)
+        missed = persona_files.missed_notice()  # a persona folder the roster cannot find (ADR 029)
+        if missed:
+            transcript_mod.mount_line(self, Text(missed, style=Style(color=self.theme_color("error", "red"), bold=True)), "system")
         picker.close_panel(self)  # syncs the composer's initial spacing (no panel yet)
         self.composer.focus()
 

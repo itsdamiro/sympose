@@ -59,3 +59,15 @@ Everything above. Later, and each needing its own reason: the start-up notice fo
 **Why in its own module.** `doctor.py` is at the file-size cap; the report is one function that reads settings and calls `sharing`, so it goes in `doctor_models.py`, and `doctor.py` only calls it.
 
 **Alternatives rejected.** Printing the section only when a cloud model is chosen: the same command should answer "everything stays here" as plainly as "this is sent", and a person cannot tell a silent report from a broken one. Listing every persona: only the ones that name a model differ from the default. Having `--fix` remove a cloud embedding model or approve `notes`: it is the person's decision what leaves the machine.
+
+## Update: the start-up notice for a persona folder the roster misses (issue #72, decided 2026-09-27)
+
+**Decision (the user's).** Option A of #72 stands: persona folder names must be lower case, `sympose doctor --fix` renames them (built), and the roster is unchanged. What this update adds is the notice that ADR 029 left for later, so a persona is never dropped without a word.
+
+**The notice.** When `sympose cli` or `sympose web` starts, it looks in the profiles folder for a persona folder (one holding a `persona.yaml`) whose name is not lower case and which the roster cannot find under its lower-case name. On a file system that ignores case (the macOS default) every such folder is found, so nothing is said and nothing is missing; on one that keeps case (Linux) each of them is a persona the person cannot choose. The message names the folders and says how to fix it: "Persona folder 'Grace' is missing from the roster: its name is not lower case, and this file system keeps case. `sympose doctor --fix` renames it." The CLI shows it as a red line under the banner, and `sympose web` prints it before the address. It is said once per start, only when something is actually missed, and it changes nothing on disk. The two folders that would clash (`Grace` and `grace` both present) are not "missed": the roster shows `grace`, and the doctor already reports the clash.
+
+**One place.** `persona_files.missed_notice()` builds the message from `missed_folders()`, and both starts call it; the doctor's own check keeps reporting the mixed-case folder on any file system, since it fails the day the folder is copied to one that keeps case.
+
+**Consequences.** #72 is closed by this: the check and the fix (ADR 029), and the notice. A person on a case-keeping file system who never runs the doctor still learns why a persona is missing, at the moment it matters.
+
+**Alternatives rejected.** Looking the folder up under its real name (option B): decided against by the user, for the reasons in "Alternatives rejected" above. Warning on every roster lookup: the roster is read by every request, so it would repeat. Refusing to start: the other personas work.

@@ -51,3 +51,36 @@ def load_soul(handle: str) -> str | None:
     except (OSError, UnicodeDecodeError) as e:
         log.warning("Couldn't read %s, using the default soul: %s", path, e)
         return None
+
+
+def _found_as_lower(base: str, name: str) -> bool:
+    """Whether the roster finds `name`'s persona under its lower-case name: always on a file system that
+    ignores case, only when a folder of that name exists on one that keeps case."""
+    return os.path.isfile(os.path.join(base, name.lower(), PERSONA_FILENAME))
+
+
+def missed_folders() -> list[str]:
+    """Persona folders (holding a `persona.yaml`) whose name is not lower case and which the roster cannot
+    find, so the persona is missing (docs/decisions/029, issue #72). Empty on a file system that ignores case."""
+    base = profiles_dir()
+    if not os.path.isdir(base):
+        return []
+    return sorted(
+        name
+        for name in os.listdir(base)
+        if name != name.lower() and os.path.isfile(os.path.join(base, name, PERSONA_FILENAME)) and not _found_as_lower(base, name)
+    )
+
+
+def missed_notice() -> str | None:
+    """The start-up line for `missed_folders`, or `None` when nothing is missed."""
+    missed = missed_folders()
+    if not missed:
+        return None
+    names = ", ".join(repr(name) for name in missed)
+    plural = len(missed) > 1
+    return (
+        f"Persona folder{'s' if plural else ''} {names} {'are' if plural else 'is'} missing from the roster: "
+        f"the name is not lower case, and this file system keeps case. `sympose doctor --fix` renames "
+        f"{'them' if plural else 'it'}."
+    )

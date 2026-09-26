@@ -24,7 +24,7 @@ def _run_web(args: argparse.Namespace) -> int:
 
     from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-    from sympose import web_static
+    from sympose import persona_files, web_static
     from sympose.server import create_app
 
     try:
@@ -41,6 +41,9 @@ def _run_web(args: argparse.Namespace) -> int:
     # Only this machine's own names may address it: a hostile page cannot reach the vault API by
     # pointing its own domain name at 127.0.0.1 (DNS rebinding), since its Host header would differ.
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=_OWN_NAMES)
+    missed = persona_files.missed_notice()  # a persona folder the roster cannot find (ADR 029)
+    if missed:
+        print(missed, file=sys.stderr)
     print(f"Sympose web app: http://127.0.0.1:{port}  (Ctrl-C to stop)")
     uvicorn.run(app, host="127.0.0.1", port=port)  # this machine only: no auth, no TLS
     return 0
