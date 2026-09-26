@@ -123,13 +123,23 @@ def check_settings() -> list[Finding]:
     return findings
 
 
+def check_embedding_model() -> list[Finding]:
+    from sympose import doctor_models  # imported here: it brings in litellm, a few seconds
+
+    problem = doctor_models.embedding_finding()
+    return [Finding(problem)] if problem else []
+
+
 # settings after folders: a renamed folder can make a default_persona valid again
-CHECKS: list[Callable[[], list[Finding]]] = [check_persona_folders, check_settings]
+CHECKS: list[Callable[[], list[Finding]]] = [check_persona_folders, check_settings, check_embedding_model]
 
 
 def run(fix: bool = False, out: TextIO | None = None) -> int:
     """Prints the findings (and, with `fix`, applies what can be) and returns 0 when nothing is left wrong, else 1."""
+    from sympose import doctor_models  # imported here: it brings in litellm, a few seconds
+
     out = out or sys.stdout
+    print("\n".join(doctor_models.report()) + "\n", file=out)
     found = left = 0
     for check in CHECKS:
         for finding in check():

@@ -42,7 +42,9 @@ def test_no_profiles_folder_and_no_settings_file_is_healthy(tmp_path, monkeypatc
     monkeypatch.setenv("SYMPOSE_PROFILES_DIR", str(tmp_path / "none"))
     monkeypatch.setenv("SYMPOSE_SETTINGS_PATH", str(tmp_path / "none.json"))
 
-    assert _run() == (0, "Everything looks healthy.\n")
+    code, out = _run()
+
+    assert code == 0 and out.endswith("Everything looks healthy.\n")
 
 
 def test_a_mixed_case_persona_folder_is_reported_and_left_alone_without_fix(base):
@@ -159,7 +161,9 @@ def test_a_default_persona_is_matched_without_regard_to_case(base):
     write_persona(base, "samantha", "name: Samantha\n")
     _settings(base, {"default_persona": "Samantha"})
 
-    assert _run() == (0, "Everything looks healthy.\n")
+    code, out = _run()
+
+    assert code == 0 and out.endswith("Everything looks healthy.\n")
 
 
 def test_a_default_persona_is_not_checked_when_there_is_no_profiles_folder(tmp_path, monkeypatch):
@@ -254,7 +258,9 @@ def test_the_shipped_default_persona_needs_no_folder_of_its_own(base):
     write_persona(base, "grace", "name: Grace\n")  # profiles/ exists, with no samantha folder: she still answers
     _settings(base, {"default_persona": "samantha"})
 
-    assert _run() == (0, "Everything looks healthy.\n")
+    code, out = _run()
+
+    assert code == 0 and out.endswith("Everything looks healthy.\n")
 
 
 def test_a_default_persona_whose_file_is_unreadable_keeps_the_persons_choice(base):
@@ -272,3 +278,77 @@ def test_a_dangling_link_where_the_lower_case_name_would_go_counts_as_taken(tmp_
     (tmp_path / "b").symlink_to(tmp_path / "gone")
 
     assert doctor._taken(str(tmp_path / "a"), str(tmp_path / "b"))
+
+
+# -- the models section (ADR 029, "which models are in use") ------------------------------------------------
+
+
+def test_the_default_setup_says_that_nothing_leaves_the_computer(base):
+    write_persona(base, "samantha", "name: Samantha\n")
+
+    code, out = _run()
+
+    assert code == 0
+    assert "Models and what leaves this computer:" in out
+    assert "chat model: ollama_chat/gemma2:9b: local, nothing leaves this computer" in out
+    assert "embedding model: ollama/nomic-embed-text: local, nothing leaves this computer" in out
+
+
+def test_a_cloud_chat_model_with_nothing_approved_is_reported_but_is_not_a_problem(base):
+    write_persona(base, "samantha", "name: Samantha\n")
+    _settings(base, {"chat_model": "gemini/gemini-flash-latest"})
+
+    code, out = _run()
+
+    assert code == 0 and out.endswith("Everything looks healthy.\n")
+    assert (
+        "chat model: gemini/gemini-flash-latest: cloud, it receives your messages and this conversation; "
+        "from your vault it may receive: nothing; held back: notes, properties, recaps"
+    ) in out
+
+
+def test_the_approved_categories_are_listed_and_the_rest_are_held_back(base):
+    write_persona(base, "samantha", "name: Samantha\n")
+    _settings(base, {"chat_model": "gemini/x", "cloud_share": ["recaps", "notes", "bogus"]})
+
+    _, out = _run()
+
+    assert "from your vault it may receive: notes, recaps; held back: properties" in out
+
+
+def test_a_persona_with_a_model_of_its_own_is_listed_and_one_without_is_not(base):
+    write_persona(base, "samantha", "name: Samantha\n")
+    write_persona(base, "grace", "name: Grace\nmodel: openrouter/some-model\n")
+
+    _, out = _run()
+
+    assert "persona grace: openrouter/some-model: cloud" in out
+    assert "persona samantha" not in out
+
+
+def test_a_persona_model_that_is_not_text_is_left_out_of_the_report(base):
+    write_persona(base, "grace", "name: Grace\nmodel: [1, 2]\n")
+
+    code, out = _run()
+
+    assert code == 0 and "persona grace" not in out
+
+
+def test_a_cloud_embedding_model_without_approval_for_notes_is_a_finding_that_needs_the_person(base):
+    write_persona(base, "samantha", "name: Samantha\n")
+    _settings(base, {"embedding_model": "gemini/text-embedding"})
+
+    code, out = _run(fix=True)
+
+    assert code == 1
+    assert "embedding model: gemini/text-embedding: cloud, it would receive every passage of your notes" in out
+    assert "notes are searched by keyword" in out and "needs you" in out
+
+
+def test_a_cloud_embedding_model_with_notes_approved_is_not_a_finding(base):
+    write_persona(base, "samantha", "name: Samantha\n")
+    _settings(base, {"embedding_model": "gemini/text-embedding", "cloud_share": ["notes"]})
+
+    code, out = _run()
+
+    assert code == 0 and "cloud, it would receive every passage of your notes and every message" in out

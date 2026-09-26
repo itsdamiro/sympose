@@ -41,3 +41,21 @@ Each check is one function returning a list of findings (what is wrong, what `--
 ## Not built yet
 
 Everything above. Later, and each needing its own reason: the start-up notice for a persona folder the roster misses, a check that Ollama is running and has the configured embedding and chat models (the most common reason search quietly falls back to keywords), notes with a `.txt` or `.markdown` extension (#52), a byte-order mark hiding frontmatter (#50), and a damaged session file or embedding cache.
+
+## Update: which models are in use, and what may reach them (issue #79)
+
+**Context.** ADR 031 lets the user approve, per category, what a cloud model may receive, and `/share` and the model picker show it inside the chat. Nothing shows it from outside the chat, so someone who wants to know "where do my notes go?" has to start the chat and open a menu. The settings that decide it are spread over `chat_model`, a persona's own `model`, `embedding_model` and `cloud_share`.
+
+**Decision.** `sympose doctor` prints a short section, "Models and what leaves this computer", before the findings, every time (it is a report, not a problem, so it changes neither the findings nor the exit code):
+
+- The chat model a message runs on when nobody chooses one (the `chat_model` setting, else the shipped default), and each persona that names a model of its own in `persona.yaml`.
+- The embedding model that search by meaning uses.
+- For each: `local: nothing leaves this computer`, or `cloud: it receives your messages and this conversation` and then which categories of the vault it may receive (the approved ones in `cloud_share`), and which are held back. For a cloud embedding model, what it would receive is every passage of the notes and every message, so it says that, and whether `notes` is approved.
+
+**One finding.** A cloud embedding model with `notes` not approved is a finding (it needs the person, so `--fix` does nothing): search by meaning is then off and notes are searched by keyword, quietly, with only a line in the log. The doctor says so and says how to allow it (`/share` in the chat, or `cloud_share` in the settings file).
+
+**Not a finding.** A cloud chat model with nothing approved is the default (ADR 031) and is not reported as a problem; the section says what it receives.
+
+**Why in its own module.** `doctor.py` is at the file-size cap; the report is one function that reads settings and calls `sharing`, so it goes in `doctor_models.py`, and `doctor.py` only calls it.
+
+**Alternatives rejected.** Printing the section only when a cloud model is chosen: the same command should answer "everything stays here" as plainly as "this is sent", and a person cannot tell a silent report from a broken one. Listing every persona: only the ones that name a model differ from the default. Having `--fix` remove a cloud embedding model or approve `notes`: it is the person's decision what leaves the machine.

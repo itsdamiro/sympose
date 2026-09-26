@@ -68,4 +68,4 @@ Later categories (`vault_map`, `connections`, #78) are added the same way and st
 
 Stage 2 of ADR 030 (a properties passage) must gate that passage at the embedding step by its own category, not only by `notes`: `embeds_notes` checks `notes` alone, and `category_of` never returns `properties` until such a passage exists, so the `properties` switch has no effect yet.
 
-Later: `sympose doctor` reporting which cloud model is chosen and what it may receive (ADR 029), and a web-app settings screen for the categories.
+Built since: `sympose doctor` reports which models are in use and what a cloud one may receive (ADR 029, "Update: which models are in use"). Later: a web-app settings screen for the categories.
