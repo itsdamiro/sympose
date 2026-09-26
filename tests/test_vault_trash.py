@@ -7,7 +7,7 @@ import os
 import pytest
 
 from sympose import vault_trash
-from sympose.vault_trash_index import record_clash
+from sympose.vault_trash_index import record_clashes
 from sympose.vault_write_status import NOTE_DENIED, NOTE_EXISTS, NOTE_NOT_FOUND
 
 
@@ -89,7 +89,7 @@ def test_restore_honors_the_clash_index(vault, allowed):
     # real original path was.
     _trash(vault, "A-20260101000000.md")
     troot = os.path.join(vault, vault_trash.TRASH_DIRNAME)
-    record_clash(troot, "A-20260101000000.md", "Notes/A.md")
+    record_clashes(troot, {"A-20260101000000.md": "Notes/A.md"})
 
     result = vault_trash.restore(vault, allowed, "A-20260101000000.md")
     assert result == "Notes/A.md"

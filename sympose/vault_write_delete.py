@@ -10,7 +10,7 @@ from typing import Any
 from sympose import vault_paths
 from sympose.security import is_safe_path
 from sympose.vault_trash import TRASH_DIRNAME
-from sympose.vault_trash_index import record_clash, record_clashes
+from sympose.vault_trash_index import record_clashes
 from sympose.vault_write import get_file_locks
 from sympose.vault_write_resolve import resolve_existing_note
 from sympose.vault_write_status import NOTE_DENIED, NOTE_NOT_FOUND
@@ -155,7 +155,7 @@ def delete_note(profile: dict[str, Any], note_name: str) -> str:
             if clashed:
                 troot = os.path.join(mv, TRASH_DIRNAME)
                 trash_rel = os.path.relpath(dest, troot).replace(os.sep, "/")
-                record_clash(troot, trash_rel, old_rel.replace(os.sep, "/"))
+                record_clashes(troot, {trash_rel: old_rel.replace(os.sep, "/")})
         except OSError as e:
             return f"Error: Failed to delete note: {e}"
     return f"Moved to the bin: `{os.path.relpath(dest, mv)}`"

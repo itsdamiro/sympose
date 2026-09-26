@@ -63,11 +63,6 @@ def record_clashes(troot: str, entries: dict[str, str]) -> None:
         _save_index(troot, index)
 
 
-def record_clash(troot: str, trash_rel: str, original_rel: str) -> None:
-    """`record_clashes` for the one note that `delete_note` just suffixed."""
-    record_clashes(troot, {trash_rel: original_rel})
-
-
 def original_relpath(troot: str, trash_rel: str) -> str:
     """Vault-relative path the note occupied before deletion. Looked up from
     the clash index when `trash_rel` needed a disambiguating suffix;
@@ -78,7 +73,7 @@ def original_relpath(troot: str, trash_rel: str) -> str:
 def forget_clash(troot: str, trash_rel: str) -> None:
     """Drops `trash_rel`'s index entry once it's restored or purged, so the
     sidecar doesn't accumulate stale rows forever. Same whole-cycle locking
-    as `record_clash`."""
+    as `record_clashes`."""
     with get_file_lock(_index_path(troot)):
         index = load_index(troot)
         if trash_rel in index:
