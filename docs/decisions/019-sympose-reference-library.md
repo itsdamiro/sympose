@@ -63,3 +63,13 @@ The engine is not wired to the library, so the prompt was built the way the wiri
 - **Put the notes in the user's vault.** Mixes shipped text with private notes, appears in their search and graph, is editable by them, and would not update with the package.
 - **Vault rules for the library.** Measured above: 31 of 58.
 - **Phrase lists** ("if the message contains 'sympose'…). Rejected as in ADR 014 and 017: the trigger is structural (the two-word rule and the note-name rule), and no wording is enumerated in code. The FAQ headings are content, not code.
+
+## Update: `/help` lists the notes and opens one (issue #9)
+
+**Context.** The notes the persona answers from are shipped so they always describe the installed version, but a person can read them only by asking Samantha, who searches them and paraphrases. `/help` lists the commands and nothing else. ADR 022 listed "a `/help` that lists the same notes" as not built.
+
+**Decision.** `/help` still prints the commands, and then opens a numbered list of the library's notes, by title, in the alphabetical order of their files. Choosing one prints that note in the transcript as system lines (not as a reply: it is not something the persona said), as plain text and not as markup, since a note can contain `[[` and `[`. Esc closes the list. It reads the same files the persona searches (`sympose/reference/`, through `reference.REFERENCE_DIR`), so there is no second copy to go stale, and it is independent of the persona: it is documentation of the product. A choice is looked up among the notes that are there, never used as a path. Digits select only the first nine rows; the arrow keys and Enter reach the rest (the library has more than nine notes).
+
+**Not built.** A user-facing documentation page made from the notes, and search inside `/help`. A note shown in the chat is not fed to the model: it is the person reading, not part of the conversation.
+
+**Alternatives rejected.** A separate command (`/guide`, `/docs`): one more thing to learn where `/help` already means "how do I use this". Rendering the note as formatted markdown: it needs a widget the transcript does not use, and the notes are short plain paragraphs. Opening the note in the persona's reply stream: it would look like the persona said it, and would count as a turn.

@@ -4,7 +4,7 @@ The chat commands are /help, /model, /persona, /default, /grounding, /share, /cl
 
 ## /help
 
-/help lists the commands.
+/help lists the commands and then the Sympose guide: the same notes Samantha answers questions about Sympose from. Pick one to read it in the chat, or press Esc to close the list.
 
 ## /model
 

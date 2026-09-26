@@ -11,7 +11,7 @@ out to hold the 200-LOC-per-file cap."""
 from rich.style import Style
 
 from sympose import engine
-from sympose.cli import grounding_line, meter, picker, share, transcript as transcript_mod
+from sympose.cli import grounding_line, help_notes, meter, picker, share, transcript as transcript_mod
 from sympose.cli.commands import COMMANDS
 from sympose.cli.options import MODEL_OPTIONS, list_personas
 from sympose.cli.selection import SelectionOption
@@ -35,6 +35,7 @@ async def run_command(app, command) -> None:
             color = app.theme_color("error", "red") if c.danger else app.theme_color("primary", "cyan")
             line = transcript_mod.styled_line(f"  {c.name:<10}", Style(color=color, bold=True), c.summary)
             transcript_mod.mount_line(app, line, "system")
+        await help_notes.open_picker(app)  # the Sympose guide: the notes the persona answers from (ADR 019)
     elif command.name == "/model":
         await picker.open_picker(
             app, "model", "Select a model", [SelectionOption(m.label, m.id) for m in MODEL_OPTIONS]
@@ -147,6 +148,9 @@ def apply_picker_choice(app, kind: str, value: str | None) -> bool:
     elif kind == share.PICKER_KIND:
         if value is not None:
             share.toggle(app, value)
+    elif kind == help_notes.PICKER_KIND:
+        if value is not None:
+            help_notes.show(app, value)
     elif kind == "history":
         transcript_mod.mount_line(
             app, "History browsing isn't wired up yet — this is a placeholder.", "system"

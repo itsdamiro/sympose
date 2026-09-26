@@ -7,6 +7,8 @@ instead of an `async def` test function."""
 
 from helpers import write_persona
 import asyncio
+import os
+import re
 import threading
 
 import pytest
@@ -1351,6 +1353,86 @@ def test_help_lists_every_command(profiles):
             assert any("Commands:" in line for line in lines)
             for command in commands.COMMANDS:
                 assert any(command.name in line for line in lines)
+
+    run_async(scenario())
+
+
+def test_help_offers_the_reference_notes_and_choosing_one_shows_it(profiles):
+    from sympose.engine import reference
+
+    async def scenario():
+        app = SymposeCLI()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.composer.focus()
+            await pilot.press(*"/help", "enter")
+            await pilot.pause()
+            assert app.panel_kind == "help"
+            rows = [str(app.panel.get_option_at_index(i).prompt) for i in range(app.panel.option_count)]
+            titles = [re.sub(r"^\s*\d+\s+", "", row) for row in rows]  # rows are numbered
+            assert titles == sorted(titles) and "Chat commands" in titles and "Settings" in titles
+            await pilot.press(str(titles.index("Chat commands") + 1))
+            await pilot.pause()
+            lines = [plain_text(child) for child in app.transcript.children]
+            assert app.panel is None
+            assert any("/help lists the commands and then the Sympose guide" in line for line in lines)  # the note's own text
+            assert titles == sorted(n.removesuffix(".md") for n in os.listdir(reference.REFERENCE_DIR) if n.endswith(".md"))
+
+    run_async(scenario())
+
+
+def test_a_note_with_square_brackets_is_shown_as_written_not_as_markup(profiles, monkeypatch, tmp_path):
+    from sympose.cli import help_notes
+
+    (tmp_path / "Odd.md").write_text("# Odd\n\nlink to [[Other]] and [bold]not markup[/bold] here\n", encoding="utf-8")
+    monkeypatch.setattr(help_notes.reference, "REFERENCE_DIR", str(tmp_path))
+
+    async def scenario():
+        app = SymposeCLI()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            help_notes.show(app, "Odd")
+            await pilot.pause()
+            shown = [child.visual.plain for child in app.transcript.children]  # as drawn, not the source string
+            assert shown[-2:] == ["Odd", "link to [[Other]] and [bold]not markup[/bold] here"]  # the title, then the text
+
+    run_async(scenario())
+
+
+def test_help_notes_never_read_a_path_that_is_not_one_of_the_notes(profiles, monkeypatch, tmp_path):
+    from sympose.cli import help_notes
+
+    (tmp_path / "Real.md").write_text("# Real\n\nhello\n", encoding="utf-8")
+    (tmp_path.parent / "Secret.md").write_text("# Secret\n\nnot a library note\n", encoding="utf-8")
+    monkeypatch.setattr(help_notes.reference, "REFERENCE_DIR", str(tmp_path))
+    assert help_notes.note_titles() == ["Real"]
+
+    async def scenario():
+        app = SymposeCLI()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            before = len(app.transcript.children)
+            help_notes.show(app, "../Secret")
+            await pilot.pause()
+            assert len(app.transcript.children) == before
+
+    run_async(scenario())
+
+
+def test_help_with_no_reference_notes_installed_only_lists_the_commands(profiles, monkeypatch, tmp_path):
+    from sympose.cli import help_notes
+
+    monkeypatch.setattr(help_notes.reference, "REFERENCE_DIR", str(tmp_path / "missing"))
+
+    async def scenario():
+        app = SymposeCLI()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.composer.focus()
+            await pilot.press(*"/help", "enter")
+            await pilot.pause()
+            assert app.panel is None
+            assert any("Commands:" in plain_text(child) for child in app.transcript.children)
 
     run_async(scenario())
 

@@ -16,7 +16,7 @@ class SlashCommand:
 
 
 COMMANDS: list[SlashCommand] = [
-    SlashCommand("/help", "List available commands"),
+    SlashCommand("/help", "List commands, and read the Sympose guide"),
     SlashCommand("/model", "Switch the active model"),
     SlashCommand("/persona", "Switch the active persona"),
     SlashCommand("/default", "Make the current persona the default"),
