@@ -20,6 +20,15 @@ def run_async(coro):
     return asyncio.run(coro)
 
 
+async def wait_until(check, timeout: float = 5.0) -> None:
+    """Polls `check` until it is true. The engine call runs in a worker and the reply is revealed a
+    few words at a time on a timer, so a fixed `pilot.pause()` can return before either has happened."""
+    deadline = asyncio.get_running_loop().time() + timeout
+    while not check():
+        assert asyncio.get_running_loop().time() < deadline, "timed out waiting for the condition"
+        await asyncio.sleep(0.02)
+
+
 def plain_text(static) -> str:
     content = static.content
     return content.plain if hasattr(content, "plain") else str(content)
@@ -401,13 +410,11 @@ def test_send_message_calls_the_engine_and_streams_the_reply(profiles, monkeypat
             await pilot.pause()
             app.composer.focus()
             await pilot.press(*"hello", "enter")
-            await pilot.pause()
+            await wait_until(lambda: any("hi there" in plain_text(child) for child in app.transcript.children))
             # No explicit /model pick -> None, so the engine applies the
             # persona's own model / the setting / the default itself.
             assert calls == [("samantha", "hello", None, None)]
             assert app.session_id == "sess-1"
-            lines = [plain_text(child) for child in app.transcript.children]
-            assert any("hi there" in line for line in lines)
 
     run_async(scenario())
 
