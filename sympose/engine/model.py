@@ -20,12 +20,12 @@ DEFAULT_LOCAL_MODEL = "ollama_chat/gemma2:9b"
 
 _SETTINGS_KEY = "chat_model"
 
-# `sympose/cli/runtime.py` holds one global lock for the duration of a call
-# (docs/decisions/006) — a hung request (a stalled local Ollama process, a
-# network partition to a cloud endpoint) would otherwise wedge every future
-# message behind it forever, with no error and no way out short of killing
-# the process, since a thread running a blocking network call can't be
-# cancelled. A generous but finite bound turns that into a recoverable
+# `sympose/cli/turns.py` holds one lock per persona for the duration of a
+# turn (docs/decisions/008), so a hung request (a stalled local Ollama process,
+# a network partition to a cloud endpoint) would otherwise wedge every future
+# message to that persona behind it forever, with no error and no way out short
+# of killing the process, since a thread running a blocking network call can't
+# be cancelled. A generous but finite bound turns that into a recoverable
 # `EngineModelError` instead.
 _REQUEST_TIMEOUT_SECONDS = 120
 

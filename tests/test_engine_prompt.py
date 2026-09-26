@@ -5,7 +5,7 @@ out: the persona and the rules in the system prompt, the notes with the question
 import pytest
 from helpers import write_persona
 
-from sympose.engine import prompt, prompt_blocks
+from sympose.engine import prompt, prompt_blocks, reference
 
 
 @pytest.fixture(autouse=True)
@@ -348,6 +348,15 @@ def test_the_reference_gets_its_own_block_apart_from_the_users_notes():
     assert "Typography (Typography.md)" in text
     assert text.index("Typography (Typography.md)") < text.index(prompt.REFERENCE_LABEL) < text.index("Not built yet ›")
     assert prompt.ANSWER_FROM_REFERENCE in text
+
+
+def test_the_prompt_recognises_a_reference_passage_by_the_tag_the_reference_module_sets(monkeypatch):
+    monkeypatch.setattr(reference, "SOURCE", "renamed-library")
+    hit = {**REF_HIT, "source": "renamed-library"}
+
+    text = prompt.build_user_turn("does it work in slack?", [_grounding_result(), hit], reference=True)
+
+    assert text.index("Typography (Typography.md)") < text.index(prompt.REFERENCE_LABEL) < text.index("Not built yet ›")
 
 
 def test_a_persona_with_the_library_is_told_when_nothing_in_it_matched():

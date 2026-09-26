@@ -15,6 +15,7 @@ and 020). The engine's rules stay after the soul, so no soul can weaken them
 
 from typing import Any
 
+from sympose.engine import reference as reference_mod
 from sympose.engine.prompt_blocks import notes_block, recaps_block, reference_block
 from sympose.engine.prompt_text import (
     ANSWER_FROM_NOTES, ANSWER_FROM_RECAPS, ANSWER_FROM_REFERENCE, DEFAULT_SOUL, GROUNDING_RULE,
@@ -78,11 +79,11 @@ def build_user_turn(
 ) -> str:
     """`reference`: the persona has the Sympose reference library, so the turn
     says what it found in it (or that nothing matched). Its passages are marked
-    `source: "sympose"` and kept apart from the user's own notes; `omitted` and
+    `source: reference.SOURCE` and kept apart from the user's own notes; `omitted` and
     `reference_omitted` count the passages of each left out for size. `point_to`:
     the personas that have the library, for one that does not to send the user to."""
-    reference_hits = [h for h in grounding_results if h.get("source") == "sympose"]
-    notes = [h for h in grounding_results if h.get("source") != "sympose"]
+    reference_hits = [h for h in grounding_results if h.get("source") == reference_mod.SOURCE]
+    notes = [h for h in grounding_results if h.get("source") != reference_mod.SOURCE]
     parts = [notes_block(notes, omitted, withheld)]
     if notes:
         parts.append(ANSWER_FROM_NOTES)
