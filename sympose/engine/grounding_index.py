@@ -6,9 +6,10 @@ sandboxing, so it can index any set of notes."""
 
 import re
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
+from sympose.engine.grounding_properties import properties_text
 from sympose.engine.grounding_split import MAX_PASSAGE_CHARS, has_words, headings_of, split_passages  # noqa: F401
 from sympose.vault_manifest_build import _stem, _tags_of
 
@@ -84,6 +85,9 @@ class Index:
     note_df: dict[str, int]  # term -> number of notes containing it
     note_count: int
     avg_length: float
+    # note path -> its properties as text, for the notes that have any (docs/decisions/030). Not searched: they are
+    # attached to a note that was found, so they are in no term count.
+    properties: dict[str, str] = field(default_factory=dict)
 
 
 def _aliases_of(meta: dict[str, Any]) -> list[str]:
@@ -157,4 +161,5 @@ def build_index(notes: list[dict[str, Any]]) -> Index:
             note_df.update(set().union(*(p.tf.keys() for p in made)))
             passages += made
     avg = sum(p.length for p in passages) / len(passages) if passages else 0.0
-    return Index(passages, dict(note_df), note_count, avg)
+    properties = {note["rel_path"]: text for note in notes if (text := properties_text(note.get("meta") or {}))}
+    return Index(passages, dict(note_df), note_count, avg, properties)

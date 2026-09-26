@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from sympose import profile as profile_mod
-from sympose.engine import budget, followup, prompt, recap, recap_refresh, reference, session, sharing
+from sympose.engine import budget, followup, grounding, grounding_properties, prompt, recap, recap_refresh, reference, session, sharing
 from sympose.engine import model as model_mod
 from sympose.engine.model import EngineModelError
 from sympose.engine.turn_record import sent_record
@@ -99,6 +99,10 @@ def run_turn(
     # end of the list goes first, so the best passage of each source stays longest and
     # neither's evidence is dropped wholesale before the other's (docs/decisions/022).
     grounding_results = _interleave(reference.ground(persona, user_message), vault_hits)
+    # The properties of the notes found come after all the text, so they are the first to go (docs/decisions/030).
+    index = grounding.scope_index(persona) if vault_hits else None
+    if index is not None:
+        grounding_results += grounding_properties.for_hits(index.properties, vault_hits)
     point_to = [] if persona.get("sympose_reference") else profile_mod.reference_persona_names()
 
     # What earlier conversations were about (docs/decisions/023); the session being

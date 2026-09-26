@@ -1,6 +1,6 @@
 # 030 — Read the whole note: a note with no body text is still a note, and its aliases and properties are read
 
-> **Status: Accepted.** Stage 1 is built and measured (see "Measured, stage 1"); stage 2 (properties) is not built. This record came first, as the standards ask. Reverses "Not indexed, by choice" in ADR 014 and settles the design points of issue #1. It changes only what is indexed and how it is shown; retrieval, the thresholds of ADR 027 and the weak-evidence check of ADR 021 are unchanged until a measurement says otherwise.
+> **Status: Accepted.** Stage 1 is built and measured (see "Measured, stage 1"); stage 2 is being built in two layers (see "Stage 2, as decided"): properties riding along with a note that was found, then, only if it measures well, a search over properties on their own. This record came first, as the standards ask. Reverses "Not indexed, by choice" in ADR 014 and settles the design points of issue #1. It changes only what is indexed and how it is shown; retrieval, the thresholds of ADR 027 and the weak-evidence check of ADR 021 are unchanged until a measurement says otherwise.
 
 ## Context
 
@@ -25,6 +25,35 @@ Two more facts. `aliases` (Obsidian's property for other names of a note) is not
 2. Properties passages for every note that has frontmatter.
 
 **How it is measured.** A labelled set of messages about notes of these kinds is built: one in this repository from the synthetic fixture vault (cards with properties, title-only quote notes, outlines, empty notes, notes with aliases, date-titled notes), and one from a real vault that stays private, as before (ADR 027). Each stage is run with the real embedding model on the existing sets and the new one. A stage is kept when the pass rate on the existing sets does not drop (today: 73% and 78% on two real vaults, 89% on the synthetic one, in the default mode) and the new set improves. The real chat model is then asked about a properties fact (an email), a quote by its title, and an empty note, and the replies are read: the fact is given from the note, and an empty note is described as having no text, not filled in.
+
+## Stage 2, as decided: properties in two layers
+
+Discussed with the vault owner after stage 1. Stage 2 as first written (one indexed properties passage per note, competing with the body for every message) risked pulling wrong notes in, and it is not what answers the most common question. "Is the project done?" needs the `status` of a note that search already found by its title or text; it does not need properties to be searched. So properties come in two layers, each kept only if it passes, and the first does not touch ranking at all.
+
+**Layer 1: properties ride along with a note that was found.** When a turn attaches a note of the user's, its properties are attached with it as one passage of kind `properties`, category `properties` (ADR 031). Nothing about which note is found changes: properties are not in the index's terms or statistics and are not searched, so the scores and every existing measurement are unchanged by construction. The rules:
+
+1. **Relevance is inherited, never judged again.** A note is relevant when the retrieval of ADR 014, 021 and 027 says so, and its properties come with it. If nothing is attached, nothing rides. The model decides what to use; no rule looks at the words of the message to choose a key.
+2. **One properties passage per note**, however many of its passages were attached (up to two, ADR 014).
+3. **They do not use up the passages of a turn.** The limit of five passages counts text only, so properties cannot push a body passage out. They are added after the notes and are the first to go when the prompt does not fit the window (ADR 015).
+4. **The whole passage, every key with a value.** The key name is what tells the model what a value means (`status: in progress`), so a key is never sent without its name, and the model picks the one it needs. It is written as in stage 2's first draft (lists joined with commas, a link as the name of the note, a date as a date) and cut at a line boundary at the size of one passage (400 characters), which the measured vaults stay under at the 90th percentile (a median of 82 characters, about 20 tokens, on a personal vault of 625 notes; 61 on the Obsidian help notes). A note with no properties adds nothing.
+5. **Cloud models.** The `properties` category decides (ADR 031). Without the user's approval a cloud model gets none, and the prompt says that properties were held back, as ADR 031 already provides. Since layer 1 embeds nothing, the embedding gate is not involved.
+
+**Layer 2: properties searched on their own.** Only for a message that layer 1 cannot serve, because no note was found and the answer lives in a property ("who works at Acme?"). Properties become a passage of their own in the index and in the embeddings, so this layer has the cost that layer 1 does not (one more passage to embed per note, and the embedding gate of ADR 031's "Not built yet"), and the risk that a message like "I'm done for today" pulls in every note with `status: done`. It is consulted only when the search of layer 1 finds nothing convincing, and it is kept only if the existing sets do not drop and the messages that must attach nothing stay clean. Not built until layer 1 is measured.
+
+**Measured, layer 1** (real chat model `gemma2:9b` through Ollama, three runs per message, a scratch vault of four notes, the same code with the properties switched off and on; a fact about that model and that vault, not a general rate):
+
+| Message | Without properties | With properties |
+|---|---|---|
+| "What is Priya Nair's email?" (a card with only properties) | 0/3 (said it could not find it) | **3/3** |
+| "Has the Atlas redesign of the marketing site been finished?" (`status: in progress`) | 0/3 | **3/3** |
+| "When is the Atlas redesign due?" (`due: 2026-11-15`) | 0/3 | **3/3** |
+| "Who owns the Atlas redesign?" (`owner: [[Ana Ruiz]]`) | 0/3 | **3/3** |
+| "What does the Atlas team do on Tuesdays?" (a body fact, the properties beside it) | 3/3 | 3/3, unchanged |
+| A message about a note with no properties, and "good morning" | nothing added | nothing added |
+
+Cost: about 90 to 130 characters (roughly 25 to 35 tokens) per attached note with properties; the median time to first token stayed inside the run-to-run noise (about 0.9 s before and after). No test set needed re-running: properties are in no term count, and a test pins that a word found only in a property finds nothing, so which notes are found is unchanged by construction. The properties-only card is shown with the stage 1 wording ("this note is empty ... only its title") beside its properties, and the model answered from the properties three times of three without calling the card empty, so that wording is left as it is.
+
+**What layer 1 cannot do, seen in the same run.** It only helps when the note is found. In this small vault "When is Atlas due?" and "Is the Atlas project done?" did not attach the Atlas note at all (the second attached a note about its owner instead): a short message about a note that is named in it is not always found by meaning alone, which is a limit of the retrieval that this change does not touch. That is the case layer 2 and the alias and title work of #81 are for, and it is a reason to build them next.
 
 ## Measured, stage 1
 
@@ -61,4 +90,4 @@ Messages that must attach nothing stayed clean on every set (14 of 15 on the per
 
 ## Not built yet
 
-Everything above. Later, and each with its own record: a message about a date ("yesterday") does not match a note titled by that date by meaning, so date-titled notes may need their own handling; links between notes as connections the persona can follow (#78); folder definitions (#23); reports on notes missing a title or properties (#77).
+Stage 2's properties passage as first written is replaced by the two layers of "Stage 2, as decided"; layer 2 is not built until layer 1 is measured. Later, and each with its own record: a message about a date ("yesterday") does not match a note titled by that date by meaning, so date-titled notes may need their own handling; links between notes as connections the persona can follow (#78); folder definitions (#23); reports on notes missing a title or properties (#77).

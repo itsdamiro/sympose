@@ -7,7 +7,7 @@ from typing import Any
 
 from sympose.engine.prompt_text import (
     ANSWER_FROM_RECAPS, EMPTY_NOTE, EMPTY_NOTE_ALIASES, EMPTY_NOTE_HEADINGS, NO_NOTES, NO_REFERENCE,
-    RECAPS_LABEL, REFERENCE_LABEL, WITHHELD_NOTES, WITHHELD_PROPERTIES, WITHHELD_RECAPS,
+    PROPERTIES_OF_NOTE, RECAPS_LABEL, REFERENCE_LABEL, WITHHELD_NOTES, WITHHELD_PROPERTIES, WITHHELD_RECAPS,
 )
 from sympose.engine.sharing import NOTES, PROPERTIES
 
@@ -33,7 +33,10 @@ def reference_block(hits: list[dict[str, Any]], omitted: int = 0) -> str:
 
 
 def _text_of(result: dict[str, Any]) -> str:
-    """What a grounded note says; a note with no text of its own is shown as empty, with its other names."""
+    """What a grounded note says; a note with no text of its own is shown as empty, with its other names; a
+    note's properties are shown as what they are, so a value is never read as something the user wrote."""
+    if result.get("kind") == "properties":
+        return PROPERTIES_OF_NOTE.format(text="; ".join(result["text"].splitlines()))
     if result.get("kind") != "title":
         return result["text"]
     headings = result.get("heading") and result["heading"] != result["title"]  # as `where` shows them

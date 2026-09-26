@@ -12,6 +12,7 @@ DEFAULT_SOUL = (
 EMPTY_NOTE = "this note is empty: it has no text yet, only its title"
 EMPTY_NOTE_HEADINGS = " and these headings"
 EMPTY_NOTE_ALIASES = "; also called {names}"
+PROPERTIES_OF_NOTE = "its properties, one per key: {text}"
 
 # Added after an earlier reply of hers that stopped at the reply limit when it comes back as
 # history, so she does not treat half an answer as a finished one (docs/decisions/015).
