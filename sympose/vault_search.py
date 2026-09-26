@@ -126,6 +126,15 @@ def _classify_snapshot_entry(entry: dict[str, Any], query_clean: str) -> dict[st
     return None
 
 
+def _clean_query(query: str) -> str:
+    """Lower-cased, trimmed, and without one pair of matching quotes around it (and the spaces
+    inside them). A quote with no partner is part of what was typed: `rock 'n'` keeps its last one."""
+    text = query.lower().strip()
+    if len(text) >= 2 and text[0] == text[-1] and text[0] in "\"'":
+        text = text[1:-1].strip()
+    return text
+
+
 def search_structured(
     profile: dict[str, Any],
     query: str,
@@ -150,28 +159,31 @@ def search_structured(
         return []
     mv, allowed_dirs = scope
 
-    query_clean = query.lower().strip().strip("\"'")
+    query_clean = _clean_query(query)
     if not query_clean:
+        return []
+
+    try:
+        entries = get_vault_snapshot(mv, allowed_dirs)
+    except OSError as e:
+        # The vault could not be walked (a folder or file went away mid-read). The reader sees an
+        # empty result, so the log has to say why; anything else is a bug and is left to surface.
+        log.warning("Vault search could not read the vault: %s", e)
         return []
 
     titles: list[dict[str, Any]] = []
     tags: list[dict[str, Any]] = []
     contents: list[dict[str, Any]] = []
-    try:
-        for entry in get_vault_snapshot(mv, allowed_dirs):
-            result = _classify_snapshot_entry(entry, query_clean)
-            if result is None:
-                continue
-            if result["match_type"] == "title":
-                titles.append(result)
-            elif result["match_type"] == "tag":
-                tags.append(result)
-            else:
-                contents.append(result)
-    except Exception as e:
-        # A single unreadable/corrupt note mid-walk degrades to whatever
-        # matches were already found, rather than 500-ing the whole search.
-        log.debug("Vault search ended early: %s", e)
+    for entry in entries:
+        result = _classify_snapshot_entry(entry, query_clean)
+        if result is None:
+            continue
+        if result["match_type"] == "title":
+            titles.append(result)
+        elif result["match_type"] == "tag":
+            tags.append(result)
+        else:
+            contents.append(result)
 
     all_results = (titles + tags + contents)[:max_results]
     for idx, res in enumerate(all_results, start=1):

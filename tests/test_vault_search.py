@@ -222,3 +222,71 @@ def test_a_title_that_yaml_reads_as_a_number_is_returned_as_text(vault_root):
     (result,) = vault_search.search_structured({"vault_folders": ["*"]}, "review")
 
     assert result["title"] == "2024"
+
+
+def test_a_quoted_query_is_matched_without_its_quotes_or_the_spaces_around_them(vault_root):
+    _write(vault_root, "Note.md", "foo bar")
+
+    results = vault_search.search_structured({"vault_folders": ["*"]}, '" foo bar "')
+
+    assert [r["rel_path"] for r in results] == ["Note.md"]
+
+
+def test_a_single_quoted_query_is_matched_without_its_quotes(vault_root):
+    _write(vault_root, "Note.md", "the foo line")
+
+    results = vault_search.search_structured({"vault_folders": ["*"]}, "'foo'")
+
+    assert [r["rel_path"] for r in results] == ["Note.md"]
+
+
+def test_a_quote_that_has_no_partner_is_part_of_the_query(vault_root):
+    _write(vault_root, "Note.md", "we play rock 'n' roll")
+    _write(vault_root, "Other.md", "we play rock 'n roll")
+
+    results = vault_search.search_structured({"vault_folders": ["*"]}, "rock 'n'")
+
+    assert [r["rel_path"] for r in results] == ["Note.md"]
+
+
+def test_a_query_of_only_a_pair_of_quotes_finds_nothing(vault_root):
+    _write(vault_root, "Note.md", 'a "quoted" word')
+
+    assert vault_search.search_structured({"vault_folders": ["*"]}, '""') == []
+
+
+def test_a_failure_reading_the_vault_is_logged_as_a_warning_and_gives_no_results(vault_root, monkeypatch, caplog):
+    def fail(*args):
+        raise OSError("disk went away")
+
+    monkeypatch.setattr(vault_search, "get_vault_snapshot", fail)
+
+    with caplog.at_level("WARNING"):
+        results = vault_search.search_structured({"vault_folders": ["*"]}, "anything")
+
+    assert results == []
+    assert "disk went away" in caplog.text
+
+
+def test_an_error_that_is_not_about_reading_the_vault_is_not_hidden(vault_root, monkeypatch):
+    def broken(*args):
+        raise KeyError("body")
+
+    monkeypatch.setattr(vault_search, "get_vault_snapshot", broken)
+
+    with pytest.raises(KeyError):
+        vault_search.search_structured({"vault_folders": ["*"]}, "anything")
+
+
+def test_quotes_of_two_different_kinds_are_not_a_pair(vault_root):
+    _write(vault_root, "Note.md", "the foo line")
+
+    assert vault_search.search_structured({"vault_folders": ["*"]}, "\"foo'") == []
+
+
+def test_a_single_quote_character_is_searched_for_as_it_is(vault_root):
+    _write(vault_root, "Note.md", 'a "quoted" word')
+
+    results = vault_search.search_structured({"vault_folders": ["*"]}, '"')
+
+    assert [r["rel_path"] for r in results] == ["Note.md"]
