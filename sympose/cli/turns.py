@@ -14,7 +14,7 @@ from rich.style import Style
 from rich.text import Text
 
 from sympose import engine
-from sympose.cli import grounding_line, meter, share, trim_notice
+from sympose.cli import grounding_line, meter, reveal, share, trim_notice
 from sympose.cli import transcript as transcript_mod
 from sympose.cli.options import active_model
 
@@ -168,7 +168,8 @@ def _stream_reply(app, reply: str, header: str) -> None:
     accent = app.theme_color("accent", "cyan")
     reply_widget = transcript_mod.mount_line(app, "", "persona")
     words = reply.split(" ")
-    shown = {"count": 0}
+    speed = reveal.words_per_second()  # read once per reply (docs/decisions/032)
+    frames = {"count": 0}
 
     def _finish() -> None:
         timer.stop()
@@ -181,9 +182,10 @@ def _stream_reply(app, reply: str, header: str) -> None:
         if not reply_widget.is_mounted:
             _finish()
             return
-        shown["count"] += 1
-        body = " ".join(words[: shown["count"]])
-        done = shown["count"] >= len(words)
+        frames["count"] += 1
+        shown = reveal.words_shown(len(words), frames["count"], speed)
+        body = " ".join(words[:shown])
+        done = shown >= len(words)
         text = transcript_mod.styled_line(
             header + "\n", Style(color=accent, bold=True), body + ("" if done else " ▋")
         )

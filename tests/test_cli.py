@@ -2494,3 +2494,48 @@ def test_a_local_turns_header_has_no_cloud_segments(profiles):
             assert "cloud:" not in header and "withheld:" not in header
 
     run_async(scenario())
+
+
+def _reveal_after(profiles, monkeypatch, speed, seconds):
+    """The text of the reply of a 1000-word answer `seconds` after it arrived, with `reply_reveal` set to `speed`."""
+    from sympose import settings_store
+
+    if speed is not None:
+        settings_store.set("reply_reveal", speed)
+    reply = " ".join(f"w{i}" for i in range(1000))
+
+    def fake_run_turn(handle, user_message, session_id=None, model=None):
+        return engine.TurnResult(reply=reply, session_id="sess-1", grounding=[])
+
+    monkeypatch.setattr(turns.engine, "run_turn", fake_run_turn)
+
+    async def scenario():
+        app = SymposeCLI()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            await turns.send_message(app, "hello")
+            await asyncio.sleep(seconds)
+            return " ".join(plain_text(child) for child in app.transcript.children)
+
+    return run_async(scenario())
+
+
+def test_a_reply_is_revealed_at_the_words_per_second_the_setting_names(profiles, monkeypatch):
+    text = _reveal_after(profiles, monkeypatch, 400, 0.5)  # 10 frames of 20 words
+
+    assert "w59" in text
+    assert "w999" not in text
+
+
+def test_a_reveal_of_zero_shows_the_whole_reply_at_once(profiles, monkeypatch):
+    text = _reveal_after(profiles, monkeypatch, 0, 0.3)
+
+    assert "w999" in text
+    assert "▋" not in text
+
+
+def test_with_no_setting_the_reply_is_revealed_at_50_words_per_second(profiles, monkeypatch):
+    text = _reveal_after(profiles, monkeypatch, None, 0.5)  # 10 frames of 2 or 3 words: about 25
+
+    assert "w15" in text  # 16 words: more than the 10 that 20 words per second would have shown
+    assert "w59" not in text
