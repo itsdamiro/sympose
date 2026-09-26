@@ -40,14 +40,14 @@ def list_trash(persona: str | None) -> dict[str, Any]:
 
 def restore_trash(body: TrashRestore) -> dict[str, Any]:
     mv, allowed_dirs = _require_trash_scope(body.persona)
-    result = vault_trash.restore(mv, allowed_dirs, body.path)
+    result, restored = vault_trash.restore(mv, allowed_dirs, body.path)
     translate_vault_result(
         result,
         not_found=_not_in_bin(body.path),
         exists="Something already occupies that note's original location.",
         denied=sandbox_denied(body.path),
     )
-    return {"path": result, "detail": f"Restored to `{result}`"}
+    return {"path": restored, "detail": result}
 
 
 def purge_trash(path: str, persona: str | None) -> dict[str, Any]:

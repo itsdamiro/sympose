@@ -38,3 +38,14 @@ def test_every_mutating_trash_handler_404s_an_unknown_persona(profiles_dir):
         with pytest.raises(HTTPException) as exc_info:
             call()
         assert exc_info.value.status_code == 404
+
+
+def test_a_note_whose_name_starts_with_error_is_restored_not_reported_as_a_failure(profiles_dir, tmp_path):
+    """`translate_vault_result` reads a result starting with `Error:` as a failure; the restored path is not a result."""
+    (tmp_path / ".trash").mkdir()
+    (tmp_path / ".trash" / "Error: timeout notes.md").write_text("kept", encoding="utf-8")
+
+    result = th.restore_trash(TrashRestore(path="Error: timeout notes.md", persona="samantha"))
+
+    assert result == {"path": "Error: timeout notes.md", "detail": "Restored to `Error: timeout notes.md`"}
+    assert (tmp_path / "Error: timeout notes.md").read_text(encoding="utf-8") == "kept"

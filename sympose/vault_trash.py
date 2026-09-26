@@ -109,31 +109,34 @@ def _resolve_trash_entry(
     return src, troot, trash_rel_actual, orig_rel
 
 
-def restore(mv: str, allowed_dirs: list[str], trash_rel: str) -> str:
+def restore(mv: str, allowed_dirs: list[str], trash_rel: str) -> tuple[str, str | None]:
     """Move a trashed note back to its original vault-relative path. Returns
-    that path on success, or `NOTE_NOT_FOUND` / `NOTE_EXISTS` (something
-    occupies the original spot now) / `NOTE_DENIED` / `"Error: …"`."""
+    `(result, path)`: on success a message and that path; otherwise `NOTE_NOT_FOUND` /
+    `NOTE_EXISTS` (something occupies the original spot now) / `NOTE_DENIED` / `"Error: …"`
+    and `None`. The path is its own value, not the result, because a note may be called
+    `Error: …` and the caller reads a result that starts that way as a failure."""
     entry = _resolve_trash_entry(mv, trash_rel)
     if isinstance(entry, str):
-        return entry
+        return entry, None
     src, troot, trash_rel_actual, orig_rel = entry
     dst = os.path.normpath(os.path.join(mv, orig_rel))
     if not is_within_any(dst, allowed_dirs):
-        return NOTE_DENIED
+        return NOTE_DENIED, None
     # Locks both ends: `src` against a concurrent restore/purge of the same
     # trash entry, `dst` against a concurrent create/restore landing on the
     # same original path — the same double-lock shape `overwrite_note` uses.
     with get_file_locks(src, dst):
         if os.path.exists(dst):
-            return NOTE_EXISTS
+            return NOTE_EXISTS, None
         try:
             os.makedirs(os.path.dirname(dst), exist_ok=True)
             os.rename(src, dst)
         except OSError as e:
-            return f"Error: Failed to restore note: {e}"
+            return f"Error: Failed to restore note: {e}", None
     forget_clash(troot, trash_rel_actual)
     _prune_empty_dirs(troot, os.path.dirname(src))
-    return os.path.relpath(dst, mv).replace(os.sep, "/")
+    restored = os.path.relpath(dst, mv).replace(os.sep, "/")
+    return f"Restored to `{restored}`", restored
 
 
 def purge(mv: str, allowed_dirs: list[str], trash_rel: str) -> str:

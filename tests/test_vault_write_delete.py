@@ -247,7 +247,7 @@ def test_a_folder_deleted_under_a_clash_name_restores_to_its_own_place(vault):
     assert all(re.fullmatch(r"A-\d{14}/(Sub/z|y)\.md", name) for name in suffixed)
 
     (y_trash,) = [name for name, original in suffixed.items() if original == "A/y.md"]
-    assert vault_trash.restore(vault, [vault], y_trash) == "A/y.md"
+    assert vault_trash.restore(vault, [vault], y_trash)[1] == "A/y.md"
     assert read(os.path.join(vault, "A", "y.md")) == "why"
     assert y_trash not in trash_files(vault)
     assert set(load_index(os.path.join(vault, ".trash"))) == {n for n in suffixed if n != y_trash}

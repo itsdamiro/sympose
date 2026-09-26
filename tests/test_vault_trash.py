@@ -60,24 +60,24 @@ def test_list_trashed_omits_entries_outside_allowed_dirs(vault):
 def test_restore_moves_the_file_back(vault, allowed):
     _trash(vault, "A.md", "hello")
     result = vault_trash.restore(vault, allowed, "A.md")
-    assert result == "A.md"
+    assert result == ("Restored to `A.md`", "A.md")
     assert os.path.exists(os.path.join(vault, "A.md"))
     assert not os.path.exists(os.path.join(vault, ".trash", "A.md"))
 
 
 def test_restore_missing_entry_not_found(vault, allowed):
-    assert vault_trash.restore(vault, allowed, "Nope.md") == NOTE_NOT_FOUND
+    assert vault_trash.restore(vault, allowed, "Nope.md") == (NOTE_NOT_FOUND, None)
 
 
 def test_restore_rejects_path_outside_trash_root(vault, allowed):
-    assert vault_trash.restore(vault, allowed, "../../etc/passwd") == NOTE_DENIED
+    assert vault_trash.restore(vault, allowed, "../../etc/passwd") == (NOTE_DENIED, None)
 
 
 def test_restore_onto_an_occupied_destination_is_rejected(vault, allowed):
     _trash(vault, "A.md")
     with open(os.path.join(vault, "A.md"), "w") as f:
         f.write("already here")
-    assert vault_trash.restore(vault, allowed, "A.md") == NOTE_EXISTS
+    assert vault_trash.restore(vault, allowed, "A.md") == (NOTE_EXISTS, None)
     # Both copies survive a rejected restore.
     assert os.path.exists(os.path.join(vault, ".trash", "A.md"))
     assert os.path.exists(os.path.join(vault, "A.md"))
@@ -92,7 +92,7 @@ def test_restore_honors_the_clash_index(vault, allowed):
     record_clashes(troot, {"A-20260101000000.md": "Notes/A.md"})
 
     result = vault_trash.restore(vault, allowed, "A-20260101000000.md")
-    assert result == "Notes/A.md"
+    assert result == ("Restored to `Notes/A.md`", "Notes/A.md")
     assert os.path.exists(os.path.join(vault, "Notes", "A.md"))
 
 
