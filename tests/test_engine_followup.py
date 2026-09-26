@@ -27,6 +27,11 @@ def isolated(tmp_path, monkeypatch):
     monkeypatch.setattr(followup, "_CANNOT_REWRITE", set())
 
 
+def pair(result):
+    """What `followup.ground` found and searched, without whether the rewrite was asked."""
+    return result.passages, result.query
+
+
 def fake_ground(monkeypatch, answers: dict[str, list]):
     """Stands in for the retriever: the hits for a query, `[]` for any other."""
     asked: list[str] = []
@@ -67,24 +72,43 @@ def rewriter(answer: str | None):
 # --- ground: when the step runs ---
 
 
+def _rewrite_asked(monkeypatch, hits, message, history, answer, enabled=True):
+    fake_ground(monkeypatch, hits)
+    if not enabled:
+        settings_store.set(followup.SETTING, "off")
+    return followup.ground({}, message, history, "m", None, rewriter=rewriter(answer)).rewrite
+
+
+def test_the_result_says_the_rewrite_was_asked_whatever_it_answered(monkeypatch):
+    for answer in ("why did we pick SQLite for Atlas", "NONE", None, "it?"):  # a query, no topic, could not judge, unchanged
+        assert _rewrite_asked(monkeypatch, {}, "it?", HISTORY, answer) is True, answer
+    assert _rewrite_asked(monkeypatch, {"it?": [WEAK]}, "it?", [], "Atlas") is True  # weak evidence, no history needed
+
+
+def test_the_result_says_the_rewrite_was_not_asked_when_it_was_not_needed_or_is_off(monkeypatch):
+    assert _rewrite_asked(monkeypatch, {"why SQLite?": [STRONG]}, "why SQLite?", HISTORY, "x") is False  # strong hit
+    assert _rewrite_asked(monkeypatch, {}, "it?", [], "x") is False  # nothing to rewrite from
+    assert _rewrite_asked(monkeypatch, {}, "it?", HISTORY, "x", enabled=False) is False  # switched off
+
+
 def test_a_message_that_grounds_on_its_own_never_runs_the_rewrite(monkeypatch):
     fake_ground(monkeypatch, {"why SQLite?": [HIT]})
     rw = rewriter("unused")
-    assert followup.ground({}, "why SQLite?", HISTORY, "m", None, rewriter=rw) == ([HIT], None)
+    assert pair(followup.ground({}, "why SQLite?", HISTORY, "m", None, rewriter=rw)) == ([HIT], None)
     assert rw.asked == []
 
 
 def test_with_no_earlier_turns_there_is_nothing_to_rewrite_from(monkeypatch):
     fake_ground(monkeypatch, {})
     rw = rewriter("Atlas")
-    assert followup.ground({}, "why did we pick it?", [], "m", None, rewriter=rw) == ([], None)
+    assert pair(followup.ground({}, "why did we pick it?", [], "m", None, rewriter=rw)) == ([], None)
     assert rw.asked == []
 
 
 def test_a_miss_with_history_is_searched_again_on_the_rewritten_query(monkeypatch):
     asked = fake_ground(monkeypatch, {"why did we pick SQLite for Atlas": [HIT]})
     rw = rewriter("why did we pick SQLite for Atlas")
-    hits, query = followup.ground({}, "why did we pick it?", HISTORY, "some-model", None, rewriter=rw)
+    hits, query = pair(followup.ground({}, "why did we pick it?", HISTORY, "some-model", None, rewriter=rw))
     assert (hits, query) == ([HIT], "why did we pick SQLite for Atlas")
     assert asked == ["why did we pick it?", "why did we pick SQLite for Atlas"]
     assert rw.asked == [(HISTORY, "why did we pick it?", "some-model")]
@@ -92,12 +116,12 @@ def test_a_miss_with_history_is_searched_again_on_the_rewritten_query(monkeypatc
 
 def test_a_rewrite_that_finds_nothing_reports_no_query(monkeypatch):
     fake_ground(monkeypatch, {})
-    assert followup.ground({}, "what about that?", HISTORY, "m", None, rewriter=rewriter("tax filing")) == ([], None)
+    assert pair(followup.ground({}, "what about that?", HISTORY, "m", None, rewriter=rewriter("tax filing"))) == ([], None)
 
 
 def test_no_rewrite_means_no_second_search(monkeypatch):
     asked = fake_ground(monkeypatch, {})
-    assert followup.ground({}, "thanks!", HISTORY, "m", None, rewriter=rewriter(None)) == ([], None)
+    assert pair(followup.ground({}, "thanks!", HISTORY, "m", None, rewriter=rewriter(None))) == ([], None)
     assert asked == ["thanks!"]
 
 
@@ -111,7 +135,7 @@ def test_a_persona_with_no_vault_never_runs_the_rewrite(monkeypatch):
     fake_ground(monkeypatch, {"q": [HIT]})
     monkeypatch.setattr(followup.vault_paths, "resolve_sandbox", lambda persona: None)
     rw = rewriter("q")
-    assert followup.ground({}, "it?", HISTORY, "m", None, rewriter=rw) == ([], None)
+    assert pair(followup.ground({}, "it?", HISTORY, "m", None, rewriter=rw)) == ([], None)
     assert rw.asked == []
 
 
@@ -119,12 +143,12 @@ def test_the_knob_turns_the_step_off_only_when_explicitly_off(monkeypatch):
     fake_ground(monkeypatch, {"q": [HIT]})
     rw = rewriter("q")
     settings_store.set(followup.SETTING, "off")
-    assert followup.ground({}, "it?", HISTORY, "m", None, rewriter=rw) == ([], None)
+    assert pair(followup.ground({}, "it?", HISTORY, "m", None, rewriter=rw)) == ([], None)
     assert rw.asked == []
     # The reserved modes and junk leave the default (rewrite) on.
     for value in ("recent-words", "model-searches", "OFF", "", None, False, 0):
         settings_store.set(followup.SETTING, value)
-        assert followup.ground({}, "it?", HISTORY, "m", None, rewriter=rw) == ([HIT], "q"), value
+        assert pair(followup.ground({}, "it?", HISTORY, "m", None, rewriter=rw)) == ([HIT], "q"), value
 
 
 # --- ground: weak evidence (docs/decisions/021) ---
@@ -133,14 +157,14 @@ def test_the_knob_turns_the_step_off_only_when_explicitly_off(monkeypatch):
 def test_strong_evidence_never_runs_the_rewrite(monkeypatch):
     fake_ground(monkeypatch, {"atlas database": [STRONG]})
     rw = rewriter("unused")
-    assert followup.ground({}, "atlas database", HISTORY, "m", None, rewriter=rw) == ([STRONG], None)
+    assert pair(followup.ground({}, "atlas database", HISTORY, "m", None, rewriter=rw)) == ([STRONG], None)
     assert rw.asked == []
 
 
 def test_one_strong_hit_among_weak_ones_is_strong_evidence(monkeypatch):
     fake_ground(monkeypatch, {"q": [WEAK, STRONG]})
     rw = rewriter("unused")
-    assert followup.ground({}, "q", HISTORY, "m", None, rewriter=rw) == ([WEAK, STRONG], None)
+    assert pair(followup.ground({}, "q", HISTORY, "m", None, rewriter=rw)) == ([WEAK, STRONG], None)
     assert rw.asked == []
 
 
@@ -148,55 +172,55 @@ def test_one_strong_hit_among_weak_ones_is_strong_evidence(monkeypatch):
 def test_weak_evidence_is_put_to_the_rewrite_with_or_without_earlier_turns(monkeypatch, history):
     fake_ground(monkeypatch, {"hey there": [WEAK]})
     rw = rewriter(followup.NO_TOPIC_QUERY)
-    assert followup.ground({}, "hey there", history, "m", None, rewriter=rw) == ([], None)
+    assert pair(followup.ground({}, "hey there", history, "m", None, rewriter=rw)) == ([], None)
     assert len(rw.asked) == 1  # NONE: the weak hits are dropped
 
 
 def test_weak_evidence_is_replaced_by_the_rewritten_querys_hits(monkeypatch):
     asked = fake_ground(monkeypatch, {"where did you get this information?": [WEAK], "Atlas database": [STRONG]})
     result = followup.ground({}, "where did you get this information?", HISTORY, "m", None, rewriter=rewriter("Atlas database"))
-    assert result == ([STRONG], "Atlas database")
+    assert result == ([STRONG], "Atlas database", True)
     assert asked == ["where did you get this information?", "Atlas database"]
 
 
 def test_weak_evidence_and_a_rewrite_that_finds_nothing_grounds_nothing(monkeypatch):
     fake_ground(monkeypatch, {"m": [WEAK]})
-    assert followup.ground({}, "m", HISTORY, "m", None, rewriter=rewriter("something else")) == ([], None)
+    assert pair(followup.ground({}, "m", HISTORY, "m", None, rewriter=rewriter("something else"))) == ([], None)
 
 
 def test_weak_evidence_stands_when_the_model_vouches_for_the_message_as_it_is(monkeypatch):
     asked = fake_ground(monkeypatch, {"who is Priya?": [WEAK]})
-    assert followup.ground({}, "who is Priya?", [], "m", None, rewriter=rewriter("who is Priya?")) == ([WEAK], None)
+    assert pair(followup.ground({}, "who is Priya?", [], "m", None, rewriter=rewriter("who is Priya?"))) == ([WEAK], None)
     assert asked == ["who is Priya?"]  # and is not searched twice
 
 
 @pytest.mark.parametrize("query", ["who is priya", "Who is Priya", "who is  Priya??"])
 def test_a_query_that_differs_only_in_case_or_punctuation_is_the_message_itself(monkeypatch, query):
     asked = fake_ground(monkeypatch, {"who is Priya?": [WEAK]})
-    assert followup.ground({}, "who is Priya?", [], "m", None, rewriter=rewriter(query)) == ([WEAK], None)
+    assert pair(followup.ground({}, "who is Priya?", [], "m", None, rewriter=rewriter(query))) == ([WEAK], None)
     assert asked == ["who is Priya?"]
 
 
 def test_weak_evidence_stands_when_the_model_cannot_judge(monkeypatch):
     fake_ground(monkeypatch, {"m": [WEAK]})
-    assert followup.ground({}, "m", HISTORY, "m", None, rewriter=rewriter(None)) == ([WEAK], None)
+    assert pair(followup.ground({}, "m", HISTORY, "m", None, rewriter=rewriter(None))) == ([WEAK], None)
 
 
 def test_weak_evidence_stands_when_the_step_is_off_or_there_is_no_vault(monkeypatch):
     fake_ground(monkeypatch, {"m": [WEAK]})
     rw = rewriter(followup.NO_TOPIC_QUERY)
     settings_store.set(followup.SETTING, "off")
-    assert followup.ground({}, "m", HISTORY, "m", None, rewriter=rw) == ([WEAK], None)
+    assert pair(followup.ground({}, "m", HISTORY, "m", None, rewriter=rw)) == ([WEAK], None)
     settings_store.set(followup.SETTING, None)
     monkeypatch.setattr(followup.vault_paths, "resolve_sandbox", lambda persona: None)
-    assert followup.ground({}, "m", HISTORY, "m", None, rewriter=rw) == ([WEAK], None)
+    assert pair(followup.ground({}, "m", HISTORY, "m", None, rewriter=rw)) == ([WEAK], None)
     assert rw.asked == []
 
 
 def test_a_hit_that_does_not_say_how_many_words_it_matched_counts_as_strong(monkeypatch):
     fake_ground(monkeypatch, {"m": [HIT]})
     rw = rewriter(followup.NO_TOPIC_QUERY)
-    assert followup.ground({}, "m", HISTORY, "m", None, rewriter=rw) == ([HIT], None)
+    assert pair(followup.ground({}, "m", HISTORY, "m", None, rewriter=rw)) == ([HIT], None)
     assert rw.asked == []
 
 

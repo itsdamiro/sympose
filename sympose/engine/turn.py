@@ -94,7 +94,7 @@ def run_turn(
     # The prompt is sized to this model's window, not left to the runtime's
     # silent cut (docs/decisions/015); the follow-up rewrite shares that window.
     limits = budget.budget_for(target_model)
-    vault_hits, searched = followup.ground(persona, user_message, history, target_model, limits)
+    vault_hits, searched, rewrite = followup.ground(persona, user_message, history, target_model, limits)
     # The two sources take turns, the reference first: when the prompt does not fit, the
     # end of the list goes first, so the best passage of each source stays longest and
     # neither's evidence is dropped wholesale before the other's (docs/decisions/022).
@@ -159,7 +159,7 @@ def run_turn(
         existing=existing,
         ttft_ms=reply.ttft_ms,
         model=target_model,
-        sent=sent_record(grounding_results, recaps_sent, searched_used, dropped, cloud),
+        sent=sent_record(grounding_results, recaps_sent, searched_used, dropped, rewrite, cloud),
         truncated=reply.truncated,
     )
     return TurnResult(

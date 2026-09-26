@@ -502,7 +502,7 @@ def test_a_hit_by_meaning_is_strong_evidence_and_asks_for_no_rewrite(setup):
     def rewriter(*args):
         raise AssertionError("the rewrite step should not run for a hit found by meaning")
 
-    hits, searched = followup.ground(WHOLE, "what storage engine did we pick?", [], "ollama_chat/x", None, rewriter)
+    hits, searched, _ = followup.ground(WHOLE, "what storage engine did we pick?", [], "ollama_chat/x", None, rewriter)
 
     assert [h["rel_path"] for h in hits] == ["Atlas.md"] and searched is None
 

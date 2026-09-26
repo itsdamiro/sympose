@@ -878,7 +878,7 @@ def test_a_turn_with_nothing_attached_records_that(sessions_root, monkeypatch):
 
     result = turn.run_turn("samantha", "hello")
 
-    assert _sent_of(result) == {"notes": [], "recaps": [], "searched": None, "history_dropped": 0}
+    assert _sent_of(result) == {"notes": [], "recaps": [], "searched": None, "history_dropped": 0, "rewrite": False}
 
 
 def test_the_recaps_shown_are_recorded_by_session_and_a_left_out_one_is_not(sessions_root, monkeypatch):
@@ -925,11 +925,25 @@ def test_the_rewritten_query_and_the_turns_left_out_are_recorded(sessions_root, 
     assert sent["history_dropped"] == 0
 
 
+def test_a_turn_records_whether_the_rewrite_step_was_asked(sessions_root, monkeypatch):
+    asked, _ = _first_turn_then_follow_up(monkeypatch, "NONE", {})  # the rewrite judged: no topic, and found nothing
+    on_its_own, _ = _first_turn_then_follow_up(monkeypatch, "unused", {"why did we pick it?": [_fake_grounding_result()]})
+
+    assert _sent_of(asked)["rewrite"] is True and _sent_of(asked)["searched"] is None
+    assert _sent_of(on_its_own)["rewrite"] is False
+
+
+def test_the_first_turn_of_a_chat_records_no_rewrite(sessions_root, monkeypatch):
+    _capture_call(monkeypatch)
+
+    assert _sent_of(turn.run_turn("samantha", "hello"))["rewrite"] is False
+
+
 def test_the_rewritten_query_is_not_recorded_when_only_the_library_grounded_the_reply(sessions_root, monkeypatch):
     _library_persona(sessions_root)
     _capture_call(monkeypatch)
     monkeypatch.setattr(reference, "ground", lambda persona, msg: [_reference_hit()])
-    monkeypatch.setattr(turn.followup, "ground", lambda *a, **k: ([], "a query that found nothing"))
+    monkeypatch.setattr(turn.followup, "ground", lambda *a, **k: followup.Followed([], "a query that found nothing", True))
 
     result = turn.run_turn("samantha", "do you remember last time?")
 

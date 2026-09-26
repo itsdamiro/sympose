@@ -256,7 +256,7 @@ def run_followup_case(
         for user, assistant in case.history
         for role, text in (("user", user), ("assistant", assistant))
     ]
-    hits, searched = followup.ground(
+    hits, searched, _ = followup.ground(
         persona, case.message, history, model, None, rewriter=lambda *_: case.rewrite
     )
     blob = "\n".join(_texts(hits))

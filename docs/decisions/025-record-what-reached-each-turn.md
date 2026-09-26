@@ -31,3 +31,15 @@ A command or dashboard view that reads `sent` back to the user. A record of the 
 
 A turn's `notes` list has one entry per passage sent, so a long section of a note that was split into two passages (ADR 014) appears twice with the same path and heading. Checked on real turns (12 turns in which it happened, searched again, read-only): all 11 repeated sections were two different passages, not a duplicate. The reply header already shows each note once.
 
+
+## Update: whether the follow-up rewrite was asked (issue #75, item 4)
+
+**Context.** The follow-up rewrite (ADR 017) is a second model call before the reply. It runs when the first search finds nothing and the chat has earlier turns, and when every hit rests on a single matched word (ADR 021). CLAUDE.md treats round trips as a dial, not an absolute, but nobody knows what share of real turns pay the extra call, so the dial cannot be set from evidence. `searched` does not answer it: it holds the rewritten query only when the rewrite is what grounded the reply, so a rewrite that judged the message had no topic, agreed with the message as it was, or found nothing leaves `searched` empty, though the call was made.
+
+**Decision.** The `sent` object gains `rewrite`, a boolean: `true` when the rewrite step was put to the model for this turn, `false` when it was not needed or is switched off (`grounding_followups`). It is a yes or no and holds no text. It is written on every turn from now on, so a record without the key was written before this and means "unknown", not "no". `followup.ground` returns it beside the passages and the query.
+
+**Known imprecision.** The step counts as asked when it was handed to the rewriter, and the rewriter makes no call in two cases: the model already used its whole reply limit on an earlier rewrite (it is not asked again until the program restarts), and the rewrite prompt would not fit the window. Both are rare and both would show as `true` with no round trip, so a count read from the log is an upper bound on the extra calls.
+
+**How it is read.** Nothing reads it inside the program. To measure, count the turn records in a persona's sessions with `sent.rewrite` true against those with the key present, after about a week of use. The figure feeds the decision about the frugality dial; it changes no behaviour.
+
+**Alternatives rejected.** Counting with a log line: the session record is where every other per-turn fact lives (`searched`, `history_dropped`, how a note was found), and a log line has to be matched back to a turn. Recording the outcome of the rewrite (no topic, unchanged, found nothing) instead of a boolean: it says more, but the question is only how often the call is paid, and the outcome can be worked out for the turns of interest from `searched` and `notes`. Reporting the call exactly by having the rewriter say whether it called the model: it changes the injected `rewriter` signature and every test double for two rare cases.

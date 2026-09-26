@@ -8,11 +8,13 @@ def sent_record(
     recaps: list[dict[str, Any]],
     searched: str | None,
     dropped: int,
+    rewrite: bool,
     cloud: tuple[list[str], list[str]] | None = None,
 ) -> dict[str, Any]:
     """What reached the model besides the messages, for the session record
     (docs/decisions/025): where each note came from, never its text. `cloud`, for a model that is
-    not local, is the categories sent and the categories held back (docs/decisions/031)."""
+    not local, is the categories sent and the categories held back (docs/decisions/031). `rewrite` is
+    whether the follow-up rewrite, an extra model call, was asked this turn (docs/decisions/025)."""
     return {
         "notes": [
             {
@@ -26,5 +28,6 @@ def sent_record(
         "recaps": [r["session"] for r in recaps],
         "searched": searched,
         "history_dropped": dropped,
+        "rewrite": rewrite,
         **({"cloud": cloud[0], "withheld": cloud[1]} if cloud else {}),
     }

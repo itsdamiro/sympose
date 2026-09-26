@@ -10,7 +10,7 @@ precision gates still decide what reaches the model."""
 
 import logging
 import re
-from typing import Any, Callable
+from typing import Any, Callable, NamedTuple
 
 from sympose import settings_store, vault_paths
 from sympose.engine import budget, grounding, helper_limit, prompt
@@ -36,6 +36,15 @@ _CANNOT_REWRITE: set[str] = set()
 NO_TOPIC_QUERY = ""
 
 Rewriter = Callable[[list[dict[str, str]], str, str, budget.Budget | None], str | None]
+
+
+class Followed(NamedTuple):
+    """What `ground` found: the passages, the query they came from when it was a rewrite and not the
+    message, and whether the rewrite step was asked at all (an extra model call, docs/decisions/025)."""
+
+    passages: list[dict[str, Any]]
+    query: str | None
+    rewrite: bool
 
 
 def enabled() -> bool:
@@ -99,9 +108,10 @@ def ground(
     model: str,
     limits: budget.Budget | None,
     rewriter: Rewriter = rewrite_query,
-) -> tuple[list[dict[str, Any]], str | None]:
-    """`(passages, query)`: the passages for `message`, and, when they came
-    from a rewritten query rather than the message itself, that query.
+) -> Followed:
+    """`Followed(passages, query, rewrite)`: the passages for `message`, and, when they came
+    from a rewritten query rather than the message itself, that query; `rewrite` is whether
+    the step below was put to the rewriter, whatever it answered.
 
     A first search with strong evidence is used as it is. An empty one with
     earlier conversation, or a weak one (every hit rests on a single matched
@@ -110,14 +120,14 @@ def ground(
     result stands as it was."""
     hits = grounding.ground(persona, message)
     if not enabled() or vault_paths.resolve_sandbox(persona) is None:
-        return hits, None  # (no vault: nothing a rewritten query could find)
+        return Followed(hits, None, False)  # (no vault: nothing a rewritten query could find)
     weak = bool(hits) and all(hit.get("matched", 2) < 2 for hit in hits)
     if (hits and not weak) or (not hits and not history):
-        return hits, None
+        return Followed(hits, None, False)
     query = rewriter(history, message, model, limits)
     if query is None or _same(query, message):
-        return hits, None  # could not judge, or the model vouched for the message as it is
+        return Followed(hits, None, True)  # could not judge, or the model vouched for the message as it is
     if query == NO_TOPIC_QUERY:
-        return [], None
+        return Followed([], None, True)
     found = grounding.ground(persona, query)
-    return found, (query if found else None)
+    return Followed(found, query if found else None, True)
