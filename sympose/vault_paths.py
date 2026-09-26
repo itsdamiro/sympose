@@ -52,12 +52,15 @@ def get_allowed_dirs(profile: dict[str, Any]) -> list[str]:
     `"*"`, or `"all"` in the list means unrestricted (the whole vault);
     anything else is joined onto the root and must resolve safely under it.
     Falls back to `[mv]` if nothing configured resolves safely, so a
-    misconfigured persona never ends up with zero writable directories."""
+    misconfigured persona never ends up with zero writable directories.
+
+    Creates nothing (docs/decisions/029): a folder that is not there stays in the
+    list, so the persona sees nothing in it and is not widened to the whole vault,
+    and a note written into it makes it. `sympose doctor` reports the entry."""
     mv = get_master_vault()
     if not mv:
         return []
     try:
-        os.makedirs(mv, exist_ok=True)
         folders = profile.get("vault_folders") or [profile.get("vault_folder", "")]
         if "" in folders or "*" in folders or "all" in folders:
             return [mv]
@@ -65,7 +68,6 @@ def get_allowed_dirs(profile: dict[str, Any]) -> list[str]:
         for f in folders:
             path = os.path.join(mv, f.strip()) if f.strip() else mv
             if is_safe_path(path, mv):
-                os.makedirs(path, exist_ok=True)
                 allowed.append(path)
         return allowed or [mv]
     except Exception as e:

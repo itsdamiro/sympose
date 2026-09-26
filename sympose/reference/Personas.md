@@ -28,7 +28,7 @@ The `model` line is optional.
 
 ## Can I stop a persona from seeing some of my folders?
 
-Yes. `vault_folders` in `persona.yaml` lists the top-level folders a persona may read, or `'*'` for all of them. It is a hard boundary: searching, note grounding, the web app and the graph all stay inside it.
+Yes. `vault_folders` in `persona.yaml` lists the top-level folders a persona may read, or `'*'` for all of them. It is a hard boundary: searching, note grounding, the web app and the graph all stay inside it. A folder listed there that is not in the vault is not created: the persona simply sees nothing in it, and `sympose doctor` names the entry so a misspelt folder is easy to find.
 
 ## How do I switch persona or make one the default?
 

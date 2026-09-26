@@ -12,7 +12,7 @@ from typing import Callable, TextIO
 
 import yaml
 
-from sympose import profile, settings_store
+from sympose import profile, settings_store, vault_registry
 from sympose.persona_files import PERSONA_FILENAME, persona_dir, profiles_dir
 
 
@@ -123,6 +123,20 @@ def check_settings() -> list[Finding]:
     return findings
 
 
+def check_persona_vault_folders() -> list[Finding]:
+    """A `vault_folders` entry that is in none of the configured vaults: a typo, or the wrong vault. Nothing is created."""
+    vaults = [v["path"] for v in vault_registry.get_configured_vaults()]
+    findings: list[Finding] = []
+    for persona in profile.list_profiles() if vaults else []:
+        entries = persona.get("vault_folders") or []
+        for entry in [entries] if isinstance(entries, str) else entries:
+            name = entry.strip() if isinstance(entry, str) else ""
+            if name in ("", "*", "all") or any(os.path.isdir(os.path.join(path, name)) for path in vaults):
+                continue
+            findings.append(Finding(f"the persona {persona['handle']!r} lists the folder {name!r}, which is not in any of your vaults (vault_folders in its persona.yaml)"))
+    return findings
+
+
 def check_embedding_model() -> list[Finding]:
     from sympose import doctor_models  # imported here: it brings in litellm, a few seconds
 
@@ -131,7 +145,12 @@ def check_embedding_model() -> list[Finding]:
 
 
 # settings after folders: a renamed folder can make a default_persona valid again
-CHECKS: list[Callable[[], list[Finding]]] = [check_persona_folders, check_settings, check_embedding_model]
+CHECKS: list[Callable[[], list[Finding]]] = [
+    check_persona_folders,
+    check_settings,
+    check_persona_vault_folders,
+    check_embedding_model,
+]
 
 
 def run(fix: bool = False, out: TextIO | None = None) -> int:

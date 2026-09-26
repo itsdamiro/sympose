@@ -352,3 +352,64 @@ def test_a_cloud_embedding_model_with_notes_approved_is_not_a_finding(base):
     code, out = _run()
 
     assert code == 0 and "cloud, it would receive every passage of your notes and every message" in out
+
+
+# -- a persona's folder that is not in the vault (ADR 029, issue #51) ----------------------------------------
+
+
+@pytest.fixture
+def vault(tmp_path, monkeypatch):
+    root = tmp_path / "vault"
+    (root / "Notes").mkdir(parents=True)
+    monkeypatch.setenv("VAULT_PATHS", str(root))
+    return root
+
+
+def test_a_vault_folder_that_is_not_in_the_vault_is_reported_and_nothing_is_created(base, vault):
+    write_persona(base, "grace", "name: Grace\nvault_folders: ['Note']\n")  # a typo for Notes
+
+    code, out = _run(fix=True)
+
+    assert code == 1
+    assert "the persona 'grace' lists the folder 'Note', which is not in any of your vaults" in out
+    assert "needs you" in out
+    assert os.listdir(vault) == ["Notes"]
+
+
+def test_a_folder_that_is_in_one_of_the_vaults_is_not_reported(base, vault, tmp_path, monkeypatch):
+    other = tmp_path / "other"
+    (other / "Writing").mkdir(parents=True)
+    monkeypatch.setenv("VAULT_PATHS", f"{vault},{other}")
+    write_persona(base, "grace", "name: Grace\nvault_folders: ['Notes', 'Writing']\n")
+
+    code, out = _run()
+
+    assert code == 0 and "which is not in" not in out
+
+
+@pytest.mark.parametrize("entry", ["'*'", "['*']", "['all']", "['']", "[]", "[3]"])
+def test_whole_vault_or_unusable_entries_are_not_reported_as_missing_folders(base, vault, entry):
+    write_persona(base, "grace", f"name: Grace\nvault_folders: {entry}\n")
+
+    code, out = _run()
+
+    assert code == 0 and "which is not in" not in out
+
+
+def test_with_no_vault_configured_a_persona_folder_is_not_reported(base, monkeypatch):
+    monkeypatch.delenv("VAULT_PATHS", raising=False)
+    write_persona(base, "grace", "name: Grace\nvault_folders: ['Note']\n")
+
+    code, out = _run()
+
+    assert code == 0 and "which is not in" not in out
+
+
+def test_a_folder_written_as_one_string_instead_of_a_list_is_checked_as_a_whole_name(base, vault):
+    write_persona(base, "grace", "name: Grace\nvault_folders: 'Notes'\n")
+    write_persona(base, "anais", "name: Anais\nvault_folders: 'Note'\n")
+
+    code, out = _run()
+
+    assert code == 1
+    assert out.count("which is not in") == 1 and "the persona 'anais' lists the folder 'Note'" in out

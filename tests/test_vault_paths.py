@@ -63,11 +63,48 @@ def test_no_configured_vaults_resolves_to_none(monkeypatch):
     assert vault_paths.get_vault_name() is None
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="looking up a persona's folders creates them, so a misspelt `vault_folders` entry adds an empty "
-    "folder to the user's vault on a read-only request",
-)
 def test_looking_up_a_personas_folders_creates_nothing(vault_root):
-    vault_paths.get_allowed_dirs({"vault_folders": ["Misspelt"]})
+    allowed = vault_paths.get_allowed_dirs({"vault_folders": ["Misspelt"]})
+
     assert os.listdir(vault_root) == []
+    assert allowed == [os.path.join(vault_root, "Misspelt")]  # not widened to the whole vault
+
+
+def test_looking_up_the_sandbox_does_not_create_a_vault_root_that_is_not_there(tmp_path, monkeypatch):
+    missing = tmp_path / "no-such-vault"
+    monkeypatch.setenv("VAULT_PATHS", str(missing))
+
+    vault_paths.get_allowed_dirs({"vault_folders": ["*"]})
+    vault_paths.get_allowed_dirs({"vault_folders": ["Notes"]})
+
+    assert not missing.exists()
+
+
+def test_a_note_written_into_a_folder_that_is_not_there_yet_creates_it(vault_root):
+    from sympose import vault_write_create
+
+    profile = {"vault_folders": ["Writing"]}
+    assert vault_paths.get_primary_dir(profile) == os.path.join(vault_root, "Writing")
+    assert not os.path.exists(os.path.join(vault_root, "Writing"))
+
+    result = vault_write_create.create_note(profile, "First draft", "hello")
+
+    assert result.startswith("Created note")
+    assert os.listdir(os.path.join(vault_root, "Writing")) == ["First draft.md"]
+
+
+
+def test_every_read_of_a_persona_pointed_at_a_missing_folder_is_empty_and_creates_nothing(vault_root):
+    from sympose import vault_backlinks, vault_graph, vault_search
+    from sympose.engine import grounding
+
+    os.makedirs(os.path.join(vault_root, "Notes"))
+    with open(os.path.join(vault_root, "Notes", "A.md"), "w", encoding="utf-8") as f:
+        f.write("hello atlas [[B]]")
+    profile = {"vault_folders": ["Note"]}  # a typo for Notes
+
+    assert vault_search.search_structured(profile, "atlas") == []
+    assert vault_graph.get_vault_graph(profile) == {"nodes": [], "links": []}
+    assert vault_backlinks.get_backlinks(profile, "B") == []
+    assert grounding.ground(profile, "what is atlas") == []
+    assert os.listdir(vault_root) == ["Notes"]
