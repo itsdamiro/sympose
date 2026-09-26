@@ -76,8 +76,8 @@ def _vectors_for(index: Index, sync_limit: int, model: str) -> _Vectors | None:
         made = embeddings.embed([texts[i] for i in missing], "document", model)
         fresh = {keys[i]: v for i, v in zip(missing, made)}
         store.save(fresh)  # if it cannot be kept, they are still used from memory
-        have.update(fresh)
-    vectors = _Vectors(list(index.passages), similarity.VectorSet([embeddings.unit(have[k]) for k in keys]))
+        have.update({k: embeddings.unit(v) for k, v in fresh.items()})  # what the cache returns is unit length
+    vectors = _Vectors(list(index.passages), similarity.VectorSet([have[k] for k in keys]))
     with _CACHE_LOCK:
         while len(_CACHE) >= _KEEP_INDEXES:
             _CACHE.pop(next(iter(_CACHE)))

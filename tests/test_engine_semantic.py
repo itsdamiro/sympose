@@ -533,7 +533,87 @@ def test_vectors_survive_the_cache_and_a_missing_key_is_absent(setup):
 
     loaded = embedding_store.load([k1, k2])
 
-    assert list(loaded) == [k1] and loaded[k1] == pytest.approx([0.25, -0.5, 1.0])
+    assert list(loaded) == [k1] and loaded[k1] == pytest.approx(embeddings.unit([0.25, -0.5, 1.0]))
+
+
+def test_the_cache_holds_unit_length_vectors(setup):
+    key = embedding_store.key("m", "one")
+    embedding_store.save({key: [3.0, 4.0]})
+
+    assert list(embedding_store.load([key])[key]) == pytest.approx([0.6, 0.8])
+    assert _stored(key) == (pytest.approx([0.6, 0.8]), 1)  # scaled when written, and marked as such
+
+
+def _stored(key):
+    """What the cache file holds for `key`: the vector and its `unit` flag."""
+    import sqlite3
+    from array import array
+
+    conn = sqlite3.connect(embedding_store.path())
+    try:
+        blob, flag = conn.execute("SELECT vec, unit FROM vectors WHERE key = ?", (key,)).fetchone()
+    finally:
+        conn.close()
+    vec = array("f")
+    vec.frombytes(blob)
+    return list(vec), flag
+
+
+def _write_row(key, vector, flag=None):
+    """A row put in the cache file directly: `flag=None` is the shape an older version wrote."""
+    import sqlite3
+    from array import array
+
+    if flag is not None:
+        embedding_store.load([])  # opening the cache creates the file in the current shape
+    conn = sqlite3.connect(embedding_store.path())
+    with conn:
+        if flag is None:
+            conn.execute("CREATE TABLE IF NOT EXISTS vectors (key TEXT PRIMARY KEY, vec BLOB NOT NULL)")
+            conn.execute("INSERT INTO vectors (key, vec) VALUES (?, ?)", (key, array("f", vector).tobytes()))
+        else:
+            conn.execute("INSERT INTO vectors (key, vec, unit) VALUES (?, ?, ?)", (key, array("f", vector).tobytes(), flag))
+    conn.close()
+
+
+def test_a_cache_written_before_the_flag_is_scaled_once_and_kept(setup, calls):
+    key = embedding_store.key("m", "old")
+    _write_row(key, [3.0, 4.0])  # the older table: no `unit` column, the raw vector
+
+    first = embedding_store.load([key])
+
+    assert list(first[key]) == pytest.approx([0.6, 0.8])
+    assert _stored(key) == (pytest.approx([0.6, 0.8]), 1)  # rewritten scaled: nobody re-embeds
+    assert calls["embed"] == []
+
+
+def test_a_row_flagged_as_scaled_is_not_scaled_again(setup):
+    key = embedding_store.key("m", "flagged")
+    _write_row(key, [3.0, 4.0], flag=1)  # not unit length, but the flag says it is: trusted as it is
+
+    assert list(embedding_store.load([key])[key]) == [3.0, 4.0]
+
+
+def test_a_row_written_unflagged_by_an_older_version_is_scaled_on_its_next_read(setup):
+    key = embedding_store.key("m", "mixed")
+    _write_row(key, [3.0, 4.0], flag=0)
+
+    assert list(embedding_store.load([key])[key]) == pytest.approx([0.6, 0.8])
+    assert _stored(key)[1] == 1
+
+
+def test_a_rebuild_after_an_edit_does_not_scale_the_stored_vectors(setup, monkeypatch):
+    _vault(setup)
+    _mode("embeddings")
+    semantic_refresh.build(grounding.scope_index(WHOLE))  # a warm cache
+    semantic._forget_for_tests()  # what a restart, or an edited note, leaves: a new index object
+    scaled = []
+    monkeypatch.setattr(embeddings, "unit", lambda v, real=embeddings.unit: scaled.append(1) or real(v))
+
+    vectors = semantic._vectors_for(grounding.scope_index(WHOLE), 64, "ollama/nomic-embed-text")
+
+    assert vectors is not None and vectors.unit_vectors.dims == 7
+    assert scaled == []
 
 
 def test_the_key_depends_on_the_model_and_the_text(setup):
@@ -977,7 +1057,7 @@ def test_more_vectors_than_one_query_can_hold_are_all_loaded(setup):
 
     loaded = embedding_store.load(keys)
 
-    assert len(loaded) == 1200 and loaded[keys[1199]] == pytest.approx([1199.0, 1.0])
+    assert len(loaded) == 1200 and loaded[keys[1199]] == pytest.approx(embeddings.unit([1199.0, 1.0]))
 
 
 def test_a_long_passage_is_cut_before_it_is_embedded(setup):
