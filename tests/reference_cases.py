@@ -251,6 +251,12 @@ REF_CASES: list[RefCase] = [
         first="The web app.md",
     ),
     RefCase(
+        "rename-links",
+        "what happens to the links in my other notes when I rename a note in the web app?",
+        find=("Markdown links",),
+        first="The web app.md",
+    ),
+    RefCase(
         "what-is-the-dashboard",
         "what is the dashboard?",
         find=("web app",),
