@@ -13,9 +13,18 @@ from rich.style import Style
 from sympose import engine
 from sympose.cli import grounding_line, meter, picker, share, transcript as transcript_mod
 from sympose.cli.commands import COMMANDS
-from sympose.cli.mock_data import MOCK_HISTORY, MODEL_OPTIONS, list_personas
+from sympose.cli.options import MODEL_OPTIONS, list_personas
 from sympose.cli.selection import SelectionOption
 from sympose.profile import set_default_persona
+
+
+# Visual placeholder only — no session/history data model exists anywhere
+# yet (backend or frontend), so this list never changes and selecting a
+# row just says so.
+MOCK_HISTORY: list[str] = [
+    "Q3 roadmap — 12 turns, yesterday",
+    "Trash cleanup follow-up — 4 turns, Monday",
+]
 
 
 async def run_command(app, command) -> None:

@@ -3,7 +3,7 @@ bottom with a scrolling transcript above it — the one thing legacy's
 blocking `rich.prompt.Prompt` loop couldn't do (see `docs/VISION.md`,
 lines 46-50). Chat replies now come from the real engine
 (`sympose/engine/`, docs/decisions/006); model/persona pickers use real
-data (`mock_data.py`); `/compact`, `/settings`, and `/history` are still
+data (`options.py`); `/compact`, `/settings`, and `/history` are still
 inert or mock, since nothing backs them yet. Event handling and the
 actual command/streaming behavior live in `dispatch.py`/`runtime.py`/
 `turns.py`/`picker.py`, split out to hold the 200-LOC-per-file cap."""
@@ -18,7 +18,7 @@ from sympose.cli import dispatch, picker, share, state
 from sympose.cli import transcript as transcript_mod
 from sympose.cli.composer import ComposerInput
 from sympose.cli.meter import ContextMeter
-from sympose.cli.mock_data import list_personas
+from sympose.cli.options import list_personas
 from sympose.profile import resolve_default_persona
 
 

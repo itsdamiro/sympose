@@ -63,3 +63,5 @@ What a recommendation needs before it is written, so that it is one a general us
 
 The default model ends most replies with blank lines and puts two spaces after a full stop: of 68 replies saved in real sessions, 39 ended in whitespace (up to three blank lines) and 45 had a double space after a sentence. Nothing removed it, so it was shown in the terminal, saved, and sent back to the model as history, where a model copies what it sees. `sympose/engine/reply_text.py` now tidies the text `call_model` returns: leading and trailing whitespace is removed, a run of blank lines becomes one blank line, and two or more spaces after `.`, `!`, `?` or an ellipsis become one. Code (between triple backticks) is left exactly as written. A reply of only whitespace now counts as an empty reply (it was "returned" and saved as nothing). The same tidy is applied to a saved reply when a session is loaded as history, so a chat that already has padded replies stops teaching the habit; the session file itself is not rewritten.
 
+
+**Later:** `sympose/cli/mock_data.py`, named above, is now `sympose/cli/options.py` (#75).

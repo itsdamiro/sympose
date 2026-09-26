@@ -9,7 +9,7 @@ from sympose.cli.selection import SelectionPanel
 
 def init(app) -> None:
     # `None` until `/model` picks one, so a persona's own model (or the
-    # `chat_model` setting) applies — see `mock_data.active_model`.
+    # `chat_model` setting) applies — see `options.active_model`.
     app.model_override = None
     app.panel: SelectionPanel | None = None
     app.panel_kind: str | None = None

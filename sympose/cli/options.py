@@ -1,11 +1,10 @@
-"""Canned data for the CLI mock. Personas are a real read through
-`sympose/profile.py` and `profiles/*.yaml` — the same "functional but
-mock" split the web app's persona picker uses (real data, just little of
-it configured yet). Chat history has no backing store anywhere yet, so that
-stays hardcoded. Model ids are now the real litellm-resolvable strings the
-engine's `/model` picker override passes straight through (docs/decisions/007)
-— the local Ollama model is listed first/default, matching the engine's own
-local-first default, not the cloud-first ordering this list used to have."""
+"""What the CLI offers to choose from: the personas (a real read through
+`sympose/profile.py` and `profiles/*.yaml`, the one roster the web app's persona
+picker also builds on) and the models. Model ids are the real litellm-resolvable
+strings the engine's `/model` picker override passes straight through
+(docs/decisions/007) — the local Ollama model is listed first/default, matching
+the engine's own local-first default, not the cloud-first ordering this list used
+to have. `active_model` says which one actually runs."""
 
 from dataclasses import dataclass
 
@@ -74,6 +73,7 @@ MODEL_OPTIONS: list[ModelOption] = [
     ModelOption(id="openrouter/deepseek/deepseek-v4-flash", label="DeepSeek V4 Flash — OpenRouter", short="DeepSeek V4 Flash"),
 ]
 
+
 def model_option_for(model_id: str) -> ModelOption:
     """The picker entry for `model_id`, or a synthesized one for an id the
     picker doesn't list (a persona's own `model`, or the `chat_model`
@@ -88,12 +88,3 @@ def active_model(persona: PersonaOption, override: ModelOption | None) -> ModelO
     engine's own order (`resolve_model`, docs/decisions/010) — the same
     function `run_turn` uses, so the header can't show something else."""
     return override or model_option_for(resolve_model(persona.model))
-
-
-# Visual placeholder only — no session/history data model exists anywhere
-# yet (backend or frontend), so this list never changes and selecting a
-# row just says so.
-MOCK_HISTORY: list[str] = [
-    "Q3 roadmap — 12 turns, yesterday",
-    "Trash cleanup follow-up — 4 turns, Monday",
-]

@@ -3,7 +3,7 @@ notice when a cloud model is in use, and the reply header's `cloud:` and `withhe
 What is allowed lives in `sympose.engine.sharing`; this only asks and shows."""
 
 from sympose.cli import picker, transcript as transcript_mod
-from sympose.cli.mock_data import ModelOption, active_model
+from sympose.cli.options import ModelOption, active_model
 from sympose.cli.selection import SelectionOption
 from sympose.engine import sharing
 

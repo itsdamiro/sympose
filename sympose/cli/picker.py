@@ -8,7 +8,7 @@ each other."""
 from textual.widgets import Static
 
 from sympose.cli.commands import matching_commands
-from sympose.cli.mock_data import active_model
+from sympose.cli.options import active_model
 from sympose.cli.selection import SelectionOption, SelectionPanel
 
 

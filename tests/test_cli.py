@@ -12,7 +12,7 @@ import threading
 import pytest
 
 from sympose import engine
-from sympose.cli import commands, grounding_line, meter, mock_data, runtime, trim_notice, turns
+from sympose.cli import commands, grounding_line, meter, options, runtime, trim_notice, turns
 from sympose.cli.app import SymposeCLI
 
 
@@ -90,7 +90,7 @@ def test_find_command_unknown_returns_none():
     assert commands.find_command("/nope") is None
 
 
-# -- mock_data.py --------------------------------------------------------
+# -- options.py --------------------------------------------------------
 
 
 @pytest.fixture
@@ -104,13 +104,13 @@ def profiles(tmp_path, monkeypatch):
 
 
 def test_list_personas_reads_real_profile_files(profiles):
-    handles = [p.handle for p in mock_data.list_personas()]
+    handles = [p.handle for p in options.list_personas()]
     assert handles == ["aria", "samantha"]  # sorted, not config order
 
 
 def test_list_personas_falls_back_when_no_profiles_dir(tmp_path, monkeypatch):
     monkeypatch.setenv("SYMPOSE_PROFILES_DIR", str(tmp_path / "does-not-exist"))
-    personas = mock_data.list_personas()
+    personas = options.list_personas()
     assert [p.handle for p in personas] == ["samantha"]
     assert personas[0].name == "Samantha"
 
@@ -126,7 +126,7 @@ def test_list_personas_lowercases_a_capitalized_filename(tmp_path, monkeypatch):
     base.mkdir()
     write_persona(base, "Samantha", "name: Samantha\nhandle: samantha\n")
     monkeypatch.setenv("SYMPOSE_PROFILES_DIR", str(base))
-    personas = mock_data.list_personas()
+    personas = options.list_personas()
     assert [p.handle for p in personas] == ["samantha"]
 
 
@@ -379,8 +379,8 @@ def test_no_model_is_preselected_and_the_default_is_the_local_one(profiles):
         async with app.run_test() as pilot:
             await pilot.pause()
             assert app.model_override is None
-            active = mock_data.active_model(app.persona, app.model_override)
-            assert active.id == mock_data.MODEL_OPTIONS[0].id
+            active = options.active_model(app.persona, app.model_override)
+            assert active.id == options.MODEL_OPTIONS[0].id
             assert active.id.startswith("ollama_chat/")
 
     run_async(scenario())
@@ -598,7 +598,7 @@ def test_different_personas_can_generate_concurrently(profiles, monkeypatch):
             await asyncio.sleep(0.05)
             assert a_started.wait(timeout=2)
 
-            aria = next(p for p in mock_data.list_personas() if p.handle == "aria")
+            aria = next(p for p in options.list_personas() if p.handle == "aria")
             runtime.apply_picker_choice(app, "persona", aria.handle)
 
             task_b = asyncio.create_task(turns.send_message(app, "hello b"))
@@ -651,7 +651,7 @@ def test_queued_message_for_same_persona_continues_predecessors_session_despite_
             task2 = asyncio.create_task(turns.send_message(app, "second"))
             await asyncio.sleep(0.05)
 
-            aria = next(p for p in mock_data.list_personas() if p.handle == "aria")
+            aria = next(p for p in options.list_personas() if p.handle == "aria")
             runtime.apply_picker_choice(app, "persona", aria.handle)
             runtime.apply_picker_choice(app, "persona", samantha.handle)  # switch back
 
@@ -725,7 +725,7 @@ def test_two_concurrent_streaming_replies_each_get_their_own_timer(profiles, mon
             task_a = asyncio.create_task(turns.send_message(app, "hello a"))
             await asyncio.sleep(0.1)
 
-            aria = next(p for p in mock_data.list_personas() if p.handle == "aria")
+            aria = next(p for p in options.list_personas() if p.handle == "aria")
             runtime.apply_picker_choice(app, "persona", aria.handle)
             task_b = asyncio.create_task(turns.send_message(app, "hello b"))
             await asyncio.sleep(0.1)
@@ -1194,7 +1194,7 @@ def test_persona_switch_during_in_flight_call_is_not_overwritten(profiles, monke
             task = asyncio.create_task(turns.send_message(app, "hello"))
             await asyncio.sleep(0.05)
 
-            aria = next(p for p in mock_data.list_personas() if p.handle == "aria")
+            aria = next(p for p in options.list_personas() if p.handle == "aria")
             runtime.apply_picker_choice(app, "persona", aria.handle)
             assert app.persona.handle == "aria"
             assert app.session_id is None
@@ -1245,7 +1245,7 @@ def test_switching_back_to_same_persona_during_in_flight_call_still_wins(profile
             task = asyncio.create_task(turns.send_message(app, "hello"))
             await asyncio.sleep(0.05)
 
-            aria = next(p for p in mock_data.list_personas() if p.handle == "aria")
+            aria = next(p for p in options.list_personas() if p.handle == "aria")
             runtime.apply_picker_choice(app, "persona", aria.handle)
             runtime.apply_picker_choice(app, "persona", samantha.handle)  # switch back
             assert app.persona.handle == "samantha"
@@ -2005,13 +2005,13 @@ def test_a_failed_turn_leaves_the_meter_as_it_was(profiles, monkeypatch):
 
 def test_switching_the_model_or_the_persona_clears_the_meter(profiles, monkeypatch):
     async def switch_model(app, pilot):
-        runtime.apply_picker_choice(app, "model", mock_data.MODEL_OPTIONS[1].id)
+        runtime.apply_picker_choice(app, "model", options.MODEL_OPTIONS[1].id)
         return _meter_text(app)
 
     assert _run_meter_scenario(monkeypatch, [_result(3100, 5000)], then=switch_model)["then"] == ""
 
     async def switch_persona(app, pilot):
-        other = next(p for p in mock_data.list_personas() if p.handle != app.persona.handle)
+        other = next(p for p in options.list_personas() if p.handle != app.persona.handle)
         runtime.apply_picker_choice(app, "persona", other.handle)
         return _meter_text(app)
 
@@ -2056,7 +2056,7 @@ def test_a_reply_that_lands_after_a_persona_switch_does_not_fill_the_new_convers
     profiles, monkeypatch
 ):
     def to_other_persona(app):
-        other = next(p for p in mock_data.list_personas() if p.handle != app.persona.handle)
+        other = next(p for p in options.list_personas() if p.handle != app.persona.handle)
         runtime.apply_picker_choice(app, "persona", other.handle)
 
     assert _switched_while_in_flight(profiles, monkeypatch, to_other_persona) == ""
@@ -2066,7 +2066,7 @@ def test_a_reply_that_lands_after_a_model_switch_does_not_show_the_old_models_pe
     profiles, monkeypatch
 ):
     def to_other_model(app):
-        runtime.apply_picker_choice(app, "model", mock_data.MODEL_OPTIONS[1].id)
+        runtime.apply_picker_choice(app, "model", options.MODEL_OPTIONS[1].id)
 
     assert _switched_while_in_flight(profiles, monkeypatch, to_other_model) == ""
 

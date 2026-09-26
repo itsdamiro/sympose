@@ -16,7 +16,7 @@ from rich.text import Text
 from sympose import engine
 from sympose.cli import grounding_line, meter, share, trim_notice
 from sympose.cli import transcript as transcript_mod
-from sympose.cli.mock_data import active_model
+from sympose.cli.options import active_model
 
 log = logging.getLogger(__name__)
 

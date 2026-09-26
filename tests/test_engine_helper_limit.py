@@ -38,7 +38,7 @@ def test_a_malformed_or_tiny_value_leaves_the_default(junk):
 
 
 def test_every_model_in_the_picker_names_its_provider_and_appears_once():
-    from sympose.cli.mock_data import MODEL_OPTIONS
+    from sympose.cli.options import MODEL_OPTIONS
 
     ids = [m.id for m in MODEL_OPTIONS]
     assert len(ids) == len(set(ids))
