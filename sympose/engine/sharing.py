@@ -23,7 +23,7 @@ _PROPERTIES_KIND = "properties"
 # What each category is, in the words a user is asked about it (the CLI's `/share`, later the web app).
 DESCRIPTIONS = {
     NOTES: "passages of your notes found for a message",
-    PROPERTIES: "the properties of your notes (frontmatter: emails, phone numbers, links)",
+    PROPERTIES: "the properties of your notes, with each note's name (frontmatter: emails, phone numbers, links)",
     RECAPS: "recaps of your earlier conversations",
 }
 _REFERENCE_SOURCE = "sympose"

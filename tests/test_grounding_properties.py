@@ -52,6 +52,31 @@ def test_one_value_longer_than_a_passage_is_cut_and_not_dropped():
     assert text.startswith("summary: word") and len(text) <= gi.MAX_PASSAGE_CHARS
 
 
+def test_a_long_value_does_not_cost_the_short_properties_after_it():
+    """A long `description` early in the block must not push out `status` or `email` behind it."""
+    meta = {"description": "long " * 90, "status": "done", "email": "a@b.c"}
+
+    text = gp.properties_text(meta)
+
+    assert len(text) <= gi.MAX_PASSAGE_CHARS
+    assert text.splitlines()[-2:] == ["status: done", "email: a@b.c"]
+
+
+def test_a_line_that_no_longer_fits_is_left_out_and_a_shorter_one_after_it_still_goes_in():
+    meta = {"a": "x" * 100, "b": "x" * 100, "c": "x" * 100, "wide": "y" * 60, "status": "done"}
+
+    text = gp.properties_text(meta)
+
+    assert [line.split(":")[0] for line in text.splitlines()] == ["a", "b", "c", "status"]
+
+
+def test_a_value_on_several_lines_stays_one_value_and_never_reads_as_a_key():
+    """A block scalar can hold text that looks like `key: value`; it must not turn into a key of its own."""
+    text = gp.properties_text({"notes": "call Bob\n  status: done\n", "role": "chef"})
+
+    assert text == "notes: call Bob status: done\nrole: chef"
+
+
 def _hit(path, heading="", text="body"):
     return {"rel_path": path, "title": path[:-3], "heading": heading, "text": text, "tags": ["t"], "kind": "text"}
 

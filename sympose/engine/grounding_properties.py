@@ -14,6 +14,7 @@ from sympose.engine.grounding_split import MAX_PASSAGE_CHARS
 KIND = "properties"
 HEADING = "Properties"
 # The note a link names, without its heading or its shown text: `[[Anna Ruiz#Bio|Anna]]` is Anna Ruiz.
+_MAX_LINE = 120
 _LINK = re.compile(r"\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]")
 
 
@@ -31,23 +32,24 @@ def _value_text(value: Any) -> str:
         return ", ".join(text for text in map(_value_text, value) if text)
     if isinstance(value, dict):
         return ", ".join(f"{key}: {text}" for key, item in value.items() if (text := _value_text(item)))
-    return _LINK.sub(r"\1", str(value)).strip()
+    return " ".join(_LINK.sub(r"\1", str(value)).split())  # one line, however many the value had
 
 
 def properties_text(meta: dict[str, Any]) -> str:
-    """One `key: value` line for every property that has a value, cut at a line boundary at the size of one
-    passage; `""` for a note with none. The key stays with its value: it is what says what the value means."""
+    """One `key: value` line for every property that has a value; `""` for a note with none. The key stays with
+    its value: it is what says what the value means. A line over `_MAX_LINE` is cut (a value that long is prose,
+    and one `description` must not push `status` out), and the whole is kept to the size of one passage, a line
+    that no longer fits being left out while shorter ones after it still go in."""
     lines: list[str] = []
     for key, value in meta.items():
         text = _value_text(value)
         if not text:
             continue
         line = f"{key}: {text}"
-        if len("\n".join([*lines, line])) > MAX_PASSAGE_CHARS:
-            if not lines:
-                lines.append(line[:MAX_PASSAGE_CHARS].rstrip())  # one huge value, and nothing before it
-            break
-        lines.append(line)
+        if len(line) > _MAX_LINE:
+            line = line[: _MAX_LINE - 1].rstrip() + "…"
+        if len("\n".join([*lines, line])) <= MAX_PASSAGE_CHARS:
+            lines.append(line)
     return "\n".join(lines)
 
 
@@ -72,7 +74,6 @@ def for_hits(properties: dict[str, str], hits: list[dict[str, Any]]) -> list[dic
                     "text": text,
                     "tags": list(hit.get("tags", [])),
                     "kind": KIND,
-                    "index": len(hits) + len(found) + 1,
                 }
             )
     return found
