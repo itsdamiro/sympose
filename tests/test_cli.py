@@ -1754,6 +1754,20 @@ def test_grounding_header_segment_keeps_the_whole_line_within_the_terminal():
         assert grounding_line.cell_len(line) <= width - 4, width
 
 
+def test_grounding_is_omitted_rather_than_overflow_a_line_the_notices_already_filled():
+    # TTFT, the trim notice's two lines, and the share notices can, together, already reach or
+    # pass an ordinary 80-column terminal on their own, before the grounded note is even
+    # considered (#28); forcing the note's floor-width path on top would overflow every such
+    # reply, not just a narrow terminal's, which is the case the floor exists to accept.
+    header = (
+        "@samantha · Gemma2:9b · TTFT 8.3s · 3 older turns out of context · reply cut at the length limit"
+        " · cloud: notes, recaps · withheld: properties"
+    )
+    hits = [_hit("Projects/Atlas.md")]
+    assert grounding_line.cell_len(header) > 80 - 4
+    assert grounding_line.header_segment(header, hits, 80) == ""
+
+
 def test_a_follow_ups_rewritten_query_follows_the_note_and_is_cut_at_its_end():
     header = "@samantha · Gemma2:9b · TTFT 8.3s"
     hits = [_hit("Projects/Atlas.md")]

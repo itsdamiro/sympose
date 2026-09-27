@@ -58,7 +58,15 @@ def format_grounding(hits: list[dict[str, Any]], room: int) -> str:
     `from <top note> +N`, or `""` when nothing matched: a message that was
     never about a note would otherwise read as a claim about the vault. A hit
     without a path is skipped, since this is display only and must never cost
-    the user a reply that exists."""
+    the user a reply that exists. In a genuinely narrow terminal (`room`
+    small but positive) the floor below still overflows the line on purpose
+    (a cut path that loses its filename says nothing); but when the header's
+    other segments (TTFT, the trim and share notices) have already used the
+    whole line, `room` is zero or negative before the floor is even applied,
+    and forcing it on top would overflow every reply, not just a narrow
+    terminal's — so nothing is shown instead (#28)."""
+    if room <= 0:
+        return ""
     paths = list(dict.fromkeys(hit["rel_path"] for hit in hits if hit.get("rel_path")))
     if not paths:
         return ""
@@ -109,7 +117,7 @@ def header_segment(
         query = format_searched(searched, room - cell_len(segment) - len(separator))
         if not query:
             squeezed = format_grounding(hits, room - _QUERY_RESERVE)
-            if squeezed != segment:  # a short path cannot give up anything
+            if squeezed and squeezed != segment:  # giving up room can now also leave the note with no room at all
                 query = format_searched(searched, room - cell_len(squeezed) - len(separator))
                 if query:
                     line = separator + squeezed
