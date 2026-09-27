@@ -11,7 +11,7 @@ out to hold the 200-LOC-per-file cap."""
 from rich.style import Style
 
 from sympose import engine
-from sympose.cli import grounding_line, help_notes, meter, picker, share, transcript as transcript_mod
+from sympose.cli import grounded_list, grounding_line, help_notes, meter, picker, share, transcript as transcript_mod
 from sympose.cli.commands import COMMANDS
 from sympose.cli.options import MODEL_OPTIONS, list_personas
 from sympose.cli.selection import SelectionOption
@@ -63,6 +63,9 @@ async def run_command(app, command) -> None:
         else:
             line = "Couldn't save the grounded-notes setting."
         transcript_mod.mount_line(app, line, "system")
+    elif command.name == "/grounded":
+        for line in grounded_list.render(app.last_sent):
+            transcript_mod.mount_line(app, line, "system")
     elif command.name == "/share":
         await share.open_picker(app)
     elif command.name == "/history":

@@ -1868,6 +1868,67 @@ def test_the_reply_header_hides_grounding_when_the_knob_is_off(profiles, monkeyp
     assert header.endswith("TTFT 1.8s")
 
 
+def test_grounded_command_lists_the_last_replys_notes(profiles, monkeypatch):
+    def fake_run_turn(handle, user_message, session_id=None, model=None):
+        sent = {
+            "notes": [{"path": "Atlas.md", "heading": "Plans", "source": "vault", "via": "embedding", "similarity": 0.81}],
+            "recaps": [], "searched": None, "history_dropped": 0, "rewrite": False,
+        }
+        return engine.TurnResult(reply="ok", session_id="s", ttft_ms=1840, model="m", sent=sent)
+
+    monkeypatch.setattr(turns.engine, "run_turn", fake_run_turn)
+
+    async def scenario():
+        app = SymposeCLI()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.composer.focus()
+            await pilot.press(*"hi", "enter")
+            await pilot.pause(0.5)
+            await pilot.press(*"/grounded", "enter")
+            await pilot.pause()
+            return [plain_text(c) for c in app.transcript.children]
+
+    lines = run_async(scenario())
+    assert any("Atlas.md — Plans" in line and "similarity 0.81" in line for line in lines)
+
+
+def test_grounded_command_before_any_reply_says_so(profiles):
+    async def scenario():
+        app = SymposeCLI()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.composer.focus()
+            await pilot.press(*"/grounded", "enter")
+            await pilot.pause()
+            return [plain_text(c) for c in app.transcript.children]
+
+    assert any("No reply yet this session" in line for line in run_async(scenario()))
+
+
+def test_grounded_survives_a_clear(profiles, monkeypatch):
+    def fake_run_turn(handle, user_message, session_id=None, model=None):
+        sent = {"notes": [{"path": "Atlas.md", "heading": "", "source": "vault"}], "recaps": [], "searched": None, "history_dropped": 0, "rewrite": False}
+        return engine.TurnResult(reply="ok", session_id="s", ttft_ms=1840, model="m", sent=sent)
+
+    monkeypatch.setattr(turns.engine, "run_turn", fake_run_turn)
+
+    async def scenario():
+        app = SymposeCLI()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.composer.focus()
+            await pilot.press(*"hi", "enter")
+            await pilot.pause(0.5)
+            await pilot.press(*"/clear", "enter")
+            await pilot.pause()
+            await pilot.press(*"/grounded", "enter")
+            await pilot.pause()
+            return [plain_text(c) for c in app.transcript.children]
+
+    assert any("Atlas.md" in line for line in run_async(scenario()))
+
+
 def test_grounding_command_toggles_and_persists_the_setting(profiles):
     async def scenario():
         app = SymposeCLI()

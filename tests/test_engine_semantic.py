@@ -1049,7 +1049,7 @@ def test_the_turn_record_says_how_each_note_was_found_only_when_the_knob_is_on(s
     settings_store.set("grounding_search", "keywords")
     off = _recorded(turn, session)
 
-    assert on == [{"path": "Atlas.md", "heading": "Atlas", "source": "vault", "via": "embedding"}]
+    assert on == [{"path": "Atlas.md", "heading": "Atlas", "source": "vault", "via": "embedding", "similarity": 1.0}]
     assert off == []
 
 

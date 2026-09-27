@@ -878,6 +878,27 @@ def test_the_turn_record_says_which_notes_reached_the_model_without_their_text(s
     assert "distinguishably unique text" not in raw  # the path and heading, never the passage
 
 
+def test_the_result_carries_exactly_what_was_persisted(sessions_root, monkeypatch):
+    _capture_call(monkeypatch)
+    monkeypatch.setattr(grounding, "ground", lambda profile, msg, max_results=5: [_fake_grounding_result()])
+
+    result = turn.run_turn("samantha", "hello")
+
+    assert result.sent == _sent_of(result)  # a display command reads this back, never rebuilds it (#26)
+
+
+def test_a_note_found_by_meaning_keeps_its_similarity_only_for_that_hit(sessions_root, monkeypatch):
+    _capture_call(monkeypatch)
+    by_meaning = {**_fake_grounding_result(), "via": "embedding", "score": 0.81}
+    by_name = {**_fake_grounding_result(), "rel_path": "Other.md", "via": "name", "score": 0.0}
+    monkeypatch.setattr(grounding, "ground", lambda profile, msg, max_results=5: [by_meaning, by_name])
+
+    result = turn.run_turn("samantha", "hello")
+
+    assert result.sent["notes"][0]["similarity"] == 0.81
+    assert "similarity" not in result.sent["notes"][1]
+
+
 def test_a_turn_with_nothing_attached_records_that(sessions_root, monkeypatch):
     _capture_call(monkeypatch)
 

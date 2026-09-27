@@ -25,7 +25,9 @@ A turn record written before this lacks the key, and nothing that reads a sessio
 
 ## Not built yet
 
-A command or dashboard view that reads `sent` back to the user. A record of the passage scores. Recording the notes of a turn that failed before its reply (a turn is written only once it has a reply, so a failed call leaves no record, as before).
+Recording the notes of a turn that failed before its reply (a turn is written only once it has a reply, so a failed call leaves no record, as before).
+
+**Built (2026-09-28), #26: a command that reads `sent` back, and a note's similarity.** `/grounded` (ADR 016 has the CLI-side detail); a dashboard view stays open. A note's `notes` entry now also gains `similarity`, the cosine similarity `by_meaning`/`clear_winner` (ADR 027) computed for it, but only when `via` is `embedding` — a keyword hit's own score is a different, incomparable unit, and a name/value rescue hit's is a fixed placeholder, not a measurement, so neither gets the key at all rather than a misleading number. `TurnResult` gains a `sent` field, set to the exact same object `session.append_turn` is given, so a caller (the CLI's `/grounded`, later a web view) reads back precisely what was persisted instead of rebuilding a second, potentially-drifting version of it from `grounding`/`searched`/etc. separately.
 
 ## Note: a note can be listed twice in one turn
 

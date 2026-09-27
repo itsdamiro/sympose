@@ -48,10 +48,11 @@ def _show_failure(app, transcript, handle: str, message: str) -> None:
     transcript.scroll_end(animate=False)
 
 
-def _record_session_result(app, generation: int, session_id: str) -> None:
+def _record_session_result(app, generation: int, session_id: str, sent: dict | None) -> None:
     app.session_by_generation[generation] = session_id
     if generation == app.session_generation:  # still the live conversation
         app.session_id = session_id
+        app.last_sent = sent  # a persona switched away from mid-flight must not overwrite it (#26)
 
 
 def _queued_text(base: Text) -> Text:
@@ -139,7 +140,7 @@ async def _send_message(app, value: str) -> None:
             return
         if app._exit:  # /quit fired while this call was in flight
             return
-        _record_session_result(app, generation, result.session_id)
+        _record_session_result(app, generation, result.session_id, result.sent)
 
     meter.show(app, result.context_used, result.context_limit, meter_epoch)
     if result.ttft_ms is not None:

@@ -59,6 +59,10 @@ class TurnResult:
     # empty for a local model, where nothing leaves the machine.
     cloud: list[str] = field(default_factory=list)
     withheld: list[str] = field(default_factory=list)
+    # Exactly what was persisted alongside this turn (docs/decisions/025) — `None` only when a
+    # caller builds a result by hand. A display command reads this back rather than rebuilding it
+    # from `grounding`/`searched`/etc., so it can never drift from what the session record says (#26).
+    sent: dict[str, Any] | None = None
 
 
 def _interleave(first: list[dict[str, Any]], second: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -171,6 +175,7 @@ def run_turn(
         sharing.categories_of(grounding_results, recaps_sent, vault_map=map_allowed and bool(map_text)),
         [name for name in sharing.CATEGORIES if name in withheld],
     )
+    sent = sent_record(grounding_results, recaps_sent, searched_used, dropped, rewrite, cloud)
     saved = session.append_turn(
         handle,
         sid,
@@ -179,7 +184,7 @@ def run_turn(
         existing=existing,
         ttft_ms=reply.ttft_ms,
         model=target_model,
-        sent=sent_record(grounding_results, recaps_sent, searched_used, dropped, rewrite, cloud),
+        sent=sent,
         truncated=reply.truncated,
     )
     return TurnResult(
@@ -196,4 +201,5 @@ def run_turn(
         saved=saved,
         cloud=cloud[0] if cloud else [],
         withheld=cloud[1] if cloud else [],
+        sent=sent,
     )

@@ -1,8 +1,10 @@
 """`python -m sympose.main` also serves the built web app, guarded the same way `sympose web` is
-(docs/decisions/028). `sympose.main`'s dev server runs with `reload=True`, which watches the whole
-repo for changes; editing a tracked file while this module's fixture is up (not this file's own
-edits — a save that lands after the subprocess started) can trigger a spurious reload mid-test.
-Ordinary test runs never touch the repo's own files, so this is a live-editing hazard only."""
+(docs/decisions/028). `sympose.main`'s dev server runs with `reload=True`; WatchFiles watches the
+subprocess's `cwd` (the scratch `tmp_path` below, not the repo), so an ordinary run is not at risk
+from other files changing. Seen flaky only once, twice in a row, immediately after heavy manual
+port/process probing on this same machine (stray `sympose.main` processes, several full-suite runs
+at once); clean in isolation and in a following full run once those were cleared. If this ever
+flakes in a plain CI run, look for port or process contention first, not this fixture's logic."""
 
 import http.client
 import os

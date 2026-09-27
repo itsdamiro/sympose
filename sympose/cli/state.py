@@ -29,6 +29,11 @@ def init(app) -> None:
     # (docs/decisions/008). `session_id` above stays a convenient
     # mirror of the *current* generation's entry here.
     app.session_by_generation: dict[int, str | None] = {}
+    # Exactly what the last completed reply's `TurnResult.sent` held (docs/decisions/025) — `None`
+    # before any reply, and after `/clear`, which wipes the transcript but not this: the record it
+    # describes is still true of the persona's last real reply, `/clear` or not. `/grounded` reads
+    # this back rather than the transcript, so it survives a clear (#26).
+    app.last_sent: dict | None = None
     # One lock per persona handle (docs/decisions/008), not a single
     # global one: sessions are stored per-handle
     # (sympose/engine/session.py), so two different personas' turns

@@ -22,6 +22,10 @@ def sent_record(
                 "heading": hit.get("heading", ""),
                 "source": hit.get("source", "vault"),
                 **({"via": hit["via"]} if "via" in hit else {}),  # how it was found, when the knob is on (ADR 027)
+                # A similarity score means something only for a hit found by meaning, where it is a
+                # cosine similarity, 0 to 1; a keyword hit's own "score" is a different, incomparable
+                # unit, and a name/value rescue hit's is a fixed 0.0, not a measurement (#26).
+                **({"similarity": hit["score"]} if hit.get("via") == "embedding" else {}),
             }
             for hit in grounding
         ],
