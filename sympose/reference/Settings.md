@@ -30,6 +30,10 @@ The `context_window` setting is the size in tokens of the conversation a local m
 
 The `reply_limit` setting is the tokens kept back for the reply. By default a quarter of the window, up to 4096.
 
+## reply_reveal
+
+The `reply_reveal` setting is how fast a reply is written out in the chat, in words per second. The default is 50, and 0 shows the whole reply at once.
+
 ## cloud_helper_limit
 
 The `cloud_helper_limit` setting is how many tokens a cloud model may use for the two small background steps, the follow-up search and the recap of a finished chat. By default 4000. Only the tokens actually used are billed, so it is a ceiling, and a value below 64 leaves the default. A local model keeps its own small limits.
@@ -81,6 +85,14 @@ The `embedding_min_similarity` setting is how close in meaning a note must be to
 ## embedding_margin
 
 The `embedding_margin` setting keeps only the notes that are nearly as close in meaning as the best one, so a near neighbour does not come along with the note you needed. It is a number from 0 to 1 and the default is 0.02. A larger number attaches more notes, and 1 attaches every note that reaches `embedding_min_similarity`.
+
+## folder_definition_min_notes
+
+The `folder_definition_min_notes` setting is how many notes a top-level folder needs before `sympose vault --health` offers it a definition note. The default is 5.
+
+## folder_template_share
+
+The `folder_template_share` setting is the share of a folder's notes that must carry a property for it to go into the template of the folder's definition note, a number above 0 and up to 1. The default is 0.5.
 
 ## show_index_notice
 

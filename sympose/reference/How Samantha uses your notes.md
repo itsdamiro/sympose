@@ -48,6 +48,18 @@ A message such as "why did we pick it?" has no words to search for. When the fir
 
 Samantha says she could not find it in your vault instead of inventing an answer. If the note is there, ask again with a few more words about it, or with the words the note itself uses.
 
+## Does she read a note's properties?
+
+Yes. When a note is found, its properties, the block between two --- lines at the top such as a role, a status or an email, come with it, so she can answer from a status or an email. A cloud model gets them only when `cloud_share` allows properties.
+
+## Can she find a note by a property value?
+
+Only when the search found nothing. If your message says a property's whole value, like a company's name or a status, the notes that hold it are used, up to five. A value held by more than five notes is a category and finds none.
+
+## What about a note with only a title, or nothing in it?
+
+It still counts. A note with no text under its title, like a quote, a card of properties or an outline, is found by its title, its aliases and its headings, and she is told it is empty rather than given something to make up.
+
 ## Which notes may she read?
 
 Only the folders the persona is allowed to see (`vault_folders`), in the active vault.

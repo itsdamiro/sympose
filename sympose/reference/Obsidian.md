@@ -10,7 +10,7 @@ No. Sympose does not need Obsidian to be running or installed, and it does not u
 
 ## Which files does Sympose read?
 
-It reads files ending in .md, .markdown and .txt, including their frontmatter (the block between two --- lines at the top), and takes a note's title and tags from there.
+It reads files ending in .md, including their frontmatter (the block between two --- lines at the top), and takes a note's title and tags from there. Other files, like .txt or .markdown files, are not notes: they are not listed or searched, and `sympose vault --health` reports them as clutter.
 
 ## Which folders does Sympose skip?
 
@@ -22,4 +22,4 @@ Yes. Wikilinks between notes, like [[Another note]], are what the Knowledge Nebu
 
 ## Does Sympose change my notes?
 
-The chat only reads your vault. The web app's editor is the only part that writes, and what it saves are ordinary edits to the markdown files, the same files Obsidian shows.
+The chat only reads your vault. The web app's editor writes, and what it saves are ordinary edits to the markdown files, the same files Obsidian shows. The only other writer is `sympose vault --draft`, which creates one folder definition note, and only when you say yes.

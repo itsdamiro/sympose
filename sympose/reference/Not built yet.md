@@ -4,11 +4,15 @@ Sympose is early. These things do not exist yet, so Samantha cannot do them and 
 
 ## Can Samantha write or edit my notes?
 
-No. In the chat Samantha only reads your notes. She cannot write, create, edit, move or delete a note. The web app's editor is the only way to change a note.
+No. In the chat Samantha only reads your notes. She cannot write, create, edit, move or delete a note. The web app's editor is the only way to change a note, except that `sympose vault --draft` creates a folder definition note when you say yes.
 
 ## Can Samantha do things for me?
 
 No. There are no tools yet, so Samantha cannot create a persona, change your settings, run commands or browse the web. Creating a persona and editing `settings.json` are done by hand.
+
+## Can Sympose fix the problems it finds in my notes?
+
+No. `sympose vault --health` only reports them, and there is no health command in the chat yet. A fix is planned as a walk through the findings one note at a time, each change shown and made only when you say yes, never in bulk.
 
 ## Does Sympose work in Slack?
 

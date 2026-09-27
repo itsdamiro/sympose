@@ -325,6 +325,17 @@ REF_CASES: list[RefCase] = [
         find=("cannot",),
         first="Not built yet.md",
     ),
+    # Checking the notes (ADR 034)
+    RefCase("check-notes", "how do I check my notes for problems?", find=("sympose vault --health",), first="Checking your notes.md"),
+    RefCase("empty-notes", "how do I find empty notes in my vault?", find=("sympose vault --health",), first="Checking your notes.md"),
+    RefCase("broken-links", "how can I find broken links in my vault?", find=("links to no note",), first="Checking your notes.md"),
+    RefCase("clutter-files", "does the health report mention files that are not notes?", find=("clutter",), first="Checking your notes.md"),
+    RefCase("folder-definition", "what is a folder definition?", find=("what the folder is for",), first="Checking your notes.md"),
+    RefCase("draft-definition", "how do I draft a definition for a folder?", find=("sympose vault --draft",), first="Checking your notes.md"),
+    RefCase("draft-cloud", "does drafting a folder definition send my notes to a cloud model?", find=("titles",), first="Checking your notes.md"),
+    RefCase("health-fix", "can Sympose fix the problems it finds in my notes?", find=("never in bulk",), first="Not built yet.md"),
+    RefCase("reads-properties", "does she read the properties of my notes?", find=("properties",), first="How Samantha uses your notes.md"),
+    RefCase("reads-md-only", "does Sympose read my txt files as notes?", find=("not notes",), first="Obsidian.md"),
     # Search by meaning, in plain words
     RefCase(
         "what-is-search-by-meaning",
