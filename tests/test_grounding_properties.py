@@ -63,7 +63,7 @@ def test_a_long_value_does_not_cost_the_short_properties_after_it():
 
 
 def test_a_line_that_no_longer_fits_is_left_out_and_a_shorter_one_after_it_still_goes_in():
-    meta = {"a": "x" * 100, "b": "x" * 100, "c": "x" * 100, "wide": "y" * 60, "status": "done"}
+    meta = {"a": "x" * 100, "b": "x" * 100, "c": "x" * 100, "wide": "y" * 100, "status": "done"}
 
     text = gp.properties_text(meta)
 
