@@ -5,7 +5,9 @@ Sympose reference library, in a scratch settings file and cache. Nothing of anyo
 Opt-in and needs Ollama with the embedding model (`ollama pull nomic-embed-text`); it makes no chat call.
 Every figure is a fact about that embedding model and this vault only. Run it with
 
-    python tests/live_retrieval_cases.py [-v]
+    python tests/live_retrieval_cases.py [-v] [--properties]
+
+`--properties` measures the messages about property values (`property_cases.py`) on their own vault instead.
 
 A message passes when the library attaches exactly when it should, every needed note attaches, and no other
 note does (`retrieval_cases.py`)."""
@@ -14,11 +16,12 @@ import os
 import sys
 import tempfile
 
+from property_cases import PROPERTY_MESSAGES
 from retrieval_cases import MESSAGES, NO_BODY_MESSAGES, Msg
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PERSONA = {"name": "Samantha", "handle": "samantha", "aliases": ["Sam"], "vault_folders": ["*"], "sympose_reference": True}
-CATEGORIES = ("sympose", "vault", "clash", "mixed", "general", "chat", "title", "card", "outline", "nothing")
+CATEGORIES = ("sympose", "vault", "clash", "mixed", "general", "chat", "title", "card", "outline", "nothing", "value", "link", "probe")
 
 
 def score(message: Msg, lib: list[str], vault: list[str]) -> tuple[bool, str]:
@@ -34,9 +37,9 @@ def score(message: Msg, lib: list[str], vault: list[str]) -> tuple[bool, str]:
     return not reasons, "; ".join(reasons)
 
 
-def main(verbose: bool) -> None:
+def main(verbose: bool, properties: bool) -> None:
     tmp = tempfile.mkdtemp(prefix="retrieval-")
-    os.environ["VAULT_PATHS"] = os.path.join(HERE, "fixtures", "retrieval_vault")
+    os.environ["VAULT_PATHS"] = os.path.join(HERE, "fixtures", "properties_vault" if properties else "retrieval_vault")
     os.environ["SYMPOSE_SETTINGS_PATH"] = os.path.join(tmp, "settings.json")
     from sympose import settings_store
     from sympose.engine import grounding, reference, semantic_refresh
@@ -46,7 +49,7 @@ def main(verbose: bool) -> None:
         if mode != "keywords":
             for index in (grounding.scope_index(PERSONA), reference.library_index(PERSONA)):
                 semantic_refresh.build(index)  # every passage is embedded before it is measured
-        for label, messages in (("", MESSAGES), (" no-body notes", NO_BODY_MESSAGES)):
+        for label, messages in ((" property values", PROPERTY_MESSAGES),) if properties else (("", MESSAGES), (" no-body notes", NO_BODY_MESSAGES)):
             passed = {c: [0, 0] for c in CATEGORIES}
             held_out = [0, 0]
             failures = []
@@ -72,4 +75,4 @@ def main(verbose: bool) -> None:
 
 
 if __name__ == "__main__":
-    main("-v" in sys.argv)
+    main("-v" in sys.argv, "--properties" in sys.argv)

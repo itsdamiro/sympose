@@ -9,7 +9,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
 
-from sympose.engine.grounding_properties import properties_text
+from sympose.engine.grounding_properties import properties_text, values_of
 from sympose.engine.grounding_split import MAX_PASSAGE_CHARS, has_words, headings_of, split_passages  # noqa: F401
 from sympose.vault_manifest_build import _stem, _tags_of
 
@@ -91,6 +91,9 @@ class Index:
     # The words of each name a message can call a note by (its title, file name or an alias) -> the notes that
     # carry it, for the rescue of a note named in full (docs/decisions/030). Not searched: in no term count.
     names: dict[tuple[str, ...], list[str]] = field(default_factory=dict)
+    # The same for the text values of properties (a company, an email, a link as the name of its note), for the
+    # rescue of a note a value names (docs/decisions/030). Not searched.
+    values: dict[tuple[str, ...], list[str]] = field(default_factory=dict)
 
 
 def _aliases_of(meta: dict[str, Any]) -> list[str]:
@@ -166,14 +169,17 @@ def build_index(notes: list[dict[str, Any]]) -> Index:
     note_df: Counter = Counter()
     note_count = 0
     names: dict[tuple[str, ...], list[str]] = {}
+    values: dict[tuple[str, ...], list[str]] = {}
     for note in notes:
         made = _note_passages(note)
         if made:
             note_count += 1
             for words in _names_of(note):
                 names.setdefault(words, []).append(note["rel_path"])
+            for words in {tuple(_WORD.findall(text.lower())) for text in values_of(note.get("meta") or {})} - {()}:
+                values.setdefault(words, []).append(note["rel_path"])  # once per note, however many properties hold it
             note_df.update(set().union(*(p.tf.keys() for p in made)))
             passages += made
     avg = sum(p.length for p in passages) / len(passages) if passages else 0.0
     properties = {note["rel_path"]: text for note in notes if (text := properties_text(note.get("meta") or {}))}
-    return Index(passages, dict(note_df), note_count, avg, properties, names)
+    return Index(passages, dict(note_df), note_count, avg, properties, names, values)

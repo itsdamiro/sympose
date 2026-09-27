@@ -15,6 +15,8 @@ KIND = "properties"
 HEADING = "Properties"
 # The note a link names, without its heading or its shown text: `[[Anna Ruiz#Bio|Anna]]` is Anna Ruiz.
 _MAX_LINE = 120
+_MAX_VALUE = 80  # a longer value is prose
+_NOT_VALUES = frozenset({"aliases", "alias", "tags", "tag", "title", "name"})  # names, or already searched
 _LINK = re.compile(r"\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]")
 
 
@@ -33,6 +35,38 @@ def _value_text(value: Any) -> str:
     if isinstance(value, dict):
         return ", ".join(f"{key}: {text}" for key, item in value.items() if (text := _value_text(item)))
     return " ".join(_LINK.sub(r"\1", str(value)).split())  # one line, however many the value had
+
+
+def _link_name(link: re.Match[str]) -> str:
+    """The name of the note a link points at: `[[People/Dana Lee.md#Bio|Dana]]` is `Dana Lee`, as a message says it."""
+    name = link.group(1).rsplit("/", 1)[-1].strip()
+    return name[:-3] if name.lower().endswith(".md") else name
+
+
+def _texts(value: Any) -> list[str]:
+    """The text values inside one property's value: strings only (a number, a boolean and a date are not names),
+    from lists and nested mappings too, a link as the name of its note."""
+    if isinstance(value, str):
+        return [_LINK.sub(_link_name, value)]
+    if isinstance(value, (list, tuple)):
+        return [text for item in value for text in _texts(item)]
+    if isinstance(value, dict):
+        return [text for item in value.values() for text in _texts(item)]
+    return []
+
+
+def values_of(meta: dict[str, Any]) -> list[str]:
+    """The text of each value of a note's properties that a message could call the note by (docs/decisions/030,
+    "Property values as names"): not under the keys in `_NOT_VALUES`, not longer than `_MAX_VALUE`, and not text with
+    no letter in it (a quoted date or number, or the value of a note whose YAML did not parse: everything is text
+    there)."""
+    return [
+        text
+        for key, value in meta.items()
+        if str(key).lower() not in _NOT_VALUES
+        for text in _texts(value)
+        if len(text) <= _MAX_VALUE and any(char.isalpha() for char in text)
+    ]
 
 
 def properties_text(meta: dict[str, Any]) -> str:
