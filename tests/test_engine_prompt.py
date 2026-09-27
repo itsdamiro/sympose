@@ -500,3 +500,59 @@ def test_a_withheld_category_does_not_hide_that_matching_notes_did_not_fit():
 
     assert "too long for the context window" in block
     assert "properties" in block
+
+
+# -- the vault map and connections (docs/decisions/035) --
+
+
+def test_the_vault_map_sits_with_the_soul_ahead_of_the_recaps():
+    text = prompt.build_system_prompt({"name": "Ada", "handle": "ada"}, vault_map="3 notes in 1 top-level folders.")
+
+    assert prompt.VAULT_MAP_LABEL in text
+    assert "3 notes in 1 top-level folders." in text
+    assert text.index(prompt.VAULT_MAP_LABEL) > text.index("Your name is Ada.")
+
+
+def test_no_vault_map_adds_nothing():
+    profile = {"name": "Ada", "handle": "ada"}
+
+    assert prompt.build_system_prompt(profile) == prompt.build_system_prompt(profile, vault_map=None)
+    assert prompt.VAULT_MAP_LABEL not in prompt.build_system_prompt(profile)
+
+
+def test_a_withheld_vault_map_says_so_instead_of_showing_it():
+    text = prompt.build_system_prompt({"name": "Ada", "handle": "ada"}, vault_map=None, vault_map_withheld=True)
+
+    assert prompt.WITHHELD_VAULT_MAP in text
+    assert prompt.VAULT_MAP_LABEL not in text
+
+
+def test_build_messages_threads_the_vault_map_into_the_system_prompt():
+    messages = prompt.build_messages(
+        {"name": "Ada", "handle": "ada"}, [], [], "hi", vault_map="1 note in 1 top-level folders."
+    )
+
+    assert "1 note in 1 top-level folders." in messages[0]["content"]
+    assert "1 note in 1 top-level folders." not in messages[-1]["content"]  # the map is not repeated with the message
+
+
+def test_a_notes_connections_ride_with_it_and_are_stated_as_fact():
+    result = {**_grounding_result(), "connections": ["Ben", "Cara"]}
+
+    text = prompt.build_user_turn("who is Anna?", [result])
+
+    assert prompt.CONNECTED_TO.format(names="Ben; Cara") in text
+    assert text.index("Some notes about fonts.") < text.index("Ben; Cara")  # the note's own text comes first
+
+
+def test_no_connections_field_adds_nothing():
+    text = prompt.build_user_turn("who is Anna?", [_grounding_result()])
+
+    assert "Connected to" not in text
+
+
+def test_withheld_connections_are_said_beside_the_notes_that_were_sent():
+    text = prompt.build_user_turn("who is Anna?", [_grounding_result()], withheld={"connections": 1})
+
+    assert "Some notes about fonts." in text
+    assert prompt.WITHHELD_CONNECTIONS in text

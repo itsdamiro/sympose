@@ -16,23 +16,24 @@ and 020). The engine's rules stay after the soul, so no soul can weaken them
 from typing import Any
 
 from sympose.engine import reference as reference_mod
-from sympose.engine.prompt_blocks import notes_block, recaps_block, reference_block
+from sympose.engine.prompt_blocks import notes_block, recaps_block, reference_block, vault_map_block
 from sympose.engine.prompt_text import (
-    ANSWER_FROM_NOTES, ANSWER_FROM_RECAPS, ANSWER_FROM_REFERENCE, DEFAULT_SOUL, GROUNDING_RULE,
+    ANSWER_FROM_NOTES, ANSWER_FROM_RECAPS, ANSWER_FROM_REFERENCE, CONNECTED_TO, DEFAULT_SOUL, GROUNDING_RULE,
     HOW_YOU_WORK, NO_NOTES, NO_RECAP, NO_REFERENCE, NO_TOPIC, POINT_TO_REFERENCE, RECAPS_LABEL,
-    RECAP_INSTRUCTIONS, REFERENCE_LABEL, REWRITE_INSTRUCTIONS, SYMPOSE_RULE, WITHHELD_NOTES,
-    WITHHELD_PROPERTIES, WITHHELD_RECAPS,
+    RECAP_INSTRUCTIONS, REFERENCE_LABEL, REWRITE_INSTRUCTIONS, SYMPOSE_RULE, VAULT_MAP_LABEL, WITHHELD_CONNECTIONS,
+    WITHHELD_NOTES, WITHHELD_PROPERTIES, WITHHELD_RECAPS, WITHHELD_VAULT_MAP,
 )
 from sympose.engine.sharing import RECAPS
 from sympose.persona_files import load_soul
 from sympose.profile import reference_persona_names
 
 __all__ = [
-    "ANSWER_FROM_NOTES", "ANSWER_FROM_RECAPS", "ANSWER_FROM_REFERENCE", "DEFAULT_SOUL",
+    "ANSWER_FROM_NOTES", "ANSWER_FROM_RECAPS", "ANSWER_FROM_REFERENCE", "CONNECTED_TO", "DEFAULT_SOUL",
     "GROUNDING_RULE", "HOW_YOU_WORK", "NO_NOTES", "NO_RECAP", "NO_REFERENCE", "NO_TOPIC",
     "POINT_TO_REFERENCE", "RECAPS_LABEL", "RECAP_INSTRUCTIONS", "REFERENCE_LABEL",
-    "REWRITE_INSTRUCTIONS", "SYMPOSE_RULE", "WITHHELD_NOTES", "WITHHELD_PROPERTIES",
-    "WITHHELD_RECAPS", "build_messages", "build_system_prompt", "build_user_turn",
+    "REWRITE_INSTRUCTIONS", "SYMPOSE_RULE", "VAULT_MAP_LABEL", "WITHHELD_CONNECTIONS", "WITHHELD_NOTES",
+    "WITHHELD_PROPERTIES", "WITHHELD_RECAPS", "WITHHELD_VAULT_MAP",
+    "build_messages", "build_system_prompt", "build_user_turn",
 ]
 
 # -- the layout --
@@ -43,6 +44,8 @@ def build_system_prompt(
     recaps: list[dict[str, Any]] | None = None,
     recaps_omitted: int = 0,
     recaps_withheld: int = 0,
+    vault_map: str | None = None,
+    vault_map_withheld: bool = False,
 ) -> str:
     # `handle` is always lowercase (`profile.get_profile` lowercases it
     # before building a file path) -- title-cased here so a fallback
@@ -59,6 +62,11 @@ def build_system_prompt(
     parts = [soul or DEFAULT_SOUL, identity, HOW_YOU_WORK, GROUNDING_RULE]
     if profile.get("sympose_reference"):
         parts.append(SYMPOSE_RULE)
+    # The vault map (docs/decisions/035) sits here, fixed like the soul and the rules above it: unlike
+    # the notes found for a message, it is never left out to fit the window.
+    map_text = vault_map_block(vault_map, vault_map_withheld)
+    if map_text:
+        parts.append(map_text)
     # Recaps go here, not in the message: beside a request in the middle of a chat that is on the
     # same topic as a recap, they made her comment on the conversation instead of continuing it
     # (docs/decisions/026).
@@ -108,17 +116,23 @@ def build_messages(
     recaps: list[dict[str, Any]] | None = None,
     recaps_omitted: int = 0,
     withheld: dict[str, int] | None = None,
+    vault_map: str | None = None,
+    vault_map_withheld: bool = False,
 ) -> list[dict[str, str]]:
-    """The system prompt (with the recaps of earlier conversations, docs/decisions/023 and 026),
-    the history as it was said (the notes of earlier turns are not repeated), and this turn's
-    notes with the message. `point_to`: the
+    """The system prompt (with the vault map, docs/decisions/035, and the recaps of earlier
+    conversations, docs/decisions/023 and 026), the history as it was said (the notes of earlier turns
+    are not repeated), and this turn's notes with the message. `point_to`: the
     personas that have the reference library, read from the roster when not given
     (a turn gives it once, since fitting builds this many times). `withheld`: what a cloud model
-    was not sent because the user has not allowed it, by category (docs/decisions/031)."""
+    was not sent because the user has not allowed it, by category (docs/decisions/031). `vault_map` and
+    `vault_map_withheld` are constant across every attempt of the prompt-fitting loop (docs/decisions/015):
+    unlike grounding, recaps and history, the map is never sacrificed to fit the window."""
     withheld = withheld or {}
     system = {
         "role": "system",
-        "content": build_system_prompt(profile, recaps, recaps_omitted, withheld.get(RECAPS, 0)),
+        "content": build_system_prompt(
+            profile, recaps, recaps_omitted, withheld.get(RECAPS, 0), vault_map, vault_map_withheld
+        ),
     }
     has_library = bool(profile.get("sympose_reference"))
     if point_to is None:

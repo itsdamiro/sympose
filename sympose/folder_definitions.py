@@ -125,6 +125,18 @@ def read_template(body: str) -> str | None:
     return None
 
 
+def read_purpose(body: str) -> str | None:
+    """The purpose paragraph of a definition (`render`'s own shape, docs/decisions/035): everything before
+    its `## Template` section, minus the note's own `# <Folder>` title line. `None` when there is none — an
+    empty note, or a purpose the vault owner never wrote (ADR 033 stage 2's `unclear`, `withheld` or
+    `failed`, where the draft has the template and no purpose)."""
+    lines = body.splitlines()
+    end = next((i for i, line in enumerate(lines) if _HEADING.match(line.strip())), len(lines))
+    before = [line for line in lines[:end] if not line.strip().startswith("# ")]
+    text = "\n".join(before).strip()
+    return text or None
+
+
 def as_template(block: str) -> str:
     """A block of property lines as the frontmatter a new note starts with (rendered like a `Templates/` file)."""
     block = block.strip()

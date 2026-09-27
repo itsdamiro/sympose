@@ -211,6 +211,34 @@ def test_a_definition_reads_back_what_was_rendered():
     assert text.startswith("# People\n\nPeople I know.\n\n## Template") and defs.read_template(text) == "role:\ntype: person"
 
 
+# --- the purpose paragraph (docs/decisions/035) --------------------------------------------
+
+
+def test_the_purpose_is_read_back_from_a_rendered_definition():
+    text = defs.render("People", ["role:"], "People I know.")
+
+    assert defs.read_purpose(text) == "People I know."
+
+
+def test_the_folders_own_title_line_is_not_the_purpose():
+    assert defs.read_purpose("# People\n\n## Template\n\n```yaml\n```\n") is None
+
+
+def test_no_purpose_paragraph_at_all_is_none():
+    assert defs.read_purpose(defs.render("People", ["role:"])) is None
+    assert defs.read_purpose("") is None
+
+
+def test_a_purpose_of_several_sentences_is_kept_whole():
+    text = defs.render("People", [], "People I know. Family, friends and colleagues.")
+
+    assert defs.read_purpose(text) == "People I know. Family, friends and colleagues."
+
+
+def test_the_purpose_is_read_even_with_no_template_heading_at_all():
+    assert defs.read_purpose("# People\n\nJust a purpose, no template yet.") == "Just a purpose, no template yet."
+
+
 def test_no_purpose_means_none_is_written_and_no_lines_means_an_empty_block():
     assert defs.render("People", ["role:"]) == "# People\n\n## Template\n\n```yaml\nrole:\n```\n"
     assert defs.render("People", [], "  ") == "# People\n\n## Template\n\n```yaml\n```\n"

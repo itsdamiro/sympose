@@ -6,10 +6,11 @@ docs/decisions/031). How they are laid out is `prompt`."""
 from typing import Any
 
 from sympose.engine.prompt_text import (
-    ANSWER_FROM_RECAPS, EMPTY_NOTE, EMPTY_NOTE_ALIASES, EMPTY_NOTE_HEADINGS, NO_NOTES, NO_REFERENCE,
-    PROPERTIES_OF_NOTE, RECAPS_LABEL, REFERENCE_LABEL, WITHHELD_NOTES, WITHHELD_PROPERTIES, WITHHELD_RECAPS,
+    ANSWER_FROM_RECAPS, CONNECTED_TO, EMPTY_NOTE, EMPTY_NOTE_ALIASES, EMPTY_NOTE_HEADINGS, NO_NOTES,
+    NO_REFERENCE, PROPERTIES_OF_NOTE, RECAPS_LABEL, REFERENCE_LABEL, VAULT_MAP_LABEL, WITHHELD_CONNECTIONS,
+    WITHHELD_NOTES, WITHHELD_PROPERTIES, WITHHELD_RECAPS, WITHHELD_VAULT_MAP,
 )
-from sympose.engine.sharing import NOTES, PROPERTIES
+from sympose.engine.sharing import CONNECTIONS, NOTES, PROPERTIES
 
 
 def reference_block(hits: list[dict[str, Any]], omitted: int = 0) -> str:
@@ -34,17 +35,32 @@ def reference_block(hits: list[dict[str, Any]], omitted: int = 0) -> str:
 
 def _text_of(result: dict[str, Any]) -> str:
     """What a grounded note says; a note with no text of its own is shown as empty, with its other names; a
-    note's properties are shown as what they are, so a value is never read as something the user wrote."""
+    note's properties are shown as what they are, so a value is never read as something the user wrote. A
+    note's connections to others (docs/decisions/035), when it has any, ride along in the same text so
+    they are dropped with the note, not as a line item of their own."""
     if result.get("kind") == "properties":
-        return PROPERTIES_OF_NOTE.format(text="; ".join(result["text"].splitlines()))
-    if result.get("kind") != "title":
-        return result["text"]
-    headings = result.get("heading") and result["heading"] != result["title"]  # as `where` shows them
-    return (
-        EMPTY_NOTE
-        + (EMPTY_NOTE_HEADINGS if headings else "")
-        + (EMPTY_NOTE_ALIASES.format(names=result["text"]) if result["text"] else "")
-    )
+        text = PROPERTIES_OF_NOTE.format(text="; ".join(result["text"].splitlines()))
+    elif result.get("kind") != "title":
+        text = result["text"]
+    else:
+        headings = result.get("heading") and result["heading"] != result["title"]  # as `where` shows them
+        text = (
+            EMPTY_NOTE
+            + (EMPTY_NOTE_HEADINGS if headings else "")
+            + (EMPTY_NOTE_ALIASES.format(names=result["text"]) if result["text"] else "")
+        )
+    if connections := result.get("connections"):
+        text += "\n" + CONNECTED_TO.format(names="; ".join(connections))
+    return text
+
+
+def vault_map_block(text: str | None, withheld: bool = False) -> str | None:
+    """The vault map (docs/decisions/035), fixed ahead of the sacrifice loop and never left out to fit the
+    window; a line saying it was withheld from a cloud model the user has not allowed to receive it; or
+    nothing at all with no vault."""
+    if text:
+        return f"{VAULT_MAP_LABEL}\n{text}"
+    return WITHHELD_VAULT_MAP if withheld else None
 
 
 def recaps_block(recaps: list[dict[str, Any]], omitted: int = 0, withheld: int = 0) -> str | None:
@@ -83,7 +99,8 @@ def notes_block(
     has nothing on it. `withheld` is what the user has not allowed a cloud
     model to receive (docs/decisions/031), which must be said for the same reason."""
     withheld = withheld or {}
-    held = [text for category, text in ((NOTES, WITHHELD_NOTES), (PROPERTIES, WITHHELD_PROPERTIES)) if withheld.get(category)]
+    reasons_by_category = ((NOTES, WITHHELD_NOTES), (PROPERTIES, WITHHELD_PROPERTIES), (CONNECTIONS, WITHHELD_CONNECTIONS))
+    held = [text for category, text in reasons_by_category if withheld.get(category)]
     if not grounding_results:
         # Every reason there is, since "the vault has nothing" would be false for each of them.
         reasons = held + (

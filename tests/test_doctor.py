@@ -303,7 +303,7 @@ def test_a_cloud_chat_model_with_nothing_approved_is_reported_but_is_not_a_probl
     assert code == 0 and out.endswith("Everything looks healthy.\n")
     assert (
         "chat model: gemini/gemini-flash-latest: cloud, it receives your messages and this conversation; "
-        "from your vault it may receive: nothing; held back: notes, properties, recaps"
+        "from your vault it may receive: nothing; held back: notes, properties, recaps, vault_map, connections"
     ) in out
 
 
@@ -313,7 +313,7 @@ def test_the_approved_categories_are_listed_and_the_rest_are_held_back(base):
 
     _, out = _run()
 
-    assert "from your vault it may receive: notes, recaps; held back: properties" in out
+    assert "from your vault it may receive: notes, recaps; held back: properties, vault_map, connections" in out
 
 
 def test_a_persona_with_a_model_of_its_own_is_listed_and_one_without_is_not(base):

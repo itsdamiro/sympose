@@ -108,6 +108,24 @@ WITHHELD_RECAPS = (
     "person you are talking to that they can allow it with /share; write \"you\", not \"the user\"."
 )
 
+# The vault map (docs/decisions/035): a small, always-known summary of the vault's shape, unlike the
+# notes found for a message, which come from a search and can be left out to fit the window.
+VAULT_MAP_LABEL = "The shape of the vault (always known, not from a search for this message):"
+WITHHELD_VAULT_MAP = (
+    "(The shape of the vault is not shown: the user has not allowed it to be sent to this cloud "
+    "model. If it would help, tell the person you are talking to that they can allow it with "
+    "/share; write \"you\", not \"the user\".)"
+)
+
+# A grounded note's connections to other notes (docs/decisions/035): computed from real links, tags
+# and folders, never guessed, so they are stated as fact when shown at all.
+CONNECTED_TO = "Connected to (by a link, a shared tag, or the same folder, not a search): {names}"
+WITHHELD_CONNECTIONS = (
+    "(Notes' connections to each other were not included: the user has not allowed them to be sent "
+    "to this cloud model. If they matter to the question, say so, and tell the person you are "
+    "talking to that they can allow it with /share; write \"you\", not \"the user\".)"
+)
+
 # Earlier conversations (docs/decisions/023): the recaps of them travel with the
 # message, and the recap itself is written by the same model from the session log.
 RECAPS_LABEL = "Earlier conversations with the user (short recaps of what was talked about, not facts about the vault):"

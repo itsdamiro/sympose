@@ -10,8 +10,11 @@ persisting) was never exercised — see ADR 008."""
 from dataclasses import dataclass, field
 from typing import Any
 
-from sympose import profile as profile_mod
-from sympose.engine import budget, followup, grounding, grounding_properties, prompt, recap, recap_refresh, reference, session, sharing
+from sympose import profile as profile_mod, vault_map as vault_map_mod
+from sympose.engine import (
+    budget, connections, followup, grounding, grounding_properties, prompt, recap, recap_refresh, reference,
+    session, sharing,
+)
 from sympose.engine import model as model_mod
 from sympose.engine.model import EngineModelError
 from sympose.engine.turn_record import sent_record
@@ -99,6 +102,9 @@ def run_turn(
     # end of the list goes first, so the best passage of each source stays longest and
     # neither's evidence is dropped wholesale before the other's (docs/decisions/022).
     grounding_results = _interleave(reference.ground(persona, user_message), vault_hits)
+    # Each note's connections to others (docs/decisions/035) ride inside its own passage, before
+    # properties are appended below, so both `gate` and the sacrifice loop see them as one item.
+    grounding_results = connections.for_hits(persona, grounding_results)
     # The properties of the notes found come after all the text, so they are the first to go (docs/decisions/030).
     index = grounding.scope_index(persona) if vault_hits else None
     if index is not None:
@@ -112,6 +118,14 @@ def run_turn(
     # count and the record below all see the same set.
     gated = sharing.gate(target_model, grounding_results, recap.latest(handle, exclude=sid))
     grounding_results, recaps_found, withheld = gated.grounding, gated.recaps, gated.withheld
+
+    # The vault map (docs/decisions/035): computed locally either way (nothing leaves the machine by
+    # computing it), sent only when the model may receive it; fixed for every attempt of the fitting
+    # loop below, unlike the notes, recaps and history it sizes around.
+    map_text = vault_map_mod.build(persona)
+    map_allowed = sharing.VAULT_MAP in sharing.allowed(target_model)
+    if map_text and not map_allowed:
+        withheld[sharing.VAULT_MAP] = 1
 
     reference_found = sum(1 for h in grounding_results if h.get("source") == reference.SOURCE)
     vault_found = len(grounding_results) - reference_found
@@ -133,6 +147,8 @@ def run_turn(
             recaps=recaps,
             recaps_omitted=len(recaps_found) - len(recaps),
             withheld=withheld,
+            vault_map=map_text if map_allowed else None,
+            vault_map_withheld=bool(map_text) and not map_allowed,
         )
 
     prompt_tokens = 0
@@ -152,7 +168,7 @@ def run_turn(
 
     searched_used = searched if any(h.get("source") != reference.SOURCE for h in grounding_results) else None
     cloud = None if sharing.is_local(target_model) else (
-        sharing.categories_of(grounding_results, recaps_sent),
+        sharing.categories_of(grounding_results, recaps_sent, vault_map=map_allowed and bool(map_text)),
         [name for name in sharing.CATEGORIES if name in withheld],
     )
     saved = session.append_turn(

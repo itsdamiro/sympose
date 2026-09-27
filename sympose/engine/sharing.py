@@ -15,8 +15,8 @@ from sympose import settings_store
 from sympose.engine import budget
 
 SETTING = "cloud_share"
-NOTES, PROPERTIES, RECAPS = "notes", "properties", "recaps"
-CATEGORIES = (NOTES, PROPERTIES, RECAPS)
+NOTES, PROPERTIES, RECAPS, VAULT_MAP, CONNECTIONS = "notes", "properties", "recaps", "vault_map", "connections"
+CATEGORIES = (NOTES, PROPERTIES, RECAPS, VAULT_MAP, CONNECTIONS)
 # What a grounded passage of the user's own notes is, by its `kind` (a note's properties are a
 # passage of their own, docs/decisions/030); anything else that is a vault passage is note text.
 _PROPERTIES_KIND = "properties"
@@ -25,6 +25,8 @@ DESCRIPTIONS = {
     NOTES: "passages of your notes found for a message",
     PROPERTIES: "the properties of your notes, with each note's name (frontmatter: emails, phone numbers, links)",
     RECAPS: "recaps of your earlier conversations",
+    VAULT_MAP: "the shape of your vault (folder names, their purpose, note counts, common tags)",
+    CONNECTIONS: "how a note found for a message connects to your other notes (links, tags, folder)",
 }
 _REFERENCE_SOURCE = "sympose"
 
@@ -63,7 +65,11 @@ def category_of(hit: dict[str, Any]) -> str | None:
 
 
 def gate(model: str, grounding: list[dict[str, Any]], recaps: list[dict[str, Any]]) -> Gated:
-    """`grounding` and `recaps` as `model` may receive them, and what was held back."""
+    """`grounding` and `recaps` as `model` may receive them, and what was held back. A note's own
+    connections (docs/decisions/035) are stripped from a surviving hit, not the hit itself, when
+    `connections` is not approved: they are an extra fact about a note that was sent, not a reason to
+    withhold the note (a hit already dropped for its own category takes its connections with it, with
+    no separate count)."""
     ok = allowed(model)
     withheld: dict[str, int] = {}
 
@@ -73,7 +79,14 @@ def gate(model: str, grounding: list[dict[str, Any]], recaps: list[dict[str, Any
         withheld[category] = withheld.get(category, 0) + 1
         return False
 
-    kept = [hit for hit in grounding if keep(category_of(hit))]
+    kept = []
+    for hit in grounding:
+        if not keep(category_of(hit)):
+            continue
+        if hit.get("connections") and CONNECTIONS not in ok:
+            withheld[CONNECTIONS] = withheld.get(CONNECTIONS, 0) + 1
+            hit = {k: v for k, v in hit.items() if k != "connections"}
+        kept.append(hit)
     kept_recaps = [recap for recap in recaps if keep(RECAPS)]
     return Gated(kept, kept_recaps, withheld)
 
@@ -83,10 +96,15 @@ def embeds_notes(embedding_model: str) -> bool:
     return NOTES in allowed(embedding_model)
 
 
-def categories_of(grounding: list[dict[str, Any]], recaps: list[dict[str, Any]]) -> list[str]:
-    """The categories that `grounding` and `recaps` carry, in the order of `CATEGORIES` (what a turn
-    actually sent, for the reply header and the session record)."""
+def categories_of(grounding: list[dict[str, Any]], recaps: list[dict[str, Any]], vault_map: bool = False) -> list[str]:
+    """The categories that `grounding`, `recaps` and (docs/decisions/035) the vault map carry, in the
+    order of `CATEGORIES` (what a turn actually sent, for the reply header and the session record).
+    `vault_map`: whether the map itself was sent this turn."""
     present = {category_of(hit) for hit in grounding} | ({RECAPS} if recaps else set())
+    if vault_map:
+        present.add(VAULT_MAP)
+    if any(hit.get("connections") for hit in grounding):
+        present.add(CONNECTIONS)
     return [name for name in CATEGORIES if name in present]
 
 

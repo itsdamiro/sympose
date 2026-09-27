@@ -8,9 +8,14 @@ import os
 import pytest
 from helpers import write_persona
 
-from sympose import settings_store
+from sympose import settings_store, vault_paths
 from sympose.engine import followup, grounding, prompt, reference, session, turn
 from sympose.engine.model import ModelReply
+
+# Captured before `no_follow_up_rewrite` (below) ever monkeypatches the *module-level*
+# `vault_paths.resolve_sandbox` — the attribute this name would read by the time any test body
+# runs is already the fake one, so restoring it has to use a reference taken before that happens.
+_REAL_RESOLVE_SANDBOX = vault_paths.resolve_sandbox
 
 
 @pytest.fixture(autouse=True)
@@ -1066,3 +1071,65 @@ def test_the_token_count_is_of_the_prompt_that_was_sent_withheld_lines_included(
     sent = turn.budget.count_tokens(calls[0]["messages"], CLOUD)
     assert prompt.WITHHELD_NOTES in calls[0]["messages"][-1]["content"]
     assert result.context_used == sent + turn._reply_tokens("reply", CLOUD)
+
+
+# -- the vault map and connections (docs/decisions/035) --
+
+
+def _real_vault(tmp_path, monkeypatch):
+    """A vault on disk with two linked notes, so the vault map and a note's connections are
+    computed for real rather than through a stub (the two paths this section tests). Undoes the
+    `no_follow_up_rewrite` fixture's stub of `vault_paths.resolve_sandbox` — a *module-level*
+    patch, so it would otherwise feed this vault's map and connections a fake, empty "/vault" too."""
+    vault = tmp_path / "vault"
+    (vault / "People").mkdir(parents=True)
+    (vault / "People" / "Anna.md").write_text("links to [[Ben]]", encoding="utf-8")
+    (vault / "People" / "Ben.md").write_text("", encoding="utf-8")
+    monkeypatch.setenv("VAULT_PATHS", str(vault))
+    monkeypatch.setattr(followup.vault_paths, "resolve_sandbox", _REAL_RESOLVE_SANDBOX)
+
+
+def _anna_hit():
+    return {**_fake_grounding_result(), "title": "Anna", "rel_path": "People/Anna.md"}
+
+
+def test_a_local_model_gets_the_vault_map_and_a_notes_connections(sessions_root, tmp_path, monkeypatch):
+    _real_vault(tmp_path, monkeypatch)
+    calls = _capture_call(monkeypatch)
+    monkeypatch.setattr(grounding, "ground", lambda profile, msg, max_results=5: [_anna_hit()])
+
+    result = turn.run_turn("samantha", "who is Anna?")
+
+    system, user_turn = calls[0]["messages"][0]["content"], calls[0]["messages"][-1]["content"]
+    assert prompt.VAULT_MAP_LABEL in system and "People" in system
+    assert prompt.CONNECTED_TO.format(names="Ben") in user_turn
+    assert result.cloud == [] and result.withheld == []  # nothing to weigh for a local model
+
+
+def test_a_cloud_model_withholds_the_map_and_connections_until_approved(sessions_root, tmp_path, monkeypatch):
+    _real_vault(tmp_path, monkeypatch)
+    settings_store.set("cloud_share", ["notes"])  # the note itself is approved, the map and connections are not
+    calls = _capture_call(monkeypatch)
+    monkeypatch.setattr(grounding, "ground", lambda profile, msg, max_results=5: [_anna_hit()])
+
+    result = turn.run_turn("samantha", "who is Anna?", model=CLOUD)
+
+    system, user_turn = calls[0]["messages"][0]["content"], calls[0]["messages"][-1]["content"]
+    assert prompt.WITHHELD_VAULT_MAP in system and prompt.VAULT_MAP_LABEL not in system
+    assert prompt.WITHHELD_CONNECTIONS in user_turn and "Connected to" not in user_turn
+    assert "About Anna" in user_turn or _fake_grounding_result()["text"] in user_turn  # the note itself was sent
+    assert result.cloud == ["notes"] and result.withheld == ["vault_map", "connections"]
+
+
+def test_a_cloud_model_receives_the_map_and_connections_once_approved(sessions_root, tmp_path, monkeypatch):
+    _real_vault(tmp_path, monkeypatch)
+    settings_store.set("cloud_share", ["notes", "vault_map", "connections"])
+    calls = _capture_call(monkeypatch)
+    monkeypatch.setattr(grounding, "ground", lambda profile, msg, max_results=5: [_anna_hit()])
+
+    result = turn.run_turn("samantha", "who is Anna?", model=CLOUD)
+
+    system, user_turn = calls[0]["messages"][0]["content"], calls[0]["messages"][-1]["content"]
+    assert prompt.VAULT_MAP_LABEL in system
+    assert prompt.CONNECTED_TO.format(names="Ben") in user_turn
+    assert result.cloud == ["notes", "vault_map", "connections"] and result.withheld == []

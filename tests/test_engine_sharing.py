@@ -17,7 +17,7 @@ PERSONA = {"handle": "samantha", "name": "Samantha"}
 
 @pytest.mark.parametrize("model", ["ollama/nomic", "ollama_chat/gemma2:9b"])
 def test_a_local_model_may_receive_every_category(model):
-    assert sharing.allowed(model) == {"notes", "properties", "recaps"}
+    assert sharing.allowed(model) == set(sharing.CATEGORIES)
 
 
 def test_a_cloud_model_may_receive_nothing_until_the_user_approves():
@@ -28,7 +28,7 @@ def test_a_cloud_model_may_receive_the_approved_categories_only():
     settings_store.set("cloud_share", ["notes", "recaps"])
 
     assert sharing.allowed(CLOUD) == {"notes", "recaps"}
-    assert sharing.allowed("ollama_chat/x") == {"notes", "properties", "recaps"}  # local: not the list's business
+    assert sharing.allowed("ollama_chat/x") == set(sharing.CATEGORIES)  # local: not the list's business
 
 
 @pytest.mark.parametrize(
@@ -87,6 +87,42 @@ def test_a_title_passage_is_a_note_for_the_gate():
 def test_the_categories_a_turn_sent_are_listed_in_order():
     assert sharing.categories_of([PROPERTIES, LIBRARY, NOTE], [RECAP]) == ["notes", "properties", "recaps"]
     assert sharing.categories_of([LIBRARY], []) == []
+
+
+def test_the_vault_map_and_connections_are_listed_when_present():
+    connected = {**NOTE, "connections": ["Ben"]}
+
+    assert sharing.categories_of([connected], [], vault_map=True) == ["notes", "vault_map", "connections"]
+    assert sharing.categories_of([NOTE], [], vault_map=False) == ["notes"]
+
+
+def test_the_gate_strips_connections_from_a_surviving_hit_it_does_not_drop_the_hit():
+    settings_store.set("cloud_share", ["notes"])
+    connected = {**NOTE, "connections": ["Ben"]}
+
+    gated = sharing.gate(CLOUD, [connected], [])
+
+    assert gated.withheld == {"connections": 1}
+    assert gated.grounding == [NOTE]  # the note itself was allowed; only its connections were not
+
+
+def test_the_gate_keeps_connections_once_approved():
+    settings_store.set("cloud_share", ["notes", "connections"])
+    connected = {**NOTE, "connections": ["Ben"]}
+
+    gated = sharing.gate(CLOUD, [connected], [])
+
+    assert gated.grounding == [connected]
+    assert gated.withheld == {}
+
+
+def test_a_hit_dropped_for_its_own_category_takes_its_connections_with_it_uncounted():
+    connected = {**PROPERTIES, "connections": ["Ben"]}
+
+    gated = sharing.gate(CLOUD, [connected], [])
+
+    assert gated.grounding == []
+    assert gated.withheld == {"properties": 1}  # no separate "connections" count for a hit already dropped
 
 
 def test_a_cloud_embedder_may_see_the_notes_only_when_approved():
