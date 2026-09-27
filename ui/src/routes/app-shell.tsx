@@ -746,6 +746,11 @@ export function AppShell() {
     if (id === MENU_TRASH_ID) closeCreate()
     if (id === resolvedActive && panels.isOpen("content")) {
       panels.close("content")
+      // Phone: the rail and content are one view (`menuOpen` above), so
+      // closing content this way must also drop `menuShown` — otherwise the
+      // TopBar toggle's next click sees a stale `menuShown` and reads as a
+      // close on an already-closed view instead of reopening it (#84).
+      if (isPhone) setMenuShown(false)
     } else {
       setContentDirection("forward")
       setActive(id)
