@@ -8,7 +8,7 @@ embedding is involved, and it changes nothing when the search found a note."""
 from typing import Any
 
 from sympose.engine import embeddings
-from sympose.engine.grounding_index import _WORD, PASSAGES_PER_NOTE, Index, Passage, index_terms
+from sympose.engine.grounding_index import Index, index_terms
 from sympose.engine.semantic_pick import hit
 
 _MAX_NOTES_PER_NAME = 2  # a name that three or more notes carry is a category, not a note
@@ -55,14 +55,11 @@ def rescue(
     `max_results` passages."""
     if hits or not index.names or embeddings.mode() == embeddings.KEYWORDS:  # (a note with values has a name too)
         return hits
-    said = tuple(_WORD.findall(message.lower()))
+    said = tuple(index_terms(message))
     named = _said_in(index.names, said, index, address, _MAX_NOTES_PER_NAME)
     valued = [path for path in _said_in(index.values, said, index, address, max_results) if path not in named]
     if not named and not valued:
         return hits
-    by_path: dict[str, list[Passage]] = {path: [] for path in named + valued}
-    for passage in index.passages:
-        if passage.rel_path in by_path and len(by_path[passage.rel_path]) < PASSAGES_PER_NOTE:
-            by_path[passage.rel_path].append(passage)
+    by_path = {path: index.passages_by_path.get(path, []) for path in named + valued}
     found = [(passage, "name") for path in named for passage in by_path[path]] + [(by_path[path][0], "value") for path in valued if by_path[path]]
     return [{**hit(passage, 0.0, via), "index": n} for n, (passage, via) in enumerate(found[:max_results], start=1)]

@@ -94,6 +94,9 @@ class Index:
     # The same for the text values of properties (a company, an email, a link as the name of its note), for the
     # rescue of a note a value names (docs/decisions/030). Not searched.
     values: dict[tuple[str, ...], list[str]] = field(default_factory=dict)
+    # A note's own passages (at most `PASSAGES_PER_NOTE`), by its path, for the rescue to attach without a scan
+    # of every passage in the vault.
+    passages_by_path: dict[str, list[Passage]] = field(default_factory=dict)
 
 
 def _aliases_of(meta: dict[str, Any]) -> list[str]:
@@ -111,11 +114,14 @@ def _aliases_of(meta: dict[str, Any]) -> list[str]:
 
 
 def _names_of(note: dict[str, Any]) -> set[tuple[str, ...]]:
-    """The words of each name of a note: its title, its file name and its aliases, lower case."""
+    """The informative words of each name of a note: its title, its file name and its aliases, folded and with
+    filler stripped exactly as the index terms are (`index_terms`), so a message that drops a name's own filler
+    word ("the Great Gatsby" said as "great gatsby") or uses the other number ("flight" for a note "Flights")
+    still says the name."""
     meta = note.get("meta") or {}
     stem = _stem(note["file_name"])
     labels = [str(meta.get("title") or meta.get("name") or stem), stem, *_aliases_of(meta)]
-    return {words for label in labels if (words := tuple(_WORD.findall(label.lower())))}
+    return {words for label in labels if (words := tuple(index_terms(label)))}
 
 
 def _note_passages(note: dict[str, Any]) -> list[Passage]:
@@ -170,16 +176,18 @@ def build_index(notes: list[dict[str, Any]]) -> Index:
     note_count = 0
     names: dict[tuple[str, ...], list[str]] = {}
     values: dict[tuple[str, ...], list[str]] = {}
+    passages_by_path: dict[str, list[Passage]] = {}
     for note in notes:
         made = _note_passages(note)
         if made:
             note_count += 1
             for words in _names_of(note):
                 names.setdefault(words, []).append(note["rel_path"])
-            for words in {tuple(_WORD.findall(text.lower())) for text in values_of(note.get("meta") or {})} - {()}:
+            for words in {tuple(index_terms(text)) for text in values_of(note.get("meta") or {})} - {()}:
                 values.setdefault(words, []).append(note["rel_path"])  # once per note, however many properties hold it
             note_df.update(set().union(*(p.tf.keys() for p in made)))
+            passages_by_path[note["rel_path"]] = made[:PASSAGES_PER_NOTE]
             passages += made
     avg = sum(p.length for p in passages) / len(passages) if passages else 0.0
     properties = {note["rel_path"]: text for note in notes if (text := properties_text(note.get("meta") or {}))}
-    return Index(passages, dict(note_df), note_count, avg, properties, names, values)
+    return Index(passages, dict(note_df), note_count, avg, properties, names, values, passages_by_path)

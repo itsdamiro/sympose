@@ -141,6 +141,18 @@ def test_the_passages_of_a_turn_stay_within_the_limit(vault):
     assert len(hits) == 5 and [h["index"] for h in hits] == [1, 2, 3, 4, 5]
 
 
+def test_a_filler_word_dropped_from_the_title_still_names_it(vault):
+    _write(vault, "The Great Gatsby.md", "A novel about a mysterious millionaire.")
+
+    assert _found("tell me about great gatsby") == ["The Great Gatsby.md"]
+
+
+def test_the_other_number_of_the_title_still_names_it(vault):
+    _write(vault, "Flights.md", "Flight bookings for the year.")
+
+    assert _found("tell me about the flight") == ["Flights.md"]
+
+
 def test_the_longer_name_comes_first(vault):
     _write(vault, "Clipper.md", "A tool for cutting.")
     _write(vault, "Web Clipper.md", "Saves pages from the web.")
