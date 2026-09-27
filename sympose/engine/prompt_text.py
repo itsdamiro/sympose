@@ -136,3 +136,15 @@ REWRITE_INSTRUCTIONS = (
     f"of its own, output exactly: {NO_TOPIC}. "
     f"Output only the query or {NO_TOPIC}, nothing else."
 )
+
+# Sent to the model that drafts a folder's definition (docs/decisions/033, stage 2).
+UNCLEAR_PURPOSE = "UNCLEAR"
+PURPOSE_INSTRUCTIONS = (
+    "You write the description of one folder of a person's notes, so their assistant knows what the folder is "
+    "for. You are given the folder's name and the titles of some of its notes (and, if it has any, the names of "
+    "its sub-folders). In one or two plain sentences, say what kinds of things the notes in the folder are about. "
+    "Use only what the titles and names show. Never say how many notes there are, never call a title a folder, "
+    "and never mention properties or tags. Do not guess what the person does with the notes. If the titles do "
+    "not show a common purpose or subject (a mix of unrelated things), output exactly: "
+    f"{UNCLEAR_PURPOSE}. Output only the sentences or {UNCLEAR_PURPOSE}, nothing else."
+)
