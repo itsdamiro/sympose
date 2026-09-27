@@ -14,6 +14,7 @@ from typing import Any
 from sympose import vault_paths
 from sympose.engine import semantic
 from sympose.engine.grounding_index import PASSAGES_PER_NOTE, Index, Passage, build_index, index_terms
+from sympose.engine.grounding_named import rescue
 from sympose.vault_snapshot import get_vault_snapshot
 
 _K1, _B = 1.2, 0.75  # standard BM25 constants
@@ -197,4 +198,5 @@ def ground(profile: dict[str, Any], user_message: str, max_results: int = 5) -> 
     names = [profile.get("name") or "", profile.get("handle") or "", *(profile.get("aliases") or [])]
     address = frozenset(index_terms(" ".join(n for n in names if isinstance(n, str))))
     hits = retrieve(index, user_message, max_results, address=address)
-    return semantic.refine(index, user_message, hits, max_results=max_results)  # the knob (docs/decisions/027)
+    hits = semantic.refine(index, user_message, hits, max_results=max_results)  # the knob (docs/decisions/027)
+    return rescue(index, user_message, hits, address, max_results)  # a note named in full (docs/decisions/030)

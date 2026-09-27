@@ -168,11 +168,12 @@ def test_meaning_finds_a_note_that_shares_no_word_with_the_message(setup):
 
 
 def test_a_note_that_shares_a_word_but_not_the_meaning_is_not_attached(setup):
-    _write(setup, "Priya.md", "# Priya\n\nPriya owns the dark mode decision.")
+    # The note is not called Priya: a message that names a note in full finds it anyway (docs/decisions/030).
+    _write(setup, "Decisions.md", "# Decisions\n\nPriya owns the dark mode decision.")
     _mode("embeddings")
 
     settings_store.set("grounding_search", "keywords")
-    assert [h["rel_path"] for h in grounding.ground(WHOLE, "who is Priya?")] == ["Priya.md"]
+    assert [h["rel_path"] for h in grounding.ground(WHOLE, "who is Priya?")] == ["Decisions.md"]
     settings_store.set("grounding_search", "embeddings")
 
     assert grounding.ground(WHOLE, "who is Priya?") == []  # far in meaning from a message with no topic
@@ -385,11 +386,12 @@ def test_hybrid_keeps_a_keyword_hit_whose_note_is_close_in_meaning(setup):
 
 
 def test_hybrid_drops_a_keyword_hit_whose_note_is_far_in_meaning(setup):
-    _write(setup, "Priya.md", "# Priya\n\nPriya owns the dark mode decision.")  # no concept: far from the query
+    # Not called Priya: a message that names a note in full finds it whatever its meaning (docs/decisions/030).
+    _write(setup, "Decisions.md", "# Decisions\n\nPriya owns the dark mode decision.")  # no concept: far from the query
     _write(setup, "Atlas.md", "# Atlas\n\nSQLite for the prototype.")
     _mode("hybrid", threshold=0.6)
     settings_store.set("grounding_search", "keywords")
-    assert [h["rel_path"] for h in grounding.ground(WHOLE, "who is Priya?")] == ["Priya.md"]
+    assert [h["rel_path"] for h in grounding.ground(WHOLE, "who is Priya?")] == ["Decisions.md"]
     _mode("hybrid", threshold=0.6)
 
     assert grounding.ground(WHOLE, "who is Priya?") == []

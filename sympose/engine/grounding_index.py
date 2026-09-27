@@ -88,6 +88,9 @@ class Index:
     # note path -> its properties as text, for the notes that have any (docs/decisions/030). Not searched: they are
     # attached to a note that was found, so they are in no term count.
     properties: dict[str, str] = field(default_factory=dict)
+    # The words of each name a message can call a note by (its title, file name or an alias) -> the notes that
+    # carry it, for the rescue of a note named in full (docs/decisions/030). Not searched: in no term count.
+    names: dict[tuple[str, ...], list[str]] = field(default_factory=dict)
 
 
 def _aliases_of(meta: dict[str, Any]) -> list[str]:
@@ -102,6 +105,14 @@ def _aliases_of(meta: dict[str, Any]) -> list[str]:
             names += [name.strip() for name in value if isinstance(name, str) and name.strip()]
     seen: set[str] = set()
     return [name for name in names if not (name.lower() in seen or seen.add(name.lower()))]
+
+
+def _names_of(note: dict[str, Any]) -> set[tuple[str, ...]]:
+    """The words of each name of a note: its title, its file name and its aliases, lower case."""
+    meta = note.get("meta") or {}
+    stem = _stem(note["file_name"])
+    labels = [str(meta.get("title") or meta.get("name") or stem), stem, *_aliases_of(meta)]
+    return {words for label in labels if (words := tuple(_WORD.findall(label.lower())))}
 
 
 def _note_passages(note: dict[str, Any]) -> list[Passage]:
@@ -154,12 +165,15 @@ def build_index(notes: list[dict[str, Any]]) -> Index:
     passages: list[Passage] = []
     note_df: Counter = Counter()
     note_count = 0
+    names: dict[tuple[str, ...], list[str]] = {}
     for note in notes:
         made = _note_passages(note)
         if made:
             note_count += 1
+            for words in _names_of(note):
+                names.setdefault(words, []).append(note["rel_path"])
             note_df.update(set().union(*(p.tf.keys() for p in made)))
             passages += made
     avg = sum(p.length for p in passages) / len(passages) if passages else 0.0
     properties = {note["rel_path"]: text for note in notes if (text := properties_text(note.get("meta") or {}))}
-    return Index(passages, dict(note_df), note_count, avg, properties)
+    return Index(passages, dict(note_df), note_count, avg, properties, names)

@@ -22,7 +22,7 @@ The first time, Samantha reads all your notes into that cache in the background,
 
 ## Why does she miss a note, or bring notes that have nothing to do with my question?
 
-For fewer unrelated notes, raise `embedding_min_similarity` in `settings.json` (0.72 by default); if she misses notes, lower it. `embedding_margin` (0.02) drops notes that are not nearly as close as the best one. A note you name only by a very short title may need a few more words about it.
+For fewer unrelated notes, raise `embedding_min_similarity` in `settings.json` (0.72 by default); if she misses notes, lower it. `embedding_margin` (0.02) drops notes that are not nearly as close as the best one. If nothing else matches, saying a note's whole title, file name or alias finds it, unless that name is a word a tenth or more of your notes use.
 
 ## How do I go back to searching by words only?
 

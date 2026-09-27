@@ -14,7 +14,7 @@ A smaller `context_window` in `settings.json` shortens the wait, at the price of
 
 ## She says she cannot find something that is in my vault
 
-Searching by meaning can miss a note you name only by a very short title, so give a few more words about it or use the words the note itself uses. Also check that the right vault is active and that the persona is allowed to see that folder (`vault_folders`).
+Searching by meaning can miss a note you name only by a short title. If nothing else matched, saying its whole title, file name or an alias finds it; otherwise give a few more words about it or use the words the note itself uses. Also check that the right vault is active and that the persona is allowed to see that folder (`vault_folders`).
 
 ## The search seems to work only by keywords
 
