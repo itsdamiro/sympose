@@ -43,4 +43,4 @@ The strict mode used for the library (ADR 019) is unchanged.
 
 ## Not built yet
 
-Making her answer first and ask second (her soul). A gentler treatment of an ordinary word that is a note's whole title, which still grounds it however long the message.
+Making her answer first and ask second (her soul). **A gentler treatment of an ordinary word that is a note's whole title, which still grounds it however long the message: built as ADR 030, "A one-word name against a longer message" (#6).** Idioms read literally stay open, unhelped by that fix.

@@ -13,6 +13,12 @@ from sympose.engine.semantic_pick import hit
 
 _MAX_NOTES_PER_NAME = 2  # a name that three or more notes carry is a category, not a note
 _MIN_LETTERS = 3
+# A one-word name is weak evidence on its own — an ordinary word ("Layout", "Work") can be a note's whole
+# title and still turn up in an unrelated message. It is kept only when the message's other informative
+# words are (almost) all accounted for by some name too — either this is most of what the message says, or
+# every other word it says is itself another note's name (docs/decisions/030, #6). A multi-word name is
+# specific enough that this guard does not apply to it.
+_MAX_UNEXPLAINED_WORDS = 1
 # A name whose rarest informative word is in more than this share of the notes is a topic the vault is about
 # ("search" in the Obsidian documentation), not a name; only once the vault is big enough for a share to mean
 # anything (the reasoning of `_MAX_NOTE_SHARE` in grounding.py).
@@ -28,13 +34,15 @@ def _is_name(words: tuple[str, ...], index: Index, address: frozenset[str]) -> b
     return index.note_count < _MIN_NOTES_FOR_SHARE or rarest <= _MAX_NOTE_SHARE * index.note_count
 
 
-def _said_in(
+def _matches(
     table: dict[tuple[str, ...], list[str]], said: tuple[str, ...], index: Index, address: frozenset[str], cap: int
-) -> list[str]:
-    """The notes of the entries of `table` (words -> notes) that `said` contains whole, in order, whatever the
-    case, those of the longest entries first; an entry that more than `cap` notes carry finds none."""
+) -> dict[tuple[str, ...], list[str]]:
+    """The entries of `table` (words -> notes) that `said` contains whole, in order, whatever the case; an
+    entry that more than `cap` notes carry finds none. Unfiltered by how much of `said` they explain — a
+    name and a value are both checked before that is judged, since either can explain the other's leftover
+    words (#6)."""
     if not table:
-        return []
+        return {}
     longest = max(map(len, table))
     found: dict[tuple[str, ...], list[str]] = {}
     for start in range(len(said)):
@@ -42,7 +50,15 @@ def _said_in(
             paths = table.get(said[start:end])
             if paths and len(paths) <= cap and _is_name(said[start:end], index, address):
                 found[said[start:end]] = paths
-    paths = [path for words in sorted(found, key=len, reverse=True) for path in sorted(found[words])]
+    return found
+
+
+def _ordered_paths(matches: dict[tuple[str, ...], list[str]], unexplained: int) -> list[str]:
+    """`matches`, longest entry first, dropping a one-word entry when the message has more than
+    `_MAX_UNEXPLAINED_WORDS` informative words that no entry (name or value, of any length) accounts for —
+    the rest of a longer, unrelated message (#6)."""
+    kept = {words: paths for words, paths in matches.items() if len(words) > 1 or unexplained <= _MAX_UNEXPLAINED_WORDS}
+    paths = [path for words in sorted(kept, key=len, reverse=True) for path in sorted(kept[words])]
     return list(dict.fromkeys(paths))
 
 
@@ -56,8 +72,12 @@ def rescue(
     if hits or not index.names or embeddings.mode() == embeddings.KEYWORDS:  # (a note with values has a name too)
         return hits
     said = tuple(index_terms(message))
-    named = _said_in(index.names, said, index, address, _MAX_NOTES_PER_NAME)
-    valued = [path for path in _said_in(index.values, said, index, address, max_results) if path not in named]
+    name_matches = _matches(index.names, said, index, address, _MAX_NOTES_PER_NAME)
+    value_matches = _matches(index.values, said, index, address, max_results)
+    covered = {word for words in (*name_matches, *value_matches) for word in words}
+    unexplained = len(set(said) - covered)
+    named = _ordered_paths(name_matches, unexplained)
+    valued = [path for path in _ordered_paths(value_matches, unexplained) if path not in named]
     if not named and not valued:
         return hits
     by_path = {path: index.passages_by_path.get(path, []) for path in named + valued}

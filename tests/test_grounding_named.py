@@ -184,6 +184,26 @@ def test_a_name_is_judged_by_its_rarest_word(vault):
     assert _found("tell me about the quokka plan") == ["Quokka Plan.md"]  # "plan" is everywhere, "quokka" is not
 
 
+def test_an_ordinary_word_that_is_a_whole_title_does_not_attach_an_unrelated_message(vault):
+    _write(vault, "Layout.md", "The floor plan for the new office.")
+
+    assert _found("I want to redo the layout of my kitchen this weekend") == []  # "layout" said in passing
+    assert _found("tell me about the layout") == ["Layout.md"]  # little else said: still names it
+
+
+def test_an_ordinary_title_word_still_attaches_when_the_rest_is_also_named(vault):
+    for name in ("Alpha", "Bravo", "Charlie", "Delta"):
+        _write(vault, f"{name}.md", f"Notes about {name}.")
+
+    assert sorted(_found("compare alpha bravo charlie and delta")) == ["Alpha.md", "Bravo.md", "Charlie.md", "Delta.md"]
+
+
+def test_a_multi_word_title_is_not_held_to_the_ordinary_word_guard(vault):
+    _write(vault, "Web Clipper.md", "Saves pages from the web.")
+
+    assert _found("I finally set up the web clipper after a long week of other chores") == ["Web Clipper.md"]
+
+
 def test_the_share_of_notes_that_makes_a_word_common_is_a_tenth(vault):
     _write(vault, "Gadget.md", "A device.")
     for n in range(12):
