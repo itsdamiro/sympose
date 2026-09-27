@@ -294,56 +294,6 @@ export function AppShell() {
   // both be open when this is read — no ambiguity in checking both.
   const beforeVault = React.useRef<"editor" | "chat" | null>(null)
 
-  // Close the vault view — rail out, content panel out, back to the prior panel.
-  const closeVault = () => {
-    setMenuShown(false)
-    panels.close("content")
-    if (beforeVault.current) panels.open(beforeVault.current)
-    beforeVault.current = null
-  }
-
-  const revealMenu = () => {
-    if (menuShown) {
-      closeVault()
-      return
-    }
-    // toggle open — rail in, content panel in (on a folder, never a sentinel)
-    beforeVault.current = panels.isOpen("chat")
-      ? "chat"
-      : panels.isOpen("editor")
-        ? "editor"
-        : null
-    if (
-      (active === MENU_SETTINGS_ID ||
-        active === MENU_ACCOUNT_ID ||
-        active === MENU_TRASH_ID) &&
-      menuItems.length > 0
-    ) {
-      setActive(menuItems[0].id)
-    }
-    panels.open("content")
-    setMenuShown(true)
-  }
-
-  const selectSection = (id: string) => {
-    // On phone, jumping to Settings / Persona from the TopBar slides the menu away
-    // (folder picks keep it, so its highlight stays visible next to the panel).
-    if (isPhone && (id === MENU_SETTINGS_ID || id === MENU_ACCOUNT_ID)) {
-      setMenuShown(false)
-    }
-    // A root note row (README.md) also selects it in the tree.
-    if (noteIds.has(id)) selectNote(id)
-    // Leaving the tree for the bin: drop any half-typed create-input name.
-    if (id === MENU_TRASH_ID) closeCreate()
-    if (id === resolvedActive && panels.isOpen("content")) {
-      panels.close("content")
-    } else {
-      setContentDirection("forward")
-      setActive(id)
-      panels.open("content")
-    }
-  }
-
   // Menu: on a small breakpoint it snaps to the rail (if the pref is on) — but
   // stays fully draggable, and a desktop trip back restores the expanded width
   // unless the user has since collapsed it themselves. `forced` remembers that
@@ -752,6 +702,56 @@ export function AppShell() {
     isSentinel || menuItems.some((i) => i.id === active)
       ? active
       : (menuItems[0]?.id ?? active)
+
+  // Close the vault view — rail out, content panel out, back to the prior panel.
+  const closeVault = () => {
+    setMenuShown(false)
+    panels.close("content")
+    if (beforeVault.current) panels.open(beforeVault.current)
+    beforeVault.current = null
+  }
+
+  const revealMenu = () => {
+    if (menuShown) {
+      closeVault()
+      return
+    }
+    // toggle open — rail in, content panel in (on a folder, never a sentinel)
+    beforeVault.current = panels.isOpen("chat")
+      ? "chat"
+      : panels.isOpen("editor")
+        ? "editor"
+        : null
+    if (
+      (active === MENU_SETTINGS_ID ||
+        active === MENU_ACCOUNT_ID ||
+        active === MENU_TRASH_ID) &&
+      menuItems.length > 0
+    ) {
+      setActive(menuItems[0].id)
+    }
+    panels.open("content")
+    setMenuShown(true)
+  }
+
+  const selectSection = (id: string) => {
+    // On phone, jumping to Settings / Persona from the TopBar slides the menu away
+    // (folder picks keep it, so its highlight stays visible next to the panel).
+    if (isPhone && (id === MENU_SETTINGS_ID || id === MENU_ACCOUNT_ID)) {
+      setMenuShown(false)
+    }
+    // A root note row (README.md) also selects it in the tree.
+    if (noteIds.has(id)) selectNote(id)
+    // Leaving the tree for the bin: drop any half-typed create-input name.
+    if (id === MENU_TRASH_ID) closeCreate()
+    if (id === resolvedActive && panels.isOpen("content")) {
+      panels.close("content")
+    } else {
+      setContentDirection("forward")
+      setActive(id)
+      panels.open("content")
+    }
+  }
 
   // The content panel shows the *contents* of the selected surface entry — a
   // folder's own subtree, or a single root note — not the whole vault tree.
