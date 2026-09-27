@@ -8,48 +8,53 @@ import json
 import os
 from typing import Any
 
-from sympose import vault_paths
+from sympose import folder_definitions, vault_paths
 from sympose.vault_write import get_file_lock, write_atomic_text
 from sympose.vault_write_status import NOTE_DENIED, NOTE_EXISTS
 
 
-def get_template_for_path(mv: str, note_name: str) -> str | None:
-    """Resolves the user's own Obsidian template from `Templates/` if
-    present. The folder->template match is derived from whichever
-    templates actually live in `Templates/` (its filename minus " template.md",
-    matched against the note's top-level folder exactly or as a
-    singular/plural pair) rather than a hardcoded list. "Note template.md"
-    is the fallback for any folder without a dedicated template."""
+def dedicated_template_file(mv: str, folder: str) -> str | None:
+    """The path of the `Templates/` file made for `folder` (its filename minus " template.md", matched against
+    the folder's name exactly or as a singular/plural pair, whatever the case), or `None`. "Note template.md"
+    is the general fallback, not a dedicated one."""
     tmpl_dir = os.path.join(mv, "Templates") if mv else ""
-    if not mv or not os.path.isdir(tmpl_dir):
+    if not folder or not os.path.isdir(tmpl_dir):
+        return None
+    folder = folder.lower()
+    for fname in os.listdir(tmpl_dir):
+        fname_lower = fname.lower()
+        if fname_lower == "note template.md" or not fname_lower.endswith("template.md"):
+            continue
+        note_type = fname_lower[: -len("template.md")].strip()
+        if folder in (note_type, note_type.rstrip("s"), note_type + "s"):
+            return os.path.join(tmpl_dir, fname)
+    return None
+
+
+def read_text_file(path: str) -> str | None:
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read()
+    except OSError:
         return None
 
-    norm = note_name.lower().replace("\\", "/")
-    folder = norm.split("/", 1)[0] if "/" in norm else ""
 
-    matched_file = None
-    if folder:
-        for fname in os.listdir(tmpl_dir):
-            fname_lower = fname.lower()
-            if fname_lower == "note template.md" or not fname_lower.endswith(
-                "template.md"
-            ):
-                continue
-            note_type = fname_lower[: -len("template.md")].strip()
-            if folder in (note_type, note_type.rstrip("s"), note_type + "s"):
-                matched_file = os.path.join(tmpl_dir, fname)
-                break
-
-    if not matched_file or not os.path.exists(matched_file):
-        matched_file = os.path.join(tmpl_dir, "Note template.md")
-
-    if os.path.exists(matched_file):
-        try:
-            with open(matched_file, "r", encoding="utf-8") as f:
-                return f.read()
-        except OSError:
-            return None
-    return None
+def get_template_for_path(mv: str, note_name: str, allowed_dirs: list[str] | None = None) -> str | None:
+    """The template a new note starts from, in this order: the user's own Obsidian template made for the note's
+    top-level folder (`dedicated_template_file`), else that folder's definition note's `## Template` block
+    (docs/decisions/033), else "Note template.md" from `Templates/` for any folder. The folder is the first part
+    of `note_name`; none for a note at the vault's root. A definition is read only from `allowed_dirs` when given.
+    `None` when nothing applies."""
+    if not mv:
+        return None
+    name = note_name.replace("\\", "/")
+    folder = name.split("/", 1)[0] if "/" in name else ""
+    if matched := dedicated_template_file(mv, folder):
+        return read_text_file(matched)
+    if from_definition := folder_definitions.template_for_folder(mv, folder, allowed_dirs):
+        return from_definition
+    general = os.path.join(mv, "Templates", "Note template.md")
+    return read_text_file(general) if os.path.exists(general) else None
 
 
 def _render_template(raw_tmpl: str, title_heading: str, now: datetime.datetime) -> str:
@@ -85,10 +90,12 @@ def create_note(
     it contains a separator, otherwise in the persona's primary folder.
     Refuses (`NOTE_EXISTS`) rather than overwriting an existing file —
     that's `overwrite_note`'s job. `NOTE_DENIED` for a path outside the
-    sandbox. When `content` is omitted, the folder's real Obsidian template
-    is seeded so the editor opens onto the same frontmatter a hand-created
-    note in that folder would get; a folder without a dedicated template
-    falls back to a minimal title stub."""
+    sandbox. When `content` is omitted, the note starts from the template of
+    its top-level folder, so the editor opens onto the same frontmatter a
+    hand-created note there would get: the user's own `Templates/` file made
+    for the folder, else the folder's definition note's `## Template` block
+    (docs/decisions/033), else `Templates/Note template.md`, else a minimal
+    title stub."""
     scope = vault_paths.resolve_sandbox(profile)
     if scope is None:
         return NOTE_DENIED
@@ -117,7 +124,7 @@ def create_note(
                 .title()
             )
             now = datetime.datetime.now().astimezone()
-            raw_tmpl = get_template_for_path(mv, clean_name)
+            raw_tmpl = get_template_for_path(mv, clean_name, allowed_dirs)
             if raw_tmpl and raw_tmpl.strip().startswith("---"):
                 content = f"{_render_template(raw_tmpl, title, now)}\n\n# {title}\n\n"
             else:
