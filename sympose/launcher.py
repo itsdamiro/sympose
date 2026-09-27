@@ -6,9 +6,6 @@ import os
 import sys
 
 
-_OWN_NAMES = ["127.0.0.1", "localhost"]
-
-
 def _run_cli(args: argparse.Namespace) -> int:
     from sympose.cli.__main__ import main as run_cli
 
@@ -21,8 +18,6 @@ def _run_web(args: argparse.Namespace) -> int:
 
     load_env()
     import uvicorn
-
-    from starlette.middleware.trustedhost import TrustedHostMiddleware
 
     from sympose import persona_files, web_static
     from sympose.server import create_app
@@ -38,13 +33,28 @@ def _run_web(args: argparse.Namespace) -> int:
     except web_static.WebAppMissing as e:
         print(f"sympose web: {e}", file=sys.stderr)
         return 1
-    # Only this machine's own names may address it: a hostile page cannot reach the vault API by
-    # pointing its own domain name at 127.0.0.1 (DNS rebinding), since its Host header would differ.
-    app.add_middleware(TrustedHostMiddleware, allowed_hosts=_OWN_NAMES)
+    web_static.guard_own_names(app)
     missed = persona_files.missed_notice()  # a persona folder the roster cannot find (ADR 029)
     if missed:
         print(missed, file=sys.stderr)
-    print(f"Sympose web app: http://127.0.0.1:{port}  (Ctrl-C to stop)")
+    address = f"http://127.0.0.1:{port}"
+    print(f"Sympose web app: {address}  (Ctrl-C to stop)")
+    if args.open:
+        import threading
+        import webbrowser
+
+        def _open() -> None:
+            # A browser failing to open (a headless box, no default browser set) is not worth
+            # failing the server over.
+            try:
+                webbrowser.open(address)
+            except webbrowser.Error:
+                pass
+
+        # After a short delay rather than before uvicorn.run: opening now would race a browser
+        # against a server that has not bound the port yet. uvicorn.run blocks, so this runs on
+        # its own thread.
+        threading.Timer(1.0, _open).start()
     uvicorn.run(app, host="127.0.0.1", port=port)  # this machine only: no auth, no TLS
     return 0
 
@@ -77,6 +87,7 @@ def build_parser() -> argparse.ArgumentParser:
     cli.set_defaults(run=_run_cli)
     web = commands.add_parser("web", help="open the web app for your vault (on this machine only)")
     web.add_argument("--port", type=int, help="the port to listen on (default: PORT in .env, else 8000)")
+    web.add_argument("--open", action="store_true", help="open it in the default browser once it starts")
     web.set_defaults(run=_run_web)
     doctor = commands.add_parser("doctor", help="check the installation and, with --fix, correct what is Sympose's own")
     doctor.add_argument("--fix", action="store_true", help="apply the fixes (persona folder names, wrong-kind settings)")

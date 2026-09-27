@@ -5,6 +5,16 @@ import pytest
 from sympose import launcher
 
 
+class _ImmediateTimer:
+    """Stands in for `threading.Timer` so `--open`'s delayed browser launch runs synchronously."""
+
+    def __init__(self, interval, function):
+        self.function = function
+
+    def start(self) -> None:
+        self.function()
+
+
 @pytest.fixture
 def ran(monkeypatch):
     calls = {}
@@ -80,6 +90,35 @@ def test_web_without_a_built_app_says_so_and_does_not_start(ran, monkeypatch, ca
 
     assert launcher.main(["web"]) == 1
     assert "no built web app" in capsys.readouterr().err and "web" not in ran
+
+
+def test_web_open_opens_the_browser_once_it_has_started(ran, monkeypatch):
+    opened = []
+    monkeypatch.setattr("webbrowser.open", lambda url: opened.append(url) or True)
+    monkeypatch.setattr("threading.Timer", _ImmediateTimer)
+
+    assert launcher.main(["web", "--open"]) == 0
+
+    assert opened == ["http://127.0.0.1:8000"]
+
+
+def test_web_without_open_does_not_touch_the_browser(ran, monkeypatch):
+    opened = []
+    monkeypatch.setattr("webbrowser.open", lambda url: opened.append(url) or True)
+
+    assert launcher.main(["web"]) == 0
+
+    assert opened == []
+
+
+def test_web_open_does_not_fail_the_server_when_no_browser_can_open(ran, monkeypatch):
+    import webbrowser
+
+    monkeypatch.setattr(webbrowser, "open", lambda url: (_ for _ in ()).throw(webbrowser.Error("no browser")))
+    monkeypatch.setattr("threading.Timer", _ImmediateTimer)
+
+    assert launcher.main(["web", "--open"]) == 0
+    assert ran["web"] == {"host": "127.0.0.1", "port": 8000}
 
 
 def test_web_mounts_the_app_after_the_api_so_the_api_wins(ran, monkeypatch):

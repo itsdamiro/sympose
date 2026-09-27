@@ -6,10 +6,19 @@ import os
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from sympose.security import is_safe_path
 
 WEBUI_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "webui")
+# Only this machine's own names may address an app guarded with this (docs/decisions/028): a hostile
+# page cannot reach the vault API (no login, no TLS) by pointing its own domain name at 127.0.0.1
+# (DNS rebinding), since its Host header would then be its own domain, which this refuses.
+OWN_NAMES = ["127.0.0.1", "localhost"]
+
+
+def guard_own_names(app: FastAPI) -> None:
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=OWN_NAMES)
 
 
 class WebAppMissing(Exception):
