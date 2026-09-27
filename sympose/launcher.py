@@ -57,6 +57,19 @@ def _run_doctor(args: argparse.Namespace) -> int:
     return doctor.run(fix=args.fix)
 
 
+def _run_vault(args: argparse.Namespace) -> int:
+    from sympose import vault_command
+    from sympose.envfile import load_env
+
+    load_env()
+    if args.draft:
+        return vault_command.draft(args.draft, args.persona)
+    if args.health:
+        return vault_command.health(args.persona)
+    args.vault_parser.print_help()
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="sympose", description="Sympose: an AI companion for your Obsidian vault.")
     commands = parser.add_subparsers(dest="command", title="commands")
@@ -68,6 +81,12 @@ def build_parser() -> argparse.ArgumentParser:
     doctor = commands.add_parser("doctor", help="check the installation and, with --fix, correct what is Sympose's own")
     doctor.add_argument("--fix", action="store_true", help="apply the fixes (persona folder names, wrong-kind settings)")
     doctor.set_defaults(run=_run_doctor)
+    vault = commands.add_parser("vault", help="look at your notes: --health reports on them, --draft drafts a folder's definition")
+    what = vault.add_mutually_exclusive_group()
+    what.add_argument("--health", action="store_true", help="report empty notes, links to no note, titles that are not the file name and files that are not notes (changes nothing)")
+    what.add_argument("--draft", metavar="FOLDER", help="draft the definition note of a folder, show it, and write it only if you say yes")
+    vault.add_argument("--persona", metavar="HANDLE", help="read what this persona can read (default: the default persona)")
+    vault.set_defaults(run=_run_vault, vault_parser=vault)
     return parser
 
 
