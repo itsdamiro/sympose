@@ -11,6 +11,7 @@ import {
   FolderAddIcon,
   Note01Icon,
   Search01Icon,
+  ViewOffIcon,
 } from "@hugeicons/core-free-icons"
 
 import { cn, stripMdExtension } from "@/lib/utils"
@@ -54,6 +55,16 @@ import { MOCK_TURNS, type ChatTurn } from "@/lib/chat-mock-data"
 import { fetchVaultTree } from "@/lib/vault-tree-api"
 import { searchVault, type VaultSearchResult } from "@/lib/vault-search-api"
 import {
+  NO_HIDDEN,
+  fetchHidden,
+  hidePath,
+  setShowDefinitionNotes,
+  unhidePath,
+  type HiddenResult,
+  type HiddenState,
+} from "@/lib/vault-hidden-api"
+import { isHiddenByUser, pruneHidden } from "@/lib/prune-hidden"
+import {
   createVaultNote,
   createVaultFolder,
   moveVaultNote,
@@ -73,6 +84,7 @@ import {
   ContentPanel,
   ControlSectionsProvider,
   EditorPreferencesSection,
+  HiddenSection,
   MainMenu,
   NotificationsSection,
   MarkdownPanel,
@@ -156,11 +168,53 @@ function SearchResultRow({
   label,
   detail,
   onSelect,
+  hidden = false,
+  onUnhide,
+  unhides,
 }: {
   label: string
   detail?: React.ReactNode
   onSelect: () => void
+  /** The match sits in something the user hid from view (docs/decisions/037):
+   *  listed, but greyed and never opened — the way back is Unhide. */
+  hidden?: boolean
+  onUnhide?: () => void
+  /** What Unhide takes off the list — the note's own path and/or the folders
+   *  above it — shown as the button's tooltip. */
+  unhides?: string[]
 }) {
+  if (hidden) {
+    return (
+      <div className="flex w-full flex-col items-start gap-0.5 py-1 opacity-70">
+        <span className="flex w-full items-start gap-1.5 text-sm text-fg-muted">
+          <HugeiconsIcon
+            icon={ViewOffIcon}
+            className="mt-0.5 size-3.5 shrink-0"
+          />
+          <span className="line-clamp-2 min-w-0 flex-1">{label}</span>
+          <span className="shrink-0 rounded border border-border px-1 text-[10px] uppercase tracking-wide">
+            Hidden
+          </span>
+          {onUnhide && (
+            <button
+              type="button"
+              onClick={onUnhide}
+              aria-label={`Unhide ${label}`}
+              title={unhides ? `Unhides ${unhides.join(", ")}` : undefined}
+              className="shrink-0 rounded px-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+            >
+              Unhide
+            </button>
+          )}
+        </span>
+        {detail && (
+          <span className="flex w-full min-w-0 items-center gap-1 pl-5 text-xs text-fg-muted">
+            {detail}
+          </span>
+        )}
+      </div>
+    )
+  }
   return (
     <button
       type="button"
@@ -473,7 +527,15 @@ export function AppShell() {
   // Vault browser — the persona-scoped directory tree (GET /api/vault/tree),
   // re-fetched whenever the active persona changes so the sandbox follows the
   // switcher. Every folder row opens the same panel: the whole scoped tree.
-  const [vaultTree, setVaultTree] = React.useState<VaultNode[]>([])
+  // `fullTree` keeps every node the server sent, each marked `hidden` where the
+  // user hid it (docs/decisions/037) — it says whether the remembered note may
+  // be opened. `vaultTree` is what the user sees and what everything else reads
+  // (menus, lists, `[[wikilink]]` and embed resolution): the same tree with
+  // everything marked left out.
+  const [fullTree, setVaultTree] = React.useState<VaultNode[]>([])
+  const vaultTree = React.useMemo(() => pruneHidden(fullTree), [fullTree])
+  // The hidden list (Settings > Hidden from view) and the definition-notes switch.
+  const [hiddenState, setHiddenState] = React.useState<HiddenState>(NO_HIDDEN)
   // The vault root's display name (master vault directory basename) — the
   // leading segment of the editor's read-mode breadcrumb. `null` until the
   // first `/api/vault/tree` response lands, or permanently if the backend
@@ -511,7 +573,12 @@ export function AppShell() {
   // whichever note becomes active in the content panel can drive the
   // ambient nebula's focus/highlight (see `AmbientNebula`'s
   // `activeNoteId`) with no transformation needed at all.
-  const activeNoteId = selectedNote
+  // A remembered note that has since been hidden does not reopen, and a note
+  // hidden while open closes at once (docs/decisions/037).
+  const openableNote = isHiddenByUser(fullTree, selectedNote)
+    ? undefined
+    : selectedNote
+  const activeNoteId = openableNote
   // `null` = no create-input open; otherwise which kind is being named, with
   // its current typed value in `createName`.
   const [pendingCreate, setPendingCreate] = React.useState<
@@ -565,6 +632,50 @@ export function AppShell() {
       alive = false
     }
   }, [activePersona, vaultRefreshKey])
+  React.useEffect(() => {
+    let alive = true
+    fetchHidden().then((state) => {
+      if (alive) setHiddenState(state)
+    })
+    return () => {
+      alive = false
+    }
+  }, [vaultRefreshKey])
+
+  // Hide / unhide / the definition-notes switch: each answers with the whole
+  // state; then the tree, the graph and any live search are re-pulled, since
+  // the server does the marking (docs/decisions/037).
+  const changeHidden = React.useCallback(
+    async (change: Promise<HiddenResult>, done?: string) => {
+      const res = await change
+      if (!res.ok) {
+        notify.error(res.error)
+        return
+      }
+      setHiddenState(res.state)
+      setVaultRefreshKey((k) => k + 1)
+      if (done) notify.success(done)
+    },
+    []
+  )
+  const hideFromView = React.useCallback(
+    (path: string) =>
+      changeHidden(hidePath(path), "Hidden from view — Settings brings it back"),
+    [changeHidden]
+  )
+  // One path, or every entry that hides a search hit (its own, and the folders
+  // above it): one after another, each reads and rewrites the list.
+  const unhideFromView = React.useCallback(
+    async (paths: string | string[]) => {
+      let last: HiddenResult | undefined
+      for (const path of Array.isArray(paths) ? paths : [paths]) {
+        last = await unhidePath(path)
+        if (!last.ok) break
+      }
+      if (last) await changeHidden(Promise.resolve(last))
+    },
+    [changeHidden]
+  )
 
   // Workspace switcher: persist the choice, then re-pull everything scoped
   // to "the active vault" via the same `vaultRefreshKey` bump a note create
@@ -641,6 +752,8 @@ export function AppShell() {
   // full (nested) tree by filename stem and jump the editor there. Silently
   // does nothing for a target the sandboxed tree doesn't contain.
   const openWikilink = (target: string) => {
+    // Resolved among the notes the user sees: a link to a hidden note finds
+    // nothing (or a visible note of the same name), so the click does nothing.
     const match = findNoteByWikilink(vaultTree, target)
     if (match) {
       selectNote(match.path)
@@ -832,7 +945,7 @@ export function AppShell() {
     () =>
       searchResults.filter(
         (r) =>
-          r.match_type === "content" &&
+          (r.match_type === "content" || r.hidden) &&
           (r.rel_path === resolvedActive || r.rel_path.startsWith(`${resolvedActive}/`))
       ),
     [searchResults, resolvedActive]
@@ -918,7 +1031,8 @@ export function AppShell() {
   // in view, and the "beyond {activeLabel}" tier) — identical behavior
   // either way, just spread onto each with its own `nodes`/`key`.
   const vaultTreeActions = {
-    selectedPath: selectedNote,
+    selectedPath: openableNote,
+    onHide: hideFromView,
     onSelect: (node: VaultNode) => {
       // Picking a note always brings the editor forward — same as creating
       // one (`onCreated`) or following a wikilink.
@@ -1213,6 +1327,14 @@ export function AppShell() {
           shownCount={shownCount}
           setShownCount={setShownCount}
         />
+        <HiddenSection
+          hidden={hiddenState.hidden}
+          showDefinitionNotes={hiddenState.showDefinitionNotes}
+          onUnhide={unhideFromView}
+          onShowDefinitionNotes={(show) =>
+            changeHidden(setShowDefinitionNotes(show))
+          }
+        />
       </ControlSectionsProvider>
     ) : (
       <div className="flex flex-col gap-2">
@@ -1316,6 +1438,9 @@ export function AppShell() {
                     <li key={r.rel_path}>
                       <SearchResultRow
                         label={stripMdExtension(r.file_name)}
+                        hidden={r.hidden}
+                        onUnhide={() => unhideFromView(r.hidden_by ?? r.rel_path)}
+                        unhides={r.hidden_by}
                         onSelect={() => {
                           selectNote(r.rel_path)
                           panels.open("editor")
@@ -1339,6 +1464,9 @@ export function AppShell() {
                     <li key={r.rel_path}>
                       <SearchResultRow
                         label={stripMdExtension(r.rel_path)}
+                        hidden={r.hidden}
+                        onUnhide={() => unhideFromView(r.hidden_by ?? r.rel_path)}
+                        unhides={r.hidden_by}
                         onSelect={() => {
                           selectNote(r.rel_path)
                           panels.open("editor")
@@ -1444,6 +1572,7 @@ export function AppShell() {
           onSelectAccount={() => selectSection(MENU_ACCOUNT_ID)}
           onSelectTrash={() => selectSection(MENU_TRASH_ID)}
           onDropNote={moveNote}
+          onHideItem={(item) => hideFromView(item.id)}
           vaults={vaultsState.vaults}
           activeVault={vaultsState.active}
           onSwitchVault={handleSwitchVault}
@@ -1541,7 +1670,7 @@ export function AppShell() {
 
           <MarkdownPanel
             storageKey="sympose:shell.md"
-            path={selectedNote}
+            path={openableNote}
             persona={activePersona}
             vaultPath={vaultsState.active}
             onWikiLinkClick={openWikilink}

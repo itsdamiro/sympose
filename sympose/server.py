@@ -20,12 +20,13 @@ from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from sympose import server_handlers as h
+from sympose import server_hidden_handlers as hh
 from sympose import server_persona_handlers as ph
 from sympose import server_search_handlers as sh
 from sympose import server_trash_handlers as th
 from sympose import server_vault_handlers as vh
 from sympose import vault_paths
-from sympose.server_models import TrashEmpty, TrashRestore, VaultActivate
+from sympose.server_models import DefinitionsSwitch, HiddenPath, TrashEmpty, TrashRestore, VaultActivate
 
 
 def create_app() -> FastAPI:
@@ -69,6 +70,24 @@ def create_app() -> FastAPI:
     @app.get("/api/vault/graph")
     def get_vault_graph(persona: str | None = Query(None)) -> dict[str, Any]:
         return h.get_vault_graph(persona)
+
+    @app.get("/api/vault/hidden")
+    def get_hidden() -> dict[str, Any]:
+        return hh.get_hidden()
+
+    @app.post("/api/vault/hidden")
+    def hide_path(body: HiddenPath) -> dict[str, Any]:
+        return hh.hide(body)
+
+    @app.delete("/api/vault/hidden")
+    def unhide_path(
+        path: str = Query(..., description="Vault-relative path to show again"),
+    ) -> dict[str, Any]:
+        return hh.unhide(path)
+
+    @app.put("/api/vault/hidden/definitions")
+    def set_definitions(body: DefinitionsSwitch) -> dict[str, Any]:
+        return hh.set_definitions(body)
 
     @app.get("/api/vault/search")
     def search_vault(

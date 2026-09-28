@@ -14,6 +14,14 @@ The web app updates the wikilinks (the double-bracket kind) in every other note 
 
 A deleted note or folder goes to the Bin, which is the vault's trash (the `.trash` folder), so it is not gone for good. Open the Bin to restore a note, or delete it permanently.
 
+## How do I hide a note or folder from view?
+
+Right-click it, or long-press on a touch screen, and choose "Hide from view". It leaves the tree, the recent and pinned lists and the Knowledge Nebula, and clicking a link to it does nothing. Hiding is for the view only: Samantha can still read a hidden note, and search still finds it, greyed out.
+
+## How do I show a hidden note again?
+
+Choose Unhide beside it in the search results, or in the "Hidden from view" part of Settings, which lists everything you hid. That part also decides whether the folder definition notes, left out of the tree by default, are listed.
+
 ## What is the Knowledge Nebula?
 
 The Knowledge Nebula is a graph of your notes, in 2D or 3D. Each note is a point and the links between notes are the lines. It shows only the folders the active persona may see.

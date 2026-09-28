@@ -6,7 +6,7 @@ handler module to one concern (project's 200-LOC-per-file guideline).
 
 from typing import Any
 
-from sympose import vault_search
+from sympose import vault_hidden, vault_search
 from sympose.server_handlers import require_profile
 
 
@@ -14,5 +14,5 @@ def search_vault(query: str, persona: str | None) -> dict[str, Any]:
     profile = require_profile(persona)
     return {
         "query": query,
-        "results": vault_search.search_structured(profile, query),
+        "results": vault_hidden.for_results(vault_search.search_structured(profile, query)),
     }

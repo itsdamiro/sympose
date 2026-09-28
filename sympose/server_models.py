@@ -69,3 +69,16 @@ class VaultActivate(BaseModel):
     `path`, one of `GET /api/vaults`' configured paths."""
 
     path: str = Field(..., min_length=1)
+
+
+class HiddenPath(BaseModel):
+    """Body of `POST /api/vault/hidden` — hide the folder or note at `path` (vault-relative) from
+    the web app's view (docs/decisions/037)."""
+
+    path: str = Field(..., min_length=1)
+
+
+class DefinitionsSwitch(BaseModel):
+    """Body of `PUT /api/vault/hidden/definitions` — whether the tree lists folder definition notes."""
+
+    show: bool

@@ -5,6 +5,7 @@ import {
   Delete03Icon,
   Settings01Icon,
   SidebarLeft01Icon,
+  ViewOffIcon,
 } from "@hugeicons/core-free-icons"
 
 import { cn } from "@/lib/utils"
@@ -13,6 +14,12 @@ import { isNoteDrag, readNoteDrag } from "@/lib/vault-drag"
 import { Logo } from "@/components/logo"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { WorkspaceSwitcher } from "@/components/sympose/workspace-switcher"
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu"
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu"
 import { EMPTY_VAULTS, type Vault } from "@/lib/vaults-api"
 
 /**
@@ -94,6 +101,12 @@ interface MainMenuProps extends Omit<React.ComponentProps<"nav">, "onSelect"> {
    */
   onDropNote?: (path: string, destFolder: string) => void
   /**
+   * Hide a folder or root note from view (docs/decisions/037): a right-click
+   * (or long-press) menu on its row with one item, "Hide from view". Omit and
+   * the rows have no menu.
+   */
+  onHideItem?: (item: MainMenuItem) => void
+  /**
    * Account row: label plus, when the active persona is known, its icon and
    * accent for the avatar (falls back to the first letter on `bg-accent`).
    */
@@ -174,6 +187,7 @@ function MainMenu({
   onSelectAccount,
   onSelectTrash,
   onDropNote,
+  onHideItem,
   account = { name: "Persona" },
   vaults = EMPTY_VAULTS,
   activeVault = null,
@@ -296,8 +310,7 @@ function MainMenu({
         {items.map((item) => {
           const active = item.id === activeId
           const dropTarget = onDropNote && item.type !== "note"
-          return (
-            <li key={item.id}>
+          const row = (
               <button
                 type="button"
                 onClick={() => onSelectItem?.(item)}
@@ -346,6 +359,22 @@ function MainMenu({
                 </span>
                 <span className={LABEL}>{item.label}</span>
               </button>
+          )
+          return (
+            <li key={item.id}>
+              {onHideItem ? (
+                <ContextMenu>
+                  <ContextMenuTrigger className="block">{row}</ContextMenuTrigger>
+                  <ContextMenuContent className="duration-thumb ease-snappy">
+                    <DropdownMenuItem onClick={() => onHideItem(item)}>
+                      <HugeiconsIcon icon={ViewOffIcon} />
+                      Hide from view
+                    </DropdownMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
+              ) : (
+                row
+              )}
             </li>
           )
         })}

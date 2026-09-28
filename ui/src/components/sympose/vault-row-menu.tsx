@@ -8,6 +8,7 @@ import {
   NoteAddIcon,
   PinIcon,
   PinOffIcon,
+  ViewOffIcon,
 } from "@hugeicons/core-free-icons"
 import { cn } from "@/lib/utils"
 import {
@@ -40,7 +41,8 @@ import type { VaultNode } from "@/components/sympose/vault-tree"
  * is rendered inside the vault-wide "Recent" group), Rename (an
  * inline field overlaid on the row) and Delete (asks first via `confirm()`
  * per the Notifications preference, then moved to `.trash/`, recoverable
- * from the Bin); **folder**: New note here
+ * from the Bin); both kinds also get Hide from view (`onHide`, display only —
+ * docs/decisions/037); **folder**: New note here
  * (`Folder/Untitled`, auto-numbered) and Delete — an empty folder
  * goes straight away (nothing to lose), a folder with anything in it asks
  * first via `confirm()` same as a note, then moves as one unit to `.trash/`;
@@ -60,6 +62,7 @@ function VaultRowMenu({
   pinned = false,
   onTogglePin,
   onRemoveFromRecents,
+  onHide,
 }: {
   node: VaultNode
   persona: string
@@ -83,6 +86,9 @@ function VaultRowMenu({
   /** This row is rendered inside the "Recent" group specifically — drop just
    *  this one path out of the history. Omit outside that group. */
   onRemoveFromRecents?: () => void
+  /** Hide this note or folder from view (docs/decisions/037) — display only,
+   *  the persona can still read it. Omit to leave the row out of the menu. */
+  onHide?: (path: string) => void
 }) {
   const isNote = node.type === "note"
   const stem = node.name.replace(/\.md$/i, "")
@@ -150,6 +156,12 @@ function VaultRowMenu({
           Remove from recents
         </DropdownMenuItem>
       )}
+      {onHide && (
+        <DropdownMenuItem onClick={() => onHide(node.path)}>
+          <HugeiconsIcon icon={ViewOffIcon} />
+          Hide from view
+        </DropdownMenuItem>
+      )}
       <DropdownMenuItem onClick={() => setPendingRename(true)}>
         <HugeiconsIcon icon={Edit01Icon} />
         Rename
@@ -175,6 +187,12 @@ function VaultRowMenu({
         <HugeiconsIcon icon={NoteAddIcon} />
         New note here
       </DropdownMenuItem>
+      {onHide && (
+        <DropdownMenuItem onClick={() => onHide(node.path)}>
+          <HugeiconsIcon icon={ViewOffIcon} />
+          Hide from view
+        </DropdownMenuItem>
+      )}
       <DropdownMenuItem
         variant="destructive"
         onClick={() => {

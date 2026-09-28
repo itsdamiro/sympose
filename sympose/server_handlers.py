@@ -17,6 +17,7 @@ from fastapi import HTTPException
 
 from sympose import (
     vault_graph,
+    vault_hidden,
     vault_paths,
     vault_write,
     vault_write_create,
@@ -91,13 +92,13 @@ def get_vault_tree(persona: str | None) -> dict[str, Any]:
     profile = require_profile(persona)
     return {
         "persona": persona,
-        "tree": vault_graph.get_vault_tree(profile),
+        "tree": vault_hidden.for_tree(vault_graph.get_vault_tree(profile)),
         "vaultName": vault_paths.get_vault_name(),
     }
 
 
 def get_vault_graph(persona: str | None) -> dict[str, Any]:
-    return vault_graph.get_vault_graph(require_profile(persona))
+    return vault_hidden.for_graph(vault_graph.get_vault_graph(require_profile(persona)))
 
 
 def read_note(path: str, persona: str | None) -> dict[str, Any]:

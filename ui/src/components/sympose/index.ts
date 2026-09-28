@@ -13,6 +13,7 @@ export {
 } from "./control-section"
 export { EditorPreferencesSection } from "./editor-preferences-section"
 export { FrontmatterCard } from "./frontmatter-card"
+export { HiddenSection } from "./hidden-section"
 // `AmbientNebula` is intentionally NOT re-exported here — it pulls in
 // `react-force-graph`. The app shell lazy-imports it directly from
 // "@/components/sympose/ambient-nebula" so it stays off the TTFT hot path.

@@ -178,10 +178,23 @@ REF_CASES: list[RefCase] = [
         first="Chat commands.md",
     ),
     RefCase(
+        "hide-a-folder",
+        "how do I hide a folder in the web app?",
+        find=("Hide from view",),
+        first="The web app.md",
+    ),
+    RefCase(
+        "unhide-a-note",
+        "how do I show a hidden note again?",
+        find=("Unhide",),
+        first="The web app.md",
+    ),
+    RefCase(
         "settings-in-chat",
         "how do I change a setting without editing the file?",
         find=("/settings",),
-        first="Settings.md",
+        # No `first`: the Settings passage and one of "Add or switch vaults" ("editing `.env`") score alike
+        # and trade places whenever a note is added to the library; the model is given both.
     ),
     RefCase(
         "slash-settings",

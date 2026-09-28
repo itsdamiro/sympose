@@ -66,6 +66,11 @@ export interface VaultNode {
   /** Wikilink neighbours (outgoing targets and incoming backlinks, by
    *  stem) — notes only. */
   links?: string[]
+  /** Set by the server (docs/decisions/037): `"user"` for what the user hid
+   *  from view (a folder's children inherit it), `"definition"` for a folder
+   *  definition note while those are not shown. A marked node is not listed;
+   *  `"user"` also means it is never opened from anywhere the user can reach. */
+  hidden?: "user" | "definition"
 }
 
 const IGNORED = new Set([".obsidian", ".git", "Attachments", ".trash"])
@@ -330,6 +335,9 @@ interface RowActions {
   isPinned?: (path: string) => boolean
   /** Toggle a note path's pinned state. */
   onTogglePin?: (path: string) => void
+  /** Hide a note or folder from view (docs/decisions/037) — the row menu's
+   *  "Hide from view"; omit to leave it out. */
+  onHide?: (path: string) => void
   /**
    * A note row was dragged onto a folder row: the note's own path,
    * and the folder it was dropped on. Independent of `menuReady` — like
@@ -399,6 +407,7 @@ function VaultTree({
   onCreated,
   isPinned,
   onTogglePin,
+  onHide,
   onMoveNote,
   hideExtension = false,
   pinnedNodes = NO_CHILDREN,
@@ -440,6 +449,7 @@ function VaultTree({
     onCreated,
     isPinned,
     onTogglePin,
+    onHide,
     onMoveNote,
   }
 
@@ -643,6 +653,7 @@ function VaultTreeRow({
         pinned={pinned}
         onTogglePin={actions.onTogglePin}
         onRemoveFromRecents={onRemoveFromRecents}
+        onHide={actions.onHide}
       >
         {rowButton}
       </VaultRowMenu>

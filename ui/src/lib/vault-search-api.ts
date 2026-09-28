@@ -17,6 +17,12 @@ export interface VaultSearchResult {
   title: string
   tags: string[]
   index: number
+  /** The hit sits inside something the user hid from view (docs/decisions/037):
+   *  still found, listed greyed, never opened. */
+  hidden?: boolean
+  /** The entries of the hidden list that hide it — its own path and/or the folders
+   *  above it — which Unhide has to remove. */
+  hidden_by?: string[]
 }
 
 export async function searchVault(
