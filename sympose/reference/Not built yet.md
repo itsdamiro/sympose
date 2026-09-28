@@ -4,7 +4,7 @@ Sympose is early. These things do not exist yet, so Samantha cannot do them and 
 
 ## Can Samantha write or edit my notes?
 
-No. In the chat Samantha only reads your notes. She cannot write, create, edit, move or delete a note. The web app's editor is the only way to change a note, except that `sympose vault --draft` creates a folder definition note when you say yes.
+No. In the chat Samantha only reads your notes. She cannot write, create, edit, move or delete a note. The web app's editor is the only way to change a note, except that a folder definition note is created when you say yes, by `sympose vault --draft` or by the web app's setup step for a new folder.
 
 ## Can Samantha do things for me?
 

@@ -12,7 +12,7 @@ from typing import Any
 
 import yaml
 
-from sympose import settings_store, vault_paths
+from sympose import generic_template, settings_store, vault_paths
 from sympose.vault_defaults import IGNORE_FOLDERS
 
 MIN_NOTES_SETTING = "folder_definition_min_notes"
@@ -21,7 +21,7 @@ SHARE_SETTING = "folder_template_share"
 DEFAULT_SHARE = 0.5
 _NOT_FOLDERS = {name.lower() for name in IGNORE_FOLDERS} | {"templates"}  # not the user's content: no definition
 _MAX_CONSTANT = 60  # a value longer than this is not a constant of the folder, it is a sentence
-_KEY = re.compile(r"\w[\w -]*")
+_KEY = generic_template.KEY
 _HEADING = re.compile(r"^#{1,6}[ \t]+template[ \t]*#*[ \t]*$", re.IGNORECASE)  # `#template` is a tag, not a heading
 _ANY_HEADING = re.compile(r"^#{1,6}[ \t]+\S")  # a heading needs a space after the hashes: `#todo` is prose
 _FENCE = re.compile(r"^[ \t]*(```|~~~)")

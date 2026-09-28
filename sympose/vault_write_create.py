@@ -8,7 +8,7 @@ import json
 import os
 from typing import Any
 
-from sympose import folder_definitions, vault_paths
+from sympose import folder_definitions, generic_template, vault_paths
 from sympose.vault_write import get_file_lock, write_atomic_text
 from sympose.vault_write_status import NOTE_DENIED, NOTE_EXISTS
 
@@ -59,9 +59,11 @@ def get_template_for_path(mv: str, note_name: str, allowed_dirs: list[str] | Non
 
 def _render_template(raw_tmpl: str, title_heading: str, now: datetime.datetime) -> str:
     """Substitutes the core-Obsidian-Templates placeholders this vault's
-    templates use: `{{date}}`, `{{time}}`, `{{title}}`, `{{date:YYYY}}`."""
+    templates use: `{{date}}`, `{{time}}`, `{{title}}`, `{{date:YYYY}}`. A quoted `"{{title}}"` is filled with the
+    title encoded as JSON, so a colon or a quote in it cannot break the frontmatter (docs/decisions/038)."""
     return (
-        raw_tmpl.replace("{{date}}", now.strftime("%Y-%m-%d"))
+        raw_tmpl.replace('"{{title}}"', json.dumps(title_heading, ensure_ascii=False))
+        .replace("{{date}}", now.strftime("%Y-%m-%d"))
         .replace("{{time}}", now.strftime("%H:%M"))
         .replace("{{title}}", title_heading)
         .replace("{{date:YYYY}}", now.strftime("%Y"))
@@ -94,8 +96,8 @@ def create_note(
     its top-level folder, so the editor opens onto the same frontmatter a
     hand-created note there would get: the user's own `Templates/` file made
     for the folder, else the folder's definition note's `## Template` block
-    (docs/decisions/033), else `Templates/Note template.md`, else a minimal
-    title stub."""
+    (docs/decisions/033), else `Templates/Note template.md`, else the generic
+    template's keys (docs/decisions/038)."""
     scope = vault_paths.resolve_sandbox(profile)
     if scope is None:
         return NOTE_DENIED
@@ -125,10 +127,9 @@ def create_note(
             )
             now = datetime.datetime.now().astimezone()
             raw_tmpl = get_template_for_path(mv, clean_name, allowed_dirs)
-            if raw_tmpl and raw_tmpl.strip().startswith("---"):
-                content = f"{_render_template(raw_tmpl, title, now)}\n\n# {title}\n\n"
-            else:
-                content = f"---\ntitle: {json.dumps(title, ensure_ascii=False)}\ncreated: {now.strftime('%Y-%m-%d')}\ntags: []\n---\n\n# {title}\n\n"
+            if not (raw_tmpl and raw_tmpl.strip().startswith("---")):
+                raw_tmpl = generic_template.text()  # the setting's keys: title, created, tags unless the user changed them
+            content = f"{_render_template(raw_tmpl, title, now)}\n\n# {title}\n\n"
 
         rel_display = os.path.relpath(target_file, mv)
         try:

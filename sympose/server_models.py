@@ -82,3 +82,14 @@ class DefinitionsSwitch(BaseModel):
     """Body of `PUT /api/vault/hidden/definitions` — whether the tree lists folder definition notes."""
 
     show: bool
+
+
+class FolderDefinition(BaseModel):
+    """Body of `POST /api/vault/folder/definition` — write the definition note of the top-level folder `path` from
+    what the user typed: an optional `purpose` and the property lines of the folder's `template`
+    (docs/decisions/038)."""
+
+    path: str = Field(..., min_length=1)
+    purpose: str = ""
+    template: list[str] = Field(default_factory=list)
+    persona: str | None = None

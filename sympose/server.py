@@ -11,7 +11,7 @@ beyond that.
 
 Request/response models and handler logic live in `server_handlers.py`
 (note/folder CRUD), `server_trash_handlers.py` (the bin), and
-`server_search_handlers.py` (search); this file only wires routes to them.
+`server_search_handlers.py` (search), and `server_definition_handlers.py` (setting up a new folder); this file only wires routes to them.
 """
 
 from typing import Any
@@ -19,6 +19,7 @@ from typing import Any
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 
+from sympose import server_definition_handlers as dh
 from sympose import server_handlers as h
 from sympose import server_hidden_handlers as hh
 from sympose import server_persona_handlers as ph
@@ -26,7 +27,7 @@ from sympose import server_search_handlers as sh
 from sympose import server_trash_handlers as th
 from sympose import server_vault_handlers as vh
 from sympose import vault_paths
-from sympose.server_models import DefinitionsSwitch, HiddenPath, TrashEmpty, TrashRestore, VaultActivate
+from sympose.server_models import DefinitionsSwitch, FolderDefinition, HiddenPath, TrashEmpty, TrashRestore, VaultActivate
 
 
 def create_app() -> FastAPI:
@@ -114,6 +115,17 @@ def create_app() -> FastAPI:
     @app.post("/api/vault/folder", status_code=201)
     def create_folder(body: h.FolderCreate) -> dict[str, Any]:
         return h.create_folder(body)
+
+    @app.get("/api/vault/note-template")
+    def get_note_template(
+        folder: str | None = Query(None, description="A root folder to ask whether it can have a definition"),
+        persona: str | None = Query(None),
+    ) -> dict[str, Any]:
+        return dh.get_note_template(folder, persona)
+
+    @app.post("/api/vault/folder/definition", status_code=201)
+    def write_folder_definition(body: FolderDefinition) -> dict[str, Any]:
+        return dh.write_definition(body)
 
     @app.patch("/api/vault/note")
     def rename_note(body: h.NoteRename) -> dict[str, Any]:

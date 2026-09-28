@@ -22,4 +22,4 @@ Yes. Wikilinks between notes, like [[Another note]], are what the Knowledge Nebu
 
 ## Does Sympose change my notes?
 
-The chat only reads your vault. The web app's editor writes, and what it saves are ordinary edits to the markdown files, the same files Obsidian shows. The only other writer is `sympose vault --draft`, which creates one folder definition note, and only when you say yes.
+The chat only reads your vault. The web app's editor writes, and what it saves are ordinary edits to the markdown files, the same files Obsidian shows. The only other writers are `sympose vault --draft` and the web app's setup step for a new folder, which each create one folder definition note, and only when you say yes.
