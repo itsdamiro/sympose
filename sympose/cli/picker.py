@@ -49,10 +49,12 @@ def _prepare_panel(app, panel: SelectionPanel, kind: str) -> None:
     app.panel_kind = kind
 
 
-async def open_picker(app, kind: str, title: str, options: list[SelectionOption]) -> None:
+async def open_picker(
+    app, kind: str, title: str, options: list[SelectionOption], highlight: int = -1
+) -> None:
     """Mounts a focused picker — digit-key selection applies while it
-    holds focus, per `selection.py`'s scoping rule."""
-    panel = SelectionPanel(title, options)
+    holds focus, per `selection.py`'s scoping rule. `highlight`: the row to start on, if any."""
+    panel = SelectionPanel(title, options, initial_highlight=highlight)
     _prepare_panel(app, panel, kind)
     await app.mount(panel, before="#composer")
     panel.focus()

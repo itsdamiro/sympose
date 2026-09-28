@@ -1,14 +1,14 @@
 """Routes `Input`/`OptionList` events to the picker lifecycle
 (`picker.py`), real chat turns (`turns.py`), and command handling
 (`runtime.py` — real for `/clear`/`/quit`, still mock for `/compact`/
-`/settings`/`/history`). Kept as thin routing so none of those modules
+`/history`). Kept as thin routing so none of those modules
 has to depend on the others."""
 
 from rich.style import Style
 from rich.text import Text
 from textual.widgets import OptionList
 
-from sympose.cli import picker, runtime, share, turns
+from sympose.cli import picker, runtime, settings_list, share, turns
 from sympose.cli import transcript as transcript_mod
 from sympose.cli.commands import find_command
 
@@ -16,6 +16,8 @@ CHAT_TURN_WORKER_GROUP = "chat-turn"
 
 
 def on_input_changed(app, value: str) -> None:
+    if app.pending_setting is not None:  # what is typed is a value, not a command (docs/decisions/036)
+        return
     # `composer.py`'s Tab-cycle already redrew the overlay itself (from
     # the stable `tab_matches` list, not this now-narrower filled-in
     # text) — consume one count and skip the normal live-filter reaction
@@ -32,6 +34,10 @@ def on_input_changed(app, value: str) -> None:
 
 
 async def on_input_submitted(app, value: str) -> None:
+    if app.pending_setting is not None:  # before the empty check: an empty entry resets the setting
+        app.composer.value = ""
+        await settings_list.submit(app, value)
+        return
     value = value.strip()
     if not value:
         return
@@ -88,6 +94,10 @@ async def on_option_selected(app, event: OptionList.OptionSelected) -> None:
         command = find_command(value) if value else None
         if command is not None:
             await runtime.run_command(app, command)
+        return
+    if kind == settings_list.PICKER_KIND:
+        if value is not None and settings_list.choose(app, value):
+            await settings_list.open_picker(app, value)  # on the row just changed
         return
     ask = runtime.apply_picker_choice(app, kind, value)
     # The model just moved from local to cloud and some of the vault is not yet allowed for it: ask

@@ -12,7 +12,7 @@ The terminal chat receives a reply whole and then reveals it one word every 50 m
 - **The redraw rate stays at 20 frames per second** (a 50 ms tick, as before). Each frame shows the words the chosen speed has reached by then (`ceil(speed × frames ÷ 20)`), so 50 words per second shows two or three words per frame, 20 shows one (as today), and a speed below 20 still advances on time. A faster reveal therefore costs no more redraws than the old one.
 - **No cap on the total time.** Speed plus "instant" cover both preferences; a second knob would be more code for little gain.
 - The code that turns the setting into a number of words lives in `sympose/cli/reveal.py`, so `turns.py`, which is at the 200-line cap, grows by a few lines only.
-- Changed in the settings file for now; the CLI `/settings` screen is still canned (#25), and a slash command per knob is not added (as in ADR 015).
+- Changed in the settings file for now; the CLI `/settings` screen was still canned (#25, built in docs/decisions/036, where `reply_reveal` is a row), and a slash command per knob is not added (as in ADR 015).
 
 ## Consequences
 

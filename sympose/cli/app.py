@@ -3,7 +3,7 @@ bottom with a scrolling transcript above it — the one thing legacy's
 blocking `rich.prompt.Prompt` loop couldn't do (see `docs/VISION.md`,
 lines 46-50). Chat replies now come from the real engine
 (`sympose/engine/`, docs/decisions/006); model/persona pickers use real
-data (`options.py`); `/compact`, `/settings`, and `/history` are still
+data (`options.py`); `/compact` and `/history` are still
 inert or mock, since nothing backs them yet. Event handling and the
 actual command/streaming behavior live in `dispatch.py`/`runtime.py`/
 `turns.py`/`picker.py`, split out to hold the 200-LOC-per-file cap."""
@@ -16,9 +16,9 @@ from textual.containers import VerticalScroll
 from textual.widgets import Input, OptionList, Static
 
 from sympose import engine, persona_files
-from sympose.cli import dispatch, picker, share, state
+from sympose.cli import dispatch, picker, settings_list, share, state
 from sympose.cli import transcript as transcript_mod
-from sympose.cli.composer import ComposerInput
+from sympose.cli.composer import DEFAULT_PLACEHOLDER, ComposerInput
 from sympose.cli.meter import ContextMeter
 from sympose.cli.options import list_personas
 from sympose.profile import resolve_default_persona
@@ -73,7 +73,7 @@ class SymposeCLI(App):
     def compose(self) -> ComposeResult:
         yield Static("", id="banner")
         yield VerticalScroll(id="transcript")
-        yield ComposerInput(placeholder="Message… (/ for commands)", id="composer")
+        yield ComposerInput(placeholder=DEFAULT_PLACEHOLDER, id="composer")
         yield ContextMeter("")
 
     def on_mount(self) -> None:
@@ -125,6 +125,9 @@ class SymposeCLI(App):
         return self.get_css_variables().get(name, fallback)
 
     def action_close_panel(self) -> None:
+        if self.pending_setting is not None:  # a number is being asked for (docs/decisions/036)
+            settings_list.cancel(self)
+            return
         if self.panel is not None:
             picker.close_panel(self)
             self.composer.focus()

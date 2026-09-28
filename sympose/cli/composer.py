@@ -13,6 +13,8 @@ from textual.widgets import Input
 from sympose.cli import picker
 from sympose.cli.commands import matching_commands
 
+DEFAULT_PLACEHOLDER = "Message… (/ for commands)"
+
 
 class ComposerInput(Input):
     BINDINGS = [
@@ -26,6 +28,8 @@ class ComposerInput(Input):
         if not self.value.startswith("/"):
             return
         app = self.app
+        if app.pending_setting is not None:  # what is typed is a value, not a command (docs/decisions/036)
+            return
         if app.tab_matches is None:
             matches = matching_commands(self.value)
             if not matches:

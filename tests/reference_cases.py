@@ -178,6 +178,20 @@ REF_CASES: list[RefCase] = [
         first="Chat commands.md",
     ),
     RefCase(
+        "settings-in-chat",
+        "how do I change a setting without editing the file?",
+        find=("/settings",),
+        first="Settings.md",
+    ),
+    RefCase(
+        "slash-settings",
+        "what does /settings do?",
+        find=("/settings",),
+        first="Chat commands.md",
+        known_gap="A question that names only a slash command finds the wrong Settings passages by keywords "
+        "(the same for /grounded); the wording that names what it does, above, finds the right one.",
+    ),
+    RefCase(
         "settings-file",
         "where are my settings stored?",
         find=("settings.json",),

@@ -1,6 +1,6 @@
 # Chat commands
 
-The chat commands are /help, /model, /persona, /default, /grounding, /grounded, /context, /share, /clear, /quit, and the placeholders /history, /compact and /settings. Type / in the chat to see them; Tab, or the Down and Up arrows, cycle through them.
+The chat commands are /help, /model, /persona, /default, /grounding, /grounded, /context, /share, /settings, /clear, /quit, and the placeholders /history and /compact. Type / in the chat to see them; Tab, or the Down and Up arrows, cycle through them.
 
 ## /help
 
@@ -34,6 +34,10 @@ The chat commands are /help, /model, /persona, /default, /grounding, /grounded, 
 
 /share lists what a cloud model may receive from your vault (your notes, their properties, your recaps) and whether each is allowed. Choose a row to allow or stop it; Esc closes the list. Nothing is allowed by default.
 
+## /settings
+
+/settings opens a list of the common ones, each with its value. Choose a row: a true or false one flips, and a number is typed into the chat box. Esc closes the list.
+
 ## /clear
 
 /clear clears the transcript on screen. It is refused while a reply is queued or being written.
@@ -44,7 +48,7 @@ The chat commands are /help, /model, /persona, /default, /grounding, /grounded, 
 
 ## Which commands are placeholders?
 
-/history, /compact and /settings do nothing useful yet.
+/history and /compact do nothing useful yet.
 
 ## Can I send messages while she is writing?
 

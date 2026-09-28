@@ -35,7 +35,7 @@ AUTO_WINDOW_CEILING = 32768
 # nothing: Ollama's own default, so nothing is asked of a model that may not
 # support more.
 UNKNOWN_MODEL_WINDOW = 4096
-_SETTING = "context_window"
+CONTEXT_SETTING = "context_window"
 # Below this a window cannot hold the shipped persona's own instructions (about 940
 # tokens with the Sympose rules, ADR 022) and still leave room for a message, so a
 # smaller setting is raised to it instead of failing every turn.
@@ -45,7 +45,7 @@ _MIN_CONTEXT_WINDOW = 2048
 # thinking (`qwen3:8b` on a hard question was cut off at 1024 and finished at
 # 4096); `reply_limit` lets a user choose.
 _MAX_AUTO_REPLY_TOKENS = 4096
-_REPLY_SETTING = "reply_limit"
+REPLY_SETTING = "reply_limit"
 _MIN_REPLY_LIMIT = 64
 # `litellm.token_counter` under-counts real tokens by up to about 12 percent
 # on the measured local model (ADR 015); over-counting is the safe direction.
@@ -85,7 +85,7 @@ def is_ollama(model: str) -> bool:
 def context_setting() -> int | None:
     """The window the user chose on purpose, or `None` (automatic) when the
     setting is missing or not a positive whole number."""
-    value = settings_store.get(_SETTING)
+    value = settings_store.get(CONTEXT_SETTING)
     if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
         return None
     # A small number is a request for a small footprint, so it is raised to
@@ -119,12 +119,19 @@ def window_for(model: str) -> int | None:
     return min(native, AUTO_WINDOW_CEILING) if native else UNKNOWN_MODEL_WINDOW
 
 
+def reply_setting() -> int | None:
+    """The reply room the user chose on purpose, or `None` (automatic) when the setting is missing or
+    not a whole number of at least 64 (a bool is 0 or 1: too small)."""
+    value = settings_store.get(REPLY_SETTING)
+    return value if isinstance(value, int) and value >= _MIN_REPLY_LIMIT else None
+
+
 def reply_reserve(window: int) -> int:
     """Tokens kept for the reply: the user's `reply_limit` (never more than
     half the window), else a quarter of the window up to a fixed ceiling."""
-    value = settings_store.get(_REPLY_SETTING)
-    if isinstance(value, int) and value >= _MIN_REPLY_LIMIT:  # a bool is 0 or 1: too small
-        return min(value, window // 2)
+    chosen = reply_setting()
+    if chosen is not None:
+        return min(chosen, window // 2)
     return min(_MAX_AUTO_REPLY_TOKENS, window // 4)
 
 
@@ -194,6 +201,6 @@ def fit(
             f"This persona's instructions and your message need about {used} tokens, but "
             f"'{model}' leaves {prompt_tokens} for them. If your message is very long, "
             f"shorten it; otherwise use a model with a larger window (and if you set "
-            f"`{_SETTING}`, raise it)."
+            f"`{CONTEXT_SETTING}`, raise it)."
         )
     return Fitted(messages, kept_grounding, dropped, used, kept_recaps)

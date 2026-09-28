@@ -1,7 +1,7 @@
 """Slash-command handling and applying a picker's selection. `/clear` and
 `/quit` are real, concurrency-aware (they check `pending_turns`/
 `turn_locks`/`active_reply_timers`, state `turns.py`/`app.py` own);
-`/compact`/`/settings`/`/history` are still canned — no session/history
+`/compact`/`/history` are still canned — no session/history
 data model exists yet. Persona-switch continuity (`session_id`/
 `session_generation` reset in `apply_picker_choice`) is also real state
 that `turns.py`'s generation-guard logic depends on, not mock behavior.
@@ -12,8 +12,8 @@ from rich.style import Style
 
 from sympose import engine
 from sympose.cli import (
-    context_explain, grounded_list, grounding_line, help_notes, meter, meter_estimate, picker, share,
-    transcript as transcript_mod,
+    context_explain, grounded_list, grounding_line, help_notes, meter, meter_estimate, picker, settings_list,
+    share, transcript as transcript_mod,
 )
 from sympose.cli.commands import COMMANDS
 from sympose.cli.options import MODEL_OPTIONS, list_personas
@@ -107,12 +107,7 @@ async def run_command(app, command) -> None:
             await transcript.remove_children()
             app.last_speaker = None
     elif command.name == "/settings":
-        # No web-style Settings page exists in a terminal, so unlike
-        # the web app's `/settings` (wired to real navigation), this
-        # stays inert-by-default.
-        transcript_mod.mount_line(
-            app, "Settings aren't available in the CLI yet — this is a mock.", "system"
-        )
+        await settings_list.open_picker(app)
     elif command.name == "/quit":
         # `app.action_quit` (also Textual's own ctrl+q/command-palette
         # quit route) has the in-flight-aware fast-exit check — one place

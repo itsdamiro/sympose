@@ -1,6 +1,12 @@
 # Settings
 
-Settings are stored in `settings.json`, in the folder where Sympose runs. `SYMPOSE_SETTINGS_PATH` in `.env` moves the file. There is no settings screen yet, so you edit the file by hand. Restart the chat after editing to be sure a change applies.
+Settings are stored in `settings.json`, in the folder where Sympose runs. `SYMPOSE_SETTINGS_PATH` in `.env` moves the file. The common ones can be changed with /settings in the chat, the rest by hand. Restart the chat after editing the file to be sure a change applies.
+
+## Changing them in the chat
+
+Type /settings for a list of the common ones, each with its value. Choose a row to change it: a true or false one flips, one with a few values moves to the next, and for a number the chat box asks for it. Enter saves, an empty line puts the default back and Esc leaves it as it was. A number that cannot be used is refused.
+
+The list has `show_grounding`, `show_trim_notice`, `show_context_meter`, `show_index_notice`, `reply_reveal`, `context_window`, `reply_limit`, `grounding_followups`, `session_recaps`, `grounding_search`, `embedding_min_similarity` and `embedding_margin`. The model, the persona and what a cloud model may receive have /model, /persona and /share.
 
 ## Where are my settings stored?
 

@@ -58,7 +58,7 @@ The rewrite step also runs when the first search is *weak* (every hit rests on o
 
 - The `recent-words` and `model-searches` modes.
 - A separate cheaper model for the rewrite, and any measurement on cloud or other local models.
-- A settings screen and a slash command for the knob (settings file only for now).
+- A settings screen and a slash command for the knob (settings file only for now). **Update (docs/decisions/036):** the settings screen is built and lists `grounding_followups`; there is still no command of its own for it.
 - Showing that a rewrite ran but found nothing, and counting the rewrite call in the time the header shows.
 - Skipping the call for small talk: any ungrounded message with history pays it, since the trigger is structural (a miss), not a guess about wording; a "thanks" costs one short call that answers `NONE`. A mixed query (a topic change whose rewrite drags in the old topic's name, "Atlas tax filing deadline") is possible from a small model and was not seen in the measured cases; the query is visible in the header and the retriever's gates still apply.
 - Rewriting in the same call as the chat (one call, but the model would then have to write the query before the evidence exists).

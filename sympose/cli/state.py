@@ -13,6 +13,8 @@ def init(app) -> None:
     app.model_override = None
     app.panel: SelectionPanel | None = None
     app.panel_kind: str | None = None
+    # The number `/settings` is asking for in the chat box, while it is (docs/decisions/036).
+    app.pending_setting: str | None = None
     # One session per CLI process run — the engine starts a new one on
     # the first real turn; `/clear` wipes the visible transcript only,
     # it does not reset this (no `/new`-style command exists yet).

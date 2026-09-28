@@ -143,6 +143,18 @@ def test_a_malformed_or_tiny_reply_limit_means_automatic(monkeypatch, junk):
     assert budget.budget_for("ollama_chat/m").reply_cap == 2048
 
 
+def test_the_bare_reply_setting_is_what_the_user_chose_or_none(monkeypatch):
+    """`/settings` reads it (docs/decisions/036); `reply_reserve` uses the same reading."""
+    assert budget.reply_setting() is None
+    settings_store.set(budget.REPLY_SETTING, 300)
+    assert budget.reply_setting() == 300
+    for junk in ("500", True, None, 63, 0, -1, 2.5):
+        settings_store.set(budget.REPLY_SETTING, junk)
+        assert budget.reply_setting() is None, junk
+    settings_store.set(budget.REPLY_SETTING, 64)
+    assert budget.reply_setting() == 64
+
+
 def test_the_cloud_budget_sends_no_window_and_no_reply_cap_but_keeps_room_for_the_reply(monkeypatch):
     native(monkeypatch, {"gpt-x": 128000, "gpt-small": 8192})
     assert budget.budget_for("gpt-x") == budget.Budget(
