@@ -2049,14 +2049,14 @@ def test_the_reply_header_shows_a_reply_cut_at_the_length_limit(profiles, monkey
 
 
 def test_the_meter_draws_a_bar_and_a_percentage_of_the_prompt_budget():
-    assert meter.format_meter(0, 5000, "yellow", "red").plain == "context ░░░░░░░░░░ 0%"
-    assert meter.format_meter(3100, 5000, "yellow", "red").plain == "context ██████░░░░ 62%"
-    assert meter.format_meter(5000, 5000, "yellow", "red").plain == "context ██████████ 100%"
+    assert meter.format_meter(0, 5000, "yellow", "red").plain == "context ░░░░░░░░░░ 0% · 0 of 5.0k"
+    assert meter.format_meter(3100, 5000, "yellow", "red").plain == "context ██████░░░░ 62% · 3.1k of 5.0k"
+    assert meter.format_meter(5000, 5000, "yellow", "red").plain == "context ██████████ 100% · 5.0k of 5.0k"
 
 
 def test_the_meter_never_shows_more_than_full_or_less_than_empty():
-    assert meter.format_meter(9000, 5000, "yellow", "red").plain == "context ██████████ 100%"
-    assert meter.format_meter(-1000, 5000, "yellow", "red").plain == "context ░░░░░░░░░░ 0%"
+    assert meter.format_meter(9000, 5000, "yellow", "red").plain == "context ██████████ 100% · 9.0k of 5.0k"
+    assert meter.format_meter(-1000, 5000, "yellow", "red").plain == "context ░░░░░░░░░░ 0% · 0 of 5.0k"
 
 
 def test_the_meter_reads_100_only_once_the_budget_is_reached():
@@ -2068,8 +2068,8 @@ def test_the_meter_reads_100_only_once_the_budget_is_reached():
 
 def test_the_meter_rounds_to_the_nearest_percent_and_bar_cell():
     assert meter.percent(3130, 5000) == 63  # 62.6, not cut down to 62
-    assert meter.format_meter(3130, 5000, "yellow", "red").plain == "context ██████░░░░ 63%"  # 6.3 cells
-    assert meter.format_meter(3300, 5000, "yellow", "red").plain == "context ███████░░░ 66%"  # 6.6 cells
+    assert meter.format_meter(3130, 5000, "yellow", "red").plain == "context ██████░░░░ 63% · 3.1k of 5.0k"  # 6.3 cells
+    assert meter.format_meter(3300, 5000, "yellow", "red").plain == "context ███████░░░ 66% · 3.3k of 5.0k"  # 6.6 cells
 
 
 def _colours(text):
@@ -2142,12 +2142,12 @@ def _result(used, limit):
 def test_the_meter_is_empty_before_the_first_reply_and_filled_after_it(profiles, monkeypatch):
     seen = _run_meter_scenario(monkeypatch, [_result(3100, 5000)])
     assert seen["start"] == ""
-    assert seen["text"] == "context ██████░░░░ 62%"
+    assert seen["text"] == "context ██████░░░░ 62% · 3.1k of 5.0k"
 
 
 def test_the_meter_follows_the_latest_reply(profiles, monkeypatch):
     seen = _run_meter_scenario(monkeypatch, [_result(1000, 5000), _result(4600, 5000)])
-    assert seen["text"] == "context █████████░ 92%"
+    assert seen["text"] == "context █████████░ 92% · 4.6k of 5.0k"
 
 
 def test_the_meter_stays_empty_when_the_knob_is_off_or_the_window_is_unknown(profiles, monkeypatch):
@@ -2164,7 +2164,7 @@ def test_a_zero_budget_is_treated_as_unknown_not_divided_by(profiles, monkeypatc
 
 def test_a_failed_turn_leaves_the_meter_as_it_was(profiles, monkeypatch):
     seen = _run_meter_scenario(monkeypatch, [_result(3100, 5000), engine.EngineModelError("down")])
-    assert seen["text"] == "context ██████░░░░ 62%"
+    assert seen["text"] == "context ██████░░░░ 62% · 3.1k of 5.0k"
 
 
 def test_switching_the_model_or_the_persona_clears_the_meter(profiles, monkeypatch):
@@ -2236,7 +2236,7 @@ def test_a_reply_that_lands_after_a_model_switch_does_not_show_the_old_models_pe
 
 
 def test_a_reply_with_no_switch_meanwhile_does_fill_the_meter(profiles, monkeypatch):
-    assert _switched_while_in_flight(profiles, monkeypatch, lambda app: None) == "context ██████░░░░ 62%"
+    assert _switched_while_in_flight(profiles, monkeypatch, lambda app: None) == "context ██████░░░░ 62% · 3.1k of 5.0k"
 
 
 # -- the search-index notice at the far right of the meter line (docs/decisions/027) --
@@ -2279,7 +2279,7 @@ def test_the_notice_shares_the_line_with_the_meter_and_ends_at_the_right_edge(pr
     seen = _run_meter_scenario(monkeypatch, [_result(3100, 5000)], then)
     text, width = seen["then"]
 
-    assert seen["text"] == "context ██████░░░░ 62%"  # before the notice
+    assert seen["text"] == "context ██████░░░░ 62% · 3.1k of 5.0k"  # before the notice
     assert text.startswith("context ██████░░░░ 62%") and text.endswith("indexing 40%")
     assert len(text) == width and "\n" not in text
 
@@ -2308,7 +2308,7 @@ def test_the_notice_goes_when_the_build_ends_and_the_meter_stays(profiles, monke
         widget.refresh_notice()
         return _meter_text(app)
 
-    assert _run_meter_scenario(monkeypatch, [_result(3100, 5000)], then)["then"] == "context ██████░░░░ 62%"
+    assert _run_meter_scenario(monkeypatch, [_result(3100, 5000)], then)["then"] == "context ██████░░░░ 62% · 3.1k of 5.0k"
 
 
 def test_a_reply_after_the_notice_appeared_keeps_the_notice(profiles, monkeypatch):
@@ -2353,7 +2353,7 @@ def test_in_a_terminal_too_narrow_for_both_they_stay_apart(profiles, monkeypatch
             app.query_one(meter.ContextMeter).refresh_notice()
             return _meter_text(app)
 
-    assert run_async(scenario()) == "context ██████░░░░ 62%  indexing 40%"
+    assert run_async(scenario()) == "context ██████░░░░ 62% · 3.1k of 5.0k  indexing 40%"
 
 
 def test_the_notice_moves_to_the_new_right_edge_when_the_terminal_is_resized(profiles, monkeypatch):
@@ -2397,7 +2397,7 @@ def test_turning_the_notice_off_leaves_the_meter_and_turning_the_meter_off_leave
         widget.refresh_notice()
         return _meter_text(app)
 
-    assert _run_meter_scenario(monkeypatch, [_result(3100, 5000)], then)["then"] == "context ██████░░░░ 62%"
+    assert _run_meter_scenario(monkeypatch, [_result(3100, 5000)], then)["then"] == "context ██████░░░░ 62% · 3.1k of 5.0k"
     # (the reverse, the meter off and the notice on, is `test_the_notice_shows_even_when_the_meter_is_turned_off`)
 
 
@@ -2412,7 +2412,7 @@ def test_a_notice_already_showing_goes_when_its_knob_is_turned_off(profiles, mon
         widget.refresh_notice()  # what the once-a-second timer does
         return _meter_text(app)
 
-    assert _run_meter_scenario(monkeypatch, [_result(3100, 5000)], then)["then"] == "context ██████░░░░ 62%"
+    assert _run_meter_scenario(monkeypatch, [_result(3100, 5000)], then)["then"] == "context ██████░░░░ 62% · 3.1k of 5.0k"
 
 
 # -- what a cloud model may receive (docs/decisions/031) --
@@ -2705,3 +2705,224 @@ def test_with_no_setting_the_reply_is_revealed_at_50_words_per_second(profiles, 
 
     assert "w15" in text  # 16 words: more than the 10 that 20 words per second would have shown
     assert "w59" not in text
+
+
+# -- `/context` and the figure right after a model switch (docs/decisions/018, "Update") --
+
+
+def test_a_token_count_reads_in_thousands_from_1000_up():
+    assert [meter.compact(n) for n in (0, 812, 999, 1000, 3812, 6144, 95_904)] == [
+        "0", "812", "999", "1.0k", "3.8k", "6.1k", "95.9k",
+    ]
+
+
+def test_context_is_a_listed_command():
+    assert commands.find_command("/context") is not None
+
+
+def _system_lines(app) -> list[str]:
+    return [plain_text(c) for c in app.transcript.children]
+
+
+def _run_context_command(app, pilot):
+    async def go():
+        await runtime.run_command(app, commands.find_command("/context"))
+        await pilot.pause()
+        return _system_lines(app)
+
+    return go()
+
+
+def test_context_before_any_reply_says_the_meter_fills_after_the_first_one(profiles, monkeypatch):
+    async def then(app, pilot):
+        return await _run_context_command(app, pilot)
+
+    seen = _run_meter_scenario(monkeypatch, [], then=then)
+    assert any("No context figure yet" in line for line in seen["then"])
+
+
+def test_context_gives_the_figures_in_full_and_says_what_they_mean(profiles, monkeypatch):
+    async def then(app, pilot):
+        return await _run_context_command(app, pilot)
+
+    lines = _run_meter_scenario(monkeypatch, [_result(3100, 5000)], then=then)["then"]
+    assert any("3,100 of 5,000 tokens" in line and "(62%)" in line for line in lines)
+    assert any("leans high" in line for line in lines)
+    assert any("At 100% the next message starts leaving older turns out" in line for line in lines)
+    assert not any("estimate" in line for line in lines)
+
+
+def test_context_still_gives_the_figures_when_the_meter_line_is_hidden(profiles, monkeypatch):
+    from sympose import settings_store
+
+    settings_store.set(meter.SETTING, False)
+
+    async def then(app, pilot):
+        return await _run_context_command(app, pilot)
+
+    seen = _run_meter_scenario(monkeypatch, [_result(3100, 5000)], then=then)
+    assert seen["text"] == ""
+    assert any("3,100 of 5,000 tokens" in line for line in seen["then"])
+    assert any(meter.SETTING in line for line in seen["then"])
+
+
+def _switch_model_and_wait(app, pilot):
+    async def go():
+        runtime.apply_picker_choice(app, "model", options.MODEL_OPTIONS[1].id)
+        await app.workers.wait_for_complete()  # the estimate is counted in a worker
+        await pilot.pause()
+        return _meter_text(app)
+
+    return go()
+
+
+def test_switching_the_model_shows_an_estimate_for_the_new_one_and_context_says_so(profiles, monkeypatch):
+    calls = []
+
+    def fake_estimate(handle, session_id, model):
+        calls.append((handle, session_id, model))
+        return 2000, 8000
+
+    monkeypatch.setattr(runtime.meter_estimate.engine, "estimate_context", fake_estimate)
+
+    async def then(app, pilot):
+        text = await _switch_model_and_wait(app, pilot)
+        return text, calls[:], await _run_context_command(app, pilot)
+
+    text, seen_calls, lines = _run_meter_scenario(monkeypatch, [_result(3100, 5000)], then=then)["then"]
+    assert text == "context ██░░░░░░░░ 25% · 2.0k of 8.0k"
+    assert seen_calls == [("samantha", "s", options.MODEL_OPTIONS[1].id)]  # the session in progress, the new model
+    assert any("2,000 of 8,000 tokens" in line for line in lines)
+    assert any("estimate for the model you switched to" in line for line in lines)
+
+
+def test_the_next_reply_replaces_the_estimate_with_its_own_figure(profiles, monkeypatch):
+    monkeypatch.setattr(runtime.meter_estimate.engine, "estimate_context", lambda *a: (2000, 8000))
+
+    async def then(app, pilot):
+        await _switch_model_and_wait(app, pilot)
+        monkeypatch.setattr(turns.engine, "run_turn", lambda *a, **k: _result(4600, 5000))
+        app.composer.focus()
+        await pilot.press(*"hi", "enter")
+        await wait_until(lambda: app.pending_turns == 0 and "92%" in _meter_text(app))
+        return app.query_one(meter.ContextMeter).estimated
+
+    assert _run_meter_scenario(monkeypatch, [_result(3100, 5000)], then=then)["then"] is False
+
+
+def test_no_estimate_is_asked_for_before_the_first_reply(profiles, monkeypatch):
+    calls = []
+    monkeypatch.setattr(runtime.meter_estimate.engine, "estimate_context", lambda *a: calls.append(a))
+
+    async def then(app, pilot):
+        text = await _switch_model_and_wait(app, pilot)
+        return text, calls
+
+    assert _run_meter_scenario(monkeypatch, [], then=then)["then"] == ("", [])
+
+
+def test_nothing_to_count_leaves_the_meter_blank_after_a_switch(profiles, monkeypatch):
+    monkeypatch.setattr(runtime.meter_estimate.engine, "estimate_context", lambda *a: None)
+
+    async def then(app, pilot):
+        return await _switch_model_and_wait(app, pilot)
+
+    assert _run_meter_scenario(monkeypatch, [_result(3100, 5000)], then=then)["then"] == ""
+
+
+def test_a_failing_estimate_leaves_the_meter_blank_and_the_chat_working(profiles, monkeypatch):
+    def broken(*args):
+        raise RuntimeError("tokenizer went away")
+
+    monkeypatch.setattr(runtime.meter_estimate.engine, "estimate_context", broken)
+
+    async def then(app, pilot):
+        text = await _switch_model_and_wait(app, pilot)
+        return text, any("couldn't reply" in line or "tokenizer" in line for line in _system_lines(app))
+
+    assert _run_meter_scenario(monkeypatch, [_result(3100, 5000)], then=then)["then"] == ("", False)
+
+
+def test_an_estimate_that_lands_after_another_switch_is_dropped(profiles, monkeypatch):
+    release, started = threading.Event(), threading.Event()
+
+    def estimate(handle, session_id, model):
+        if model == options.MODEL_OPTIONS[1].id:
+            started.set()
+            release.wait(5)  # the first switch's count is slow ...
+            return 900, 1000
+        return 200, 1000  # ... the second switch's is not
+
+    monkeypatch.setattr(runtime.meter_estimate.engine, "estimate_context", estimate)
+
+    async def then(app, pilot):
+        runtime.apply_picker_choice(app, "model", options.MODEL_OPTIONS[1].id)
+        await wait_until(started.is_set)
+        runtime.apply_picker_choice(app, "model", options.MODEL_OPTIONS[0].id)
+        await wait_until(lambda: "200 of 1.0k" in _meter_text(app))
+        release.set()
+        await app.workers.wait_for_complete()
+        await pilot.pause()
+        return _meter_text(app)
+
+    assert _run_meter_scenario(monkeypatch, [_result(3100, 5000)], then=then)["then"] == (
+        "context ██░░░░░░░░ 20% · 200 of 1.0k"
+    )
+
+
+def test_the_estimate_does_not_queue_behind_chat_turns_waiting_on_a_model(profiles, monkeypatch):
+    monkeypatch.setattr(runtime.meter_estimate.engine, "estimate_context", lambda *a: (2000, 8000))
+    release = threading.Event()
+
+    async def then(app, pilot):
+        for _ in range(4):  # every worker chat turns use, busy waiting on a model
+            turns._ENGINE_EXECUTOR.submit(release.wait, 10)
+        try:
+            runtime.apply_picker_choice(app, "model", options.MODEL_OPTIONS[1].id)
+            await wait_until(lambda: "25%" in _meter_text(app), timeout=3)  # while the chat pool is still busy
+            return _meter_text(app)
+        finally:
+            release.set()
+
+    assert _run_meter_scenario(monkeypatch, [_result(3100, 5000)], then=then)["then"] == (
+        "context ██░░░░░░░░ 25% · 2.0k of 8.0k"
+    )
+
+
+def test_switching_the_persona_still_blanks_the_meter_and_asks_for_no_estimate(profiles, monkeypatch):
+    calls = []
+    monkeypatch.setattr(runtime.meter_estimate.engine, "estimate_context", lambda *a: calls.append(a))
+
+    async def then(app, pilot):
+        other = next(p for p in options.list_personas() if p.handle != app.persona.handle)
+        runtime.apply_picker_choice(app, "persona", other.handle)
+        await pilot.pause(0.3)
+        return _meter_text(app), calls
+
+    assert _run_meter_scenario(monkeypatch, [_result(3100, 5000)], then=then)["then"] == ("", [])
+
+
+def test_a_model_switch_after_a_real_conversation_shows_the_real_estimate(profiles, monkeypatch):
+    """No stubbed estimate: the session file the engine wrote, the new model's window, the meter."""
+    from sympose.engine import budget, session
+
+    monkeypatch.setattr(budget, "_native_max", lambda model: 8192)
+
+    async def then(app, pilot):
+        assert session.append_turn(app.persona.handle, "s", "hello there", "Hi! How can I help?")
+        return await _switch_model_and_wait(app, pilot), app.query_one(meter.ContextMeter).figures
+
+    text, figures = _run_meter_scenario(monkeypatch, [_result(3100, 5000)], then=then)["then"]
+    assert figures is not None and 0 < figures[0] < figures[1]
+    assert text.startswith("context ") and text.endswith(f"of {meter.compact(figures[1])}")
+
+
+def test_context_forgets_the_old_figures_when_the_persona_is_switched(profiles, monkeypatch):
+    async def then(app, pilot):
+        other = next(p for p in options.list_personas() if p.handle != app.persona.handle)
+        runtime.apply_picker_choice(app, "persona", other.handle)
+        return await _run_context_command(app, pilot)
+
+    lines = _run_meter_scenario(monkeypatch, [_result(3100, 5000)], then=then)["then"]
+    assert any("No context figure yet" in line for line in lines)
+    assert not any("3,100" in line for line in lines)

@@ -2,11 +2,15 @@
 
 ## What does the percentage under the chat box mean?
 
-Under the chat box a dim line like `context ██████░░░░ 62%` shows how full the conversation is. A model can only read so much at once, and the percentage is how much of that space your conversation uses, after keeping room for the reply. At 100% the next message starts leaving older turns out.
+Under the chat box a dim line like `context ██████░░░░ 62% · 3.8k of 6.1k` shows how full the conversation is. A model can only read so much at once, and the percentage is how much of that space your conversation uses, after keeping room for the reply. The numbers beside it are the tokens in use and the space available. At 100% the next message starts leaving older turns out.
 
 ## When does the meter change?
 
-Once per reply, not while you type. It leans a little high on purpose, turns warning colour from 70% and error colour from 90%, is empty before the first reply, and is cleared when you switch model or persona until the next reply.
+Once per reply, not while you type. It leans a little high on purpose, turns warning colour from 70% and error colour from 90%, and is empty before the first reply. When you switch model it shows an estimate for the model you picked right away, counted from the conversation so far, until a reply gives the real figure. When you switch persona it is empty until that persona's first reply.
+
+## How do I see exactly what the number is?
+
+Type /context. It gives the tokens in full, says what is counted, and says when the figure is only an estimate after a model switch.
 
 ## What does older turns out of context mean?
 

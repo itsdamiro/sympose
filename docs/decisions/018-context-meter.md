@@ -24,15 +24,13 @@ Live on `gemma2:9b` through the real CLI with a 1024-token window (prompt budget
 
 ## Consequences
 
-The number is an estimate that leans high (the margin), so a conversation can look nearly full while the model still has room; that is the safe direction, since the failure it warns about is silent loss. It moves in steps, once per turn, not while typing: the size of a message being written is not counted until it is sent. After a model switch it is blank until the next reply, not recomputed for the new window. A long conversation on a large window climbs slowly, so most short chats will show a small percentage most of the time; that is the honest picture.
+The number is an estimate that leans high (the margin), so a conversation can look nearly full while the model still has room; that is the safe direction, since the failure it warns about is silent loss. It moves in steps, once per turn, not while typing: the size of a message being written is not counted until it is sent. A long conversation on a large window climbs slowly, so most short chats will show a small percentage most of the time; that is the honest picture.
 
 ## Not built yet
 
-- Counting the message being typed.
-- Recomputing the number for the new window right after a model switch, instead of blanking it.
-- Showing raw token counts (`3.8k of 6.1k`) beside the percentage, and a command that explains the number.
+- Counting the message being typed. (Listed here and also under "Alternatives rejected" below: the two disagree, and it stays not built until that is settled.)
 - The web dashboard's meter.
-- Restoring the meter when a saved session is resumed (it appears after the first reply).
+- Restoring the meter when a saved session is resumed. The CLI has no way to resume a saved session yet (`/history` is a placeholder and every launch starts a new session), so there is nothing to hook this to.
 
 ## Alternatives rejected
 
@@ -40,5 +38,15 @@ The number is an estimate that leans high (the margin), so a conversation can lo
 - **A percentage of the raw window.** It tops out at the reserve line and would show 75 percent for a conversation that is already dropping turns.
 - **Counting the typed message live.** A token count on every keystroke, for a number that only matters once the message is sent.
 - **A status bar or header line instead of under the composer.** The header already carries per-reply facts (TTFT, notes, trim notice), which is what fills its width; the meter describes the conversation, not one reply, so it sits by the box the user types into.
+
+## Update: raw counts, `/context`, and a figure right after a model switch (#27)
+
+- **Raw counts beside the percentage.** The line reads `context ██████░░░░ 62% · 3.8k of 6.1k`: the tokens in use and the prompt budget, rounded to a tenth of a thousand from 1,000 up. No knob of its own: it is part of the meter and goes with `show_context_meter`.
+- **`/context` explains the number.** It prints, in the chat, the figures in full (`3,812 of 6,144 tokens`), what 100% means, what is counted, and that the figure leans high. Before any figure exists it says the meter fills after the first reply (or why it is empty: the knob is off, or the model's window is unknown). The figures are read back from what the meter shows, never recomputed.
+- **A figure right after a model switch.** Instead of blanking, the meter shows an estimate for the new model at once: the persona's system prompt (soul, rules, the vault map when this model may receive it) plus the conversation's kept history, counted with the new model's tokenizer against the new model's prompt budget, the oldest turns left out when they do not fit exactly as a real turn would (`engine/context_estimate.py`, no model call), so it never reads above the budget. It stays blank when the conversation has no reply yet (nothing to count) or the window is unknown. The next real reply replaces it.
+  - **What it leaves out.** The next message's grounding block and any recaps, which the real figure includes, so the estimate leans *low* where the real figure leans high. `/context` says "estimated" while an estimate is showing, so the user is not shown an estimate as the measured figure.
+  - **Stale results.** It runs off the interface thread, in a small pool of its own so it never queues behind a chat turn waiting on a model (a tokenizer can be slow the first time it loads), and lands through the same epoch check as a reply: a second switch, or a persona switch, while it runs makes it stale and it is dropped. A reply still in flight from the old model is ignored as before; the estimate then misses that one turn until the next reply corrects it.
+  - **Persona switches are unchanged**: a new persona starts a fresh session, so the meter is blank.
+- **Alternative rejected: keep the figure and only re-divide it by the new window.** The tokenizer is model-specific (`budget.count_tokens` takes the model), so the same text counts differently on the new model; dividing the old count by the new window would be wrong in the way the meter exists to avoid.
 
 **Update (docs/decisions/027):** the line also carries a notice at its far right while the search index is being built, `indexing 40%`, with its own knob `show_index_notice`, independent of `show_context_meter`.

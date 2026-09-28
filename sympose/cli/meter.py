@@ -39,6 +39,11 @@ class ContextMeter(Static):
     # while the search index is being built (docs/decisions/027).
     _left = Text("")
     _notice = ""
+    # The tokens in use and the budget behind what is shown, for `/context` to read back
+    # (docs/decisions/018, "Update"); `estimated` while it is the figure worked out at a model
+    # switch and not yet a reply's own. `None` when there is nothing to show.
+    figures: tuple[int, int] | None = None
+    estimated = False
 
     def on_mount(self) -> None:
         self.set_interval(_POLL_SECONDS, self.refresh_notice)
@@ -87,10 +92,16 @@ def percent(used: int, limit: int) -> int:
     return pct if used >= limit else min(pct, 99)
 
 
+def compact(tokens: int) -> str:
+    """`812`, then `3.8k` from 1,000 up."""
+    tokens = max(0, tokens)
+    return str(tokens) if tokens < 1000 else f"{tokens / 1000:.1f}k"
+
+
 def format_meter(used: int, limit: int, warn: str, error: str) -> Text:
     pct = percent(used, limit)
     filled = round(pct * _BAR_CELLS / 100)
-    text = Text(f"context {'█' * filled}{'░' * (_BAR_CELLS - filled)} {pct}%")
+    text = Text(f"context {'█' * filled}{'░' * (_BAR_CELLS - filled)} {pct}% · {compact(used)} of {compact(limit)}")
     if pct >= _ERROR_AT:
         text.stylize(Style(color=error))
     elif pct >= _WARN_AT:
@@ -106,18 +117,25 @@ def clear(app) -> None:
     """Empties the line and makes any reply still in flight stale."""
     widget = app.query_one(ContextMeter)
     widget.epoch += 1
+    widget.figures, widget.estimated = None, False
     widget.set_left(Text(""))
 
 
-def show(app, used: int | None, limit: int | None, since: int) -> None:
+def show(app, used: int | None, limit: int | None, since: int, estimated: bool = False) -> None:
     """Shows the conversation's size after a reply that was sent when the
     meter's epoch was `since`; a reply that has since been made stale by a
     reset is ignored. A missing figure (the model's window is unknown) or the
-    knob being off leaves the line empty."""
+    knob being off leaves the line empty. `estimated`: the figure is the one worked out at a
+    model switch (docs/decisions/018, "Update"), not a reply's own."""
     widget = app.query_one(ContextMeter)
     if widget.epoch != since:
         return
-    if used is None or not limit or not enabled():
+    if used is None or not limit:
+        widget.figures, widget.estimated = None, False
+        widget.set_left(Text(""))
+        return
+    widget.figures, widget.estimated = (used, limit), estimated
+    if not enabled():
         widget.set_left(Text(""))
         return
     warn, error = app.theme_color("warning", "yellow"), app.theme_color("error", "red")

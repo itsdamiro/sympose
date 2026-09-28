@@ -1,6 +1,6 @@
 # Chat commands
 
-The chat commands are /help, /model, /persona, /default, /grounding, /grounded, /share, /clear, /quit, and the placeholders /history, /compact and /settings. Type / in the chat to see them; Tab, or the Down and Up arrows, cycle through them.
+The chat commands are /help, /model, /persona, /default, /grounding, /grounded, /context, /share, /clear, /quit, and the placeholders /history, /compact and /settings. Type / in the chat to see them; Tab, or the Down and Up arrows, cycle through them.
 
 ## /help
 
@@ -25,6 +25,10 @@ The chat commands are /help, /model, /persona, /default, /grounding, /grounded, 
 ## /grounded
 
 /grounded lists every note that grounded the last reply, with a similarity score where it was found by meaning, plus anything else that turn sent: a recap, a rewritten search, dropped turns, a cloud model's categories. It says so plainly when there is nothing to show.
+
+## /context
+
+/context explains the number in the meter under the chat box: the tokens in use and the space available in full, what is counted, and whether the figure is an estimate after a model switch. It says so plainly when there is no figure yet.
 
 ## /share
 

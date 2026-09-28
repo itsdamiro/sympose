@@ -11,7 +11,10 @@ out to hold the 200-LOC-per-file cap."""
 from rich.style import Style
 
 from sympose import engine
-from sympose.cli import grounded_list, grounding_line, help_notes, meter, picker, share, transcript as transcript_mod
+from sympose.cli import (
+    context_explain, grounded_list, grounding_line, help_notes, meter, meter_estimate, picker, share,
+    transcript as transcript_mod,
+)
 from sympose.cli.commands import COMMANDS
 from sympose.cli.options import MODEL_OPTIONS, list_personas
 from sympose.cli.selection import SelectionOption
@@ -65,6 +68,10 @@ async def run_command(app, command) -> None:
         transcript_mod.mount_line(app, line, "system")
     elif command.name == "/grounded":
         for line in grounded_list.render(app.last_sent):
+            transcript_mod.mount_line(app, line, "system")
+    elif command.name == "/context":
+        widget = app.query_one(meter.ContextMeter)
+        for line in context_explain.render(widget.figures, widget.estimated, meter.enabled()):
             transcript_mod.mount_line(app, line, "system")
     elif command.name == "/share":
         await share.open_picker(app)
@@ -126,6 +133,7 @@ def apply_picker_choice(app, kind: str, value: str | None) -> bool:
         if model is not None:
             app.model_override = model
             meter.clear(app)  # the old figure was measured against the previous window
+            meter_estimate.start(app, model.id)  # ...and an estimate for the new one, if there is anything to count
             picker.update_banner(app)
             transcript_mod.mount_line(app, f"Switched model to {model.label}.", "system")
             ask = share.on_change(app, was_cloud)
