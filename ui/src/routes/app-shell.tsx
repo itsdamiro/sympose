@@ -76,6 +76,7 @@ import { matchWikilinkTargets } from "@/lib/vault-wikilink-completions"
 import { matchTagTargets } from "@/lib/vault-tag-completions"
 import { resolveEmbed } from "@/lib/resolve-embed"
 import { VAULT_FOLDERS } from "@/lib/vault-folders"
+import { fetchNoteTemplate, type NoteTemplate } from "@/lib/vault-definition-api"
 import {
   PersonaCard,
   ChatActionGroup,
@@ -84,6 +85,7 @@ import {
   ContentPanel,
   ControlSectionsProvider,
   EditorPreferencesSection,
+  FolderSetupDialog,
   HiddenSection,
   MainMenu,
   NotificationsSection,
@@ -586,6 +588,12 @@ export function AppShell() {
   >(null)
   const [createName, setCreateName] = React.useState("")
   const [creating, setCreating] = React.useState(false)
+  // A root folder just created, while its optional setup dialog is open
+  // (docs/decisions/038); `null` when none is.
+  const [folderSetup, setFolderSetup] = React.useState<{
+    folder: string
+    template: NoteTemplate
+  } | null>(null)
   // Filters `panelNodes` client-side (name/path substring match) rather than
   // round-tripping to the backend — round-trip frugality, and the tree is
   // already fetched. Only scoped to the vault-folder listing, not Bin /
@@ -1096,6 +1104,15 @@ export function AppShell() {
       panels.open("editor")
     }
     notify.success(`Created ${name}`)
+    // A folder typed with no slash is a root folder for a persona that sees the
+    // whole vault; the server says whether this one can have a definition (a
+    // persona's first folder, `Templates` and ignored folders cannot), and the
+    // setup step opens only when it can. Both fields are optional and nothing
+    // is written on Skip.
+    if (kind === "folder" && !folder && !/[\\/]/.test(name)) {
+      const template = await fetchNoteTemplate(name, activePersona)
+      if (template?.definable) setFolderSetup({ folder: name, template })
+    }
   }
 
   // The main-menu account row wears the active persona's name, icon and accent.
@@ -1694,6 +1711,13 @@ export function AppShell() {
             open={editorOpen}
             fill={editorFill}
             phone={isPhone}
+          />
+
+          <FolderSetupDialog
+            setup={folderSetup}
+            persona={activePersona}
+            onClose={() => setFolderSetup(null)}
+            onCreated={() => setVaultRefreshKey((k) => k + 1)}
           />
 
           <ChatPanel
