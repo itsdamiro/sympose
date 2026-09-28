@@ -3,14 +3,16 @@ it, is `prompt_text`, re-exported here so `prompt` is the one place to look. A s
 model follows what sits last and nearest the question over what came first, so the
 layout is:
 
-    system:  the persona's soul, its name, how Sympose works, the rules
+    system:  the persona's soul, its name, how Sympose works, the rules, the recaps
     history: the conversation so far
-    user:    the notes found for this message, then the message
+    user:    the shape of the vault, the notes found for this message, then the message
 
 The notes travel with the question, not in the system prompt, where the soul's
 own instructions ("ask a real question", "have a point of view") outweighed
 them and the model chatted instead of answering from the notes (docs/decisions/019
-and 020). The engine's rules stay after the soul, so no soul can weaken them
+and 020). The shape of the vault travels with them for the same reason: in the system
+prompt she denied knowing the vault's size with the answer in front of her
+(docs/decisions/039). The engine's rules stay after the soul, so no soul can weaken them
 (docs/decisions/012)."""
 
 from typing import Any
@@ -44,8 +46,6 @@ def build_system_prompt(
     recaps: list[dict[str, Any]] | None = None,
     recaps_omitted: int = 0,
     recaps_withheld: int = 0,
-    vault_map: str | None = None,
-    vault_map_withheld: bool = False,
 ) -> str:
     # `handle` is always lowercase (`profile.get_profile` lowercases it
     # before building a file path) -- title-cased here so a fallback
@@ -62,11 +62,6 @@ def build_system_prompt(
     parts = [soul or DEFAULT_SOUL, identity, HOW_YOU_WORK, GROUNDING_RULE]
     if profile.get("sympose_reference"):
         parts.append(SYMPOSE_RULE)
-    # The vault map (docs/decisions/035) sits here, fixed like the soul and the rules above it: unlike
-    # the notes found for a message, it is never left out to fit the window.
-    map_text = vault_map_block(vault_map, vault_map_withheld)
-    if map_text:
-        parts.append(map_text)
     # Recaps go here, not in the message: beside a request in the middle of a chat that is on the
     # same topic as a recap, they made her comment on the conversation instead of continuing it
     # (docs/decisions/026).
@@ -84,15 +79,21 @@ def build_user_turn(
     reference_omitted: int = 0,
     point_to: list[str] | None = None,
     withheld: dict[str, int] | None = None,
+    vault_map: str | None = None,
+    vault_map_withheld: bool = False,
 ) -> str:
-    """`reference`: the persona has the Sympose reference library, so the turn
+    """`vault_map`, or the line saying a cloud model may not have it (`vault_map_withheld`), comes first
+    (docs/decisions/039): it is fixed and never left out to fit the window, unlike the notes below it.
+    `reference`: the persona has the Sympose reference library, so the turn
     says what it found in it (or that nothing matched). Its passages are marked
     `source: reference.SOURCE` and kept apart from the user's own notes; `omitted` and
     `reference_omitted` count the passages of each left out for size. `point_to`:
     the personas that have the library, for one that does not to send the user to."""
     reference_hits = [h for h in grounding_results if h.get("source") == reference_mod.SOURCE]
     notes = [h for h in grounding_results if h.get("source") != reference_mod.SOURCE]
-    parts = [notes_block(notes, omitted, withheld)]
+    map_text = vault_map_block(vault_map, vault_map_withheld)
+    parts = [map_text] if map_text else []
+    parts.append(notes_block(notes, omitted, withheld))
     if notes:
         parts.append(ANSWER_FROM_NOTES)
     if reference:
@@ -119,9 +120,9 @@ def build_messages(
     vault_map: str | None = None,
     vault_map_withheld: bool = False,
 ) -> list[dict[str, str]]:
-    """The system prompt (with the vault map, docs/decisions/035, and the recaps of earlier
-    conversations, docs/decisions/023 and 026), the history as it was said (the notes of earlier turns
-    are not repeated), and this turn's notes with the message. `point_to`: the
+    """The system prompt (with the recaps of earlier conversations, docs/decisions/023 and 026), the
+    history as it was said (the notes of earlier turns are not repeated), and this turn's vault map
+    (docs/decisions/035 and 039) and notes with the message. `point_to`: the
     personas that have the reference library, read from the roster when not given
     (a turn gives it once, since fitting builds this many times). `withheld`: what a cloud model
     was not sent because the user has not allowed it, by category (docs/decisions/031). `vault_map` and
@@ -131,7 +132,7 @@ def build_messages(
     system = {
         "role": "system",
         "content": build_system_prompt(
-            profile, recaps, recaps_omitted, withheld.get(RECAPS, 0), vault_map, vault_map_withheld
+            profile, recaps, recaps_omitted, withheld.get(RECAPS, 0)
         ),
     }
     has_library = bool(profile.get("sympose_reference"))
@@ -140,7 +141,8 @@ def build_messages(
     user = {
         "role": "user",
         "content": build_user_turn(
-            user_message, grounding_results, omitted, has_library, reference_omitted, point_to, withheld
+            user_message, grounding_results, omitted, has_library, reference_omitted, point_to, withheld,
+            vault_map, vault_map_withheld,
         ),
     }
     return [system, *history, user]

@@ -51,6 +51,21 @@ _ATLAS_RECAPS = (
 )
 
 
+# The last conversation was about whether she can reach the vault (a real one): with that recap in the
+# prompt a small model repeated the denial and ignored the vault map she always has (docs/decisions/039).
+_ACCESS_RECAPS = (
+    ("20260924T090000-dddddddd", "The user was drafting a profile for a historical figure and asked for help capturing her personality."),
+    (
+        "20260925T090000-eeeeeeee",
+        "The user was asking the assistant about past conversations and what it can do. They wanted to know "
+        "whether it had access to their vault and what is stored in it, such as its size.",
+    ),
+)
+_DENIES_ACCESS = (
+    r"(?:can(?:no|')t|cannot|unable to|not able to|don'?t have|do not have|no) "
+    r"(?:actually |really |directly )?(?:have )?(?:any |direct )?(?:access|see|read|view|look)"
+)
+
 _CANT_SEARCH = (
     r"can(?:no|')t (?:actually )?search|cannot (?:actually )?search|unable to search|"
     r"not able to search|don't have (?:the )?(?:ability|access)"
@@ -212,6 +227,20 @@ LIVE_CASES: list[LiveCase] = [
         forbid=(r"you'?re (?:absolutely )?right", r"totally spaced|my bad|apologi"),
         recaps=_ATLAS_RECAPS,
     ),
+    # A recap about her access to the vault must not become what she says about it (docs/decisions/039).
+    LiveCase(
+        "recap-about-access-still-knows-the-vault-size",
+        ("hey.. you here?", "please remind me of what we talked about last time", "can you access my vault now? how large is my vault?"),
+        expect=(r"\b17\b",),
+        forbid=(_DENIES_ACCESS,),
+        recaps=_ACCESS_RECAPS,
+    ),
+    LiveCase(
+        "recap-about-access-still-says-how-she-helps",
+        ("hey.. you here?", "so how can you help me with my vault?"),
+        forbid=(_DENIES_ACCESS,),
+        recaps=_ACCESS_RECAPS,
+    ),
     # General knowledge she cannot have (docs/decisions/012, update): say she is not sure instead of
     # giving a confident answer. A made-up physicist, so any year is an invention.
     LiveCase(
@@ -319,11 +348,22 @@ def run_case(case: LiveCase) -> tuple[bool, str]:
     return ok, " ".join(reply.split())
 
 
+def _run_or_error(case: LiveCase) -> tuple[bool, str]:
+    """`run_case`, but a model that could not be reached (Ollama busy or swapping models) is a failed run with
+    the reason, not the end of the whole run."""
+    from sympose.engine import model
+
+    try:
+        return run_case(case)
+    except model.EngineModelError as e:
+        return False, f"ERROR (not a model answer): {e}"
+
+
 def main(runs: int, only: list[str]) -> None:
     tmp = setup_scratch()
     try:
         for case in [c for c in LIVE_CASES if not only or c.id in only]:
-            results = [run_case(case) for _ in range(runs)]
+            results = [_run_or_error(case) for _ in range(runs)]
             passed = sum(ok for ok, _ in results)
             print(f"\n{case.id}: {passed}/{runs}   ({case.messages[-1]!r})", flush=True)
             for ok, reply in results:

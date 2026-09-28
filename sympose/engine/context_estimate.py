@@ -24,12 +24,13 @@ def estimate(handle: str, session_id: str | None, model: str) -> tuple[int, int]
         return None
     map_text = vault_map_mod.build(persona)
     map_allowed = sharing.VAULT_MAP in sharing.allowed(model)
-    system = prompt.build_system_prompt(
-        persona, vault_map=map_text if map_allowed else None, vault_map_withheld=bool(map_text) and not map_allowed
-    )
+    system = prompt.build_system_prompt(persona)
+    # The next message's turn opens with the map (docs/decisions/039), so it counts here too.
+    map_block = prompt.vault_map_block(map_text if map_allowed else None, bool(map_text) and not map_allowed)
+    tail = [{"role": "user", "content": map_block}] if map_block else []
     try:
         fitted = budget.fit(
-            lambda kept, _notes, _recaps: [{"role": "system", "content": system}, *kept],
+            lambda kept, _notes, _recaps: [{"role": "system", "content": system}, *kept, *tail],
             history, [], model, limits.prompt_tokens,
         )
     except budget.ContextTooSmallError:  # the instructions alone do not fit: the next turn says so

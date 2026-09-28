@@ -1122,7 +1122,9 @@ def test_a_local_model_gets_the_vault_map_and_a_notes_connections(sessions_root,
     result = turn.run_turn("samantha", "who is Anna?")
 
     system, user_turn = calls[0]["messages"][0]["content"], calls[0]["messages"][-1]["content"]
-    assert prompt.VAULT_MAP_LABEL in system and "People" in system
+    assert prompt.VAULT_MAP_LABEL in user_turn and "People" in user_turn
+    assert user_turn.startswith(prompt.VAULT_MAP_LABEL)  # first, above the notes (docs/decisions/039)
+    assert prompt.VAULT_MAP_LABEL not in system
     assert prompt.CONNECTED_TO.format(names="Ben") in user_turn
     assert result.cloud == [] and result.withheld == []  # nothing to weigh for a local model
 
@@ -1136,7 +1138,7 @@ def test_a_cloud_model_withholds_the_map_and_connections_until_approved(sessions
     result = turn.run_turn("samantha", "who is Anna?", model=CLOUD)
 
     system, user_turn = calls[0]["messages"][0]["content"], calls[0]["messages"][-1]["content"]
-    assert prompt.WITHHELD_VAULT_MAP in system and prompt.VAULT_MAP_LABEL not in system
+    assert prompt.WITHHELD_VAULT_MAP in user_turn and prompt.VAULT_MAP_LABEL not in user_turn + system
     assert prompt.WITHHELD_CONNECTIONS in user_turn and "Connected to" not in user_turn
     assert "About Anna" in user_turn or _fake_grounding_result()["text"] in user_turn  # the note itself was sent
     assert result.cloud == ["notes"] and result.withheld == ["vault_map", "connections"]
@@ -1151,6 +1153,6 @@ def test_a_cloud_model_receives_the_map_and_connections_once_approved(sessions_r
     result = turn.run_turn("samantha", "who is Anna?", model=CLOUD)
 
     system, user_turn = calls[0]["messages"][0]["content"], calls[0]["messages"][-1]["content"]
-    assert prompt.VAULT_MAP_LABEL in system
+    assert prompt.VAULT_MAP_LABEL in user_turn and prompt.VAULT_MAP_LABEL not in system
     assert prompt.CONNECTED_TO.format(names="Ben") in user_turn
     assert result.cloud == ["notes", "vault_map", "connections"] and result.withheld == []

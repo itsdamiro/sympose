@@ -72,17 +72,34 @@ def test_the_vault_map_counts_only_where_the_model_may_receive_it(handle, monkey
     _talk(handle, "s1", ("hello", "hi there"))
     monkeypatch.setattr(context_estimate.vault_map_mod, "build", lambda persona: "MAP OF THE VAULT")
     seen = []
-    real = prompt.build_system_prompt
+    real_fit = context_estimate.budget.fit
 
-    def spy(persona, **kwargs):
-        seen.append(kwargs)
-        return real(persona, **kwargs)
+    def spy(build, *args, **kwargs):
+        seen.append(build([], [], []))  # what the next turn would open with, before any history
+        return real_fit(build, *args, **kwargs)
 
-    monkeypatch.setattr(context_estimate.prompt, "build_system_prompt", spy)
+    monkeypatch.setattr(context_estimate.budget, "fit", spy)
     context_estimate.estimate(handle, "s1", _LOCAL)  # a local model may receive everything
     context_estimate.estimate(handle, "s1", _CLOUD)  # a cloud one nothing the user has not approved
-    assert seen[0] == {"vault_map": "MAP OF THE VAULT", "vault_map_withheld": False}
-    assert seen[1] == {"vault_map": None, "vault_map_withheld": True}
+    local_tail, cloud_tail = seen[0][-1], seen[1][-1]
+    assert local_tail["role"] == "user" and "MAP OF THE VAULT" in local_tail["content"]
+    assert prompt.WITHHELD_VAULT_MAP in cloud_tail["content"] and "MAP OF THE VAULT" not in cloud_tail["content"]
+    assert "MAP OF THE VAULT" not in seen[0][0]["content"]  # not in the system prompt (docs/decisions/039)
+
+
+def test_no_vault_map_adds_no_tail_to_the_estimate(handle, monkeypatch):
+    _talk(handle, "s1", ("hello", "hi there"))
+    monkeypatch.setattr(context_estimate.vault_map_mod, "build", lambda persona: "")
+    seen = []
+    real_fit = context_estimate.budget.fit
+
+    def spy(build, *args, **kwargs):
+        seen.append(build([], [], []))
+        return real_fit(build, *args, **kwargs)
+
+    monkeypatch.setattr(context_estimate.budget, "fit", spy)
+    context_estimate.estimate(handle, "s1", _LOCAL)
+    assert [m["role"] for m in seen[0]] == ["system"]
 
 
 def test_a_conversation_too_long_for_the_window_is_trimmed_like_a_real_turn_and_never_reads_above_the_budget(

@@ -505,35 +505,53 @@ def test_a_withheld_category_does_not_hide_that_matching_notes_did_not_fit():
 # -- the vault map and connections (docs/decisions/035) --
 
 
-def test_the_vault_map_sits_with_the_soul_ahead_of_the_recaps():
-    text = prompt.build_system_prompt({"name": "Ada", "handle": "ada"}, vault_map="3 notes in 1 top-level folders.")
+def test_the_vault_map_is_the_first_block_of_the_turn_above_the_notes_and_the_message():
+    text = prompt.build_user_turn("who is Anna?", [_grounding_result()], vault_map="3 notes in 1 top-level folders.")
 
-    assert prompt.VAULT_MAP_LABEL in text
+    assert text.startswith(prompt.VAULT_MAP_LABEL)
     assert "3 notes in 1 top-level folders." in text
-    assert text.index(prompt.VAULT_MAP_LABEL) > text.index("Your name is Ada.")
+    assert text.index("3 notes in 1 top-level folders.") < text.index("Notes found in the vault") < text.index("User's message: who is Anna?")
 
 
-def test_no_vault_map_adds_nothing():
-    profile = {"name": "Ada", "handle": "ada"}
-
-    assert prompt.build_system_prompt(profile) == prompt.build_system_prompt(profile, vault_map=None)
-    assert prompt.VAULT_MAP_LABEL not in prompt.build_system_prompt(profile)
+def test_no_vault_map_adds_nothing_to_the_turn():
+    assert prompt.build_user_turn("hi", []) == prompt.build_user_turn("hi", [], vault_map=None)
+    assert prompt.VAULT_MAP_LABEL not in prompt.build_user_turn("hi", [])
 
 
 def test_a_withheld_vault_map_says_so_instead_of_showing_it():
-    text = prompt.build_system_prompt({"name": "Ada", "handle": "ada"}, vault_map=None, vault_map_withheld=True)
+    text = prompt.build_user_turn("hi", [], vault_map=None, vault_map_withheld=True)
 
-    assert prompt.WITHHELD_VAULT_MAP in text
+    assert text.startswith(prompt.WITHHELD_VAULT_MAP)
     assert prompt.VAULT_MAP_LABEL not in text
 
 
-def test_build_messages_threads_the_vault_map_into_the_system_prompt():
+def test_build_messages_puts_the_vault_map_in_the_last_turn_and_not_in_the_system_prompt():
     messages = prompt.build_messages(
         {"name": "Ada", "handle": "ada"}, [], [], "hi", vault_map="1 note in 1 top-level folders."
     )
 
-    assert "1 note in 1 top-level folders." in messages[0]["content"]
-    assert "1 note in 1 top-level folders." not in messages[-1]["content"]  # the map is not repeated with the message
+    assert "1 note in 1 top-level folders." in messages[-1]["content"]
+    assert "1 note in 1 top-level folders." not in messages[0]["content"]
+    assert prompt.VAULT_MAP_LABEL not in messages[0]["content"]
+
+
+def test_the_system_prompt_is_the_same_whatever_the_vault_holds():
+    profile = {"name": "Ada", "handle": "ada"}
+    with_map = prompt.build_messages(profile, [], [], "hi", vault_map="5 notes in 2 top-level folders.")
+    other_map = prompt.build_messages(profile, [], [], "hi", vault_map="900 notes in 40 top-level folders.")
+    withheld = prompt.build_messages(profile, [], [], "hi", vault_map_withheld=True)
+
+    assert with_map[0] == other_map[0] == withheld[0] == prompt.build_messages(profile, [], [], "hi")[0]
+
+
+def test_her_rules_name_the_vault_map_as_a_source_of_facts():
+    # The grounding rule limits her to backed facts, so a source the prompt supplies must be named in it or the rule
+    # forbids it (docs/decisions/039); the instructions must say she has it, or her habit ("I can't see your files") does.
+    text = prompt.build_system_prompt({"name": "Ada", "handle": "ada"})
+
+    assert "backed by the notes found for their message or by the shape of the vault given with it" in text
+    assert "You always know the shape of the vault too" in text
+    assert "without a search" in text
 
 
 def test_a_notes_connections_ride_with_it_and_are_stated_as_fact():
