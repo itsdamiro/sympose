@@ -41,7 +41,7 @@ A toggle or choice is checked the same way (read back what was written). If the 
 ## Consequences
 
 - One more input mode in the chat box, only between choosing a number row and Enter or Esc. Slash-command autocomplete is off while it is open.
-- The list has twelve rows and the picker shows about ten: the rest are reached with the arrow keys (digits select rows 1 to 9).
+- The list has twelve rows (fourteen since ADR 040 added `vault_lookup` and `vault_lookup_rounds` at the end, under Search) and the picker shows about ten: the rest are reached with the arrow keys (digits select rows 1 to 9).
 - The screen changes no default and no validation. A knob added later is one row in the registry.
 - **Not built:** editing `embedding_model` and the other left-out settings; a "reset all"; a web settings screen (#79, needs #29).
 

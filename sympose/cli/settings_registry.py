@@ -7,7 +7,7 @@ from typing import Any, Callable
 
 from sympose import settings_store
 from sympose.cli import grounding_line, meter, reveal, trim_notice
-from sympose.engine import budget, embeddings, followup, recap
+from sympose.engine import budget, embeddings, followup, lookup, recap
 
 TOGGLE, CHOICE, NUMBER = "toggle", "choice", "number"
 ON, OFF = "on", "off"
@@ -67,6 +67,15 @@ SETTINGS: list[Setting] = [
     Setting(
         embeddings.MARGIN_SETTING, NUMBER, "how near the best a note must be", embeddings.margin,
         lambda: embeddings.DEFAULT_MARGIN, hint="a number from 0 to 1",
+    ),
+    Setting(
+        lookup.SETTING, CHOICE, "who looks in your notes: Sympose or the persona",
+        lookup.mode, lambda: lookup.AUTO, choices=(lookup.AUTO, lookup.ASK),
+    ),
+    Setting(
+        lookup.ROUNDS_SETTING, NUMBER, "lookups the persona may make (ask)",
+        lookup.rounds, lambda: lookup.DEFAULT_ROUNDS,
+        hint=f"a whole number, 1 to {lookup.MAX_ROUNDS}", whole=True,
     ),
 ]
 

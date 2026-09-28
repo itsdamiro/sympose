@@ -289,3 +289,155 @@ def test_a_chat_model_setting_that_is_not_a_model_name_is_the_default(settings_f
     settings_store.set("chat_model", value)
 
     assert model.resolve_model() == model.DEFAULT_LOCAL_MODEL
+
+
+# -- tool calls in a streamed reply (docs/decisions/040) --
+
+
+def _tool_chunk(index=0, id=None, name=None, arguments=None, finish=None):
+    function = SimpleNamespace(name=name, arguments=arguments)
+    piece = SimpleNamespace(index=index, id=id, function=function)
+    delta = SimpleNamespace(content=None, reasoning_content=None, tool_calls=[piece])
+    return SimpleNamespace(choices=[SimpleNamespace(delta=delta, finish_reason=finish)])
+
+
+def test_a_tool_call_sent_in_pieces_is_assembled_and_the_reply_has_no_text(settings_file, monkeypatch):
+    monkeypatch.setattr(
+        model.litellm,
+        "completion",
+        lambda **kwargs: iter(
+            [
+                _tool_chunk(0, "call_1", "search_notes", '{"que'),
+                _tool_chunk(0, None, None, 'ry": "Atlas"}'),
+                _chunk(None, finish="tool_calls"),
+            ]
+        ),
+    )
+
+    reply = model.call_model([{"role": "user", "content": "hi"}], tools=[{"type": "function"}])
+
+    assert reply.text == "" and reply.ttft_ms is None
+    assert reply.tool_calls == (model.ToolCall("call_1", "search_notes", '{"query": "Atlas"}'),)
+
+
+def test_two_tool_calls_keep_their_order_and_a_call_with_no_id_is_given_one(settings_file, monkeypatch):
+    monkeypatch.setattr(
+        model.litellm,
+        "completion",
+        lambda **kwargs: iter(
+            [
+                _tool_chunk(1, None, "open_note", '{"path": "B"}'),
+                _tool_chunk(0, "keep", "search_notes", '{"query": "A"}'),
+                _chunk(None, finish="stop"),
+            ]
+        ),
+    )
+
+    calls = model.call_model([{"role": "user", "content": "hi"}], tools=[{}]).tool_calls
+
+    assert [(c.name, c.id) for c in calls] == [("search_notes", "keep"), ("open_note", "call_1")]
+
+
+def test_tools_and_tool_choice_are_sent_only_when_given(settings_file, monkeypatch):
+    seen = []
+
+    def completion(**kwargs):
+        seen.append(kwargs)
+        return _stream("ok")
+
+    monkeypatch.setattr(model.litellm, "completion", completion)
+
+    model.call_model([{"role": "user", "content": "hi"}])
+    model.call_model([{"role": "user", "content": "hi"}], tools=[{"type": "function"}], tool_choice="none")
+
+    assert "tools" not in seen[0] and "tool_choice" not in seen[0]
+    assert seen[1]["tools"] == [{"type": "function"}] and seen[1]["tool_choice"] == "none"
+
+
+def test_text_before_a_tool_call_is_kept_with_it(settings_file, monkeypatch):
+    monkeypatch.setattr(
+        model.litellm,
+        "completion",
+        lambda **kwargs: iter([_chunk("Let me look."), _tool_chunk(0, "c", "search_notes", "{}"), _chunk(None, finish="stop")]),
+    )
+
+    reply = model.call_model([{"role": "user", "content": "hi"}], tools=[{}])
+
+    assert reply.text == "Let me look." and len(reply.tool_calls) == 1
+
+
+def test_a_tool_call_cut_off_before_the_stream_finished_is_an_error_not_a_call(settings_file, monkeypatch):
+    monkeypatch.setattr(model.litellm, "completion", lambda **kwargs: iter([_tool_chunk(0, "c", "search_notes", '{"que')]))
+
+    with pytest.raises(model.EngineModelError, match="empty reply"):
+        model.call_model([{"role": "user", "content": "hi"}], tools=[{}])
+
+
+def test_the_assistant_message_that_carries_the_calls_back_keeps_each_id_and_its_arguments():
+    from sympose.engine import model_tools
+
+    call = model.ToolCall("call_1__thought__abc", "open_note", "")
+
+    message = model_tools.assistant_message("", (call,))
+
+    assert message == {
+        "role": "assistant",
+        "content": None,
+        "tool_calls": [{"id": "call_1__thought__abc", "type": "function", "function": {"name": "open_note", "arguments": "{}"}}],
+    }
+    assert model_tools.result_message(call, "found") == {
+        "role": "tool", "tool_call_id": "call_1__thought__abc", "name": "open_note", "content": "found",
+    }
+
+
+def test_a_provider_that_repeats_the_tools_name_in_every_piece_does_not_double_it(settings_file, monkeypatch):
+    monkeypatch.setattr(
+        model.litellm,
+        "completion",
+        lambda **kwargs: iter(
+            [
+                _tool_chunk(0, "c", "search_notes", '{"query"'),
+                _tool_chunk(0, None, "search_notes", ': "A"}'),
+                _chunk(None, finish="stop"),
+            ]
+        ),
+    )
+
+    calls = model.call_model([{"role": "user", "content": "hi"}], tools=[{}]).tool_calls
+
+    assert calls == (model.ToolCall("c", "search_notes", '{"query": "A"}'),)
+
+
+def test_two_calls_that_both_arrive_under_index_zero_are_two_calls_not_one(settings_file, monkeypatch):
+    monkeypatch.setattr(
+        model.litellm,
+        "completion",
+        lambda **kwargs: iter(
+            [
+                _tool_chunk(0, "a", "search_notes", '{"query": "A"}'),
+                _tool_chunk(0, "b", "open_note", '{"path": "B"}'),
+                _chunk(None, finish="stop"),
+            ]
+        ),
+    )
+
+    calls = model.call_model([{"role": "user", "content": "hi"}], tools=[{}]).tool_calls
+
+    assert calls == (
+        model.ToolCall("a", "search_notes", '{"query": "A"}'),
+        model.ToolCall("b", "open_note", '{"path": "B"}'),
+    )
+
+
+def test_a_call_whose_id_is_repeated_in_every_piece_is_still_one_call(settings_file, monkeypatch):
+    monkeypatch.setattr(
+        model.litellm,
+        "completion",
+        lambda **kwargs: iter(
+            [_tool_chunk(0, "a", "open_note", '{"pa'), _tool_chunk(0, "a", None, 'th": "B"}'), _chunk(None, finish="stop")]
+        ),
+    )
+
+    calls = model.call_model([{"role": "user", "content": "hi"}], tools=[{}]).tool_calls
+
+    assert calls == (model.ToolCall("a", "open_note", '{"path": "B"}'),)

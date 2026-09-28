@@ -4,7 +4,11 @@ recomputed. Split out of `runtime.py` to hold the 200-LOC-per-file cap."""
 
 from typing import Any
 
-_VIA_LABELS = {"embedding": "by meaning", "name": "named in full", "value": "by a property value"}
+_VIA_LABELS = {
+    "embedding": "by meaning", "name": "named in full", "value": "by a property value",
+    "search": "found by her search", "opened": "opened by her",
+}
+_TOOL_LABELS = {"search_notes": "searched", "open_note": "opened"}
 _SOURCE_LABELS = {"sympose": "the Sympose reference library"}
 
 
@@ -16,6 +20,21 @@ def _note_line(n: int, note: dict[str, Any]) -> str:
     return f"  {n}. {where}" + (f" ({', '.join(bits)})" if bits else "")
 
 
+def _lookups(sent: dict[str, Any]) -> list[str]:
+    """What the persona looked up herself (docs/decisions/040), when the user chose `ask`: each call as
+    it was made, or that the model could not take tools and Sympose searched instead."""
+    if sent.get("mode") == "auto":
+        return ["You chose ask, but this model can't call tools, so Sympose searched for the message."]
+    if sent.get("mode") != "ask":
+        return []
+    calls = [
+        f'{_TOOL_LABELS.get(call.get("tool"), call.get("tool"))} "{call.get("query") or call.get("path")}"'
+        f" ({call.get('found', 0)} found)"
+        for call in sent.get("lookups") or []
+    ]
+    return ["She looked up: " + "; ".join(calls) + "."] if calls else ["She looked nothing up for this message."]
+
+
 def render(sent: dict[str, Any] | None) -> list[str]:
     """One line per note or passage the last reply grounded on, then a line for whatever else
     `sent` says reached the model (recaps, an older-turns drop, a rewritten query, a cloud model's
@@ -23,7 +42,7 @@ def render(sent: dict[str, Any] | None) -> list[str]:
     if sent is None:
         return ["No reply yet this session to show what grounded it."]
     if not sent["notes"] and not sent["recaps"]:
-        return ["Nothing from the vault grounded the last reply."]
+        return ["Nothing from the vault grounded the last reply.", *_lookups(sent)]
     lines = ["Grounded the last reply:"] if sent["notes"] else []
     lines += [_note_line(n, note) for n, note in enumerate(sent["notes"], start=1)]
     if sent["recaps"]:
@@ -34,6 +53,7 @@ def render(sent: dict[str, Any] | None) -> list[str]:
     if sent["history_dropped"]:
         n = sent["history_dropped"]
         lines.append(f"{n} older {'turn' if n == 1 else 'turns'} left out of context.")
+    lines += _lookups(sent)
     if sent.get("cloud"):
         lines.append(f"Sent to the cloud model: {', '.join(sent['cloud'])}.")
     if sent.get("withheld"):

@@ -62,3 +62,54 @@ def test_one_recap_and_one_dropped_turn_are_singular():
 def test_recaps_alone_with_no_notes_still_render():
     sent = _sent(recaps=["20260101T000000-aaaaaaaa"])
     assert grounded_list.render(sent) == ["Also sent: 1 earlier-conversation recap."]
+
+
+# -- what the persona looked up herself (docs/decisions/040) --
+
+_SENT = {"notes": [], "recaps": [], "searched": None, "history_dropped": 0}
+
+
+def test_lookups_are_listed_as_they_were_made_and_notes_they_found_say_who_found_them():
+    sent = {
+        **_SENT,
+        "mode": "ask",
+        "notes": [
+            {"path": "Projects/Atlas.md", "heading": "", "source": "vault", "via": "search"},
+            {"path": "Projects/Atlas.md", "heading": "", "source": "vault", "via": "opened"},
+        ],
+        "lookups": [
+            {"tool": "search_notes", "query": "Atlas database", "found": 1},
+            {"tool": "open_note", "path": "Projects/Atlas.md", "found": 1},
+        ],
+    }
+
+    lines = grounded_list.render(sent)
+
+    assert "  1. Projects/Atlas.md (found by her search)" in lines
+    assert "  2. Projects/Atlas.md (opened by her)" in lines
+    assert 'She looked up: searched "Atlas database" (1 found); opened "Projects/Atlas.md" (1 found).' in lines
+
+
+def test_a_lookup_that_found_nothing_is_still_shown_when_nothing_grounded_the_reply():
+    sent = {**_SENT, "mode": "ask", "lookups": [{"tool": "search_notes", "query": "tax deadline", "found": 0}]}
+
+    assert grounded_list.render(sent) == [
+        "Nothing from the vault grounded the last reply.",
+        'She looked up: searched "tax deadline" (0 found).',
+    ]
+
+
+def test_ask_with_no_lookup_says_she_looked_nothing_up():
+    lines = grounded_list.render({**_SENT, "mode": "ask", "lookups": []})
+
+    assert lines[-1] == "She looked nothing up for this message."
+
+
+def test_ask_that_ran_as_auto_says_why_the_search_happened():
+    lines = grounded_list.render({**_SENT, "mode": "auto", "lookups": []})
+
+    assert lines[-1] == "You chose ask, but this model can't call tools, so Sympose searched for the message."
+
+
+def test_without_the_setting_nothing_is_said_about_lookups():
+    assert grounded_list.render(_SENT) == ["Nothing from the vault grounded the last reply."]

@@ -16,7 +16,7 @@ from sympose.engine import budget, embeddings, followup, recap
 KEYS = [
     "show_grounding", "show_trim_notice", "show_context_meter", "show_index_notice", "reply_reveal",
     "context_window", "reply_limit", "grounding_followups", "session_recaps",
-    "grounding_search", "embedding_min_similarity", "embedding_margin",
+    "grounding_search", "embedding_min_similarity", "embedding_margin", "vault_lookup", "vault_lookup_rounds",
 ]
 
 
@@ -281,7 +281,7 @@ def test_slash_settings_lists_every_setting_with_its_value(profiles):
             await _open(pilot, app)
             assert app.panel_kind == settings_list.PICKER_KIND
             labels = [str(app.panel.get_option_at_index(i).prompt) for i in range(app.panel.option_count)]
-            assert len(labels) == 12
+            assert len(labels) == 14
             assert "show_grounding — off:" in labels[0]
             assert "context_window — automatic:" in labels[5]
             assert "reply_reveal — 50 (default):" in labels[4]
@@ -425,7 +425,7 @@ def test_a_setting_changed_here_applies_to_the_module_that_reads_it(profiles):
 
 
 def test_rows_past_the_ninth_are_reached_with_the_arrow_keys(profiles):
-    """Digits choose rows 1 to 9; the list is twelve long and the picker shows about ten."""
+    """Digits choose rows 1 to 9; the list is fourteen long and the picker shows about ten."""
 
     async def scenario():
         app = SymposeCLI()

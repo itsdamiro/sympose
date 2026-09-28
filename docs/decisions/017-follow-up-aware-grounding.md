@@ -16,7 +16,7 @@ How this is commonly handled: rewrite the question into a standalone one using t
 - `rewrite` (default): a model call, given the last two exchanges, returns one standalone search query, or `NONE` when the message has no topic of its own (thanks, a greeting, small talk, a change of subject). Retrieval is then run again on that query. A wrong rewrite finds nothing rather than inventing evidence, because the rewrite only feeds the search and the retriever's precision gates (ADR 014) still decide what reaches the model.
 - `off`: today's behavior, no extra call. Only an explicit `off` turns it off; any other or malformed value leaves the default, the same rule as the other knobs.
 - `recent-words` (**reserved, not built**): no model call; the previous exchange's search terms reused at lower weight. Free, but it attaches the old topic's notes on a topic change, and with `rewrite` measured this good there was no case for building a weaker mode yet. It stays as the option for someone who wants no extra call on a small local model.
-- `model-searches` (**reserved, not built**): the model asks for notes itself. Not offered until tool-calling exists (`_CAPABILITY_LIMITS` in the prompt says the engine cannot run tools yet), and expected to suit cloud models more than small local ones.
+- `model-searches` (**retired, superseded by ADR 040**): the model asks for notes itself. It is not a value of this setting: who searches at all is a separate setting, `vault_lookup` (ADR 040, proposed), since this one decides how a missed search is retried. Any value other than `off` still means `rewrite`.
 
 **What the rewrite sees.** The last two exchanges (four messages), assistant replies included, each message cut to 300 characters. The reply often holds the noun a bare "it" refers to ("You decided on SQLite for the Atlas prototype…"), and the tail of a long reply is not needed to find it. The same model as the chat runs it, with the same window (`num_ctx`), so a local model is not reloaded for the extra call, and its own reply is capped at 60 tokens. There is no separate rewrite-model setting: the warm cost was measured small enough (below) that a second model would add a knob and a load without a measured need.
 
@@ -56,7 +56,7 @@ The rewrite step also runs when the first search is *weak* (every hit rests on o
 
 ## Not built yet
 
-- The `recent-words` and `model-searches` modes.
+- The `recent-words` mode (`model-searches` moved to ADR 040).
 - A separate cheaper model for the rewrite, and any measurement on cloud or other local models.
 - A settings screen and a slash command for the knob (settings file only for now). **Update (docs/decisions/036):** the settings screen is built and lists `grounding_followups`; there is still no command of its own for it.
 - Showing that a rewrite ran but found nothing, and counting the rewrite call in the time the header shows.

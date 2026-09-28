@@ -7,17 +7,17 @@ no in-progress generation to check for new input against, so the seam this
 docstring used to point at (between the model call returning and the turn
 persisting) was never exercised — see ADR 008."""
 
-from dataclasses import dataclass, field
 from typing import Any
 
-from sympose import profile as profile_mod, vault_map as vault_map_mod
+from sympose import profile as profile_mod, vault_map as vault_map_mod, vault_paths
 from sympose.engine import (
-    budget, connections, followup, grounding, grounding_properties, prompt, recap, recap_refresh, reference,
-    session, sharing,
+    budget, connections, followup, grounding, grounding_properties, lookup, prompt, recap, recap_refresh,
+    reference, session, sharing, tool_support,
 )
 from sympose.engine import model as model_mod
 from sympose.engine.model import EngineModelError
 from sympose.engine.turn_record import sent_record
+from sympose.engine.turn_result import TurnResult
 
 __all__ = ["TurnResult", "run_turn", "EngineModelError", "PersonaNotFoundError"]
 
@@ -27,42 +27,6 @@ class PersonaNotFoundError(Exception):
     (the CLI's persona picker only ever offers real roster handles), but
     must degrade to a legible error instead of crashing a few lines
     further into `run_turn` on a bare `None`."""
-
-
-@dataclass(frozen=True)
-class TurnResult:
-    reply: str
-    session_id: str
-    grounding: list[dict[str, Any]] = field(default_factory=list)
-    # Time to first token in ms and the model that produced it
-    # (docs/decisions/013); `None` when a caller builds a result by hand.
-    ttft_ms: int | None = None
-    model: str | None = None
-    # Turns left out of what the model was sent because they did not fit its
-    # window (docs/decisions/015); the session record keeps them all.
-    history_dropped: int = 0
-    # The search query a follow-up was rewritten into when that rewrite is what
-    # grounded the reply (docs/decisions/017); `None` when the message itself was.
-    searched: str | None = None
-    # The conversation's size as the next turn starts from it, and the prompt
-    # budget it is measured against (docs/decisions/018); `None` when the
-    # model's window is unknown.
-    context_used: int | None = None
-    context_limit: int | None = None
-    # The reply stopped at the reply limit, so it may end mid-sentence.
-    truncated: bool = False
-    # The session file was written; `False` when it could not be, so this reply is not part of the
-    # record and later messages will not remember it (a warning is in the log as well).
-    saved: bool = True
-    # For a model that is not local (docs/decisions/031): the categories of the user's vault that were
-    # sent to it this turn, and the ones held back because the user has not allowed them. Both are
-    # empty for a local model, where nothing leaves the machine.
-    cloud: list[str] = field(default_factory=list)
-    withheld: list[str] = field(default_factory=list)
-    # Exactly what was persisted alongside this turn (docs/decisions/025) — `None` only when a
-    # caller builds a result by hand. A display command reads this back rather than rebuilding it
-    # from `grounding`/`searched`/etc., so it can never drift from what the session record says (#26).
-    sent: dict[str, Any] | None = None
 
 
 def _interleave(first: list[dict[str, Any]], second: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -98,10 +62,42 @@ def run_turn(
     # rest of the order (persona's model > setting > default), so this
     # and every display of "which model runs" share one definition.
     target_model = model or model_mod.resolve_model(persona.get("model"))
+    # A persona with no vault has nothing to look up, so it is not given tools to look with; what the record
+    # says about the mode is then left out, since neither the model nor the setting is the reason (ADR 040).
+    has_vault = vault_paths.resolve_sandbox(persona) is not None
+    ask = lookup.effective_mode(target_model) == lookup.ASK and has_vault
+    chose_ask = lookup.mode() == lookup.ASK and has_vault
+    try:
+        result = _run(persona, handle, user_message, sid, existing, history, target_model, ask, chose_ask)
+    except lookup.ToolsRefused:
+        # The model failed with the tools: the turn is run as `auto`, and a model that does that twice in a
+        # row while working without them is not given tools again (docs/decisions/040).
+        result = _run(persona, handle, user_message, sid, existing, history, target_model, False, chose_ask)
+        tool_support.note_refusal(target_model)
+        return result
+    if ask:
+        tool_support.note_success(target_model)
+    return result
+
+
+def _run(
+    persona: dict[str, Any],
+    handle: str,
+    user_message: str,
+    sid: str,
+    existing: Any,
+    history: list[dict[str, str]],
+    target_model: str,
+    ask: bool,
+    chose_ask: bool,
+) -> TurnResult:
     # The prompt is sized to this model's window, not left to the runtime's
     # silent cut (docs/decisions/015); the follow-up rewrite shares that window.
     limits = budget.budget_for(target_model)
-    vault_hits, searched, rewrite = followup.ground(persona, user_message, history, target_model, limits)
+    # In `ask` Sympose does not search the vault for the message: the persona decides (docs/decisions/040).
+    vault_hits, searched, rewrite = (
+        ([], None, False) if ask else followup.ground(persona, user_message, history, target_model, limits)
+    )
     # The two sources take turns, the reference first: when the prompt does not fit, the
     # end of the list goes first, so the best passage of each source stays longest and
     # neither's evidence is dropped wholesale before the other's (docs/decisions/022).
@@ -153,6 +149,7 @@ def run_turn(
             withheld=withheld,
             vault_map=map_text if map_allowed else None,
             vault_map_withheld=bool(map_text) and not map_allowed,
+            lookup=ask,
         )
 
     prompt_tokens = 0
@@ -163,26 +160,39 @@ def run_turn(
         fitted = budget.fit(build, history, grounding_results, target_model, limits.prompt_tokens, recaps_found)
         messages, grounding_results, dropped = fitted.messages, fitted.grounding, fitted.history_dropped
         recaps_sent, prompt_tokens = fitted.recaps, fitted.tokens
-    reply = model_mod.call_model(
-        messages,
-        model=target_model,
-        num_ctx=limits.num_ctx if limits else None,
-        max_tokens=limits.reply_cap if limits else None,
-    )
+    lookups: list[dict[str, Any]] = []
+    if ask:
+        done = lookup.converse(persona, messages, target_model, limits, used_tokens=prompt_tokens)
+        reply, reply_ttft, lookups = done.reply, done.ttft_ms, done.lookups
+        grounding_results = grounding_results + done.hits
+        for category, count in done.withheld.items():
+            withheld[category] = withheld.get(category, 0) + count
+        prompt_tokens += done.tokens_added
+    else:
+        reply = model_mod.call_model(
+            messages,
+            model=target_model,
+            num_ctx=limits.num_ctx if limits else None,
+            max_tokens=limits.reply_cap if limits else None,
+        )
+        reply_ttft = reply.ttft_ms
 
     searched_used = searched if any(h.get("source") != reference.SOURCE for h in grounding_results) else None
     cloud = None if sharing.is_local(target_model) else (
         sharing.categories_of(grounding_results, recaps_sent, vault_map=map_allowed and bool(map_text)),
         [name for name in sharing.CATEGORIES if name in withheld],
     )
-    sent = sent_record(grounding_results, recaps_sent, searched_used, dropped, rewrite, cloud)
+    sent = sent_record(
+        grounding_results, recaps_sent, searched_used, dropped, rewrite, cloud,
+        (lookup.ASK if ask else lookup.AUTO) if chose_ask else None, lookups,
+    )
     saved = session.append_turn(
         handle,
         sid,
         user_message,
         reply.text,
         existing=existing,
-        ttft_ms=reply.ttft_ms,
+        ttft_ms=reply_ttft,
         model=target_model,
         sent=sent,
         truncated=reply.truncated,
@@ -191,7 +201,7 @@ def run_turn(
         reply=reply.text,
         session_id=sid,
         grounding=grounding_results,
-        ttft_ms=reply.ttft_ms,
+        ttft_ms=reply_ttft,
         model=target_model,
         history_dropped=dropped,
         searched=searched_used,
@@ -202,4 +212,5 @@ def run_turn(
         cloud=cloud[0] if cloud else [],
         withheld=cloud[1] if cloud else [],
         sent=sent,
+        lookups=lookups,
     )

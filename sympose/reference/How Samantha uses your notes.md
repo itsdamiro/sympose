@@ -4,6 +4,10 @@
 
 Every message you send is looked up in your vault first. The best matching passages, a few sentences each and up to five, go to the model together with your message, and the answer is meant to come from them. This is called grounding. By default the lookup goes by meaning, not only by words.
 
+## Can Samantha look in my notes herself instead of searching every message?
+
+Yes, with a model that can call tools: set `vault_lookup` to `"ask"`. Samantha then decides when to look, with a tool that searches your notes and one that opens a note. Each lookup is one more model call. Other models keep the default, `"auto"`, and /grounded shows what she looked up.
+
 ## What does searching by meaning mean?
 
 Samantha compares what your message is about with what each passage is about, not just the words. A small model turns both into lists of numbers, and passages whose numbers are close to your message's are used. So "what did we settle on for backups?" can find a note that only says rsync.

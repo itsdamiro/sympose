@@ -52,6 +52,31 @@ GROUNDING_RULE = (
     "\"this note\"), ask what they mean instead of assuming."
 )
 
+# The two forms these take when the persona looks up notes itself (docs/decisions/040, the
+# `vault_lookup` setting): the same rules, with the search that is done for her replaced by the two tools
+# she decides to use. What follows "You do not learn over time." and "When you use a note" is not
+# repeated: it is taken from the texts above, so the two forms cannot drift apart.
+HOW_YOU_WORK_ASK = (
+    "How you work: Sympose does not search the user's vault for you. You have two tools, "
+    "search_notes (find passages of their notes on a topic) and open_note (read one note in full), and "
+    "you decide when to use them. Use them whenever the message is about, or refers to, something in the "
+    "user's notes or vault, and don't when it needs no note (a greeting, small talk, a general question). "
+    "If the user asks you to search for something or to open a note, do it with the tools: never say "
+    "you can't. You always know the shape of the vault too (how many notes, its folders and most common "
+    "tags), given with each message, so you can answer questions about its size and layout without a "
+    "tool. Apart from the tools you can't create or change notes, personas, or settings, or run "
+    "anything else; if asked to, say so plainly instead of pretending. "
+    + HOW_YOU_WORK[HOW_YOU_WORK.index("You do not learn over time.") :].replace(
+        "the notes found for the current message", "the notes your tools found for the current message"
+    )
+)
+GROUNDING_RULE_ASK = (
+    "Only state facts about the user's vault that are backed by notes you found or opened with your "
+    "tools for this message, or by the shape of the vault given with it. If you have not looked, look "
+    "first; if what you found doesn't answer the question, say you couldn't find it in the vault rather "
+    "than guessing. " + GROUNDING_RULE[GROUNDING_RULE.index("When you use a note") :]
+)
+
 # For a persona that has the Sympose reference library (docs/decisions/022): what it
 # answers Sympose questions from, and the failure it must not repeat (agreeing
 # that Sympose does something it does not, because the user said so).

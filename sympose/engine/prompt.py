@@ -21,7 +21,7 @@ from sympose.engine import reference as reference_mod
 from sympose.engine.prompt_blocks import notes_block, recaps_block, reference_block, vault_map_block
 from sympose.engine.prompt_text import (
     ANSWER_FROM_NOTES, ANSWER_FROM_RECAPS, ANSWER_FROM_REFERENCE, CONNECTED_TO, DEFAULT_SOUL, GROUNDING_RULE,
-    HOW_YOU_WORK, NO_NOTES, NO_RECAP, NO_REFERENCE, NO_TOPIC, POINT_TO_REFERENCE, RECAPS_LABEL,
+    HOW_YOU_WORK, HOW_YOU_WORK_ASK, GROUNDING_RULE_ASK, NO_NOTES, NO_RECAP, NO_REFERENCE, NO_TOPIC, POINT_TO_REFERENCE, RECAPS_LABEL,
     RECAP_INSTRUCTIONS, REFERENCE_LABEL, REWRITE_INSTRUCTIONS, SYMPOSE_RULE, VAULT_MAP_LABEL, WITHHELD_CONNECTIONS,
     WITHHELD_NOTES, WITHHELD_PROPERTIES, WITHHELD_RECAPS, WITHHELD_VAULT_MAP,
 )
@@ -31,7 +31,7 @@ from sympose.profile import reference_persona_names
 
 __all__ = [
     "ANSWER_FROM_NOTES", "ANSWER_FROM_RECAPS", "ANSWER_FROM_REFERENCE", "CONNECTED_TO", "DEFAULT_SOUL",
-    "GROUNDING_RULE", "HOW_YOU_WORK", "NO_NOTES", "NO_RECAP", "NO_REFERENCE", "NO_TOPIC",
+    "GROUNDING_RULE", "GROUNDING_RULE_ASK", "HOW_YOU_WORK", "HOW_YOU_WORK_ASK", "NO_NOTES", "NO_RECAP", "NO_REFERENCE", "NO_TOPIC",
     "POINT_TO_REFERENCE", "RECAPS_LABEL", "RECAP_INSTRUCTIONS", "REFERENCE_LABEL",
     "REWRITE_INSTRUCTIONS", "SYMPOSE_RULE", "VAULT_MAP_LABEL", "WITHHELD_CONNECTIONS", "WITHHELD_NOTES",
     "WITHHELD_PROPERTIES", "WITHHELD_RECAPS", "WITHHELD_VAULT_MAP",
@@ -46,6 +46,7 @@ def build_system_prompt(
     recaps: list[dict[str, Any]] | None = None,
     recaps_omitted: int = 0,
     recaps_withheld: int = 0,
+    lookup: bool = False,
 ) -> str:
     # `handle` is always lowercase (`profile.get_profile` lowercases it
     # before building a file path) -- title-cased here so a fallback
@@ -59,7 +60,12 @@ def build_system_prompt(
     soul = load_soul(profile["handle"]) if profile.get("handle") else None
     aliases = [a for a in profile.get("aliases") or [] if isinstance(a, str) and a.strip()]
     identity = f"Your name is {name}." + (f" The user may also call you {' or '.join(aliases)}." if aliases else "")
-    parts = [soul or DEFAULT_SOUL, identity, HOW_YOU_WORK, GROUNDING_RULE]
+    # `lookup`: the persona looks up notes itself, so it is told how (docs/decisions/040).
+    parts = (
+        [soul or DEFAULT_SOUL, identity, HOW_YOU_WORK_ASK, GROUNDING_RULE_ASK]
+        if lookup
+        else [soul or DEFAULT_SOUL, identity, HOW_YOU_WORK, GROUNDING_RULE]
+    )
     if profile.get("sympose_reference"):
         parts.append(SYMPOSE_RULE)
     # Recaps go here, not in the message: beside a request in the middle of a chat that is on the
@@ -81,8 +87,10 @@ def build_user_turn(
     withheld: dict[str, int] | None = None,
     vault_map: str | None = None,
     vault_map_withheld: bool = False,
+    lookup: bool = False,
 ) -> str:
-    """`vault_map`, or the line saying a cloud model may not have it (`vault_map_withheld`), comes first
+    """`lookup`: no notes were searched for the message, the persona looks them up itself
+    (docs/decisions/040), so there is no notes block to say "nothing matched" about. `vault_map`, or the line saying a cloud model may not have it (`vault_map_withheld`), comes first
     (docs/decisions/039): it is fixed and never left out to fit the window, unlike the notes below it.
     `reference`: the persona has the Sympose reference library, so the turn
     says what it found in it (or that nothing matched). Its passages are marked
@@ -93,9 +101,10 @@ def build_user_turn(
     notes = [h for h in grounding_results if h.get("source") != reference_mod.SOURCE]
     map_text = vault_map_block(vault_map, vault_map_withheld)
     parts = [map_text] if map_text else []
-    parts.append(notes_block(notes, omitted, withheld))
-    if notes:
-        parts.append(ANSWER_FROM_NOTES)
+    if not lookup:
+        parts.append(notes_block(notes, omitted, withheld))
+        if notes:
+            parts.append(ANSWER_FROM_NOTES)
     if reference:
         parts.append(reference_block(reference_hits, reference_omitted))
         if reference_hits:
@@ -119,6 +128,7 @@ def build_messages(
     withheld: dict[str, int] | None = None,
     vault_map: str | None = None,
     vault_map_withheld: bool = False,
+    lookup: bool = False,
 ) -> list[dict[str, str]]:
     """The system prompt (with the recaps of earlier conversations, docs/decisions/023 and 026), the
     history as it was said (the notes of earlier turns are not repeated), and this turn's vault map
@@ -132,7 +142,7 @@ def build_messages(
     system = {
         "role": "system",
         "content": build_system_prompt(
-            profile, recaps, recaps_omitted, withheld.get(RECAPS, 0)
+            profile, recaps, recaps_omitted, withheld.get(RECAPS, 0), lookup
         ),
     }
     has_library = bool(profile.get("sympose_reference"))
@@ -142,7 +152,7 @@ def build_messages(
         "role": "user",
         "content": build_user_turn(
             user_message, grounding_results, omitted, has_library, reference_omitted, point_to, withheld,
-            vault_map, vault_map_withheld,
+            vault_map, vault_map_withheld, lookup,
         ),
     }
     return [system, *history, user]

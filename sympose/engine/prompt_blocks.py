@@ -27,13 +27,13 @@ def reference_block(hits: list[dict[str, Any]], omitted: int = 0) -> str:
     lines = [REFERENCE_LABEL]
     for hit in hits:
         where = hit["title"] if hit.get("heading") in (None, "", hit["title"]) else f"{hit['title']} › {hit['heading']}"
-        lines.append(f"- {where}: {_text_of(hit)}")
+        lines.append(f"- {where}: {passage_text(hit)}")
     if omitted:
         lines.append(f"({omitted} more reference passages were left out to fit the context window.)")
     return "\n".join(lines)
 
 
-def _text_of(result: dict[str, Any]) -> str:
+def passage_text(result: dict[str, Any]) -> str:
     """What a grounded note says; a note with no text of its own is shown as empty, with its other names; a
     note's properties are shown as what they are, so a value is never read as something the user wrote. A
     note's connections to others (docs/decisions/035), when it has any, ride along in the same text so
@@ -119,7 +119,7 @@ def notes_block(
         where = result["rel_path"]
         if heading and heading != result["title"]:
             where += f" › {heading}"
-        lines.append(f"- {result['title']} ({where}): {_text_of(result)}")
+        lines.append(f"- {result['title']} ({where}): {passage_text(result)}")
     if omitted:
         lines.append(f"({omitted} more matching passages were left out to fit the context window.)")
     lines.extend(held)

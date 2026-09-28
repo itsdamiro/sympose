@@ -8,7 +8,7 @@ No. In the chat Samantha only reads your notes. She cannot write, create, edit, 
 
 ## Can Samantha do things for me?
 
-No. There are no tools yet, so Samantha cannot create a persona, change your settings, run commands or browse the web. Creating a persona and editing `settings.json` are done by hand.
+No. The only tools she has read your notes, and only when `vault_lookup` is `"ask"`. She cannot create a persona, change your settings, run commands or browse the web. Creating a persona and editing `settings.json` are done by hand.
 
 ## Can Sympose fix the problems it finds in my notes?
 

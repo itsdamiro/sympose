@@ -6,7 +6,7 @@ Settings are stored in `settings.json`, in the folder where Sympose runs. `SYMPO
 
 Type /settings for a list of the common ones, each with its value. Choose a row to change it: a true or false one flips, one with a few values moves to the next, and for a number the chat box asks for it. Enter saves, an empty line puts the default back and Esc leaves it as it was. A number that cannot be used is refused.
 
-The list has `show_grounding`, `show_trim_notice`, `show_context_meter`, `show_index_notice`, `reply_reveal`, `context_window`, `reply_limit`, `grounding_followups`, `session_recaps`, `grounding_search`, `embedding_min_similarity` and `embedding_margin`. The model, the persona and what a cloud model may receive have /model, /persona and /share.
+The list has `show_grounding`, `show_trim_notice`, `show_context_meter`, `show_index_notice`, `reply_reveal`, `context_window`, `reply_limit`, `grounding_followups`, `session_recaps`, `grounding_search`, `embedding_min_similarity`, `embedding_margin`, `vault_lookup` and `vault_lookup_rounds`. The model, the persona and what a cloud model may receive have /model, /persona and /share.
 
 ## Where are my settings stored?
 
@@ -67,6 +67,14 @@ Setting `session_recaps` to `false` stops Samantha writing and reading recaps of
 ## grounding_followups
 
 Setting `grounding_followups` to `"off"` stops the extra search for follow-up questions.
+
+## vault_lookup
+
+The `vault_lookup` setting is who looks in your notes. `"auto"` (the default) is Sympose, before each reply. With `"ask"` Samantha decides, using tools that only read; it needs a model that can call tools, and any other model keeps `"auto"`. See How Samantha uses your notes.
+
+## vault_lookup_rounds
+
+The `vault_lookup_rounds` setting is how many lookups Samantha may make for one message when `vault_lookup` is `"ask"`: a whole number from 1 to 8, 3 by default.
 
 ## grounding_search
 

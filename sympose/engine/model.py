@@ -12,7 +12,8 @@ from dataclasses import dataclass
 import litellm
 
 from sympose import settings_store
-from sympose.engine import reply_text
+from sympose.engine import model_tools, reply_text
+from sympose.engine.model_tools import ToolCall
 
 log = logging.getLogger(__name__)
 
@@ -42,6 +43,9 @@ class ModelReply:
     # The model stopped because it reached the reply limit (`finish_reason:
     # length`), so the text may end mid-sentence (docs/decisions/015).
     truncated: bool = False
+    # The tools the model asked for instead of, or before, writing text (docs/decisions/040); empty
+    # for every call that was given no tools.
+    tool_calls: tuple[ToolCall, ...] = ()
 
 
 class EngineModelError(Exception):
@@ -81,6 +85,8 @@ def call_model(
     model: str | None = None,
     num_ctx: int | None = None,
     max_tokens: int | None = None,
+    tools: list[dict] | None = None,
+    tool_choice: str | None = None,
 ) -> ModelReply:
     """Streamed internally so time to first token can be measured (ADR 013),
     but the complete reply is still returned as one string — the CLI's own
@@ -90,9 +96,11 @@ def call_model(
     read. A stream that ends without a finish signal was cut off, and
     raises instead of being saved as if it were a whole reply. `num_ctx` (the
     window asked of a local Ollama model) and `max_tokens` (the reply's
-    limit) are only sent when given (docs/decisions/015)."""
+    limit) are only sent when given (docs/decisions/015). `tools` (function schemas) and `tool_choice`
+    are sent when given; a reply may then carry `tool_calls` and no text (docs/decisions/040)."""
     target_model = model or resolve_model()
-    limits = {"num_ctx": num_ctx, "max_tokens": max_tokens}
+    limits = {"num_ctx": num_ctx, "max_tokens": max_tokens, "tools": tools, "tool_choice": tool_choice}
+    slots: dict[int, dict[str, str]] = {}
     parts: list[str] = []
     ttft_ms: int | None = None
     finished = False
@@ -107,6 +115,7 @@ def call_model(
             **{name: value for name, value in limits.items() if value is not None},
         ):
             text, finish_reason = _read(chunk)
+            model_tools.collect(chunk, slots)
             if text:
                 if ttft_ms is None:
                     ttft_ms = round((time.perf_counter() - started) * 1000)
@@ -120,6 +129,9 @@ def call_model(
             f"Couldn't reach model '{target_model}': {e}"
         ) from e
     content = reply_text.tidy("".join(parts))
+    calls = model_tools.finish(slots)
+    if calls and finished:
+        return ModelReply(text=content, ttft_ms=ttft_ms, truncated=truncated, tool_calls=calls)
     if not content and truncated:
         raise ReplyLimitError(
             f"Model '{target_model}' reached its reply limit before writing an answer "
