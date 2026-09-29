@@ -18,9 +18,11 @@ from textual.widgets import Input, OptionList, Static
 from sympose import engine, persona_files
 from sympose.cli import dispatch, memory_command, picker, settings_list, share, state
 from sympose.cli import transcript as transcript_mod
+from sympose.cli.background_status import BackgroundStatus
 from sympose.cli.composer import DEFAULT_PLACEHOLDER, ComposerInput
 from sympose.cli.meter import ContextMeter
 from sympose.cli.options import list_personas
+from sympose.engine import memory_refresh
 from sympose.profile import resolve_default_persona
 
 
@@ -54,15 +56,6 @@ class SymposeCLI(App):
         border: round $primary;
         margin: 0 1 0 1;
     }
-    #composer.composer-spaced {
-        /* Full shorthand here too, not just `margin-top` — Textual's
-        CSS doesn't merge a single longhand override from a more
-        specific selector with the base rule's other three sides the
-        way plain CSS cascading would; it resets them, so this must
-        restate all four rather than just the one that actually
-        differs. */
-        margin: 1 1 0 1;
-    }
     #composer:focus {
         border: round $accent;
     }
@@ -73,6 +66,7 @@ class SymposeCLI(App):
     def compose(self) -> ComposeResult:
         yield Static("", id="banner")
         yield VerticalScroll(id="transcript")
+        yield BackgroundStatus("")
         yield ComposerInput(placeholder=DEFAULT_PLACEHOLDER, id="composer")
         yield ContextMeter("")
 
@@ -98,7 +92,9 @@ class SymposeCLI(App):
         picker.update_banner(self)
         engine.refresh_recaps(self.persona.handle)  # background, while the user types (ADR 023)
         engine.refresh_embeddings(self.persona.handle)  # background, only if the knob is on (ADR 027)
-        engine.refresh_memory(self.persona.handle)  # background, proposes a context.md/profile.md update (ADR 041)
+        if memory_refresh.auto_refresh_enabled():  # off by default: /memory refresh always stays manual (ADR 041)
+            engine.refresh_memory(self.persona.handle)
+        engine.refresh_status_phrases(self.persona.handle)  # background, a no-op once it has its own set
         transcript_mod.mount_line(self, "Talking to the real engine now — local by default.", "system")
         transcript_mod.mount_line(self, "Type a message, or / for commands.", "system")
         share.announce(self)  # a cloud model in use is said out loud (ADR 031)
@@ -106,7 +102,6 @@ class SymposeCLI(App):
         missed = persona_files.missed_notice()  # a persona folder the roster cannot find (ADR 029)
         if missed:
             transcript_mod.mount_line(self, Text(missed, style=Style(color=self.theme_color("error", "red"), bold=True)), "system")
-        picker.close_panel(self)  # syncs the composer's initial spacing (no panel yet)
         self.composer.focus()
 
     async def action_quit(self) -> None:

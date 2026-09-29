@@ -20,9 +20,9 @@ It is on by default, as `auto`. It needs one small model in Ollama, pulled once 
 
 No. The small model runs in your Ollama on your computer, and the numbers for each passage are kept in a cache file, `embedding_cache.sqlite`, beside `settings.json`. Only if you set an `embedding_model` from a cloud provider, and allow notes for cloud models with /share, would passages leave your computer; without that yes she searches by keywords.
 
-## What does indexing 40% mean?
+## What does the animated line above the chat box mean?
 
-The first time, Samantha reads all your notes into that cache in the background, a minute or two for a big vault, and shows how far along she is at the right end of the line under the chat box. Until it is done she searches by keyword, so you can chat at once. Later launches only read notes that changed.
+The first time, Samantha reads all your notes into that cache in the background, a minute or two for a big vault, and the animated line above the chat box shows she's working on it. Until it is done she searches by keyword, so you can chat at once. Later launches only read notes that changed. The same line also shows while a recap or a memory update is being worked on.
 
 ## Why does she miss a note, or bring notes that have nothing to do with my question?
 

@@ -20,6 +20,12 @@ log = logging.getLogger(__name__)
 
 SETTING = "memory_rewrite"
 AUTO, ASK = "auto", "ask"
+# Whether a refresh fires automatically at launch/persona-switch at all, off by default: unlike
+# recaps (a new one is worth writing essentially every session), context.md/profile.md are meant
+# to change rarely, and this call shares the same local model a real chat turn is about to need --
+# stacked on top of the recap refresh already running there, it measurably delayed a user's first
+# reply (live-observed, 2026-09-29). `/memory refresh` always stays available on demand regardless.
+AUTO_REFRESH_SETTING = "memory_auto_refresh"
 
 # More of the arc than a turn's own prompt reads (`recap.READ_COUNT`, 2): a rewrite is meant to
 # notice a pattern across sessions, not just carry the last one forward.
@@ -31,6 +37,13 @@ _NO_FILE = "NONE"  # what a missing profile.md/context.md reads as in the reques
 # A model that spent its whole small reply limit thinking cannot propose a rewrite (as with the
 # recap and follow-up rewrite calls): not asked again until the process restarts.
 _CANNOT_REWRITE: set[str] = set()
+
+
+def auto_refresh_enabled() -> bool:
+    """Whether `engine.refresh_memory` should fire on its own at launch/persona-switch. Off by
+    default -- the user's own call, the same "off unless asked" posture `memory_remember` already
+    uses. `/memory refresh` bypasses this entirely, since running it is then the user's own action."""
+    return settings_store.flag(AUTO_REFRESH_SETTING, False)
 
 
 def mode() -> str:
@@ -179,3 +192,10 @@ def wait_for_refresh(handle: str, timeout: float = 60.0) -> bool:
     with _RUNNING_LOCK:
         done = _RUNNING.get(handle)
     return True if done is None else done.wait(timeout)
+
+
+def is_running(handle: str) -> bool:
+    """Whether a memory rewrite is in flight for `handle` right now -- for `background_status.py`'s
+    busy indicator, a point-in-time read, not a wait."""
+    with _RUNNING_LOCK:
+        return handle in _RUNNING

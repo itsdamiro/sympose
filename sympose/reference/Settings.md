@@ -6,7 +6,9 @@ Settings are stored in `settings.json`, in the folder where Sympose runs. `SYMPO
 
 Type /settings for a list of the common ones, each with its value. Choose a row to change it: a true or false one flips, one with a few values moves to the next, and for a number the chat box asks for it. Enter saves, an empty line puts the default back and Esc leaves it as it was. A number that cannot be used is refused.
 
-The list has `show_grounding`, `show_trim_notice`, `show_context_meter`, `show_index_notice`, `reply_reveal`, `context_window`, `reply_limit`, `grounding_followups`, `session_recaps`, `grounding_search`, `embedding_min_similarity`, `embedding_margin`, `vault_lookup` and `vault_lookup_rounds`. The model, the persona and what a cloud model may receive have /model, /persona and /share.
+The list has `show_grounding`, `show_trim_notice`, `show_context_meter`, `show_background_status`, `reply_reveal`, `context_window`, `reply_limit`, `grounding_followups`, `session_recaps`, `grounding_search`, `embedding_min_similarity`, `embedding_margin`, `vault_lookup` and `vault_lookup_rounds`.
+
+`memory_remember`, `memory_rewrite` and `memory_auto_refresh` are the memory settings. The model, the persona and what a cloud model may receive have /model, /persona and /share.
 
 ## Where are my settings stored?
 
@@ -82,7 +84,7 @@ The `grounding_search` setting is how Samantha finds notes. The default, `"auto"
 
 ## How long does the first meaning search take to start?
 
-The first time, your notes are indexed in the background (a minute or two for a big vault) and the search uses keywords until it is done; `indexing 40%` shows at the right end of the line under the chat box. The index is the cache `embedding_cache.sqlite` beside `settings.json`, safe to delete. Setting `grounding_search` to `"keywords"` skips it.
+The first time, your notes are indexed in the background (a minute or two for a big vault) and the search uses keywords until it is done; an animated line above the chat box shows it is working. The index is the cache `embedding_cache.sqlite` beside `settings.json`, safe to delete. Setting `grounding_search` to `"keywords"` skips it.
 
 ## Can the search by meaning be made faster?
 
@@ -108,9 +110,21 @@ The `folder_definition_min_notes` setting is how many notes a top-level folder n
 
 The `folder_template_share` setting is the share of a folder's notes that must carry a property for it to go into the template of the folder's definition note, a number above 0 and up to 1. The default is 0.5.
 
-## show_index_notice
+## show_background_status
 
-Setting `show_index_notice` to `false` hides the `indexing 40%` notice at the right end of the line under the chat box. It is separate from `show_context_meter`.
+Setting `show_background_status` to `false` hides the animated line above the chat box that shows while a recap refresh, a memory update, or the search index build is running in the background. It is separate from `show_context_meter`.
+
+## memory_remember
+
+Setting `memory_remember` to `true` lets Samantha add a line to her decisions.md when you ask her to remember something, using a tool or a marker in her reply depending on the model. Off by default. Typing /remember yourself always works regardless of this setting.
+
+## memory_rewrite
+
+The `memory_rewrite` setting is how a context.md update is applied: `"ask"` (the default) stages it for you to review, `"auto"` writes it directly. profile.md is always staged for review either way.
+
+## memory_auto_refresh
+
+Setting `memory_auto_refresh` to `true` makes Samantha check for a context.md/profile.md update on her own at launch and when you switch persona. Off by default, since unlike recaps this shares the same model your first message needs. /memory refresh always works regardless of this setting.
 
 ## How do the true or false settings work?
 

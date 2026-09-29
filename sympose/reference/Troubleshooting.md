@@ -18,7 +18,7 @@ Searching by meaning can miss a note you name only by a short title. If nothing 
 
 ## The search seems to work only by keywords
 
-Check that the small search model is installed: run `ollama list` and look for `nomic-embed-text`, or pull it with `ollama pull nomic-embed-text`. On the first launch wait for `indexing` at the right end of the line under the chat box to finish.
+Check that the small search model is installed: run `ollama list` and look for `nomic-embed-text`, or pull it with `ollama pull nomic-embed-text`. On the first launch wait for the animated line above the chat box to finish.
 
 ## She says she cannot see my notes
 

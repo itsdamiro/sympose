@@ -253,6 +253,19 @@ REWRITE_INSTRUCTIONS = (
     f"Output only the query or {NO_TOPIC}, nothing else."
 )
 
+# Sent to the model to write a persona's own set of short status-line phrases, once, from its
+# soul (`status_phrases.py`) -- shown in the CLI while something runs in the background, so a
+# quiet wait reads as the persona being busy, not the app being broken.
+STATUS_PHRASES_INSTRUCTIONS = (
+    "You are given a description of a persona's character and voice. Write 12 short phrases, each "
+    "3 to 6 words, in that persona's voice, for a busy indicator shown while they are doing "
+    "something in the background (recalling something, thinking, looking something up) -- the kind "
+    "of thing a spinner's label says, not a full sentence, no ending punctuation other than an "
+    "ellipsis or a dash. Stay in character; never explain what you are doing here or mention "
+    "Sympose, a model, or that this is a prompt. Output one phrase per line, plain text, nothing "
+    "else -- no numbering, no quotation marks, no blank lines."
+)
+
 # Sent to the model that drafts a folder's definition (docs/decisions/033, stage 2).
 UNCLEAR_PURPOSE = "UNCLEAR"
 PURPOSE_INSTRUCTIONS = (

@@ -20,30 +20,20 @@ def update_banner(app) -> None:
     )
 
 
-def _sync_composer_spacing(app) -> None:
-    # The composer's top margin (breathing room above the input) only
-    # belongs there when the transcript is what's directly above it — an
-    # open picker/autocomplete panel should read as part of the same
-    # input interaction, not a separate block with a gap before the
-    # input like the transcript gets.
-    app.composer.set_class(app.panel is None, "composer-spaced")
-
-
 def close_panel(app) -> None:
     if app.panel is not None:
         app.panel.remove()
     app.panel = None
     app.panel_kind = None
-    _sync_composer_spacing(app)
 
 
 def _prepare_panel(app, panel: SelectionPanel, kind: str) -> None:
     """Shared pre-mount setup for both a focused numbered picker and the
     unfocused autocomplete overlay: close whatever's open, install the new
     panel as current. Mounting itself (awaited-and-focused for a numbered
-    picker, fire-and-forget for the autocomplete overlay) and the trailing
-    `_sync_composer_spacing` call stay each caller's own job, since the
-    await/focus difference is the one real distinction between the two."""
+    picker, fire-and-forget for the autocomplete overlay) stays each
+    caller's own job, since the await/focus difference is the one real
+    distinction between the two."""
     close_panel(app)
     app.panel = panel
     app.panel_kind = kind
@@ -58,7 +48,6 @@ async def open_picker(
     _prepare_panel(app, panel, kind)
     await app.mount(panel, before="#composer")
     panel.focus()
-    _sync_composer_spacing(app)
 
 
 def show_autocomplete(app, value: str) -> None:
@@ -94,4 +83,3 @@ def _render_commands(app, matches, highlighted: int) -> None:
     panel = SelectionPanel("Commands", options, numbered=False, initial_highlight=highlighted)
     _prepare_panel(app, panel, "autocomplete")
     app.mount(panel, before="#composer")
-    _sync_composer_spacing(app)

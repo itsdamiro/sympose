@@ -1,22 +1,20 @@
 """The context meter (docs/decisions/018): one dim line under the chat box,
 `context ██████░░░░ 62%`, saying how much of the prompt budget the
-conversation uses. At 100% the next turn starts leaving older turns out."""
+conversation uses. At 100% the next turn starts leaving older turns out.
+The far-right "indexing NN%" notice this line used to also carry (docs/decisions/027) moved to
+`background_status.py`, above the composer, alongside recap/memory refresh's own status."""
 
 from rich.style import Style
 from rich.text import Text
 from textual.widgets import Static
 
 from sympose import settings_store
-from sympose.engine import semantic_refresh
 
 SETTING = "show_context_meter"
-NOTICE_SETTING = "show_index_notice"  # the notice has its own knob (docs/decisions/027)
 
 _BAR_CELLS = 10
 _WARN_AT = 70
 _ERROR_AT = 90
-_POLL_SECONDS = 1.0  # how often the far-right notice is looked at
-_MIN_GAP = 2
 
 
 class ContextMeter(Static):
@@ -35,48 +33,14 @@ class ContextMeter(Static):
     }
     """
 
-    # The meter itself (empty until a reply), and the notice at the far right of the same line
-    # while the search index is being built (docs/decisions/027).
-    _left = Text("")
-    _notice = ""
     # The tokens in use and the budget behind what is shown, for `/context` to read back
     # (docs/decisions/018, "Update"); `estimated` while it is the figure worked out at a model
     # switch and not yet a reply's own. `None` when there is nothing to show.
     figures: tuple[int, int] | None = None
     estimated = False
 
-    def on_mount(self) -> None:
-        self.set_interval(_POLL_SECONDS, self.refresh_notice)
-
-    def on_resize(self) -> None:
-        self._paint()
-
     def set_left(self, text: Text) -> None:
-        self._left = text
-        self._paint()
-
-    def refresh_notice(self) -> None:
-        notice = build_notice()
-        if notice != self._notice:
-            self._notice = notice
-            self._paint()
-
-    def _paint(self) -> None:
-        """The meter at the left and the notice pushed to the far right of the line."""
-        if not self._notice:
-            self.update(self._left)
-            return
-        gap = max(_MIN_GAP, self.size.width - self._left.cell_len - Text(self._notice).cell_len)
-        self.update(Text.assemble(self._left, " " * gap, self._notice))
-
-
-def build_notice() -> str:
-    """`indexing 40%` while a search index is being built, else nothing (or when its knob is off). A
-    label and a number, not a sentence; independent of the meter's own knob."""
-    percent_done = semantic_refresh.progress()
-    if percent_done is None or not settings_store.flag(NOTICE_SETTING):
-        return ""
-    return f"indexing {percent_done}%"
+        self.update(text)
 
 
 def enabled() -> bool:

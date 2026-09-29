@@ -14,8 +14,9 @@ import threading
 import pytest
 
 from sympose import engine
-from sympose.cli import commands, grounding_line, meter, options, runtime, trim_notice, turns
+from sympose.cli import background_status, commands, grounding_line, meter, options, runtime, trim_notice, turns
 from sympose.cli.app import SymposeCLI
+from sympose.engine import status_phrases
 
 
 def run_async(coro):
@@ -93,6 +94,9 @@ def memory_refresh_calls(monkeypatch):
         calls.models.append(model)
 
     monkeypatch.setattr(engine, "refresh_memory", refresh_memory)
+    # A persona's status phrases (docs/decisions/0XX) are generated the same way, unconditionally
+    # at launch/switch, but only once ever per persona -- never a real one here either.
+    monkeypatch.setattr(engine, "refresh_status_phrases", lambda handle, model=None: None)
     return calls
 
 
@@ -1511,27 +1515,25 @@ def test_quit_command_exits_the_app(profiles):
     run_async(scenario())
 
 
-def test_composer_loses_its_top_margin_only_while_a_panel_is_open(profiles):
-    """Regression test: the fix for the composer's top margin used a
-    more-specific selector overriding just `margin-top`, which Textual's
-    CSS doesn't merge with the base rule's other three sides the way
-    plain CSS cascading would — it silently reset them to 0 too, so a
-    picker being open would leave the composer with no left/right/bottom
-    margin either, not just no top margin. (The bottom side is 0: the
-    context meter's line, ADR 018, takes the gap that used to be there.)"""
+def test_composer_keeps_no_top_margin_whether_or_not_a_panel_is_open(profiles):
+    """`BackgroundStatus` (docs/decisions/043) always sits directly above the
+    composer now, whether a picker panel is open (mounted between the two)
+    or not (the composer follows it right away) — so the composer's own top
+    margin stays 0 either way; there's no longer a "bare transcript above
+    it" case that needs breathing room added back in."""
 
     async def scenario():
         app = SymposeCLI()
         async with app.run_test() as pilot:
             await pilot.pause()
-            assert app.composer.styles.margin == (1, 1, 0, 1)
+            assert app.composer.styles.margin == (0, 1, 0, 1)
             app.composer.focus()
             await pilot.press("/")
             await pilot.pause()
             assert app.composer.styles.margin == (0, 1, 0, 1)
             await pilot.press("escape")
             await pilot.pause()
-            assert app.composer.styles.margin == (1, 1, 0, 1)
+            assert app.composer.styles.margin == (0, 1, 0, 1)
 
     run_async(scenario())
 
@@ -1875,7 +1877,32 @@ def test_memory_review_shows_a_diff_and_saving_applies_the_proposal(profiles):
     run_async(scenario())
 
 
-def test_memory_is_refreshed_in_the_background_at_launch_and_on_persona_switch(profiles, memory_refresh_calls):
+def test_memory_is_not_refreshed_in_the_background_by_default(profiles, memory_refresh_calls):
+    """`memory_auto_refresh` is off by default (docs/decisions/041): unlike recaps, a
+    context.md/profile.md check does not fire on its own unless the user turns it on."""
+
+    async def scenario():
+        app = SymposeCLI()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.composer.focus()
+            await pilot.press(*"/persona", "enter")
+            await pilot.pause()
+            await pilot.press("1")  # aria (sorted first)
+            await pilot.pause()
+            assert memory_refresh_calls == []
+
+    run_async(scenario())
+
+
+def test_memory_is_refreshed_in_the_background_at_launch_and_on_persona_switch_once_turned_on(
+    profiles, memory_refresh_calls
+):
+    from sympose import settings_store
+    from sympose.engine import memory_refresh
+
+    settings_store.set(memory_refresh.AUTO_REFRESH_SETTING, True)
+
     async def scenario():
         app = SymposeCLI()
         async with app.run_test() as pilot:
@@ -2521,180 +2548,97 @@ def test_a_reply_with_no_switch_meanwhile_does_fill_the_meter(profiles, monkeypa
     assert _switched_while_in_flight(profiles, monkeypatch, lambda app: None) == "context ██████░░░░ 62% · 3.1k of 5.0k"
 
 
-# -- the search-index notice at the far right of the meter line (docs/decisions/027) --
+# -- the animated line above the composer (docs/decisions/027: moved from the meter's far right) --
 
 
-def _progress(monkeypatch, value):
+def _status_text(app) -> str:
+    return plain_text(app.query_one(background_status.BackgroundStatus))
+
+
+def test_the_status_line_is_empty_when_nothing_is_running(profiles):
+    async def scenario():
+        app = SymposeCLI()
+        async with app.run_test() as pilot:
+            await pilot.pause(0.3)
+            return _status_text(app)
+
+    assert run_async(scenario()) == ""
+
+
+def test_the_status_line_shows_a_spinner_and_a_phrase_while_indexing(profiles, monkeypatch):
     from sympose.engine import semantic_refresh
 
-    monkeypatch.setattr(semantic_refresh, "progress", lambda: value)
-
-
-def test_the_notice_is_a_label_and_a_number_or_nothing(monkeypatch):
-    _progress(monkeypatch, None)
-    assert meter.build_notice() == ""
-    _progress(monkeypatch, 0)
-    assert meter.build_notice() == "indexing 0%"
-    _progress(monkeypatch, 40)
-    assert meter.build_notice() == "indexing 40%"
-
-
-def test_with_no_reply_yet_the_notice_sits_alone_at_the_far_right(profiles, monkeypatch):
-    async def then(app, pilot):
-        _progress(monkeypatch, 40)
-        app.query_one(meter.ContextMeter).refresh_notice()
-        width = app.query_one(meter.ContextMeter).size.width
-        return _meter_text(app), width
-
-    text, width = _run_meter_scenario(monkeypatch, [], then)["then"]
-
-    assert text.endswith("indexing 40%") and text.strip() == "indexing 40%"
-    assert len(text) == width  # padded out to the right edge of the line
-
-
-def test_the_notice_shares_the_line_with_the_meter_and_ends_at_the_right_edge(profiles, monkeypatch):
-    async def then(app, pilot):
-        _progress(monkeypatch, 40)
-        app.query_one(meter.ContextMeter).refresh_notice()
-        return _meter_text(app), app.query_one(meter.ContextMeter).size.width
-
-    seen = _run_meter_scenario(monkeypatch, [_result(3100, 5000)], then)
-    text, width = seen["then"]
-
-    assert seen["text"] == "context ██████░░░░ 62% · 3.1k of 5.0k"  # before the notice
-    assert text.startswith("context ██████░░░░ 62%") and text.endswith("indexing 40%")
-    assert len(text) == width and "\n" not in text
-
-
-def test_the_notice_shows_even_when_the_meter_is_turned_off(profiles, monkeypatch):
-    from sympose import settings_store
-
-    settings_store.set(meter.SETTING, False)
-
-    async def then(app, pilot):
-        _progress(monkeypatch, 40)
-        app.query_one(meter.ContextMeter).refresh_notice()
-        return _meter_text(app)
-
-    seen = _run_meter_scenario(monkeypatch, [_result(3100, 5000)], then)
-
-    assert seen["text"] == "" and seen["then"].strip() == "indexing 40%"
-
-
-def test_the_notice_goes_when_the_build_ends_and_the_meter_stays(profiles, monkeypatch):
-    async def then(app, pilot):
-        widget = app.query_one(meter.ContextMeter)
-        _progress(monkeypatch, 40)
-        widget.refresh_notice()
-        _progress(monkeypatch, None)
-        widget.refresh_notice()
-        return _meter_text(app)
-
-    assert _run_meter_scenario(monkeypatch, [_result(3100, 5000)], then)["then"] == "context ██████░░░░ 62% · 3.1k of 5.0k"
-
-
-def test_a_reply_after_the_notice_appeared_keeps_the_notice(profiles, monkeypatch):
-    async def then(app, pilot):
-        widget = app.query_one(meter.ContextMeter)
-        _progress(monkeypatch, 60)
-        widget.refresh_notice()
-        meter.show(app, 4600, 5000, meter.epoch(app))  # a later reply
-        return _meter_text(app)
-
-    text = _run_meter_scenario(monkeypatch, [_result(3100, 5000)], then)["then"]
-
-    assert text.startswith("context █████████░ 92%") and text.endswith("indexing 60%")
-
-
-def test_the_notice_is_looked_at_on_a_timer_without_anyone_calling_it(profiles, monkeypatch):
-    monkeypatch.setattr(meter, "_POLL_SECONDS", 0.05)
-    _progress(monkeypatch, None)
+    monkeypatch.setattr(semantic_refresh, "progress", lambda: 40)
 
     async def scenario():
         app = SymposeCLI()
         async with app.run_test() as pilot:
-            await pilot.pause()
-            assert _meter_text(app) == ""
-            _progress(monkeypatch, 25)
-            await pilot.pause(0.4)
-            shown = _meter_text(app).strip()
-            _progress(monkeypatch, None)
-            await pilot.pause(0.4)
-            return shown, _meter_text(app)
+            await pilot.pause(0.3)
+            return _status_text(app)
 
-    assert run_async(scenario()) == ("indexing 25%", "")
+    text = run_async(scenario())
+    assert text.endswith("40%")
+    assert text[0] in background_status._SPINNER_FRAMES
+    assert any(p in text for p in status_phrases.FALLBACK)  # no persona-own phrases generated in this test
 
 
-def test_in_a_terminal_too_narrow_for_both_they_stay_apart(profiles, monkeypatch):
+def test_the_status_line_is_hidden_when_its_knob_is_off(profiles, monkeypatch):
+    from sympose import settings_store
+    from sympose.engine import semantic_refresh
+
+    settings_store.set(background_status.SETTING, False)
+    monkeypatch.setattr(semantic_refresh, "progress", lambda: 40)
+
     async def scenario():
         app = SymposeCLI()
-        async with app.run_test(size=(30, 24)) as pilot:
-            await pilot.pause()
-            meter.show(app, 3100, 5000, meter.epoch(app))
-            _progress(monkeypatch, 40)
-            app.query_one(meter.ContextMeter).refresh_notice()
-            return _meter_text(app)
+        async with app.run_test() as pilot:
+            await pilot.pause(0.3)
+            return _status_text(app)
 
-    assert run_async(scenario()) == "context ██████░░░░ 62% · 3.1k of 5.0k  indexing 40%"
+    assert run_async(scenario()) == ""
 
 
-def test_the_notice_moves_to_the_new_right_edge_when_the_terminal_is_resized(profiles, monkeypatch):
+def test_switching_persona_mid_activity_shows_the_new_personas_own_phrase(profiles, monkeypatch):
+    """Regression: the phrase was only re-picked when the *kind* of activity changed, so a switch
+    landing on the same kind (recap refresh running for both) kept showing the old persona's
+    phrase under the new persona's name."""
+    from sympose.engine import recap_refresh
+
+    write_persona(profiles, "aria", "name: Aria\ntitle: Test specialist\n")
+    (profiles / "samantha" / "status_phrases.md").write_text("Samantha's own line…\n")
+    (profiles / "aria" / "status_phrases.md").write_text("Aria's own line…\n")
+    monkeypatch.setattr(recap_refresh, "is_running", lambda handle: True)  # "running" for every persona
+
     async def scenario():
         app = SymposeCLI()
-        async with app.run_test(size=(60, 24)) as pilot:
+        async with app.run_test() as pilot:
+            await pilot.pause(0.3)
+            before = _status_text(app)
+            app.composer.focus()
+            await pilot.press(*"/persona", "enter")
             await pilot.pause()
-            _progress(monkeypatch, 40)
-            widget = app.query_one(meter.ContextMeter)
-            widget.refresh_notice()
-            before = (len(_meter_text(app)), widget.size.width)
-            await pilot.resize_terminal(100, 24)
-            await pilot.pause(0.2)
-            return before, (len(_meter_text(app)), widget.size.width)
+            await pilot.press("1")  # aria (sorted first)
+            await pilot.pause(0.3)
+            return before, _status_text(app)
 
     before, after = run_async(scenario())
-
-    assert before[0] == before[1] and after[0] == after[1] and after[1] > before[1]
-
-
-def test_the_notice_has_its_own_knob_and_only_an_explicit_false_turns_it_off(monkeypatch):
-    from sympose import settings_store
-
-    _progress(monkeypatch, 40)
-    assert meter.NOTICE_SETTING == "show_index_notice"
-    assert meter.build_notice() == "indexing 40%"
-    for malformed in ("false", 0, None, "no"):
-        settings_store.set(meter.NOTICE_SETTING, malformed)
-        assert meter.build_notice() == "indexing 40%"
-    settings_store.set(meter.NOTICE_SETTING, False)
-    assert meter.build_notice() == ""
+    assert "Samantha's own line…" in before
+    assert "Aria's own line…" in after
 
 
-def test_turning_the_notice_off_leaves_the_meter_and_turning_the_meter_off_leaves_the_notice(profiles, monkeypatch):
-    from sympose import settings_store
+def test_the_status_line_uses_the_personas_own_phrases_once_it_has_them(profiles, monkeypatch):
+    from sympose.engine import semantic_refresh
 
-    async def then(app, pilot):
-        widget = app.query_one(meter.ContextMeter)
-        _progress(monkeypatch, 40)
-        settings_store.set(meter.NOTICE_SETTING, False)
-        widget.refresh_notice()
-        return _meter_text(app)
+    (profiles / "samantha" / "status_phrases.md").write_text("Peeking at your notes…\n")
+    monkeypatch.setattr(semantic_refresh, "progress", lambda: 40)
 
-    assert _run_meter_scenario(monkeypatch, [_result(3100, 5000)], then)["then"] == "context ██████░░░░ 62% · 3.1k of 5.0k"
-    # (the reverse, the meter off and the notice on, is `test_the_notice_shows_even_when_the_meter_is_turned_off`)
+    async def scenario():
+        app = SymposeCLI()
+        async with app.run_test() as pilot:
+            await pilot.pause(0.3)
+            return _status_text(app)
 
-
-def test_a_notice_already_showing_goes_when_its_knob_is_turned_off(profiles, monkeypatch):
-    from sympose import settings_store
-
-    async def then(app, pilot):
-        widget = app.query_one(meter.ContextMeter)
-        _progress(monkeypatch, 40)
-        widget.refresh_notice()
-        settings_store.set(meter.NOTICE_SETTING, False)
-        widget.refresh_notice()  # what the once-a-second timer does
-        return _meter_text(app)
-
-    assert _run_meter_scenario(monkeypatch, [_result(3100, 5000)], then)["then"] == "context ██████░░░░ 62% · 3.1k of 5.0k"
+    assert "Peeking at your notes…" in run_async(scenario())
 
 
 # -- what a cloud model may receive (docs/decisions/031) --

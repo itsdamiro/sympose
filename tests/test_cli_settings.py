@@ -10,14 +10,14 @@ from sympose import engine, settings_store
 from sympose.cli import commands, settings_list, settings_registry as registry
 from sympose.cli.app import SymposeCLI
 from sympose.cli.composer import DEFAULT_PLACEHOLDER
-from sympose.engine import budget, embeddings, followup, memory, recap
+from sympose.engine import budget, embeddings, followup, memory, memory_refresh, recap
 
 # The rows, in the order the list shows them, and the digit that chooses each (1 to 9).
 KEYS = [
-    "show_grounding", "show_trim_notice", "show_context_meter", "show_index_notice", "reply_reveal",
+    "show_grounding", "show_trim_notice", "show_context_meter", "show_background_status", "reply_reveal",
     "context_window", "reply_limit", "grounding_followups", "session_recaps",
     "grounding_search", "embedding_min_similarity", "embedding_margin", "vault_lookup", "vault_lookup_rounds",
-    "memory_remember", "memory_rewrite",
+    "memory_remember", "memory_rewrite", "memory_auto_refresh",
 ]
 
 
@@ -38,6 +38,7 @@ def _lines(app):
 def no_background_builds(monkeypatch):
     monkeypatch.setattr(engine, "refresh_recaps", lambda handle, model=None: None)
     monkeypatch.setattr(engine, "refresh_embeddings", lambda handle: None)
+    monkeypatch.setattr(engine, "refresh_status_phrases", lambda handle, model=None: None)
 
 
 @pytest.fixture
@@ -71,13 +72,16 @@ def test_settings_is_a_real_command_now():
     assert "not available" not in command.summary and "mock" not in command.summary
 
 
-def test_every_toggle_is_on_when_nothing_is_set_except_memory_remember():
+def test_every_toggle_is_on_when_nothing_is_set_except_the_off_by_default_ones():
     """`memory_remember` ships off (docs/decisions/041: trusting a model with even a safe,
-    append-only write is the user's own call, never a default)."""
+    append-only write is the user's own call, never a default). `memory_auto_refresh` ships off
+    too: unlike recaps, a context.md/profile.md check shares the same model a real chat turn
+    needs, and is not worth running on its own every launch (measured live, 2026-09-29)."""
+    off_by_default = {memory.REMEMBER_SETTING, memory_refresh.AUTO_REFRESH_SETTING}
     for s in registry.SETTINGS:
         if s.kind != registry.TOGGLE:
             continue
-        assert s.current() is (s.key != memory.REMEMBER_SETTING), s.key
+        assert s.current() is (s.key not in off_by_default), s.key
 
 
 def test_every_row_fits_an_80_column_terminal_on_one_line():
@@ -306,7 +310,7 @@ def test_slash_settings_lists_every_setting_with_its_value(profiles):
             await _open(pilot, app)
             assert app.panel_kind == settings_list.PICKER_KIND
             labels = [str(app.panel.get_option_at_index(i).prompt) for i in range(app.panel.option_count)]
-            assert len(labels) == 16
+            assert len(labels) == 17
             assert "show_grounding — off:" in labels[0]
             assert "context_window — automatic:" in labels[5]
             assert "reply_reveal — 50 (default):" in labels[4]

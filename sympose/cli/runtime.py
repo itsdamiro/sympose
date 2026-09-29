@@ -18,7 +18,7 @@ from sympose.cli import (
 from sympose.cli.commands import COMMANDS
 from sympose.cli.options import MODEL_OPTIONS, list_personas
 from sympose.cli.selection import SelectionOption
-from sympose.engine import memory
+from sympose.engine import memory, memory_refresh
 from sympose.profile import set_default_persona
 
 
@@ -161,7 +161,9 @@ def apply_picker_choice(app, kind: str, value: str | None) -> bool:
             # Recaps use the model the user picked, not only the persona's own: the messages go to it (ADR 023).
             engine.refresh_recaps(persona.handle, app.model_override.id if app.model_override else None)
             engine.refresh_embeddings(persona.handle)  # ADR 027
-            engine.refresh_memory(persona.handle, app.model_override.id if app.model_override else None)  # ADR 041
+            if memory_refresh.auto_refresh_enabled():  # off by default: /memory refresh always stays manual (ADR 041)
+                engine.refresh_memory(persona.handle, app.model_override.id if app.model_override else None)
+            engine.refresh_status_phrases(persona.handle, app.model_override.id if app.model_override else None)
             transcript_mod.mount_line(app, f"Now talking to @{persona.handle}.", "system")
             share.on_change(app, was_cloud)  # told, not asked: `/share` is there when they want it
             memory_command.announce_pending(app)  # a proposal an earlier refresh staged is said too (ADR 041)

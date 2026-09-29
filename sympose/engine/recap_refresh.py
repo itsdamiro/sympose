@@ -172,3 +172,10 @@ def wait_for_refresh(handle: str, timeout: float = _WAIT_SECONDS) -> bool:
     with _RUNNING_LOCK:
         done = _RUNNING.get(handle)
     return True if done is None else done.wait(timeout)
+
+
+def is_running(handle: str) -> bool:
+    """Whether a recap refresh is in flight for `handle` right now -- for `background_status.py`'s
+    busy indicator, a point-in-time read, not a wait."""
+    with _RUNNING_LOCK:
+        return handle in _RUNNING

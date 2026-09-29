@@ -5,8 +5,7 @@ never holds a second copy of a rule."""
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from sympose import settings_store
-from sympose.cli import grounding_line, meter, reveal, trim_notice
+from sympose.cli import background_status, grounding_line, meter, reveal, trim_notice
 from sympose.engine import budget, embeddings, followup, lookup, memory, memory_refresh, recap
 
 TOGGLE, CHOICE, NUMBER = "toggle", "choice", "number"
@@ -37,7 +36,7 @@ SETTINGS: list[Setting] = [
     _toggle(grounding_line.SETTING, "the notes that grounded a reply, in its header", grounding_line.enabled),
     _toggle(trim_notice.SETTING, "the notice that older turns were left out", trim_notice.enabled),
     _toggle(meter.SETTING, "the context meter under the chat box", meter.enabled),
-    _toggle(meter.NOTICE_SETTING, "the indexing notice", lambda: settings_store.flag(meter.NOTICE_SETTING)),
+    _toggle(background_status.SETTING, "the busy indicator above the box", background_status.enabled),
     Setting(
         reveal.SETTING, NUMBER, "how fast a reply is written out", reveal.words_per_second,
         lambda: reveal.DEFAULT_WORDS_PER_SECOND, hint="words per second, 0 or more; 0 shows the whole reply at once",
@@ -87,6 +86,10 @@ SETTINGS: list[Setting] = [
     Setting(
         memory_refresh.SETTING, CHOICE, "context.md updates: staged for review or direct",
         memory_refresh.mode, lambda: memory_refresh.ASK, choices=(memory_refresh.ASK, memory_refresh.AUTO),
+    ),
+    _toggle(
+        memory_refresh.AUTO_REFRESH_SETTING, "checking for a memory update on its own",
+        memory_refresh.auto_refresh_enabled, default=False,
     ),
 ]
 
