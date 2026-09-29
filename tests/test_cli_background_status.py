@@ -5,7 +5,7 @@ import pytest
 
 from sympose import settings_store
 from sympose.cli import background_status
-from sympose.engine import memory_refresh, recap_refresh, semantic_refresh, status_phrases
+from sympose.engine import memory_refresh, recap_refresh, semantic_refresh, status_phrases, turn_status
 
 
 @pytest.fixture(autouse=True)
@@ -69,3 +69,32 @@ def test_phrase_generation_takes_priority_over_indexing_but_not_memory(monkeypat
     _running(monkeypatch, index_percent=10)
     monkeypatch.setattr(status_phrases, "is_running", lambda handle: True)
     assert background_status.activity("samantha")[0] == "phrases"
+
+
+def test_the_turns_own_real_phase_takes_priority_over_every_background_job(monkeypatch):
+    """The reply the user is actually waiting on matters more than housekeeping (docs/decisions/043's
+    follow-up): searching/reading/asking outranks recap, memory, phrase generation and indexing."""
+    _running(monkeypatch, recap=True, memory=True, index_percent=10)
+    monkeypatch.setattr(status_phrases, "is_running", lambda handle: True)
+    turn_status.set_phase("samantha", turn_status.SEARCHING)
+    try:
+        assert background_status.activity("samantha") == (turn_status.SEARCHING, "")
+    finally:
+        turn_status.set_phase("samantha", None)
+
+
+def test_recaps_own_phrase_shows_through_once_the_turn_clears_its_phase(monkeypatch):
+    """`turn.py` clears its own phase for the exact window it's blocked on `recap_refresh.wait_for_refresh`
+    (docs/decisions/023) -- with no phase set, the recap job's own reason for the wait shows instead."""
+    _running(monkeypatch, recap=True)
+    assert turn_status.phase("samantha") is None
+    assert background_status.activity("samantha") == ("recap", "")
+
+
+def test_a_different_personas_turn_does_not_show_up_for_this_one(monkeypatch):
+    _running(monkeypatch)
+    turn_status.set_phase("aria", turn_status.READING)
+    try:
+        assert background_status.activity("samantha") == (None, "")
+    finally:
+        turn_status.set_phase("aria", None)

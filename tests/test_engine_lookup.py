@@ -7,7 +7,7 @@ import json
 import pytest
 
 from sympose import settings_store
-from sympose.engine import budget, lookup, lookup_tools, tool_support
+from sympose.engine import budget, lookup, lookup_tools, tool_support, turn_status
 from sympose.engine.model import EngineModelError, ModelReply
 from sympose.engine.model_tools import ToolCall
 
@@ -151,6 +151,26 @@ def test_two_calls_in_one_reply_are_both_run_and_both_answered_in_order():
     tail = call.sent[1]["messages"][-3:]
     assert [m["role"] for m in tail] == ["assistant", "tool", "tool"] and [m.get("tool_call_id") for m in tail[1:]] == ["a", "b"]
     assert [entry["tool"] for entry in done.lookups] == ["search_notes", "open_note"]
+
+
+def test_a_search_tool_call_shows_searching_and_an_open_note_call_shows_reading():
+    """The busy indicator's real per-turn phase (docs/decisions/043's follow-up): each tool round
+    shows `asking` for the model call itself, then the specific phase for whichever tool it asked for."""
+    both = ModelReply(
+        "", None,
+        tool_calls=(ToolCall("a", "search_notes", '{"query": "Atlas"}'), ToolCall("b", "open_note", '{"path": "Atlas"}')),
+    )
+    call = script(both, says("done"))
+    persona = {**PERSONA, "handle": "samantha"}
+    phases = []
+
+    def spying_run_tool(persona, model, name, arguments):
+        phases.append((name, turn_status.phase("samantha")))
+        return lookup_tools.run(persona, model, name, arguments)
+
+    lookup.converse(persona, BASE, LOCAL, None, call=call, run_tool=spying_run_tool)
+
+    assert phases == [("search_notes", turn_status.SEARCHING), ("open_note", turn_status.READING)]
 
 
 def test_the_same_passage_found_twice_is_recorded_once():

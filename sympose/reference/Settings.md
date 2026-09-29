@@ -112,7 +112,9 @@ The `folder_template_share` setting is the share of a folder's notes that must c
 
 ## show_background_status
 
-Setting `show_background_status` to `false` hides the animated line above the chat box that shows while a recap refresh, a memory update, or the search index build is running in the background. It is separate from `show_context_meter`.
+Setting `show_background_status` to `false` hides the animated line directly above the chat box. It is separate from `show_context_meter`.
+
+This line shows what is happening while you wait: a recap refresh, a memory update, or the search index build running in the background, or, while a reply is being written, whether Samantha is searching your notes, reading one, or thinking through your message.
 
 ## memory_remember
 

@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from sympose import settings_store
-from sympose.engine import budget, lookup_tools, model as model_mod, model_tools, tool_support
+from sympose.engine import budget, lookup_tools, model as model_mod, model_tools, tool_support, turn_status
 
 log = logging.getLogger(__name__)
 
@@ -25,6 +25,11 @@ AUTO, ASK = "auto", "ask"
 ROUNDS_SETTING = "vault_lookup_rounds"
 DEFAULT_ROUNDS = 3
 MAX_ROUNDS = 8
+# What the busy indicator (docs/decisions/043) shows while a tool call the model asked for is
+# actually running -- only the two vault ones get their own real phase; anything else this loop
+# is ever handed (e.g. `remember`, docs/decisions/041) stays the generic "asking" default, which
+# is accurate enough for a tool that's neither searching nor reading a note.
+_TOOL_PHASE = {lookup_tools.SEARCH: turn_status.SEARCHING, lookup_tools.OPEN: turn_status.READING}
 _NO_ROOM = "There was no room left in the context window for this result."
 # Added, for the last call only and never saved, once the lookups are used up: a model was seen to answer
 # with another tool call and no text even with `tool_choice: none`, which ended the turn in an error.
@@ -124,6 +129,7 @@ def converse(
     call = call or model_mod.call_model  # looked up now, so a test can stand in for the model
     tools = tools if tools is not None else lookup_tools.TOOLS
     run_tool = run_tool or lookup_tools.run
+    handle = persona.get("handle")  # `None` in a unit test's bare persona dict -- `turn_status` no-ops on that
     started = time.perf_counter()
     work: list[dict[str, Any]] = list(messages)
     hits: list[dict[str, Any]] = []
@@ -133,6 +139,7 @@ def converse(
     limit = rounds()
     for round_number in range(limit + 1):
         last = round_number == limit
+        turn_status.set_phase(handle, turn_status.ASKING)
         before = time.perf_counter()
         try:
             reply = call(
@@ -158,6 +165,7 @@ def converse(
         work.append(asked)
         added += _tokens(json.dumps(asked["tool_calls"]) + (reply.text or ""), model)  # replayed with every later call
         for tool_call in reply.tool_calls:
+            turn_status.set_phase(handle, _TOOL_PHASE.get(tool_call.name, turn_status.ASKING))
             result = run_tool(persona, model, tool_call.name, tool_call.arguments)
             room = (_UNKNOWN_WINDOW_TOKENS if limits is None else limits.prompt_tokens - used_tokens) - added
             text = _fit(result.text, model, room)

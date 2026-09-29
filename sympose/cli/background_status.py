@@ -1,7 +1,9 @@
 """What's happening in the background, shown as an animated line above the composer: a recap
-refresh, a memory rewrite, or the search index build. Replaces the old `indexing NN%` notice that
-used to sit at the meter's far right (docs/decisions/027) -- one place for all of it, so a quiet
-wait during any of the three reads as the persona being busy, not the app being broken."""
+refresh, a memory rewrite, the search index build, or -- the wait most turns actually spend most
+of their time in -- the reply itself being generated, down to whether it's searching, reading a
+note, or asking the model right now (`turn_status.py`). Replaces the old `indexing NN%` notice
+that used to sit at the meter's far right (docs/decisions/027) -- one place for all of it, so a
+quiet wait during any of these reads as the persona being busy, not the app being broken."""
 
 import random
 
@@ -9,12 +11,20 @@ from rich.text import Text
 from textual.widgets import Static
 
 from sympose import settings_store
-from sympose.engine import memory_refresh, recap_refresh, semantic_refresh, status_phrases
+from sympose.engine import memory_refresh, recap_refresh, semantic_refresh, status_phrases, turn_status
 
 SETTING = "show_background_status"
 
 _SPINNER_FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 _FRAME_SECONDS = 0.12
+
+# The turn's own real phases (docs/decisions/043's follow-up) show this literal text, not a
+# persona-flavored phrase -- these say what is actually happening for *this* reply, not a vibe.
+REAL_STATUS_TEXT = {
+    turn_status.SEARCHING: "Searching your notes…",
+    turn_status.READING: "Reading a note…",
+    turn_status.ASKING: "Thinking about your message…",
+}
 
 
 def enabled() -> bool:
@@ -23,14 +33,22 @@ def enabled() -> bool:
 
 
 def activity(handle: str) -> tuple[str | None, str]:
-    """`(kind, detail)` -- which one thing to show, when more than one is running at once: recap,
-    then memory, then the persona's own phrases generating, then indexing -- the order a new
-    session's own background work naturally finishes in. `kind` is `None` when nothing is
-    running. `detail` is text appended after the phrase -- only indexing has one, its percent,
-    since that is genuinely useful (almost done vs. just started) in a way the others' own
-    progress is not. `status_phrases.is_running` is checked here too: it is itself a background
-    model call (the first time a persona is ever used), and without it the busy indicator could
-    not show the one background call it was built to cover."""
+    """`(kind, detail)` -- which one thing to show, when more than one is running at once. The
+    turn's own real phase (searching/reading/asking) comes first when it is set: it explains what
+    is happening for the reply the user is actually waiting on, which matters more than a
+    background job's own phrase -- except right when the turn is itself blocked waiting on one
+    (`turn.py` clears its own phase for exactly that window), so the block below can fall through
+    to that job's own, more specific reason. After that: recap, then memory, then the persona's
+    own phrases generating, then indexing -- the order a new session's own background work
+    naturally finishes in. `kind` is `None` when nothing is running. `detail` is text appended
+    after the phrase -- only indexing has one, its percent, since that is genuinely useful (almost
+    done vs. just started) in a way the others' own progress is not. `status_phrases.is_running`
+    is checked here too: it is itself a background model call (the first time a persona is ever
+    used), and without it the busy indicator could not show the one background call it was built
+    to cover."""
+    turn_phase = turn_status.phase(handle)
+    if turn_phase is not None:
+        return turn_phase, ""
     if recap_refresh.is_running(handle):
         return "recap", ""
     if memory_refresh.is_running(handle):
@@ -71,7 +89,12 @@ class BackgroundStatus(Static):
         key = (handle, kind)
         if key != self._key:
             self._key = key
-            self._phrase = random.choice(status_phrases.phrases(handle)) if kind and handle else ""
+            if kind in REAL_STATUS_TEXT:
+                self._phrase = REAL_STATUS_TEXT[kind]
+            elif kind and handle:
+                self._phrase = random.choice(status_phrases.phrases(handle))
+            else:
+                self._phrase = ""
         if kind is None:
             self.update(Text(""))
             return

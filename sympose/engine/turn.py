@@ -12,7 +12,7 @@ from typing import Any
 from sympose import profile as profile_mod, vault_map as vault_map_mod
 from sympose.engine import (
     budget, connections, followup, grounding, grounding_properties, lookup, memory, memory_tools, persona_tools,
-    prompt, recap, recap_refresh, reference, session, sharing, tool_support,
+    prompt, recap, recap_refresh, reference, session, sharing, tool_support, turn_status,
 )
 from sympose.engine import model as model_mod
 from sympose.engine.model import EngineModelError
@@ -66,23 +66,31 @@ def run_turn(
     # checked against what this model can actually do and, for `ask`, whether the persona has a
     # vault to look up at all -- see `persona_tools.resolve`.
     modes = persona_tools.resolve(persona, target_model)
+    # Cleared in `finally`, not just on the normal path: an exception from `_run` (a raised
+    # `EngineModelError`, or anything else) must not leave the busy indicator (docs/decisions/043)
+    # showing a phase forever for a turn that's already over. `_run` narrows this further (searching,
+    # reading) around its own steps; this is just the default for everything else in between.
+    turn_status.set_phase(handle, turn_status.ASKING)
     try:
-        result = _run(persona, handle, user_message, sid, existing, history, target_model, modes)
-    except lookup.ToolsRefused:
-        # The model failed with the tools: the turn is run with none, and a model that does that twice in a
-        # row while working without them is not given tools again (docs/decisions/040). `remember` falls
-        # back to its marker mechanism for this same retry, since that needs no tool-calling at all -- the
-        # user's "remember this" is not lost just because the tool attempt was.
-        retry_remember = memory.MARKER if memory.remember_enabled() else None
-        result = _run(
-            persona, handle, user_message, sid, existing, history, target_model,
-            persona_tools.Modes(False, modes.chose_ask, retry_remember),
-        )
-        tool_support.note_refusal(target_model)
+        try:
+            result = _run(persona, handle, user_message, sid, existing, history, target_model, modes)
+        except lookup.ToolsRefused:
+            # The model failed with the tools: the turn is run with none, and a model that does that twice in a
+            # row while working without them is not given tools again (docs/decisions/040). `remember` falls
+            # back to its marker mechanism for this same retry, since that needs no tool-calling at all -- the
+            # user's "remember this" is not lost just because the tool attempt was.
+            retry_remember = memory.MARKER if memory.remember_enabled() else None
+            result = _run(
+                persona, handle, user_message, sid, existing, history, target_model,
+                persona_tools.Modes(False, modes.chose_ask, retry_remember),
+            )
+            tool_support.note_refusal(target_model)
+            return result
+        if modes.ask or modes.remember == memory.TOOL:
+            tool_support.note_success(target_model)
         return result
-    if modes.ask or modes.remember == memory.TOOL:
-        tool_support.note_success(target_model)
-    return result
+    finally:
+        turn_status.set_phase(handle, None)
 
 
 def _run(
@@ -100,9 +108,12 @@ def _run(
     # silent cut (docs/decisions/015); the follow-up rewrite shares that window.
     limits = budget.budget_for(target_model)
     # In `ask` Sympose does not search the vault for the message: the persona decides (docs/decisions/040).
-    vault_hits, searched, rewrite = (
-        ([], None, False) if ask else followup.ground(persona, user_message, history, target_model, limits)
-    )
+    if ask:
+        vault_hits, searched, rewrite = [], None, False
+    else:
+        turn_status.set_phase(handle, turn_status.SEARCHING)
+        vault_hits, searched, rewrite = followup.ground(persona, user_message, history, target_model, limits)
+        turn_status.set_phase(handle, turn_status.ASKING)
     # The two sources take turns, the reference first: when the prompt does not fit, the
     # end of the list goes first, so the best passage of each source stays longest and
     # neither's evidence is dropped wholesale before the other's (docs/decisions/022).
@@ -117,8 +128,13 @@ def _run(
     point_to = [] if persona.get("sympose_reference") else profile_mod.reference_persona_names()
 
     # What earlier conversations were about (docs/decisions/023); the session being
-    # run is excluded, its own turns are already the history.
+    # run is excluded, its own turns are already the history. Cleared, not left as "asking",
+    # for the wait itself: `recap_refresh.is_running` is true for exactly this window, so clearing
+    # here lets `background_status.activity` fall through to its own, more specific "recap" phrase
+    # instead of a misleading "asking" while the turn is actually blocked on it (docs/decisions/043).
+    turn_status.set_phase(handle, None)
     recap_refresh.wait_for_refresh(handle)  # right after launch the recap may still be being written
+    turn_status.set_phase(handle, turn_status.ASKING)
     # Only what this model may receive goes any further (docs/decisions/031): the prompt, its token
     # count and the record below all see the same set.
     gated = sharing.gate(target_model, grounding_results, recap.latest(handle, exclude=sid))

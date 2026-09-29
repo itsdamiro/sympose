@@ -9,7 +9,7 @@ import pytest
 from helpers import write_persona
 
 from sympose import settings_store, vault_paths
-from sympose.engine import followup, grounding, prompt, reference, session, turn
+from sympose.engine import followup, grounding, prompt, reference, session, turn, turn_status
 from sympose.engine.model import ModelReply
 
 # Captured before `no_follow_up_rewrite` (below) ever monkeypatches the *module-level*
@@ -1221,3 +1221,50 @@ def test_a_cloud_model_receives_memory_once_approved(sessions_root, monkeypatch)
 
     assert "Prefers concise replies." in calls[0]["messages"][0]["content"]
     assert result.cloud == ["memory"] and result.withheld == []
+
+
+# -- the real, per-turn busy phase (docs/decisions/043's follow-up) --
+
+
+def test_the_search_step_shows_searching_and_the_model_call_shows_asking(sessions_root, monkeypatch):
+    captured = {}
+
+    def fake_ground(persona, message, history, model, limits):
+        captured["ground_phase"] = turn_status.phase("samantha")
+        return [], None, False
+
+    monkeypatch.setattr(turn.followup, "ground", fake_ground)
+
+    def fake_call_model(messages, model=None, **_):
+        captured["call_phase"] = turn_status.phase("samantha")
+        return ModelReply("reply", 12)
+
+    monkeypatch.setattr(turn.model_mod, "call_model", fake_call_model)
+
+    turn.run_turn("samantha", "hello")
+
+    assert captured["ground_phase"] == turn_status.SEARCHING
+    assert captured["call_phase"] == turn_status.ASKING
+
+
+def test_the_phase_is_cleared_once_the_turn_is_done(sessions_root, monkeypatch):
+    monkeypatch.setattr(grounding, "ground", lambda profile, msg, max_results=5: [])
+    monkeypatch.setattr(turn.model_mod, "call_model", lambda messages, model=None, **_: ModelReply("reply", 12))
+
+    turn.run_turn("samantha", "hello")
+
+    assert turn_status.phase("samantha") is None
+
+
+def test_the_phase_is_cleared_even_when_the_turn_raises(sessions_root, monkeypatch):
+    monkeypatch.setattr(grounding, "ground", lambda profile, msg, max_results=5: [])
+
+    def failing_call_model(messages, model=None, **_):
+        raise turn.model_mod.EngineModelError("boom")
+
+    monkeypatch.setattr(turn.model_mod, "call_model", failing_call_model)
+
+    with pytest.raises(turn.model_mod.EngineModelError):
+        turn.run_turn("samantha", "hello")
+
+    assert turn_status.phase("samantha") is None

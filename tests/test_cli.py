@@ -16,7 +16,7 @@ import pytest
 from sympose import engine
 from sympose.cli import background_status, commands, grounding_line, meter, options, runtime, trim_notice, turns
 from sympose.cli.app import SymposeCLI
-from sympose.engine import status_phrases
+from sympose.engine import status_phrases, turn_status
 
 
 def run_async(coro):
@@ -2639,6 +2639,39 @@ def test_the_status_line_uses_the_personas_own_phrases_once_it_has_them(profiles
             return _status_text(app)
 
     assert "Peeking at your notes…" in run_async(scenario())
+
+
+def test_the_status_line_shows_the_turns_own_real_phase_while_waiting_for_a_reply(profiles, monkeypatch):
+    """Regression: a real chat reply being generated is the wait most turns actually spend their
+    time in, but the busy indicator only ever covered the four other background jobs (ADR 043's
+    follow-up) -- so damiro watched a real reply take a while with nothing shown at all."""
+    release = threading.Event()
+
+    def slow_run_turn(handle, user_message, session_id=None, model=None):
+        turn_status.set_phase(handle, turn_status.SEARCHING)
+        release.wait(5)
+        turn_status.set_phase(handle, None)
+        return _result(3100, 5000)
+
+    monkeypatch.setattr(turns.engine, "run_turn", slow_run_turn)
+
+    async def scenario():
+        app = SymposeCLI()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.composer.focus()
+            await pilot.press(*"hi", "enter")
+            await pilot.pause(0.2)
+            text = _status_text(app)
+            release.set()
+            for _ in range(50):
+                await pilot.pause(0.1)
+                if app.pending_turns == 0:
+                    break
+            return text
+
+    text = run_async(scenario())
+    assert "Searching your notes…" in text
 
 
 # -- what a cloud model may receive (docs/decisions/031) --
