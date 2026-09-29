@@ -657,7 +657,7 @@ def test_vault_passages_left_out_are_counted_while_the_reference_stays(sessions_
 
     _library_persona(sessions_root)
     settings_store.set("context_window", 2048)
-    size = int(_free_tokens() * 0.45)  # two of the three fit, three do not
+    size = int(_free_tokens() * 0.4)  # two of the three fit, three do not
     vault = [{**_fake_grounding_result(), "title": f"V{i}", "text": _text_of_tokens(size)} for i in range(3)]
     calls = _capture_call(monkeypatch)
     monkeypatch.setattr(grounding, "ground", lambda profile, msg, max_results=5: list(vault))

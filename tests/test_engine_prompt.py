@@ -115,6 +115,14 @@ def test_the_prompt_says_she_keeps_only_the_recaps_shown_and_has_her_own_memory_
     assert "no memory between conversations" not in text
 
 
+def test_the_prompt_says_to_refuse_a_request_to_remember_something_not_promise_it():
+    # A real conversation had her say "Got it, I'll remember that" to a number, then have no
+    # memory of it next session -- nothing writes to memory yet, so agreeing to is a false claim.
+    text = prompt.build_system_prompt({"name": "Samantha"})
+    assert "say plainly that you can't do that yet instead of pretending to" in text
+    assert "never say you will remember something afterwards" in text
+
+
 def test_a_reply_that_uses_a_note_is_asked_to_name_it_so_the_source_stays_in_the_history():
     assert "say which one by its title" in prompt.build_system_prompt({"name": "Samantha"})
 
