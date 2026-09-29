@@ -11,7 +11,7 @@ from typing import Any
 
 from sympose import profile as profile_mod, vault_map as vault_map_mod, vault_paths
 from sympose.engine import (
-    budget, connections, followup, grounding, grounding_properties, lookup, prompt, recap, recap_refresh,
+    budget, connections, followup, grounding, grounding_properties, lookup, memory, prompt, recap, recap_refresh,
     reference, session, sharing, tool_support,
 )
 from sympose.engine import model as model_mod
@@ -127,11 +127,21 @@ def _run(
     if map_text and not map_allowed:
         withheld[sharing.VAULT_MAP] = 1
 
+    # A persona's own memory (docs/decisions/041): read locally either way, sent only when the model
+    # may receive it. `profile.md`/`context.md` are fixed like the vault map; `decisions.md`'s entries
+    # go through the fitting loop below and may come back trimmed from their oldest end.
+    mem = memory.for_turn(handle, sharing.MEMORY in sharing.allowed(target_model))
+    if mem.withheld:
+        withheld[sharing.MEMORY] = 1
+
     reference_found = sum(1 for h in grounding_results if h.get("source") == reference.SOURCE)
     vault_found = len(grounding_results) - reference_found
 
     def build(
-        hist: list[dict[str, str]], hits: list[dict[str, Any]], recaps: list[dict[str, Any]]
+        hist: list[dict[str, str]],
+        hits: list[dict[str, Any]],
+        recaps: list[dict[str, Any]],
+        decisions: list[str],
     ) -> list[dict[str, str]]:
         # Passages of each source that did not fit are left out: the prompt says
         # so, per source, instead of claiming nothing matched.
@@ -150,16 +160,23 @@ def _run(
             vault_map=map_text if map_allowed else None,
             vault_map_withheld=bool(map_text) and not map_allowed,
             lookup=ask,
+            memory_profile=mem.profile,
+            memory_context=mem.context,
+            memory_decisions=decisions,
         )
 
     prompt_tokens = 0
     recaps_sent = recaps_found
+    decisions_sent = mem.decisions
     if limits is None:
-        messages, dropped = build(history, grounding_results, recaps_found), 0
+        messages, dropped = build(history, grounding_results, recaps_found, mem.decisions), 0
     else:
-        fitted = budget.fit(build, history, grounding_results, target_model, limits.prompt_tokens, recaps_found)
+        fitted = budget.fit(
+            build, history, grounding_results, target_model, limits.prompt_tokens, recaps_found, mem.decisions,
+        )
         messages, grounding_results, dropped = fitted.messages, fitted.grounding, fitted.history_dropped
         recaps_sent, prompt_tokens = fitted.recaps, fitted.tokens
+        decisions_sent = fitted.decisions
     lookups: list[dict[str, Any]] = []
     if ask:
         done = lookup.converse(persona, messages, target_model, limits, used_tokens=prompt_tokens)
@@ -178,13 +195,16 @@ def _run(
         reply_ttft = reply.ttft_ms
 
     searched_used = searched if any(h.get("source") != reference.SOURCE for h in grounding_results) else None
+    memory_sent = memory.sent_names(mem.profile, mem.context, decisions_sent)
     cloud = None if sharing.is_local(target_model) else (
-        sharing.categories_of(grounding_results, recaps_sent, vault_map=map_allowed and bool(map_text)),
+        sharing.categories_of(
+            grounding_results, recaps_sent, vault_map=map_allowed and bool(map_text), memory=bool(memory_sent),
+        ),
         [name for name in sharing.CATEGORIES if name in withheld],
     )
     sent = sent_record(
         grounding_results, recaps_sent, searched_used, dropped, rewrite, cloud,
-        (lookup.ASK if ask else lookup.AUTO) if chose_ask else None, lookups,
+        (lookup.ASK if ask else lookup.AUTO) if chose_ask else None, lookups, memory_sent,
     )
     saved = session.append_turn(
         handle,

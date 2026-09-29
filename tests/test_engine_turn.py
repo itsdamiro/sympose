@@ -904,7 +904,9 @@ def test_a_turn_with_nothing_attached_records_that(sessions_root, monkeypatch):
 
     result = turn.run_turn("samantha", "hello")
 
-    assert _sent_of(result) == {"notes": [], "recaps": [], "searched": None, "history_dropped": 0, "rewrite": False}
+    assert _sent_of(result) == {
+        "notes": [], "recaps": [], "searched": None, "history_dropped": 0, "rewrite": False, "memory": [],
+    }
 
 
 def test_the_recaps_shown_are_recorded_by_session_and_a_left_out_one_is_not(sessions_root, monkeypatch):
@@ -1156,3 +1158,66 @@ def test_a_cloud_model_receives_the_map_and_connections_once_approved(sessions_r
     assert prompt.VAULT_MAP_LABEL in user_turn and prompt.VAULT_MAP_LABEL not in system
     assert prompt.CONNECTED_TO.format(names="Ben") in user_turn
     assert result.cloud == ["notes", "vault_map", "connections"] and result.withheld == []
+
+
+# -- a persona's own memory (docs/decisions/041) -------------------------------
+
+
+def _write_memory(sessions_root, profile=None, context=None, decisions=None):
+    directory = os.path.join(sessions_root, "samantha")
+    if profile is not None:
+        open(os.path.join(directory, "profile.md"), "w").write(profile)
+    if context is not None:
+        open(os.path.join(directory, "context.md"), "w").write(context)
+    if decisions is not None:
+        open(os.path.join(directory, "decisions.md"), "w").write(decisions)
+
+
+def test_a_local_model_gets_the_personas_memory(sessions_root, monkeypatch):
+    _write_memory(
+        sessions_root, profile="Prefers concise replies.", context="Working on the Atlas migration.",
+        decisions="- 2026-09-01: Chose SQLite over Postgres.",
+    )
+    calls = _capture_call(monkeypatch)
+
+    result = turn.run_turn("samantha", "hello")
+
+    system = calls[0]["messages"][0]["content"]
+    assert "Prefers concise replies." in system
+    assert "Working on the Atlas migration." in system
+    assert "- 2026-09-01: Chose SQLite over Postgres." in system
+    assert result.cloud == [] and result.withheld == []  # nothing to weigh for a local model
+    assert result.sent["memory"] == ["profile", "context", "decisions"]
+
+
+def test_a_persona_with_no_memory_files_gets_none_of_it(sessions_root, monkeypatch):
+    calls = _capture_call(monkeypatch)
+
+    result = turn.run_turn("samantha", "hello")
+
+    assert prompt.MEMORY_PROFILE_LABEL not in calls[0]["messages"][0]["content"]
+    assert result.sent["memory"] == []
+
+
+def test_a_cloud_model_withholds_memory_until_approved(sessions_root, monkeypatch):
+    _write_memory(sessions_root, profile="Prefers concise replies.")
+    settings_store.set("cloud_share", [])
+    calls = _capture_call(monkeypatch)
+
+    result = turn.run_turn("samantha", "hello", model=CLOUD)
+
+    system = calls[0]["messages"][0]["content"]
+    assert prompt.WITHHELD_MEMORY in system and "Prefers concise replies." not in system
+    assert result.cloud == [] and result.withheld == ["memory"]
+    assert result.sent["memory"] == []
+
+
+def test_a_cloud_model_receives_memory_once_approved(sessions_root, monkeypatch):
+    _write_memory(sessions_root, profile="Prefers concise replies.")
+    settings_store.set("cloud_share", ["memory"])
+    calls = _capture_call(monkeypatch)
+
+    result = turn.run_turn("samantha", "hello", model=CLOUD)
+
+    assert "Prefers concise replies." in calls[0]["messages"][0]["content"]
+    assert result.cloud == ["memory"] and result.withheld == []

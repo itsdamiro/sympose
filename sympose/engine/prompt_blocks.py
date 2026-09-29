@@ -6,9 +6,10 @@ docs/decisions/031). How they are laid out is `prompt`."""
 from typing import Any
 
 from sympose.engine.prompt_text import (
-    ANSWER_FROM_RECAPS, CONNECTED_TO, EMPTY_NOTE, EMPTY_NOTE_ALIASES, EMPTY_NOTE_HEADINGS, NO_NOTES,
-    NO_REFERENCE, PROPERTIES_OF_NOTE, RECAPS_LABEL, REFERENCE_LABEL, VAULT_MAP_LABEL, WITHHELD_CONNECTIONS,
-    WITHHELD_NOTES, WITHHELD_PROPERTIES, WITHHELD_RECAPS, WITHHELD_VAULT_MAP,
+    ANSWER_FROM_RECAPS, CONNECTED_TO, EMPTY_NOTE, EMPTY_NOTE_ALIASES, EMPTY_NOTE_HEADINGS, MEMORY_CONTEXT_LABEL,
+    MEMORY_DECISIONS_LABEL, MEMORY_PROFILE_LABEL, NO_NOTES, NO_REFERENCE, PROPERTIES_OF_NOTE, RECAPS_LABEL,
+    REFERENCE_LABEL, VAULT_MAP_LABEL, WITHHELD_CONNECTIONS, WITHHELD_MEMORY, WITHHELD_NOTES, WITHHELD_PROPERTIES,
+    WITHHELD_RECAPS, WITHHELD_VAULT_MAP,
 )
 from sympose.engine.sharing import CONNECTIONS, NOTES, PROPERTIES
 
@@ -88,6 +89,25 @@ def recaps_block(recaps: list[dict[str, Any]], omitted: int = 0, withheld: int =
         lines.append(f"({omitted} more recaps were left out to fit the context window.)")
     lines.append(ANSWER_FROM_RECAPS)
     return "\n".join(lines)
+
+
+def memory_block(
+    profile: str | None, context: str | None, decisions: list[str], withheld: bool = False
+) -> str | None:
+    """A persona's own memory (docs/decisions/041): `profile.md` and `context.md` whole, and
+    `decisions.md`'s surviving entries (already trimmed from their oldest end by `budget.fit`
+    when it had to), or a line saying the user has not allowed a cloud model to receive any of
+    it, or nothing at all when the persona has none yet."""
+    if not (profile or context or decisions):
+        return WITHHELD_MEMORY if withheld else None
+    parts = []
+    if profile:
+        parts.append(f"{MEMORY_PROFILE_LABEL}\n{profile}")
+    if context:
+        parts.append(f"{MEMORY_CONTEXT_LABEL}\n{context}")
+    if decisions:
+        parts.append(f"{MEMORY_DECISIONS_LABEL}\n" + "\n".join(decisions))
+    return "\n\n".join(parts)
 
 
 def notes_block(

@@ -178,10 +178,10 @@ def test_when_the_prompt_is_too_small_the_properties_go_before_the_text():
     hits = [{**_hit("Atlas.md", text="filler words for the passage " * 30), "index": 1}]
     found = hits + gp.for_hits({"Atlas.md": "status: " + "value words " * 25}, hits)
 
-    def build(history, grounding, recaps):
+    def build(history, grounding, recaps, decisions):
         return [{"role": "user", "content": " ".join(h["text"] for h in grounding)}]
 
-    room = turn.budget.count_tokens(build([], hits, []), "ollama_chat/gemma2:9b")
+    room = turn.budget.count_tokens(build([], hits, [], []), "ollama_chat/gemma2:9b")
     fitted = turn.budget.fit(build, [], found, "ollama_chat/gemma2:9b", room)
 
     assert fitted.grounding == hits

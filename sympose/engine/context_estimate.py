@@ -2,9 +2,9 @@
 "Update"): right after a model switch the meter shows this instead of going blank. The persona's
 system prompt plus the conversation's kept history, counted with the given model's tokenizer against
 that model's prompt budget, with the oldest turns left out when they do not fit, as a real turn would
-(`budget.fit`), so it never reads above the budget. It leaves out the next message's grounding and any
-recaps, which a real turn includes, so it leans low where the real figure leans high. Nothing here calls
-a model."""
+(`budget.fit`), so it never reads above the budget. It leaves out the next message's grounding, any
+recaps, and the persona's own memory (docs/decisions/041), which a real turn includes, so it leans low
+where the real figure leans high. Nothing here calls a model."""
 
 from sympose import profile as profile_mod, vault_map as vault_map_mod
 from sympose.engine import budget, prompt, session, sharing
@@ -30,7 +30,7 @@ def estimate(handle: str, session_id: str | None, model: str) -> tuple[int, int]
     tail = [{"role": "user", "content": map_block}] if map_block else []
     try:
         fitted = budget.fit(
-            lambda kept, _notes, _recaps: [{"role": "system", "content": system}, *kept, *tail],
+            lambda kept, _notes, _recaps, _decisions: [{"role": "system", "content": system}, *kept, *tail],
             history, [], model, limits.prompt_tokens,
         )
     except budget.ContextTooSmallError:  # the instructions alone do not fit: the next turn says so

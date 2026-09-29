@@ -76,6 +76,9 @@ class Fitted:
     history_dropped: int  # turns left out for size, not counting the turn-count cap
     tokens: int  # what the fitted prompt counts as, margin included (docs/decisions/018)
     recaps: list[dict[str, Any]] = field(default_factory=list)  # the recaps that survived
+    # The persona's own `decisions.md` entries that survived (docs/decisions/041), oldest-first
+    # like they were given, having had their oldest end trimmed first if any were.
+    decisions: list[str] = field(default_factory=list)
 
 
 def is_ollama(model: str) -> bool:
@@ -165,29 +168,37 @@ def count_tokens(messages: list[dict[str, str]], model: str) -> int:
 
 def fit(
     build_messages: Callable[
-        [list[dict[str, str]], list[dict[str, Any]], list[dict[str, Any]]], list[dict[str, str]]
+        [list[dict[str, str]], list[dict[str, Any]], list[dict[str, Any]], list[str]], list[dict[str, str]]
     ],
     history: list[dict[str, str]],
     grounding: list[dict[str, Any]],
     model: str,
     prompt_tokens: int,
     recaps: list[dict[str, Any]] | None = None,
+    decisions: list[str] | None = None,
 ) -> Fitted:
-    """`build_messages(history, grounding, recaps)` assembles the whole prompt, so
+    """`build_messages(history, grounding, recaps, decisions)` assembles the whole prompt, so
     the soul, the rules and the new message are always in it. `history` is
     `user, assistant` pairs, oldest first; `grounding` is best-first; `recaps` of
     earlier conversations (docs/decisions/023) are newest-first and go before
-    anything else: they matter only to a question about the past."""
-    kept_history, kept_grounding, kept_recaps = list(history), list(grounding), list(recaps or [])
+    anything else: they matter only to a question about the past. `decisions` is a
+    persona's own `decisions.md` entries (docs/decisions/041), oldest first as the
+    file has them, sacrificed from that same oldest end — after recaps, before
+    history — since the newest decisions are the ones most likely to matter."""
+    kept_history, kept_grounding = list(history), list(grounding)
+    kept_recaps, kept_decisions = list(recaps or []), list(decisions or [])
     dropped = 0
 
     def attempt() -> tuple[list[dict[str, str]], int]:
-        messages = build_messages(kept_history, kept_grounding, kept_recaps)
+        messages = build_messages(kept_history, kept_grounding, kept_recaps, kept_decisions)
         return messages, count_tokens(messages, model)
 
     messages, used = attempt()
     while used > prompt_tokens and kept_recaps:
         kept_recaps.pop()
+        messages, used = attempt()
+    while used > prompt_tokens and kept_decisions:
+        kept_decisions.pop(0)
         messages, used = attempt()
     while used > prompt_tokens and kept_history:
         del kept_history[:2]
@@ -203,4 +214,4 @@ def fit(
             f"shorten it; otherwise use a model with a larger window (and if you set "
             f"`{CONTEXT_SETTING}`, raise it)."
         )
-    return Fitted(messages, kept_grounding, dropped, used, kept_recaps)
+    return Fitted(messages, kept_grounding, dropped, used, kept_recaps, kept_decisions)

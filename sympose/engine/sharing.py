@@ -15,8 +15,10 @@ from sympose import settings_store
 from sympose.engine import budget
 
 SETTING = "cloud_share"
-NOTES, PROPERTIES, RECAPS, VAULT_MAP, CONNECTIONS = "notes", "properties", "recaps", "vault_map", "connections"
-CATEGORIES = (NOTES, PROPERTIES, RECAPS, VAULT_MAP, CONNECTIONS)
+NOTES, PROPERTIES, RECAPS, VAULT_MAP, CONNECTIONS, MEMORY = (
+    "notes", "properties", "recaps", "vault_map", "connections", "memory",
+)
+CATEGORIES = (NOTES, PROPERTIES, RECAPS, VAULT_MAP, CONNECTIONS, MEMORY)
 # What a grounded passage of the user's own notes is, by its `kind` (a note's properties are a
 # passage of their own, docs/decisions/030); anything else that is a vault passage is note text.
 _PROPERTIES_KIND = "properties"
@@ -27,6 +29,7 @@ DESCRIPTIONS = {
     RECAPS: "recaps of your earlier conversations",
     VAULT_MAP: "the shape of your vault (folder names, their purpose, note counts, common tags)",
     CONNECTIONS: "how a note found for a message connects to your other notes (links, tags, folder)",
+    MEMORY: "the persona's own memory of you (its profile, active context and decisions files, docs/decisions/041)",
 }
 _REFERENCE_SOURCE = "sympose"
 
@@ -96,13 +99,18 @@ def embeds_notes(embedding_model: str) -> bool:
     return NOTES in allowed(embedding_model)
 
 
-def categories_of(grounding: list[dict[str, Any]], recaps: list[dict[str, Any]], vault_map: bool = False) -> list[str]:
-    """The categories that `grounding`, `recaps` and (docs/decisions/035) the vault map carry, in the
-    order of `CATEGORIES` (what a turn actually sent, for the reply header and the session record).
-    `vault_map`: whether the map itself was sent this turn."""
+def categories_of(
+    grounding: list[dict[str, Any]], recaps: list[dict[str, Any]], vault_map: bool = False, memory: bool = False,
+) -> list[str]:
+    """The categories that `grounding`, `recaps`, (docs/decisions/035) the vault map, and
+    (docs/decisions/041) the persona's own memory carry, in the order of `CATEGORIES` (what a turn
+    actually sent, for the reply header and the session record). `vault_map`/`memory`: whether the
+    map, or any memory content, was actually sent this turn."""
     present = {category_of(hit) for hit in grounding} | ({RECAPS} if recaps else set())
     if vault_map:
         present.add(VAULT_MAP)
+    if memory:
+        present.add(MEMORY)
     if any(hit.get("connections") for hit in grounding):
         present.add(CONNECTIONS)
     return [name for name in CATEGORIES if name in present]

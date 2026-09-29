@@ -22,7 +22,7 @@ def test_she_is_told_she_decides_and_which_tools_she_has():
 
 
 def test_the_rest_of_the_rules_are_the_same_text_as_the_default_and_cannot_drift():
-    tail = "You do not learn over time."
+    tail = "Of earlier conversations you know only"
     assert HOW_YOU_WORK_ASK.split(tail)[1].replace("the notes your tools found", "the notes found") == HOW_YOU_WORK.split(tail)[1]
     assert GROUNDING_RULE_ASK.endswith(GROUNDING_RULE[GROUNDING_RULE.index("When you use a note") :])
 

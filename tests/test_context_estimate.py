@@ -75,7 +75,7 @@ def test_the_vault_map_counts_only_where_the_model_may_receive_it(handle, monkey
     real_fit = context_estimate.budget.fit
 
     def spy(build, *args, **kwargs):
-        seen.append(build([], [], []))  # what the next turn would open with, before any history
+        seen.append(build([], [], [], []))  # what the next turn would open with, before any history
         return real_fit(build, *args, **kwargs)
 
     monkeypatch.setattr(context_estimate.budget, "fit", spy)
@@ -94,7 +94,7 @@ def test_no_vault_map_adds_no_tail_to_the_estimate(handle, monkeypatch):
     real_fit = context_estimate.budget.fit
 
     def spy(build, *args, **kwargs):
-        seen.append(build([], [], []))
+        seen.append(build([], [], [], []))
         return real_fit(build, *args, **kwargs)
 
     monkeypatch.setattr(context_estimate.budget, "fit", spy)

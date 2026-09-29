@@ -18,23 +18,25 @@ prompt she denied knowing the vault's size with the answer in front of her
 from typing import Any
 
 from sympose.engine import reference as reference_mod
-from sympose.engine.prompt_blocks import notes_block, recaps_block, reference_block, vault_map_block
+from sympose.engine.prompt_blocks import memory_block, notes_block, recaps_block, reference_block, vault_map_block
 from sympose.engine.prompt_text import (
     ANSWER_FROM_NOTES, ANSWER_FROM_RECAPS, ANSWER_FROM_REFERENCE, CONNECTED_TO, DEFAULT_SOUL, GROUNDING_RULE,
-    HOW_YOU_WORK, HOW_YOU_WORK_ASK, GROUNDING_RULE_ASK, NO_NOTES, NO_RECAP, NO_REFERENCE, NO_TOPIC, POINT_TO_REFERENCE, RECAPS_LABEL,
+    HOW_YOU_WORK, HOW_YOU_WORK_ASK, GROUNDING_RULE_ASK, MEMORY_CONTEXT_LABEL, MEMORY_DECISIONS_LABEL,
+    MEMORY_PROFILE_LABEL, NO_NOTES, NO_RECAP, NO_REFERENCE, NO_TOPIC, POINT_TO_REFERENCE, RECAPS_LABEL,
     RECAP_INSTRUCTIONS, REFERENCE_LABEL, REWRITE_INSTRUCTIONS, SYMPOSE_RULE, VAULT_MAP_LABEL, WITHHELD_CONNECTIONS,
-    WITHHELD_NOTES, WITHHELD_PROPERTIES, WITHHELD_RECAPS, WITHHELD_VAULT_MAP,
+    WITHHELD_MEMORY, WITHHELD_NOTES, WITHHELD_PROPERTIES, WITHHELD_RECAPS, WITHHELD_VAULT_MAP,
 )
-from sympose.engine.sharing import RECAPS
+from sympose.engine.sharing import MEMORY, RECAPS
 from sympose.persona_files import load_soul
 from sympose.profile import reference_persona_names
 
 __all__ = [
     "ANSWER_FROM_NOTES", "ANSWER_FROM_RECAPS", "ANSWER_FROM_REFERENCE", "CONNECTED_TO", "DEFAULT_SOUL",
-    "GROUNDING_RULE", "GROUNDING_RULE_ASK", "HOW_YOU_WORK", "HOW_YOU_WORK_ASK", "NO_NOTES", "NO_RECAP", "NO_REFERENCE", "NO_TOPIC",
+    "GROUNDING_RULE", "GROUNDING_RULE_ASK", "HOW_YOU_WORK", "HOW_YOU_WORK_ASK", "MEMORY_CONTEXT_LABEL",
+    "MEMORY_DECISIONS_LABEL", "MEMORY_PROFILE_LABEL", "NO_NOTES", "NO_RECAP", "NO_REFERENCE", "NO_TOPIC",
     "POINT_TO_REFERENCE", "RECAPS_LABEL", "RECAP_INSTRUCTIONS", "REFERENCE_LABEL",
-    "REWRITE_INSTRUCTIONS", "SYMPOSE_RULE", "VAULT_MAP_LABEL", "WITHHELD_CONNECTIONS", "WITHHELD_NOTES",
-    "WITHHELD_PROPERTIES", "WITHHELD_RECAPS", "WITHHELD_VAULT_MAP",
+    "REWRITE_INSTRUCTIONS", "SYMPOSE_RULE", "VAULT_MAP_LABEL", "WITHHELD_CONNECTIONS", "WITHHELD_MEMORY",
+    "WITHHELD_NOTES", "WITHHELD_PROPERTIES", "WITHHELD_RECAPS", "WITHHELD_VAULT_MAP",
     "build_messages", "build_system_prompt", "build_user_turn",
 ]
 
@@ -47,6 +49,10 @@ def build_system_prompt(
     recaps_omitted: int = 0,
     recaps_withheld: int = 0,
     lookup: bool = False,
+    memory_profile: str | None = None,
+    memory_context: str | None = None,
+    memory_decisions: list[str] | None = None,
+    memory_withheld: bool = False,
 ) -> str:
     # `handle` is always lowercase (`profile.get_profile` lowercases it
     # before building a file path) -- title-cased here so a fallback
@@ -68,6 +74,13 @@ def build_system_prompt(
     )
     if profile.get("sympose_reference"):
         parts.append(SYMPOSE_RULE)
+    # A persona's own memory (docs/decisions/041): fixed, like the vault map, since `profile.md`
+    # and `context.md` are meant to stay small by design; `decisions.md` arrives already trimmed
+    # by `budget.fit` when it had to be. Placed near the soul and rules, ahead of recaps, since
+    # it is foundational the way they are, not a recall of one earlier conversation.
+    memory_text = memory_block(memory_profile, memory_context, memory_decisions or [], memory_withheld)
+    if memory_text:
+        parts.append(memory_text)
     # Recaps go here, not in the message: beside a request in the middle of a chat that is on the
     # same topic as a recap, they made her comment on the conversation instead of continuing it
     # (docs/decisions/026).
@@ -129,20 +142,25 @@ def build_messages(
     vault_map: str | None = None,
     vault_map_withheld: bool = False,
     lookup: bool = False,
+    memory_profile: str | None = None,
+    memory_context: str | None = None,
+    memory_decisions: list[str] | None = None,
 ) -> list[dict[str, str]]:
-    """The system prompt (with the recaps of earlier conversations, docs/decisions/023 and 026), the
-    history as it was said (the notes of earlier turns are not repeated), and this turn's vault map
-    (docs/decisions/035 and 039) and notes with the message. `point_to`: the
-    personas that have the reference library, read from the roster when not given
-    (a turn gives it once, since fitting builds this many times). `withheld`: what a cloud model
-    was not sent because the user has not allowed it, by category (docs/decisions/031). `vault_map` and
-    `vault_map_withheld` are constant across every attempt of the prompt-fitting loop (docs/decisions/015):
-    unlike grounding, recaps and history, the map is never sacrificed to fit the window."""
+    """The system prompt (with the recaps of earlier conversations, docs/decisions/023 and 026, and the
+    persona's own memory, docs/decisions/041), the history as it was said (the notes of earlier turns
+    are not repeated), and this turn's vault map (docs/decisions/035 and 039) and notes with the
+    message. `point_to`: the personas that have the reference library, read from the roster when not
+    given (a turn gives it once, since fitting builds this many times). `withheld`: what a cloud model
+    was not sent because the user has not allowed it, by category (docs/decisions/031). `vault_map`,
+    `vault_map_withheld`, `memory_profile` and `memory_context` are constant across every attempt of
+    the prompt-fitting loop (docs/decisions/015): unlike grounding, recaps, `memory_decisions` and
+    history, none of the four is ever sacrificed to fit the window."""
     withheld = withheld or {}
     system = {
         "role": "system",
         "content": build_system_prompt(
-            profile, recaps, recaps_omitted, withheld.get(RECAPS, 0), lookup
+            profile, recaps, recaps_omitted, withheld.get(RECAPS, 0), lookup,
+            memory_profile, memory_context, memory_decisions, bool(withheld.get(MEMORY, 0)),
         ),
     }
     has_library = bool(profile.get("sympose_reference"))

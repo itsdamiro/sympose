@@ -37,10 +37,10 @@ recaps/
 # Samantha ships as the only default persona — her persona.yaml and soul.md
 # are the committed baseline; every other persona is a personal
 # customization and stays local-only. Everything else under profiles/ is
-# ignored by default, which is what keeps a persona's memory.md and
-# sessions/ from ever being committed, Samantha's included (ADR 001) —
-# unlike soul, memory has no template variant. Whether Samantha's
-# expertise.md ships is decided when expertise is built.
+# ignored by default, which is what keeps a persona's memory (docs/decisions/041:
+# profile.md, context.md, decisions.md) and sessions/ from ever being committed,
+# Samantha's included (ADR 001) — unlike soul, memory has no template variant.
+# Whether Samantha's expertise.md ships is decided when expertise is built.
 profiles/*
 !profiles/samantha/
 profiles/samantha/*

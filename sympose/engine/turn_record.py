@@ -12,13 +12,17 @@ def sent_record(
     cloud: tuple[list[str], list[str]] | None = None,
     mode: str | None = None,
     lookups: list[dict[str, Any]] | None = None,
+    memory: list[str] | None = None,
 ) -> dict[str, Any]:
     """What reached the model besides the messages, for the session record
     (docs/decisions/025): where each note came from, never its text. `cloud`, for a model that is
     not local, is the categories sent and the categories held back (docs/decisions/031). `rewrite` is
     whether the follow-up rewrite, an extra model call, was asked this turn (docs/decisions/025). `mode`
     is the mode that ran (`ask` or `auto`) and `lookups` what the persona looked up, one entry per tool
-    call, a count and never text (docs/decisions/040); both are left out unless the user chose `ask`."""
+    call, a count and never text (docs/decisions/040); both are left out unless the user chose `ask`.
+    `memory` is which of the persona's own memory files reached this turn (docs/decisions/041) — any of
+    `"profile"`, `"context"`, `"decisions"` — never their text; empty when the persona has no memory yet
+    or none of it was allowed to reach this model."""
     return {
         "notes": [
             {
@@ -39,4 +43,5 @@ def sent_record(
         "rewrite": rewrite,
         **({"cloud": cloud[0], "withheld": cloud[1]} if cloud else {}),
         **({"mode": mode, "lookups": lookups or []} if mode else {}),
+        "memory": memory or [],
     }

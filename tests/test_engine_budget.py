@@ -211,8 +211,13 @@ def builder(system_words: int, user_words: int):
     """A prompt of a system message (`system_words`, plus 10 words per
     passage and 8 per recap), the history, and the new message."""
 
-    def build(history, hits, recaps=()):
-        system = words(system_words) + "".join(" " + words(10) for _ in hits) + "".join(" " + words(8) for _ in recaps)
+    def build(history, hits, recaps=(), decisions=()):
+        system = (
+            words(system_words)
+            + "".join(" " + words(10) for _ in hits)
+            + "".join(" " + words(8) for _ in recaps)
+            + "".join(" " + words(6) for _ in decisions)
+        )
         return [
             {"role": "system", "content": system},
             *history,
@@ -293,6 +298,28 @@ def test_recaps_go_before_older_turns_and_the_oldest_recap_last_of_all():
     assert fitted.recaps == [] and fitted.history_dropped == 0
     fitted = budget.fit(builder(20, 5), turns(2), hits, "m", prompt_tokens=60, recaps=recaps)
     assert fitted.recaps == [] and fitted.history_dropped == 1 and fitted.grounding == hits
+
+
+def test_decisions_go_after_recaps_and_the_oldest_decision_first_of_all():
+    decisions = ["d-old", "d-new"]  # oldest first, as docs/decisions/041 has them, 6 words each
+    hits = [{"id": 1}]
+    # fixed 25 + one passage 10 + two decisions 12 + two turns 40 = 87.
+    fitted = budget.fit(builder(20, 5), turns(2), hits, "m", prompt_tokens=87, decisions=decisions)
+    assert fitted.decisions == decisions and fitted.history_dropped == 0
+    fitted = budget.fit(builder(20, 5), turns(2), hits, "m", prompt_tokens=86, decisions=decisions)
+    assert fitted.decisions == ["d-new"]  # the oldest decision went first, and no turn had to
+    assert fitted.history_dropped == 0 and fitted.grounding == hits
+    fitted = budget.fit(builder(20, 5), turns(2), hits, "m", prompt_tokens=78, decisions=decisions)
+    assert fitted.decisions == [] and fitted.history_dropped == 0
+    fitted = budget.fit(builder(20, 5), turns(2), hits, "m", prompt_tokens=60, decisions=decisions)
+    assert fitted.decisions == [] and fitted.history_dropped == 1 and fitted.grounding == hits
+
+
+def test_recaps_are_sacrificed_before_decisions():
+    recaps, decisions = [{"id": "r"}], ["d"]  # 8 and 6 words
+    # fixed 25 + one recap 8 + one decision 6 = 39; room for the decision but not the recap too.
+    fitted = budget.fit(builder(20, 5), [], [], "m", prompt_tokens=31, recaps=recaps, decisions=decisions)
+    assert fitted.recaps == [] and fitted.decisions == decisions
 
 
 def test_the_fitted_prompt_counts_the_recaps_it_kept_for_the_meter():

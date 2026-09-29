@@ -104,14 +104,14 @@ def test_the_prompt_tells_every_persona_what_it_cannot_do_yet():
     assert "ask what they mean instead of assuming" in text
 
 
-def test_the_prompt_says_she_keeps_only_the_recaps_shown_and_does_not_learn():
+def test_the_prompt_says_she_keeps_only_the_recaps_shown_and_has_her_own_memory_files():
     text = prompt.build_system_prompt({"name": "Samantha"})
 
-    assert "do not learn over time" in text
-    assert (
-        "Of earlier conversations you know only the short recaps given below, when there are any; "
-        "otherwise you know only this conversation and the notes found for the current message."
-    ) in text
+    assert "do not learn over time" not in text  # docs/decisions/041: no longer true
+    assert "Of earlier conversations you know only the short recaps given below, when there are any" in text
+    assert "profile.md" in text and "context.md" in text and "decisions.md" in text
+    assert "cannot write to any of them yourself yet" in text
+    assert "Otherwise you know only this conversation and the notes found for the current message" in text
     assert "no memory between conversations" not in text
 
 
