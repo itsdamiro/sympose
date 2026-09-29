@@ -16,7 +16,7 @@ from textual.containers import VerticalScroll
 from textual.widgets import Input, OptionList, Static
 
 from sympose import engine, persona_files
-from sympose.cli import dispatch, picker, settings_list, share, state
+from sympose.cli import dispatch, memory_command, picker, settings_list, share, state
 from sympose.cli import transcript as transcript_mod
 from sympose.cli.composer import DEFAULT_PLACEHOLDER, ComposerInput
 from sympose.cli.meter import ContextMeter
@@ -98,9 +98,11 @@ class SymposeCLI(App):
         picker.update_banner(self)
         engine.refresh_recaps(self.persona.handle)  # background, while the user types (ADR 023)
         engine.refresh_embeddings(self.persona.handle)  # background, only if the knob is on (ADR 027)
+        engine.refresh_memory(self.persona.handle)  # background, proposes a context.md/profile.md update (ADR 041)
         transcript_mod.mount_line(self, "Talking to the real engine now — local by default.", "system")
         transcript_mod.mount_line(self, "Type a message, or / for commands.", "system")
         share.announce(self)  # a cloud model in use is said out loud (ADR 031)
+        memory_command.announce_pending(self)  # a proposal an earlier refresh staged is said too (ADR 041)
         missed = persona_files.missed_notice()  # a persona folder the roster cannot find (ADR 029)
         if missed:
             transcript_mod.mount_line(self, Text(missed, style=Style(color=self.theme_color("error", "red"), bold=True)), "system")

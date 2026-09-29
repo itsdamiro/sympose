@@ -13,6 +13,10 @@ class SlashCommand:
     # Color-coded $error in listings — a destructive/reset action, not a
     # neutral one (mirrors `selection.SelectionOption.danger`).
     danger: bool = False
+    # Whether the rest of the typed line, after the command name, is passed to
+    # `runtime.run_command` as free text (docs/decisions/041's `/remember <text>`)
+    # rather than discarded — every other command ignores anything typed after it.
+    takes_args: bool = False
 
 
 COMMANDS: list[SlashCommand] = [
@@ -23,6 +27,8 @@ COMMANDS: list[SlashCommand] = [
     SlashCommand("/grounding", "Show or hide which notes grounded a reply"),
     SlashCommand("/grounded", "List every note and passage that grounded the last reply"),
     SlashCommand("/context", "Explain the context meter's number"),
+    SlashCommand("/remember", "Save something to decisions.md, in your own words", takes_args=True),
+    SlashCommand("/memory", "Refresh or review context.md/profile.md"),
     SlashCommand("/share", "Choose what cloud models may receive"),
     SlashCommand("/history", "Browse past conversations (placeholder)"),
     SlashCommand("/compact", "Compact the conversation (mock)"),

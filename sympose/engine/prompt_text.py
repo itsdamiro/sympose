@@ -221,6 +221,26 @@ RECAP_INSTRUCTIONS = (
     f"greeting, small talk, a test message), output exactly: {NO_RECAP}. Output only the recap or {NO_RECAP}, nothing else."
 )
 
+# Sent to the same model to propose a rewrite of profile.md/context.md from the current files and
+# recent recaps (docs/decisions/041's `memory_rewrite`).
+MEMORY_NO_CHANGE = "NO_CHANGE"
+MEMORY_PROFILE_MARK = "### profile.md"
+MEMORY_CONTEXT_MARK = "### context.md"
+MEMORY_REFRESH_INSTRUCTIONS = (
+    "You keep two short files that help you remember a user across conversations: profile.md (stable "
+    "facts about them -- working style, defaults, dislikes -- that change slowly) and context.md (what "
+    "is active right now -- current projects, blockers -- cleared out once they wrap up). You are given "
+    "each file's current content, or NONE if it does not exist yet, and a few of the user's recent "
+    "conversation recaps, oldest first. Propose an updated version of each file: keep what still holds, "
+    "add what the recaps show is new, and remove from context.md anything that has clearly wrapped up or "
+    "been superseded. Use only what the current files and the recaps show, and never invent anything. "
+    "Keep profile.md changes rare and conservative; context.md is meant to change more freely. Write each "
+    "file as short plain sentences or bullet lines, not headings, not code fences. If a file needs no "
+    f"change at all, output exactly {MEMORY_NO_CHANGE} for it. Output exactly this shape and nothing else:\n"
+    f"{MEMORY_PROFILE_MARK}\n<the new content, or {MEMORY_NO_CHANGE}>\n{MEMORY_CONTEXT_MARK}\n"
+    f"<the new content, or {MEMORY_NO_CHANGE}>"
+)
+
 # Sent to the same model to turn a follow-up into a search (docs/decisions/017).
 NO_TOPIC = "NONE"
 REWRITE_INSTRUCTIONS = (

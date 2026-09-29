@@ -83,12 +83,15 @@ def _date(session_id: str) -> str:
         return session_id
 
 
-def latest(handle: str, exclude: str | None = None) -> list[dict[str, str | bool]]:
+def latest(handle: str, exclude: str | None = None, count: int = READ_COUNT) -> list[dict[str, str | bool]]:
     """The newest recaps with something in them, newest first, as `{"session", "date",
     "text", "last"}` (`session` is the id of the session it recaps); `last` is true for the recap of the most recent earlier session of all,
     and false when that session had nothing to carry over or no recap yet (so an older
     one is not presented as the last conversation). `exclude` is the session being
-    run, whose own turns are already in the chat."""
+    run, whose own turns are already in the chat. `count` defaults to what a turn's own
+    prompt reads (`READ_COUNT`); a caller synthesizing across more history than one
+    turn needs -- `memory_refresh`'s context.md/profile.md rewrite, docs/decisions/041 --
+    passes a larger one."""
     if not enabled():
         return []
     found: list[dict[str, str | bool]] = []
@@ -111,6 +114,6 @@ def latest(handle: str, exclude: str | None = None) -> list[dict[str, str | bool
                     "last": session_id == newest,
                 }
             )
-        if len(found) == READ_COUNT:
+        if len(found) == count:
             break
     return found

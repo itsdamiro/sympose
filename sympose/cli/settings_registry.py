@@ -7,7 +7,7 @@ from typing import Any, Callable
 
 from sympose import settings_store
 from sympose.cli import grounding_line, meter, reveal, trim_notice
-from sympose.engine import budget, embeddings, followup, lookup, recap
+from sympose.engine import budget, embeddings, followup, lookup, memory, memory_refresh, recap
 
 TOGGLE, CHOICE, NUMBER = "toggle", "choice", "number"
 ON, OFF = "on", "off"
@@ -25,9 +25,11 @@ class Setting:
     whole: bool = False  # a number: whole numbers only
 
 
-def _toggle(key: str, summary: str, current: Callable[[], bool]) -> Setting:
-    """A true or false setting. Every one ships on, so turning it back on removes the key."""
-    return Setting(key, TOGGLE, summary, current, lambda: True)
+def _toggle(key: str, summary: str, current: Callable[[], bool], default: bool = True) -> Setting:
+    """A true or false setting. Ships on unless `default=False` is passed (memory_remember: the user's
+    own call to trust a model with even a safe write, docs/decisions/041), so flipping back to the
+    default removes the key rather than writing it explicitly."""
+    return Setting(key, TOGGLE, summary, current, lambda: default)
 
 
 SETTINGS: list[Setting] = [
@@ -76,6 +78,15 @@ SETTINGS: list[Setting] = [
         lookup.ROUNDS_SETTING, NUMBER, "lookups the persona may make (ask)",
         lookup.rounds, lambda: lookup.DEFAULT_ROUNDS,
         hint=f"a whole number, 1 to {lookup.MAX_ROUNDS}", whole=True,
+    ),
+    # Memory
+    _toggle(
+        memory.REMEMBER_SETTING, "adding to decisions.md when asked to remember",
+        memory.remember_enabled, default=False,
+    ),
+    Setting(
+        memory_refresh.SETTING, CHOICE, "context.md updates: staged for review or direct",
+        memory_refresh.mode, lambda: memory_refresh.ASK, choices=(memory_refresh.ASK, memory_refresh.AUTO),
     ),
 ]
 

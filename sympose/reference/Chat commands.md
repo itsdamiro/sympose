@@ -1,6 +1,6 @@
 # Chat commands
 
-The chat commands are /help, /model, /persona, /default, /grounding, /grounded, /context, /share, /settings, /clear, /quit, and the placeholders /history and /compact. Type / in the chat to see them; Tab, or the Down and Up arrows, cycle through them.
+The chat commands are /help, /model, /persona, /default, /grounding, /grounded, /context, /remember, /memory, /share, /settings, /clear, /quit, and the placeholders /history and /compact. Type / in the chat to see them; Tab, or the Down and Up arrows, cycle through them.
 
 ## /help
 
@@ -29,6 +29,16 @@ The chat commands are /help, /model, /persona, /default, /grounding, /grounded, 
 ## /context
 
 /context explains the number in the meter under the chat box: the tokens in use and the space available in full, what is counted, and whether the figure is an estimate after a model switch. It says so plainly when there is no figure yet.
+
+## /remember
+
+/remember, followed by whatever you type, saves it as a dated line in your persona's decisions.md, in your own words. No model is involved and no setting gates it — typing it always works, even with `memory_remember` off.
+
+## /memory
+
+/memory opens a picker. "Refresh now" asks the model to propose an update to your persona's context.md and profile.md from its recent conversation recaps, right away instead of waiting for the next launch.
+
+If a proposal is staged for review, "Review pending change" also appears: it shows the change as a diff and asks whether to save it or discard it. profile.md changes are always staged for review; context.md follows the `memory_rewrite` setting (`ask`, the default, stages it too; `auto` writes it directly).
 
 ## /share
 

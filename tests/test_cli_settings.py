@@ -10,13 +10,14 @@ from sympose import engine, settings_store
 from sympose.cli import commands, settings_list, settings_registry as registry
 from sympose.cli.app import SymposeCLI
 from sympose.cli.composer import DEFAULT_PLACEHOLDER
-from sympose.engine import budget, embeddings, followup, recap
+from sympose.engine import budget, embeddings, followup, memory, recap
 
 # The rows, in the order the list shows them, and the digit that chooses each (1 to 9).
 KEYS = [
     "show_grounding", "show_trim_notice", "show_context_meter", "show_index_notice", "reply_reveal",
     "context_window", "reply_limit", "grounding_followups", "session_recaps",
     "grounding_search", "embedding_min_similarity", "embedding_margin", "vault_lookup", "vault_lookup_rounds",
+    "memory_remember", "memory_rewrite",
 ]
 
 
@@ -70,8 +71,13 @@ def test_settings_is_a_real_command_now():
     assert "not available" not in command.summary and "mock" not in command.summary
 
 
-def test_every_toggle_is_on_when_nothing_is_set():
-    assert all(s.current() is True for s in registry.SETTINGS if s.kind == registry.TOGGLE)
+def test_every_toggle_is_on_when_nothing_is_set_except_memory_remember():
+    """`memory_remember` ships off (docs/decisions/041: trusting a model with even a safe,
+    append-only write is the user's own call, never a default)."""
+    for s in registry.SETTINGS:
+        if s.kind != registry.TOGGLE:
+            continue
+        assert s.current() is (s.key != memory.REMEMBER_SETTING), s.key
 
 
 def test_every_row_fits_an_80_column_terminal_on_one_line():
@@ -118,10 +124,11 @@ def test_every_toggle_really_changes_what_its_module_reads():
     for setting in registry.SETTINGS:
         if setting.kind != registry.TOGGLE:
             continue
+        start = setting.current()
         settings_list._flip(setting)
-        assert setting.current() is False, setting.key
+        assert setting.current() is not start, setting.key
         settings_list._flip(setting)
-        assert setting.current() is True, setting.key
+        assert setting.current() is start, setting.key
 
 
 def test_the_followup_choice_steps_off_and_back():
@@ -142,6 +149,24 @@ def test_the_search_choice_steps_through_all_four_and_the_default_removes_the_ke
     assert seen == [
         ("keywords", "keywords"), ("embeddings", "embeddings"), ("hybrid", "hybrid"), ("auto", None),
     ]
+
+
+def test_memory_remember_ships_off_and_turns_on_by_writing_true():
+    setting = _setting("memory_remember")
+    assert settings_list.value_text(setting) == "off"
+    assert settings_list._flip(setting) == "memory_remember is now on."
+    assert settings_store.get("memory_remember") is True
+    assert settings_list._flip(setting) == "memory_remember is now off."
+    assert settings_store.get("memory_remember") is None
+
+
+def test_memory_rewrite_steps_between_ask_and_auto_and_the_default_removes_the_key():
+    setting = _setting("memory_rewrite")
+    assert settings_list.value_text(setting) == "ask"
+    settings_list._flip(setting)
+    assert settings_store.get("memory_rewrite") == "auto"
+    settings_list._flip(setting)
+    assert settings_store.get("memory_rewrite") is None  # ask is the default, so it removes the key
 
 
 def test_a_toggle_that_ships_off_would_be_written_on_and_removed_when_off():
@@ -281,7 +306,7 @@ def test_slash_settings_lists_every_setting_with_its_value(profiles):
             await _open(pilot, app)
             assert app.panel_kind == settings_list.PICKER_KIND
             labels = [str(app.panel.get_option_at_index(i).prompt) for i in range(app.panel.option_count)]
-            assert len(labels) == 14
+            assert len(labels) == 16
             assert "show_grounding — off:" in labels[0]
             assert "context_window — automatic:" in labels[5]
             assert "reply_reveal — 50 (default):" in labels[4]

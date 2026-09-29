@@ -12,12 +12,13 @@ from rich.style import Style
 
 from sympose import engine
 from sympose.cli import (
-    context_explain, grounded_list, grounding_line, help_notes, meter, meter_estimate, picker, settings_list,
-    share, transcript as transcript_mod,
+    context_explain, grounded_list, grounding_line, help_notes, memory_command, meter, meter_estimate, picker,
+    settings_list, share, transcript as transcript_mod,
 )
 from sympose.cli.commands import COMMANDS
 from sympose.cli.options import MODEL_OPTIONS, list_personas
 from sympose.cli.selection import SelectionOption
+from sympose.engine import memory
 from sympose.profile import set_default_persona
 
 
@@ -30,7 +31,7 @@ MOCK_HISTORY: list[str] = [
 ]
 
 
-async def run_command(app, command) -> None:
+async def run_command(app, command, args: str = "") -> None:
     transcript = app.transcript
     if command.name == "/help":
         transcript_mod.mount_line(app, "Commands:", "system")
@@ -73,6 +74,17 @@ async def run_command(app, command) -> None:
         widget = app.query_one(meter.ContextMeter)
         for line in context_explain.render(widget.figures, widget.estimated, meter.enabled()):
             transcript_mod.mount_line(app, line, "system")
+    elif command.name == "/remember":
+        # No `memory_remember` gate here: that setting is about a *model* being trusted to write
+        # on its own; this is the user's own words, typed directly, no model call (docs/decisions/041).
+        if not args:
+            transcript_mod.mount_line(app, "Usage: /remember <text> — saved to decisions.md, no model involved.", "system")
+        elif memory.append_decision(app.persona.handle, args):
+            transcript_mod.mount_line(app, "Saved to decisions.md.", "system")
+        else:
+            transcript_mod.mount_line(app, "Couldn't save that to decisions.md.", "system")
+    elif command.name == "/memory":
+        await memory_command.open_picker(app)
     elif command.name == "/share":
         await share.open_picker(app)
     elif command.name == "/history":
@@ -149,8 +161,10 @@ def apply_picker_choice(app, kind: str, value: str | None) -> bool:
             # Recaps use the model the user picked, not only the persona's own: the messages go to it (ADR 023).
             engine.refresh_recaps(persona.handle, app.model_override.id if app.model_override else None)
             engine.refresh_embeddings(persona.handle)  # ADR 027
+            engine.refresh_memory(persona.handle, app.model_override.id if app.model_override else None)  # ADR 041
             transcript_mod.mount_line(app, f"Now talking to @{persona.handle}.", "system")
             share.on_change(app, was_cloud)  # told, not asked: `/share` is there when they want it
+            memory_command.announce_pending(app)  # a proposal an earlier refresh staged is said too (ADR 041)
     elif kind == share.PICKER_KIND:
         if value is not None:
             share.toggle(app, value)

@@ -8,7 +8,7 @@ from rich.style import Style
 from rich.text import Text
 from textual.widgets import OptionList
 
-from sympose.cli import picker, runtime, settings_list, share, turns
+from sympose.cli import memory_command, picker, runtime, settings_list, share, turns
 from sympose.cli import transcript as transcript_mod
 from sympose.cli.commands import find_command
 
@@ -56,7 +56,8 @@ async def on_input_submitted(app, value: str) -> None:
                 "system",
             )
             return
-        await runtime.run_command(app, command)
+        args = value[len(name):].strip() if command.takes_args else ""
+        await runtime.run_command(app, command, args)
     else:
         picker.close_panel(app)
         # Dispatched as a background worker, not awaited directly here —
@@ -98,6 +99,12 @@ async def on_option_selected(app, event: OptionList.OptionSelected) -> None:
     if kind == settings_list.PICKER_KIND:
         if value is not None and settings_list.choose(app, value):
             await settings_list.open_picker(app, value)  # on the row just changed
+        return
+    if kind == memory_command.PICKER_KIND:
+        await memory_command.choose(app, value)
+        return
+    if kind == memory_command.CONFIRM_KIND:
+        memory_command.apply_review(app, value)
         return
     ask = runtime.apply_picker_choice(app, kind, value)
     # The model just moved from local to cloud and some of the vault is not yet allowed for it: ask

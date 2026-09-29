@@ -60,9 +60,11 @@ class ForTurn:
     withheld: bool = False
 
 
-def _read(handle: str, filename: str) -> str | None:
+def read_file(handle: str, filename: str) -> str | None:
     """A persona memory file's whole text, stripped, or `None` when it has none --
-    missing, empty, an unsafe path, or unreadable (the same posture as `load_soul`)."""
+    missing, empty, an unsafe path, or unreadable (the same posture as `load_soul`).
+    Public: `memory_write.py` reads the same three files' `.pending`/`.bak` siblings
+    through it too, rather than duplicating this."""
     try:
         path = os.path.join(persona_dir(handle), filename)
     except ValueError:
@@ -79,11 +81,11 @@ def _read(handle: str, filename: str) -> str | None:
 
 
 def profile(handle: str) -> str | None:
-    return _read(handle, PROFILE_FILENAME)
+    return read_file(handle, PROFILE_FILENAME)
 
 
 def context(handle: str) -> str | None:
-    return _read(handle, CONTEXT_FILENAME)
+    return read_file(handle, CONTEXT_FILENAME)
 
 
 def decisions(handle: str) -> list[str]:
@@ -91,7 +93,7 @@ def decisions(handle: str) -> list[str]:
     line; a line that is not a dated bullet is still kept, whole, as its own entry,
     so a user's own freeform note in the file is never silently dropped). `[]` when
     there is no file or it is empty."""
-    text = _read(handle, DECISIONS_FILENAME)
+    text = read_file(handle, DECISIONS_FILENAME)
     if not text:
         return []
     return [line.strip() for line in text.splitlines() if line.strip()]

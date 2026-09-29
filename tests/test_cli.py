@@ -81,6 +81,21 @@ def recap_calls(monkeypatch):
     return calls
 
 
+@pytest.fixture(autouse=True)
+def memory_refresh_calls(monkeypatch):
+    """A context.md/profile.md proposal (docs/decisions/041) is also asked for by a background
+    model call at launch and on a persona switch: never a real one here. The handles and models
+    it was asked for, the same shape `recap_calls` already uses."""
+    calls = RecapCalls()
+
+    def refresh_memory(handle, model=None):
+        calls.append(handle)
+        calls.models.append(model)
+
+    monkeypatch.setattr(engine, "refresh_memory", refresh_memory)
+    return calls
+
+
 # -- commands.py -------------------------------------------------------
 
 
@@ -1654,6 +1669,273 @@ def test_default_command_persists_the_current_persona(profiles):
             assert profile.resolve_default_persona() == "aria"
             lines = [plain_text(c) for c in app.transcript.children]
             assert any("@aria is now the default persona" in line for line in lines)
+
+    run_async(scenario())
+
+
+# -- /remember (docs/decisions/041: the user's own words, no model, no gate) --
+
+
+def test_remember_saves_the_typed_text_to_decisions_md(profiles):
+    async def scenario():
+        app = SymposeCLI()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.composer.focus()
+            await pilot.press(*"/remember prefers dark roast coffee", "enter")
+            await pilot.pause()
+            lines = [plain_text(c) for c in app.transcript.children]
+            assert any("Saved to decisions.md." in line for line in lines)
+            decisions = (profiles / "samantha" / "decisions.md").read_text()
+            assert decisions.strip().endswith("prefers dark roast coffee")
+
+    run_async(scenario())
+
+
+def test_remember_with_no_text_shows_usage_and_writes_nothing(profiles):
+    async def scenario():
+        app = SymposeCLI()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.composer.focus()
+            await pilot.press(*"/remember", "enter")
+            await pilot.pause()
+            lines = [plain_text(c) for c in app.transcript.children]
+            assert any(line.startswith("Usage: /remember ") for line in lines)
+            assert not (profiles / "samantha" / "decisions.md").exists()
+
+    run_async(scenario())
+
+
+def test_remember_ignores_the_memory_remember_setting(profiles):
+    """`/remember` is the user's own words, typed directly -- unlike a model's in-turn `remember`
+    tool/marker, it is never gated by `memory_remember` (docs/decisions/041)."""
+    from sympose import settings_store
+
+    settings_store.set("memory_remember", False)
+
+    async def scenario():
+        app = SymposeCLI()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.composer.focus()
+            await pilot.press(*"/remember try the new coffee blend", "enter")
+            await pilot.pause()
+            assert (profiles / "samantha" / "decisions.md").exists()
+
+    run_async(scenario())
+
+
+def test_remember_reports_when_the_write_fails(profiles, monkeypatch):
+    monkeypatch.setattr(runtime.memory, "append_decision", lambda handle, text: False)
+
+    async def scenario():
+        app = SymposeCLI()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.composer.focus()
+            await pilot.press(*"/remember anything", "enter")
+            await pilot.pause()
+            lines = [plain_text(c) for c in app.transcript.children]
+            assert any("Couldn't save that to decisions.md." in line for line in lines)
+
+    run_async(scenario())
+
+
+# -- /memory (docs/decisions/041: refresh now, review a staged proposal) --------
+
+
+def test_memory_picker_offers_only_refresh_when_nothing_is_pending(profiles):
+    async def scenario():
+        app = SymposeCLI()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.composer.focus()
+            await pilot.press(*"/memory", "enter")
+            await pilot.pause()
+            rows = [str(app.panel.get_option_at_index(i).prompt) for i in range(app.panel.option_count)]
+            assert any("Refresh now" in r for r in rows)
+            assert not any("Review" in r for r in rows)
+
+    run_async(scenario())
+
+
+def test_memory_picker_also_offers_review_when_something_is_pending(profiles):
+    from sympose.engine import memory_write
+
+    memory_write.stage_context("samantha", "Working on Atlas.")
+
+    async def scenario():
+        app = SymposeCLI()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.composer.focus()
+            await pilot.press(*"/memory", "enter")
+            await pilot.pause()
+            rows = [str(app.panel.get_option_at_index(i).prompt) for i in range(app.panel.option_count)]
+            assert any("Review pending change" in r for r in rows)
+
+    run_async(scenario())
+
+
+def test_memory_refresh_reports_nothing_to_update(profiles, monkeypatch):
+    from sympose.cli import memory_command
+
+    monkeypatch.setattr(memory_command.memory_refresh, "refresh", lambda handle, model=None: False)
+
+    async def scenario():
+        app = SymposeCLI()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.composer.focus()
+            await pilot.press(*"/memory", "enter")
+            await pilot.pause()
+            await pilot.press("1")  # Refresh now
+            await wait_until(lambda: any("Nothing to update." in plain_text(c) for c in app.transcript.children))
+
+    run_async(scenario())
+
+
+def test_memory_refresh_uses_the_sessions_active_model_not_only_the_personas_own(profiles, monkeypatch):
+    """Regression: "Refresh now" used to always resolve the persona's own default model, unlike
+    every other refresh call, which forwards the model the user actually picked with /model."""
+    from sympose.cli import memory_command
+
+    seen: list = []
+    monkeypatch.setattr(memory_command.memory_refresh, "refresh_in_background", lambda handle, model=None: seen.append((handle, model)) or True)
+    monkeypatch.setattr(memory_command.memory_refresh, "wait_for_refresh", lambda handle, timeout=60.0: True)
+
+    async def scenario():
+        app = SymposeCLI()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.composer.focus()
+            await pilot.press(*"/model", "enter")
+            await pilot.pause()
+            await pilot.press("2")
+            await pilot.pause()
+            await pilot.press("escape")  # the cloud-sharing question that follows a cloud model
+            await pilot.pause()
+            await pilot.press(*"/memory", "enter")
+            await pilot.pause()
+            await pilot.press("1")  # Refresh now
+            await pilot.pause()
+            assert seen == [("samantha", "anthropic/claude-sonnet-5")]
+
+    run_async(scenario())
+
+
+def test_memory_refresh_reports_a_staged_proposal_ready_to_review(profiles, monkeypatch):
+    from sympose.cli import memory_command
+    from sympose.engine import memory_write
+
+    def fake_refresh(handle, model=None):
+        memory_write.stage_context(handle, "Working on Atlas.")
+        return True
+
+    monkeypatch.setattr(memory_command.memory_refresh, "refresh", fake_refresh)
+
+    async def scenario():
+        app = SymposeCLI()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.composer.focus()
+            await pilot.press(*"/memory", "enter")
+            await pilot.pause()
+            await pilot.press("1")  # Refresh now
+            await wait_until(lambda: any("ready to review" in plain_text(c) for c in app.transcript.children))
+
+    run_async(scenario())
+
+
+def test_memory_review_shows_a_diff_and_saving_applies_the_proposal(profiles):
+    from sympose.cli import memory_command
+    from sympose.engine import memory_write
+
+    memory_write.stage_context("samantha", "Working on Atlas.")
+
+    async def scenario():
+        app = SymposeCLI()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.composer.focus()
+            await pilot.press(*"/memory", "enter")
+            await pilot.pause()
+            await pilot.press("2")  # Review pending change
+            await pilot.pause()
+            lines = [plain_text(c) for c in app.transcript.children]
+            assert any("+Working on Atlas." in line for line in lines)
+            assert app.panel_kind == memory_command.CONFIRM_KIND
+            await pilot.press("1")  # Save
+            await pilot.pause()
+            assert any("Saved." in plain_text(c) for c in app.transcript.children)
+            assert (profiles / "samantha" / "context.md").read_text() == "Working on Atlas.\n"
+            assert not (profiles / "samantha" / "context.md.pending").exists()
+
+    run_async(scenario())
+
+
+def test_memory_is_refreshed_in_the_background_at_launch_and_on_persona_switch(profiles, memory_refresh_calls):
+    async def scenario():
+        app = SymposeCLI()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            assert memory_refresh_calls == ["samantha"]
+            app.composer.focus()
+            await pilot.press(*"/persona", "enter")
+            await pilot.pause()
+            await pilot.press("1")  # aria (sorted first)
+            await pilot.pause()
+            assert memory_refresh_calls == ["samantha", "aria"]
+
+    run_async(scenario())
+
+
+def test_a_proposal_staged_before_launch_is_announced_once_chat_opens(profiles):
+    from sympose.engine import memory_write
+
+    memory_write.stage_context("samantha", "Working on Atlas.")
+
+    async def scenario():
+        app = SymposeCLI()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            lines = [plain_text(c) for c in app.transcript.children]
+            assert any("ready to review" in line for line in lines)
+
+    run_async(scenario())
+
+
+def test_nothing_is_announced_when_there_is_no_pending_proposal(profiles):
+    async def scenario():
+        app = SymposeCLI()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            lines = [plain_text(c) for c in app.transcript.children]
+            assert not any("ready to review" in line for line in lines)
+
+    run_async(scenario())
+
+
+def test_memory_review_discard_leaves_the_real_file_untouched(profiles):
+    from sympose.engine import memory_write
+
+    memory_write.stage_context("samantha", "Working on Atlas.")
+
+    async def scenario():
+        app = SymposeCLI()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.composer.focus()
+            await pilot.press(*"/memory", "enter")
+            await pilot.pause()
+            await pilot.press("2")  # Review pending change
+            await pilot.pause()
+            await pilot.press("2")  # Discard
+            await pilot.pause()
+            assert any("Discarded." in plain_text(c) for c in app.transcript.children)
+            assert not (profiles / "samantha" / "context.md").exists()
+            assert not (profiles / "samantha" / "context.md.pending").exists()
 
     run_async(scenario())
 
