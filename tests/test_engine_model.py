@@ -71,8 +71,27 @@ def test_call_model_passes_a_finite_timeout(settings_file, monkeypatch):
 
     model.call_model([{"role": "user", "content": "hi"}])
 
-    assert isinstance(captured["timeout"], (int, float))
-    assert captured["timeout"] > 0
+    assert isinstance(captured["timeout"], model.httpx.Timeout)
+    assert captured["timeout"].read == model._REQUEST_TIMEOUT_SECONDS
+
+
+def test_call_model_uses_a_short_connect_timeout(settings_file, monkeypatch):
+    """Regression test: a single overall `timeout=` number applies to connecting too, so a dead
+    route (a dead IPv6 address Python tries before falling back to IPv4) can stall for most of the
+    whole request budget before it gives up — measured at 75 s (docs/decisions/040 "Measured"). The
+    connect timeout must be much shorter than the read timeout so a dead route fails fast."""
+    captured = {}
+
+    def fake_completion(model, messages, stream, timeout):
+        captured["timeout"] = timeout
+        return _stream("ok")
+
+    monkeypatch.setattr(model.litellm, "completion", fake_completion)
+
+    model.call_model([{"role": "user", "content": "hi"}])
+
+    assert captured["timeout"].connect == model._CONNECT_TIMEOUT_SECONDS
+    assert captured["timeout"].connect < captured["timeout"].read
 
 
 def test_call_model_uses_explicit_model_override(settings_file, monkeypatch):

@@ -9,6 +9,7 @@ import logging
 import time
 from dataclasses import dataclass
 
+import httpx
 import litellm
 
 from sympose import settings_store
@@ -29,6 +30,12 @@ _SETTINGS_KEY = "chat_model"
 # be cancelled. A generous but finite bound turns that into a recoverable
 # `EngineModelError` instead.
 _REQUEST_TIMEOUT_SECONDS = 120
+# A single `timeout=` number applies to connecting too, and a connect can stall far longer than any
+# real one takes: Python tries a host's resolved addresses one at a time, and a dead IPv6 route (no
+# response, not a refusal) can eat most of a minute before it gives up and falls back to IPv4 — measured
+# at 75 s on this machine (docs/decisions/040 "Measured"). A short connect timeout fails that dead route
+# fast without shrinking the time the model itself is given to reply.
+_CONNECT_TIMEOUT_SECONDS = 10
 
 
 @dataclass(frozen=True)
@@ -111,7 +118,7 @@ def call_model(
             model=target_model,
             messages=messages,
             stream=True,
-            timeout=_REQUEST_TIMEOUT_SECONDS,
+            timeout=httpx.Timeout(_REQUEST_TIMEOUT_SECONDS, connect=_CONNECT_TIMEOUT_SECONDS),
             **{name: value for name, value in limits.items() if value is not None},
         ):
             text, finish_reason = _read(chunk)

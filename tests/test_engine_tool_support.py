@@ -2,6 +2,7 @@
 running Ollama is asked. What Ollama says and what litellm's table says are tested in `test_engine_lookup`."""
 
 import json
+import threading
 
 from sympose.engine import tool_support
 
@@ -88,6 +89,46 @@ def test_a_failed_question_to_ollama_is_not_put_again_for_a_minute(monkeypatch):
     tool_support.can_call_tools(LOCAL)
 
     assert len(asked) == 2  # once, then not within the minute, then again after it
+
+
+def test_concurrent_refusals_do_not_lose_a_strike(monkeypatch):
+    """Regression test: two personas can fail on the same cloud model at the same instant.
+    `_STRIKES[model] = _STRIKES.get(model, 0) + 1` is a read-modify-write, not one atomic step:
+    the first thread's write is deliberately held back here until the second thread has read and
+    written its own increment, off the same stale starting count. Without the lock the first
+    thread's write clobbers the second's and one strike vanishes."""
+    monkeypatch.setattr(tool_support.litellm, "supports_function_calling", lambda model: True)
+
+    first_call = threading.Event()
+    proceed = threading.Event()
+    used = [False]
+
+    class SlowDict(dict):
+        def __setitem__(self, key, value):
+            if not used[0]:
+                used[0] = True
+                first_call.set()
+                proceed.wait(timeout=0.5)
+            dict.__setitem__(self, key, value)
+
+    monkeypatch.setattr(tool_support, "_STRIKES", SlowDict())
+
+    def refuse_first():
+        tool_support.note_refusal(CLOUD)
+
+    def refuse_second():
+        assert first_call.wait(timeout=0.5)
+        tool_support.note_refusal(CLOUD)
+        proceed.set()
+
+    t1 = threading.Thread(target=refuse_first)
+    t2 = threading.Thread(target=refuse_second)
+    t1.start()
+    t2.start()
+    t1.join(timeout=1)
+    t2.join(timeout=1)
+
+    assert tool_support._STRIKES[CLOUD] == 2
 
 
 def test_an_answer_from_ollama_is_kept_for_the_process(monkeypatch):

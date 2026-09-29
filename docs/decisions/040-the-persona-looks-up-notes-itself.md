@@ -1,6 +1,6 @@
 # 040 — The persona looks up notes itself: a `vault_lookup` setting (`auto` or `ask`) and two read-only tools, search and open
 
-> **Status: Proposed.** Built behind the setting (default `auto`, so nothing changes for a user who does not choose `ask`); not offered as a recommendation until the measurements below are agreed. Amends ADR 017 (retires its reserved `model-searches` value) and builds on ADR 031 (what a cloud model may receive) and ADR 025 (what is recorded). One cloud model is measured (see "Measured"); a small model, and every local model, are not to be assumed to work.
+> **Status: Accepted (2026-09-29).** Built behind the setting (default `auto`, so nothing changes for a user who does not choose `ask`); not offered as a recommendation until the measurements below are agreed. Amends ADR 017 (retires its reserved `model-searches` value) and builds on ADR 031 (what a cloud model may receive) and ADR 025 (what is recorded). One cloud model is measured (see "Measured"); a small model, and every local model, are not to be assumed to work. Tracked as issue #85, open on the remaining fit decision (see "Bar for offering it").
 
 ## Context
 
@@ -81,6 +81,15 @@ Met on `gemini/gemini-flash-latest`: no vault fact stated without a lookup that 
 - A provider that needs more of the assistant's tool-call turn sent back than its id, name and arguments (a thinking-enabled Claude model's thinking blocks, for example) will refuse the second call; that failure comes after a tool has run, so it is an error and not a fallback to `auto`. Gemini's thought signature travels in the tool call's id, which is kept exactly, and was exercised over two-round turns against the real model. Not measured on another provider.
 - Parallel tool calls are told apart by their index and, when a provider gives every call index 0, by a different id under the same index; a provider that does neither could merge two calls into unreadable arguments, which the tool answers as "could not be read".
 - A failed first call costs up to two request timeouts (the failed one and the run as `auto`).
+
+## Review findings, after commit (2026-09-29)
+
+A second, independent `/code-review` of the built feature, run after the first pass's ten findings were already fixed, found two more things, both fixed:
+
+- **A race in `tool_support.py`.** `_STRIKES` and `_UNABLE` are module-level, read by whichever persona's turn happens to run, with no lock. Two personas failing on the same cloud model in the same instant could interleave `_STRIKES[model] = _STRIKES.get(model, 0) + 1` (a read-modify-write, not one atomic step) and lose an increment — low severity (delays, never skips, when a model is marked unable), but the same class of bug the code-quality standards document by name (the `SlackDaemon` precedent). Fixed with a `threading.Lock` around the three functions that touch either structure. Regression test: two threads are made to interleave deterministically (the first thread's dict write held back with a monkeypatched `__setitem__` until the second thread has read and written its own increment off the same stale count); confirmed to fail (1 strike recorded instead of 2) with the lock removed, and to pass with it.
+- **The measured 78 s first reply was a connect stall, not the model.** Python tries a host's resolved addresses one at a time; a dead IPv6 route with no response (not a refusal) took about 75 s on this machine before falling back to IPv4. `call_model`'s single `timeout=120` number set the connect timeout to the same 120 s as the read timeout, so a dead route could eat most of the whole request budget before the model was ever reached. Fixed: `timeout=` is now an `httpx.Timeout(120, connect=10)`, so a dead route fails in 10 s and falls back, without shortening the time the model itself is given to answer. Confirmed with a real call against the local model (`ollama_chat/gemma2:9b`, 5.65 s round trip, unaffected) and a regression test pinning `connect < read`.
+
+Both fixed without an ADR of their own (bug fixes to code this ADR already owns, not new decisions); 2109 tests pass (2 more than before, the two new regression tests), 1 skipped, 6 xfailed, ruff clean.
 
 ## Not built
 

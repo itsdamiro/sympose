@@ -9,6 +9,7 @@ option away)."""
 import json
 import logging
 import os
+import threading
 import time
 from urllib.request import Request, urlopen
 
@@ -21,6 +22,10 @@ log = logging.getLogger(__name__)
 STRIKES_TO_MARK = 2
 _UNABLE: set[str] = set()
 _STRIKES: dict[str, int] = {}
+# Two personas can fail on the same model in the same instant; without this, one persona's
+# `_STRIKES[model] = _STRIKES.get(model, 0) + 1` (read-modify-write, not one atomic step) can be
+# overwritten by the other's, losing a strike (delays, never skips, when a model is marked unable).
+_STRIKES_LOCK = threading.Lock()
 # What the running Ollama said, per model: an answer is kept for the process, and a failure to get one for
 # a minute, so a remote or slow Ollama is not put a two-second question on every turn.
 _OLLAMA_TOOLS: dict[str, bool] = {}
@@ -71,15 +76,19 @@ def can_call_tools(model: str) -> bool:
 def note_refusal(model: str) -> None:
     """`model` failed with tools and the same turn worked without them: a strike, and at
     `STRIKES_TO_MARK` in a row it is not given tools again until the process restarts."""
-    _STRIKES[model] = _STRIKES.get(model, 0) + 1
-    if _STRIKES[model] >= STRIKES_TO_MARK:
+    with _STRIKES_LOCK:
+        _STRIKES[model] = _STRIKES.get(model, 0) + 1
+        unable = _STRIKES[model] >= STRIKES_TO_MARK
+    if unable:
         mark_unable(model)
 
 
 def note_success(model: str) -> None:
     """A turn with tools worked: the strikes against `model` are gone."""
-    _STRIKES.pop(model, None)
+    with _STRIKES_LOCK:
+        _STRIKES.pop(model, None)
 
 
 def mark_unable(model: str) -> None:
-    _UNABLE.add(model)
+    with _STRIKES_LOCK:
+        _UNABLE.add(model)
