@@ -2,10 +2,12 @@
 user's vault for a message: `auto` (the default) is Sympose, before the reply is written, exactly as it has
 always been; `ask` gives the persona two tools, `search_notes` and `open_note` (`lookup_tools`), and it decides.
 
-`converse` is the loop of an `ask` turn: the model is called with the tools; when it asks for one, the
+`converse` is the loop of a tool-calling turn: the model is called with the tools; when it asks for one, the
 tool is run and the model is called again with its result, until it writes a reply or has used its
-rounds. Nothing here changes what the persona may be sent: every result passes `sharing.gate` inside
-`lookup_tools`, before it is put in front of a model."""
+rounds. It defaults to `ask`'s own vault tools, but takes any `tools`/`run_tool` pair (`persona_tools`,
+docs/decisions/041), since a turn can also give the persona `remember` independent of `ask`. Nothing here
+changes what the persona may be sent: every vault result still passes `sharing.gate` inside `lookup_tools`,
+before it is put in front of a model."""
 
 import json
 import logging
@@ -110,11 +112,18 @@ def converse(
     limits: budget.Budget | None,
     used_tokens: int = 0,
     call: Callable[..., model_mod.ModelReply] | None = None,
+    tools: list[dict[str, Any]] | None = None,
+    run_tool: Callable[..., Any] | None = None,
 ) -> Conversed:
-    """Run an `ask` turn on `messages` (the fitted prompt, `used_tokens` of the window). Raises what
+    """Run a tool-calling turn on `messages` (the fitted prompt, `used_tokens` of the window).
+    `tools`/`run_tool` default to ADR 040's vault-only pair, but a caller composing more than one
+    capability into one turn (`persona_tools.for_turn`, ADR 041) passes its own combined list and
+    dispatcher -- this loop does not care which capability a tool call belongs to. Raises what
     `call_model` raises, except that a failure of the very first call is `ToolsRefused`. When the rounds are
     used up the model is called once more with `tool_choice: none` and a line telling it to answer now."""
     call = call or model_mod.call_model  # looked up now, so a test can stand in for the model
+    tools = tools if tools is not None else lookup_tools.TOOLS
+    run_tool = run_tool or lookup_tools.run
     started = time.perf_counter()
     work: list[dict[str, Any]] = list(messages)
     hits: list[dict[str, Any]] = []
@@ -131,7 +140,7 @@ def converse(
                 model=model,
                 num_ctx=limits.num_ctx if limits else None,
                 max_tokens=limits.reply_cap if limits else None,
-                tools=lookup_tools.TOOLS,
+                tools=tools,
                 tool_choice="none" if last else None,
             )
         except model_mod.EngineModelError as e:
@@ -149,7 +158,7 @@ def converse(
         work.append(asked)
         added += _tokens(json.dumps(asked["tool_calls"]) + (reply.text or ""), model)  # replayed with every later call
         for tool_call in reply.tool_calls:
-            result = lookup_tools.run(persona, model, tool_call.name, tool_call.arguments)
+            result = run_tool(persona, model, tool_call.name, tool_call.arguments)
             room = (_UNKNOWN_WINDOW_TOKENS if limits is None else limits.prompt_tokens - used_tokens) - added
             text = _fit(result.text, model, room)
             work.append(model_tools.result_message(tool_call, text))

@@ -107,6 +107,25 @@ def test_a_reply_with_no_tool_call_is_the_answer_and_nothing_was_looked_up():
     assert len(call.sent) == 1 and call.sent[0]["tools"] == lookup_tools.TOOLS and call.sent[0]["tool_choice"] is None
 
 
+def test_converse_uses_the_tools_and_dispatcher_it_is_given_not_the_vault_ones(monkeypatch):
+    # docs/decisions/041: `persona_tools` composes a `remember` tool into this same loop,
+    # independent of the vault tools `converse` defaults to.
+    custom_tools = [{"type": "function", "function": {"name": "remember"}}]
+    seen_calls = []
+
+    def run_tool(persona, model, name, raw_arguments):
+        seen_calls.append((persona, model, name, raw_arguments))
+        return lookup_tools.Result("Remembered.", lookup={"tool": name, "saved": True})
+
+    call = script(asks("remember", '{"text": "x"}', "c1"), says("Done."))
+
+    done = lookup.converse(PERSONA, BASE, LOCAL, None, call=call, tools=custom_tools, run_tool=run_tool)
+
+    assert call.sent[0]["tools"] == custom_tools
+    assert seen_calls == [(PERSONA, LOCAL, "remember", '{"text": "x"}')]
+    assert done.lookups == [{"tool": "remember", "saved": True}]
+
+
 def test_a_search_is_run_and_its_result_goes_back_to_the_model_beside_the_call():
     call = script(asks("search_notes", '{"query": "Atlas database"}', "c9"), says("SQLite."))
 

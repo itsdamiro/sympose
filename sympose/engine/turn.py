@@ -9,10 +9,10 @@ persisting) was never exercised — see ADR 008."""
 
 from typing import Any
 
-from sympose import profile as profile_mod, vault_map as vault_map_mod, vault_paths
+from sympose import profile as profile_mod, vault_map as vault_map_mod
 from sympose.engine import (
-    budget, connections, followup, grounding, grounding_properties, lookup, memory, prompt, recap, recap_refresh,
-    reference, session, sharing, tool_support,
+    budget, connections, followup, grounding, grounding_properties, lookup, memory, memory_tools, persona_tools,
+    prompt, recap, recap_refresh, reference, session, sharing, tool_support,
 )
 from sympose.engine import model as model_mod
 from sympose.engine.model import EngineModelError
@@ -62,20 +62,25 @@ def run_turn(
     # rest of the order (persona's model > setting > default), so this
     # and every display of "which model runs" share one definition.
     target_model = model or model_mod.resolve_model(persona.get("model"))
-    # A persona with no vault has nothing to look up, so it is not given tools to look with; what the record
-    # says about the mode is then left out, since neither the model nor the setting is the reason (ADR 040).
-    has_vault = vault_paths.resolve_sandbox(persona) is not None
-    ask = lookup.effective_mode(target_model) == lookup.ASK and has_vault
-    chose_ask = lookup.mode() == lookup.ASK and has_vault
+    # `ask` (docs/decisions/040) and `remember` (docs/decisions/041) are independent settings, each
+    # checked against what this model can actually do and, for `ask`, whether the persona has a
+    # vault to look up at all -- see `persona_tools.resolve`.
+    modes = persona_tools.resolve(persona, target_model)
     try:
-        result = _run(persona, handle, user_message, sid, existing, history, target_model, ask, chose_ask)
+        result = _run(persona, handle, user_message, sid, existing, history, target_model, modes)
     except lookup.ToolsRefused:
-        # The model failed with the tools: the turn is run as `auto`, and a model that does that twice in a
-        # row while working without them is not given tools again (docs/decisions/040).
-        result = _run(persona, handle, user_message, sid, existing, history, target_model, False, chose_ask)
+        # The model failed with the tools: the turn is run with none, and a model that does that twice in a
+        # row while working without them is not given tools again (docs/decisions/040). `remember` falls
+        # back to its marker mechanism for this same retry, since that needs no tool-calling at all -- the
+        # user's "remember this" is not lost just because the tool attempt was.
+        retry_remember = memory.MARKER if memory.remember_enabled() else None
+        result = _run(
+            persona, handle, user_message, sid, existing, history, target_model,
+            persona_tools.Modes(False, modes.chose_ask, retry_remember),
+        )
         tool_support.note_refusal(target_model)
         return result
-    if ask:
+    if modes.ask or modes.remember == memory.TOOL:
         tool_support.note_success(target_model)
     return result
 
@@ -88,9 +93,9 @@ def _run(
     existing: Any,
     history: list[dict[str, str]],
     target_model: str,
-    ask: bool,
-    chose_ask: bool,
+    modes: "persona_tools.Modes",
 ) -> TurnResult:
+    ask, chose_ask, remember = modes.ask, modes.chose_ask, modes.remember
     # The prompt is sized to this model's window, not left to the runtime's
     # silent cut (docs/decisions/015); the follow-up rewrite shares that window.
     limits = budget.budget_for(target_model)
@@ -163,6 +168,7 @@ def _run(
             memory_profile=mem.profile,
             memory_context=mem.context,
             memory_decisions=decisions,
+            remember=remember,
         )
 
     prompt_tokens = 0
@@ -178,8 +184,12 @@ def _run(
         recaps_sent, prompt_tokens = fitted.recaps, fitted.tokens
         decisions_sent = fitted.decisions
     lookups: list[dict[str, Any]] = []
-    if ask:
-        done = lookup.converse(persona, messages, target_model, limits, used_tokens=prompt_tokens)
+    tools = persona_tools.for_turn(ask, remember == memory.TOOL)
+    if tools:
+        tool_list, run_tool = tools
+        done = lookup.converse(
+            persona, messages, target_model, limits, used_tokens=prompt_tokens, tools=tool_list, run_tool=run_tool,
+        )
         reply, reply_ttft, lookups = done.reply, done.ttft_ms, done.lookups
         grounding_results = grounding_results + done.hits
         for category, count in done.withheld.items():
@@ -193,6 +203,13 @@ def _run(
             max_tokens=limits.reply_cap if limits else None,
         )
         reply_ttft = reply.ttft_ms
+
+    # A model that can't call tools gets `remember` through a marker instead (docs/decisions/041),
+    # stripped before the reply is shown; each one found is recorded like a tool call above.
+    reply_text = reply.text
+    if remember == memory.MARKER:
+        reply_text, marker_lookups = memory_tools.apply_marker(handle, reply_text)
+        lookups += marker_lookups
 
     searched_used = searched if any(h.get("source") != reference.SOURCE for h in grounding_results) else None
     memory_sent = memory.sent_names(mem.profile, mem.context, decisions_sent)
@@ -210,7 +227,7 @@ def _run(
         handle,
         sid,
         user_message,
-        reply.text,
+        reply_text,
         existing=existing,
         ttft_ms=reply_ttft,
         model=target_model,
@@ -218,14 +235,14 @@ def _run(
         truncated=reply.truncated,
     )
     return TurnResult(
-        reply=reply.text,
+        reply=reply_text,
         session_id=sid,
         grounding=grounding_results,
         ttft_ms=reply_ttft,
         model=target_model,
         history_dropped=dropped,
         searched=searched_used,
-        context_used=prompt_tokens + _reply_tokens(reply.text, target_model) if limits else None,
+        context_used=prompt_tokens + _reply_tokens(reply_text, target_model) if limits else None,
         context_limit=limits.prompt_tokens if limits else None,
         truncated=reply.truncated,
         saved=saved,

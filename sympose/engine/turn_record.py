@@ -18,11 +18,13 @@ def sent_record(
     (docs/decisions/025): where each note came from, never its text. `cloud`, for a model that is
     not local, is the categories sent and the categories held back (docs/decisions/031). `rewrite` is
     whether the follow-up rewrite, an extra model call, was asked this turn (docs/decisions/025). `mode`
-    is the mode that ran (`ask` or `auto`) and `lookups` what the persona looked up, one entry per tool
-    call, a count and never text (docs/decisions/040); both are left out unless the user chose `ask`.
-    `memory` is which of the persona's own memory files reached this turn (docs/decisions/041) — any of
-    `"profile"`, `"context"`, `"decisions"` — never their text; empty when the persona has no memory yet
-    or none of it was allowed to reach this model."""
+    is the vault-lookup mode that ran (`ask` or `auto`), left out unless the user chose `ask`
+    (docs/decisions/040). `lookups` is what the persona looked up or remembered, one entry per tool
+    call, a count and never text (docs/decisions/040 and 041) — present whenever `mode` is, or whenever
+    a `remember` tool call or marker happened even though `mode` wasn't (`remember` runs independent of
+    `vault_lookup`'s own setting). `memory` is which of the persona's own memory files reached this turn
+    (docs/decisions/041) — any of `"profile"`, `"context"`, `"decisions"` — never their text; empty when
+    the persona has no memory yet or none of it was allowed to reach this model."""
     return {
         "notes": [
             {
@@ -42,6 +44,7 @@ def sent_record(
         "history_dropped": dropped,
         "rewrite": rewrite,
         **({"cloud": cloud[0], "withheld": cloud[1]} if cloud else {}),
-        **({"mode": mode, "lookups": lookups or []} if mode else {}),
+        **({"mode": mode} if mode else {}),
+        **({"lookups": lookups or []} if mode or lookups else {}),
         "memory": memory or [],
     }

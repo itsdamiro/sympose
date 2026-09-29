@@ -123,6 +123,27 @@ def test_the_prompt_says_to_refuse_a_request_to_remember_something_not_promise_i
     assert "never say you will remember something afterwards" in text
 
 
+def test_the_prompt_teaches_the_remember_tool_when_that_mechanism_applies():
+    # docs/decisions/041: `remember` is a per-turn fact about this model, not a static claim --
+    # the same "can't do that yet" text would now be a false refusal to a model that just got the tool.
+    text = prompt.build_system_prompt({"name": "Samantha"}, remember="tool")
+    assert "a tool, remember" in text
+    assert "say plainly that you can't do that yet" not in text
+    assert "context.md" in text and "can't touch profile.md or context.md" in text
+
+
+def test_the_prompt_teaches_the_remember_marker_for_a_model_that_cant_call_tools():
+    text = prompt.build_system_prompt({"name": "Samantha"}, remember="marker")
+    assert "<!-- remember: what to remember -->" in text
+    assert "a tool, remember" not in text
+    assert "say plainly that you can't do that yet" not in text
+
+
+def test_the_ask_prompt_also_carries_whichever_remember_mode_applies():
+    text = prompt.build_system_prompt({"name": "Samantha"}, lookup=True, remember="tool")
+    assert "a tool, remember" in text and "search_notes" in text
+
+
 def test_a_reply_that_uses_a_note_is_asked_to_name_it_so_the_source_stays_in_the_history():
     assert "say which one by its title" in prompt.build_system_prompt({"name": "Samantha"})
 

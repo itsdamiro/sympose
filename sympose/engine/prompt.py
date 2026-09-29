@@ -24,7 +24,7 @@ from sympose.engine.prompt_text import (
     HOW_YOU_WORK, HOW_YOU_WORK_ASK, GROUNDING_RULE_ASK, MEMORY_CONTEXT_LABEL, MEMORY_DECISIONS_LABEL,
     MEMORY_PROFILE_LABEL, NO_NOTES, NO_RECAP, NO_REFERENCE, NO_TOPIC, POINT_TO_REFERENCE, RECAPS_LABEL,
     RECAP_INSTRUCTIONS, REFERENCE_LABEL, REWRITE_INSTRUCTIONS, SYMPOSE_RULE, VAULT_MAP_LABEL, WITHHELD_CONNECTIONS,
-    WITHHELD_MEMORY, WITHHELD_NOTES, WITHHELD_PROPERTIES, WITHHELD_RECAPS, WITHHELD_VAULT_MAP,
+    WITHHELD_MEMORY, WITHHELD_NOTES, WITHHELD_PROPERTIES, WITHHELD_RECAPS, WITHHELD_VAULT_MAP, how_you_work,
 )
 from sympose.engine.sharing import MEMORY, RECAPS
 from sympose.persona_files import load_soul
@@ -53,6 +53,7 @@ def build_system_prompt(
     memory_context: str | None = None,
     memory_decisions: list[str] | None = None,
     memory_withheld: bool = False,
+    remember: str | None = None,
 ) -> str:
     # `handle` is always lowercase (`profile.get_profile` lowercases it
     # before building a file path) -- title-cased here so a fallback
@@ -67,10 +68,11 @@ def build_system_prompt(
     aliases = [a for a in profile.get("aliases") or [] if isinstance(a, str) and a.strip()]
     identity = f"Your name is {name}." + (f" The user may also call you {' or '.join(aliases)}." if aliases else "")
     # `lookup`: the persona looks up notes itself, so it is told how (docs/decisions/040).
+    # `remember`: whether, and how, it may write to decisions.md this turn (docs/decisions/041).
     parts = (
-        [soul or DEFAULT_SOUL, identity, HOW_YOU_WORK_ASK, GROUNDING_RULE_ASK]
+        [soul or DEFAULT_SOUL, identity, how_you_work(ask=lookup, remember=remember), GROUNDING_RULE_ASK]
         if lookup
-        else [soul or DEFAULT_SOUL, identity, HOW_YOU_WORK, GROUNDING_RULE]
+        else [soul or DEFAULT_SOUL, identity, how_you_work(ask=lookup, remember=remember), GROUNDING_RULE]
     )
     if profile.get("sympose_reference"):
         parts.append(SYMPOSE_RULE)
@@ -145,6 +147,7 @@ def build_messages(
     memory_profile: str | None = None,
     memory_context: str | None = None,
     memory_decisions: list[str] | None = None,
+    remember: str | None = None,
 ) -> list[dict[str, str]]:
     """The system prompt (with the recaps of earlier conversations, docs/decisions/023 and 026, and the
     persona's own memory, docs/decisions/041), the history as it was said (the notes of earlier turns
@@ -160,7 +163,7 @@ def build_messages(
         "role": "system",
         "content": build_system_prompt(
             profile, recaps, recaps_omitted, withheld.get(RECAPS, 0), lookup,
-            memory_profile, memory_context, memory_decisions, bool(withheld.get(MEMORY, 0)),
+            memory_profile, memory_context, memory_decisions, bool(withheld.get(MEMORY, 0)), remember,
         ),
     }
     has_library = bool(profile.get("sympose_reference"))

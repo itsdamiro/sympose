@@ -47,6 +47,40 @@ HOW_YOU_WORK = (
     "it is wrong, begin your reply by saying what is actually true, and never agree with it."
 )
 
+# The sentence `HOW_YOU_WORK`/`HOW_YOU_WORK_ASK` states by default -- no memory-writing capability at
+# all -- swapped out by `how_you_work` below for whichever is actually true this turn
+# (docs/decisions/041, the `memory_remember` setting and its `remember_mode`).
+_REMEMBER_OFF = (
+    "You cannot write to any of them yourself yet: if the user asks you to remember, save, or write "
+    "something down, say plainly that you can't do that yet instead of pretending to, and never say you "
+    "will remember something afterwards."
+)
+_REMEMBER_TOOL = (
+    "You have a tool, remember, that adds one line to decisions.md: use it when the user says something "
+    "worth keeping (a decision, a preference) or asks you to remember, save, or write something down. It "
+    "only adds a line, it can never change or remove what's already there, and it can't touch profile.md "
+    "or context.md -- say so plainly if asked to change either of those."
+)
+_REMEMBER_MARKER = (
+    "You can add one line to decisions.md: when the user says something worth keeping (a decision, a "
+    "preference) or asks you to remember, save, or write something down, end your reply with a line of "
+    "its own, exactly <!-- remember: what to remember -->, which is removed before the user sees your "
+    "reply. It only adds a line, it can never change or remove what's already there, and it can't touch "
+    "profile.md or context.md -- say so plainly if asked to change either of those."
+)
+_REMEMBER_TEXT = {"tool": _REMEMBER_TOOL, "marker": _REMEMBER_MARKER}
+
+
+def how_you_work(*, ask: bool, remember: str | None) -> str:
+    """`HOW_YOU_WORK` or `HOW_YOU_WORK_ASK`, with the memory-writing sentence swapped for
+    whichever is true this turn: unable to (`remember` is `None`, the default text both already
+    have), a tool (`"tool"`), or an inline marker (`"marker"`, for a model that can't call
+    tools) -- docs/decisions/041."""
+    base = HOW_YOU_WORK_ASK if ask else HOW_YOU_WORK
+    replacement = _REMEMBER_TEXT.get(remember or "")
+    return base.replace(_REMEMBER_OFF, replacement) if replacement else base
+
+
 GROUNDING_RULE = (
     "Only state facts about the user's vault that are backed by the notes found for "
     "their message or by the shape of the vault given with it. If those don't answer the "
