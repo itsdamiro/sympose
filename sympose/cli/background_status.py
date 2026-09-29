@@ -1,11 +1,14 @@
 """What's happening in the background, shown as an animated line above the composer: a recap
 refresh, a memory rewrite, the search index build, or -- the wait most turns actually spend most
 of their time in -- the reply itself being generated, down to whether it's searching, reading a
-note, or asking the model right now (`turn_status.py`). Replaces the old `indexing NN%` notice
-that used to sit at the meter's far right (docs/decisions/027) -- one place for all of it, so a
-quiet wait during any of these reads as the persona being busy, not the app being broken."""
+note, or asking the model right now (`turn_status.py`). A real phase that runs long enough starts
+alternating with the persona's own witty lines, so a slow moment reads as a lot going on rather
+than the line looking frozen. Replaces the old `indexing NN%` notice that used to sit at the
+meter's far right (docs/decisions/027) -- one place for all of it, so a quiet wait during any of
+these reads as the persona being busy, not the app being broken."""
 
 import random
+from time import monotonic as _monotonic
 
 from rich.text import Text
 from textual.widgets import Static
@@ -17,6 +20,12 @@ SETTING = "show_background_status"
 
 _SPINNER_FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 _FRAME_SECONDS = 0.12
+# A real phase (docs/decisions/043's second follow-up) that runs long enough starts alternating
+# with the persona's own witty lines every this many seconds, the literal phrase reasserting itself
+# every other slot -- a single frozen sentence for many seconds reads as stuck, not busy, but the
+# line must still say what is actually happening at least as often as it says something merely lively.
+_REAL_ROTATE_AFTER = 3.0
+_REAL_ROTATE_INTERVAL = 3.0
 
 # The turn's own real phases (docs/decisions/043's follow-up) show this literal text, not a
 # persona-flavored phrase -- these say what is actually happening for *this* reply, not a vibe.
@@ -78,6 +87,8 @@ class BackgroundStatus(Static):
     # from the *new* persona's own set, not keep showing the previous persona's under its name.
     _key: tuple[str | None, str | None] = (None, None)
     _phrase = ""
+    _phase_started = 0.0
+    _rotation_slot = 0
 
     def on_mount(self) -> None:
         self.set_interval(_FRAME_SECONDS, self._tick)
@@ -87,14 +98,26 @@ class BackgroundStatus(Static):
         handle = persona.handle if persona else None
         kind, detail = activity(handle) if handle and enabled() else (None, "")
         key = (handle, kind)
+        now = _monotonic()
         if key != self._key:
             self._key = key
+            self._phase_started = now
+            self._rotation_slot = 0
             if kind in REAL_STATUS_TEXT:
                 self._phrase = REAL_STATUS_TEXT[kind]
             elif kind and handle:
                 self._phrase = random.choice(status_phrases.phrases(handle))
             else:
                 self._phrase = ""
+        elif kind in REAL_STATUS_TEXT and handle:
+            elapsed = now - self._phase_started
+            if elapsed >= _REAL_ROTATE_AFTER:
+                slot = int((elapsed - _REAL_ROTATE_AFTER) // _REAL_ROTATE_INTERVAL) + 1
+                if slot != self._rotation_slot:
+                    self._rotation_slot = slot
+                    self._phrase = (
+                        random.choice(status_phrases.phrases(handle)) if slot % 2 else REAL_STATUS_TEXT[kind]
+                    )
         if kind is None:
             self.update(Text(""))
             return

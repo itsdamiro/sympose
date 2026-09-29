@@ -2674,6 +2674,42 @@ def test_the_status_line_shows_the_turns_own_real_phase_while_waiting_for_a_repl
     assert "Searching your notes…" in text
 
 
+def test_a_long_real_phase_starts_rotating_in_a_witty_line(profiles, monkeypatch):
+    """damiro: "can we fill the witty when for example the reading takes too long? so that it
+    feels a lot has been going on" -- a real phase that runs past `_REAL_ROTATE_AFTER` alternates
+    with the persona's own line every `_REAL_ROTATE_INTERVAL`, the literal phrase resurfacing on
+    every even slot so the line stays honest, not just lively."""
+    (profiles / "samantha" / "status_phrases.md").write_text("Digging through the archive…\n")
+    clock = {"t": 0.0}
+    # A private `_monotonic` reference (not the shared `time` module) so this cannot also freeze
+    # asyncio's own event-loop clock, which is what patching `time.monotonic` globally did the
+    # first time this test was written -- it hung `pilot.pause()` forever.
+    monkeypatch.setattr(background_status, "_monotonic", lambda: clock["t"])
+    turn_status.set_phase("samantha", turn_status.READING)
+    try:
+
+        async def scenario():
+            app = SymposeCLI()
+            async with app.run_test() as pilot:
+                await pilot.pause(0.15)
+                before = _status_text(app)
+                clock["t"] = 3.0  # the rotation threshold
+                await pilot.pause(0.15)
+                during = _status_text(app)
+                clock["t"] = 6.0  # one full interval further: the literal phrase resurfaces
+                await pilot.pause(0.15)
+                after = _status_text(app)
+                return before, during, after
+
+        before, during, after = run_async(scenario())
+    finally:
+        turn_status.set_phase("samantha", None)
+
+    assert "Reading a note…" in before
+    assert "Digging through the archive…" in during
+    assert "Reading a note…" in after
+
+
 # -- what a cloud model may receive (docs/decisions/031) --
 
 
