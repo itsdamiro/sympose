@@ -1,8 +1,5 @@
-"""Resolving an existing note: a bare name may be looked up by name, an exact path only as itself.
-
-Also a regression test for a `/code-review` finding: `_resolve_note_recursively` used to return
-whichever same-stem note the filesystem happened to enumerate first, with no tie-break —
-filesystem-order-dependent, not deterministic. Fixed to resolve to the alphabetically-first path."""
+"""Resolving an existing note: a name is a path from the vault's root and resolves only as that path, never to a
+note of the same name elsewhere (docs/decisions/047, #99)."""
 
 import os
 
@@ -31,30 +28,6 @@ def test_resolve_bare_name_at_allowed_dir_top_level(vault, profile):
     assert resolved == os.path.join(vault, "Solo.md")
 
 
-def test_resolve_ambiguous_stem_is_deterministic(vault, profile):
-    """Two notes sharing a stem in different folders, neither at an
-    allowed dir's own top level (so resolution falls through to the
-    recursive case) -- must always resolve to the same, alphabetically-
-    first path regardless of filesystem enumeration order."""
-    zeta_path = os.path.join(vault, "Zeta", "Nested")
-    os.makedirs(zeta_path)
-    with open(os.path.join(zeta_path, "Ideas.md"), "w") as f:
-        f.write("zeta")
-    alpha_path = os.path.join(vault, "Alpha", "Nested")
-    os.makedirs(alpha_path)
-    with open(os.path.join(alpha_path, "Ideas.md"), "w") as f:
-        f.write("alpha")
-
-    resolved = vault_write_resolve.resolve_existing_note(profile, "Ideas")
-    assert resolved == os.path.join(alpha_path, "Ideas.md")
-
-    # Deterministic across repeated calls, not just lucky once.
-    for _ in range(5):
-        assert vault_write_resolve.resolve_existing_note(profile, "Ideas") == os.path.join(
-            alpha_path, "Ideas.md"
-        )
-
-
 # --- an exact path resolves only as that path ------------------------------------------------
 
 
@@ -78,10 +51,22 @@ def test_an_exact_path_resolves_to_that_note_even_when_another_has_the_same_name
     assert vault_write_resolve.resolve_existing_note(profile, "B/Note") == os.path.join(vault, "B", "Note.md")
 
 
-def test_a_bare_name_still_finds_the_note_in_a_folder(vault, profile):
-    path = write_note(vault, "Deep/Er/Note.md")
-    assert vault_write_resolve.resolve_existing_note(profile, "Note") == path
-    assert vault_write_resolve.resolve_existing_note(profile, "note.md") == path
+def test_a_top_level_name_is_the_note_at_the_top_of_the_vault_and_nothing_below_it(vault, profile):
+    """#99: `Meeting.md` deleted or moved at the top, a stale screen asks for it: it must not become
+    `Archive/Meeting.md`."""
+    deeper = write_note(vault, "Archive/Meeting.md", "keep me")
+    for name in ("Meeting", "Meeting.md", "meeting"):
+        assert vault_write_resolve.resolve_existing_note(profile, name) is None
+    top = write_note(vault, "Meeting.md", "top")
+    assert vault_write_resolve.resolve_existing_note(profile, "Meeting") == top
+    assert vault_write_resolve.resolve_existing_note(profile, "Archive/Meeting") == deeper
+
+
+@pytest.mark.parametrize("ghost", ["Deep/Er/Note.md", "Code/Aa/Note.md"])
+def test_a_name_without_its_folder_does_not_find_a_note_in_one(vault, profile, ghost):
+    write_note(vault, ghost)
+    assert vault_write_resolve.resolve_existing_note(profile, "Note") is None
+    assert vault_write_resolve.resolve_existing_note({"vault_folders": ["Code"]}, "Note") is None
 
 
 # The four callers: with only `B/Note.md` present, a request for `A/Note.md` (a tree that is out of
@@ -129,15 +114,8 @@ def test_an_exact_path_to_a_folder_is_not_a_note(vault, profile):
     assert vault_write_resolve.resolve_existing_note(profile, "A/Folder.md") is None
 
 
-def test_a_bare_name_prefers_the_note_at_the_top_of_an_allowed_folder_to_a_deeper_one(vault):
-    top = write_note(vault, "Code/Note.md")
-    write_note(vault, "Code/Aa/Note.md")  # sorts first, so only the top-level rule can pick `top`
-    restricted = {"vault_folders": ["Code"]}
-    assert vault_write_resolve.resolve_existing_note(restricted, "Note") == top
-
-
 @pytest.mark.parametrize("ghost", [".trash/Ghost.md", ".hidden/Ghost.md", "Attachments/Ghost.md"])
-def test_a_bare_name_does_not_find_a_note_in_the_bin_or_a_hidden_or_ignored_folder(vault, profile, ghost):
+def test_a_name_does_not_find_a_note_in_the_bin_or_a_hidden_or_ignored_folder(vault, profile, ghost):
     write_note(vault, ghost)
     assert vault_write_resolve.resolve_existing_note(profile, "Ghost") is None
 

@@ -14,7 +14,7 @@ from sympose import vault_paths
 from sympose.atomic_write import write_atomic_text
 from sympose.vault_write_concurrency import NOTE_CONFLICT, mtime_matches
 from sympose.vault_write_resolve import resolve_existing_note
-from sympose.vault_write_status import NOTE_DENIED, NOTE_NOT_FOUND
+from sympose.vault_write_status import NOTE_DENIED, NOTE_NOT_FOUND, NOTE_NOT_TEXT
 
 _locks: dict[str, threading.Lock] = {}
 _locks_guard = threading.Lock()
@@ -42,6 +42,15 @@ def get_file_locks(*paths: str) -> Iterator[None]:
         for p in sorted(set(paths)):
             stack.enter_context(get_file_lock(p))
         yield
+
+
+def _with_line_endings(text: str, on_disk: bytes) -> str:
+    """`text` (the editor's, with LF) in the line-break style most of the file on disk has: CRLF if more of its
+    breaks are CRLF than bare LF, else LF (docs/decisions/048)."""
+    crlf = on_disk.count(b"\r\n")
+    if crlf > on_disk.count(b"\n") - crlf:
+        return text.replace("\r\n", "\n").replace("\n", "\r\n")
+    return text
 
 
 def overwrite_note(
@@ -75,7 +84,14 @@ def overwrite_note(
 
         rel_display = os.path.relpath(target_file, mv)
         try:
-            write_atomic_text(target_file, content.rstrip("\n") + "\n")
+            with open(target_file, "rb") as f:
+                on_disk = f.read()
+            try:
+                on_disk.decode("utf-8")
+            except UnicodeDecodeError:
+                return NOTE_NOT_TEXT  # saving would replace bytes the editor could not show (docs/decisions/048)
+            text = _with_line_endings(content.rstrip("\n") + "\n", on_disk)
+            write_atomic_text(target_file, text, newline="")
             return f"Saved note: `{rel_display}`"
         except Exception as e:
             return f"Error: Failed to write note: {e}"

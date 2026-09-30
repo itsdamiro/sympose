@@ -73,9 +73,12 @@ def test_delete_note_moves_it_to_the_bin_with_its_text_and_folder(vault):
     assert trash_files(vault) == {"Projects/Atlas.md": "the decision"}
 
 
-def test_delete_note_finds_a_note_by_its_bare_name(vault):
+def test_delete_note_does_not_search_for_a_name_given_without_its_folder(vault):
+    """docs/decisions/047: `Idea` is the note at the top of the vault, not one called Idea somewhere below."""
     write(vault, "Deep/Down/Idea.md", "x")
-    vault_write_delete.delete_note(ALL, "idea")
+    assert vault_write_delete.delete_note(ALL, "idea") == NOTE_NOT_FOUND
+    assert not os.path.exists(os.path.join(vault, ".trash"))
+    vault_write_delete.delete_note(ALL, "Deep/Down/Idea")
     assert list(trash_files(vault)) == ["Deep/Down/Idea.md"]
 
 
@@ -145,7 +148,7 @@ def test_a_restricted_persona_cannot_delete_a_note_outside_its_folders(vault):
     assert vault_write_delete.delete_note(restricted, "Secret") == NOTE_NOT_FOUND
     assert vault_write_delete.delete_note(restricted, "Private/Secret") == NOTE_NOT_FOUND
     assert read(secret) == "secret"
-    assert vault_write_delete.delete_note(restricted, "Ok").startswith("Moved to the bin")
+    assert vault_write_delete.delete_note(restricted, "Code/Ok").startswith("Moved to the bin")
 
 
 def test_delete_note_with_no_vault_configured_is_denied(monkeypatch):

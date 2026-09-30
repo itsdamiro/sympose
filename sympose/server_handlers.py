@@ -32,6 +32,7 @@ from sympose.vault_write_status import (
     NOTE_DENIED,
     NOTE_EXISTS,
     NOTE_INVALID_NAME,
+    NOTE_NOT_TEXT,
     NOTE_NOT_FOUND,
 )
 
@@ -69,6 +70,7 @@ def translate_vault_result(
     denied: str | None = None,
     conflict: str | None = None,
     invalid_name: str | None = None,
+    not_text: str | None = None,
 ) -> None:
     """Raises the matching HTTPException for one of the vault write
     modules' shared sentinel outcomes, or returns None when `result` is a
@@ -84,6 +86,8 @@ def translate_vault_result(
         raise HTTPException(status_code=409, detail=conflict)
     if invalid_name is not None and result == NOTE_INVALID_NAME:
         raise HTTPException(status_code=400, detail=invalid_name)
+    if not_text is not None and result == NOTE_NOT_TEXT:
+        raise HTTPException(status_code=422, detail=not_text)
     if result.startswith("Error:"):
         raise HTTPException(status_code=500, detail=result)
 
@@ -137,6 +141,7 @@ def write_note(body: NoteWrite) -> dict[str, Any]:
         not_found=_not_found("Note", body.path),
         denied=sandbox_denied(body.path),
         conflict=f"Note `{body.path}` changed on disk since it was opened — reload before saving.",
+        not_text=f"`{body.path}` has bytes that are not valid text, so saving it here would change them. Edit it in another editor.",
     )
     # The mtime the editor's next save must present: what this write left on disk.
     target = resolve_existing_note(profile, body.path)

@@ -63,3 +63,5 @@ Both read what one persona can read: the persona named by `--persona <handle>`, 
 - **Writing the file name into a note's `title:`.** It changes the person's notes to record what is already true.
 - **A second link parser in the report.** It would disagree with the graph about what is broken.
 - **Inferring each folder's convention in this first version.** The issue's own risk (noise); waits for the definitions of #23.
+
+**Amendment (2026-10-01): stale folder-qualified links are a `--fix` job (damiro, #101).** A rename or move rewrites only the last segment of a link like `[[Projects/Idea]]`, so a move leaves it pointing at nothing (or is missed on a move that keeps the name). Rather than reworking the rename layer's link rewrite now, the repair belongs to the future `sympose vault --fix`: the "Links to no note" check already finds such links, and `--fix` offers a suggested target one note at a time, each change shown and applied only on a yes (above). Until then the rename layer is unchanged and the check reports what it leaves behind.
