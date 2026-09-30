@@ -37,9 +37,10 @@ function splitPath(rel: string): { dir: string; name: string } {
 }
 
 /**
- * The vault bin — a flat list of notes `delete_note` moved to
- * `<vault>/.trash/` (the folder keeps Obsidian's name; the UI says "Bin"),
- * each restorable to its original path or deletable for good. Shown in place
+ * The vault bin — a flat list of every file `delete_note` and `delete_folder` moved to
+ * `<vault>/.trash/` (the folder keeps Obsidian's name; the UI says "Bin"): notes and everything
+ * else a deleted folder held, attachments included (docs/decisions/045). Each is restorable to its
+ * original path or deletable for good; a note shows without its `.md`, any other file with its name. Shown in place
  * of `<VaultTree>` when the main-menu Bin row is the active section. Owns its
  * own fetch; `refreshKey` lets the shell force a re-pull after an outside
  * change (e.g. a fresh delete from the editor).
@@ -52,7 +53,7 @@ function TrashList({
 }: {
   persona: string
   refreshKey?: number
-  /** A note was restored to `originalPath` — the shell refreshes the tree. */
+  /** A file was restored to `originalPath` — the shell refreshes the tree. */
   onRestored?: (originalPath: string) => void
   className?: string
 }) {
@@ -107,9 +108,9 @@ function TrashList({
   const empty = (count: number) =>
     confirm({
       message: "Empty the bin?",
-      description: `Permanently deletes ${count} note${
+      description: `Permanently deletes everything in the bin (${count} item${
         count === 1 ? "" : "s"
-      } from disk. This cannot be undone.`,
+      }) from disk. This cannot be undone.`,
       confirmLabel: "Empty bin",
       permanent: true,
       onConfirm: async () => {
@@ -138,7 +139,7 @@ function TrashList({
           </EmptyMedia>
           <EmptyTitle>Bin is empty</EmptyTitle>
           <EmptyDescription>
-            Deleted notes land here and can be restored to where they were.
+            Deleted notes and files land here and can be restored to where they were.
           </EmptyDescription>
         </EmptyHeader>
       </Empty>
@@ -149,7 +150,7 @@ function TrashList({
     <div className={cn("flex flex-col gap-1", className)}>
       <div className="flex items-center justify-between pb-1">
         <span className="text-xs text-fg-muted">
-          {items.length} note{items.length === 1 ? "" : "s"}
+          {items.length} item{items.length === 1 ? "" : "s"}
         </span>
         <button
           type="button"

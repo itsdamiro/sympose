@@ -1,7 +1,8 @@
 /**
- * Clients for `/api/vault/trash*` — the note-recovery surface. `delete_note`
- * moves a note to `<vault>/.trash/` rather than unlinking it; these list
- * what's recoverable, put one back, or delete it for good. Same
+ * Clients for `/api/vault/trash*` — the recovery surface. `delete_note` and
+ * `delete_folder` move a note, or a folder with everything in it (attachments
+ * too), to `<vault>/.trash/` rather than unlinking it; these list every file
+ * that's recoverable, put one back, or delete it for good. Same
  * discriminated-result shape as `vault-note-api.ts` (and its `detailOf`
  * helper) so callers can toast the message instead of catching.
  */
@@ -11,7 +12,7 @@ import { detailOf } from "./vault-note-api"
 export interface TrashedNote {
   /** `.trash`-relative path — the handle for restore / purge. */
   trash_path: string
-  /** Where the note lived before deletion (clash suffix already stripped). */
+  /** Where the file lived before deletion (clash suffix already stripped). */
   original_path: string
   /** Epoch seconds of the deletion (the trashed file's mtime). */
   deleted_at: number
