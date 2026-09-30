@@ -4,7 +4,7 @@
 
 ## Context
 
-The chat panel in the web app is presentational only: a panel, a composer and a mock transcript (its canned persona replies were removed in the review, #94, so it now starts empty). The backend has no chat route; only the terminal calls the engine (`run_turn`). ADR 006 and `docs/VISION.md` already settle the important part: every channel is a thin adapter over one engine, so the web chat calls the same `run_turn` the terminal does and adds no second copy of engine logic. The engine already saves sessions and already queues messages per persona (ADR 008), so the browser does not need to own either.
+The chat panel in the web app is presentational only: a panel, a composer and a mock transcript (its canned persona replies were removed in the review, #94, so it now starts empty). The backend has no chat route; only the terminal calls the engine (`run_turn`). ADR 006 and `docs/VISION.md` already settle the important part: every channel is a thin adapter over one engine, so the web chat calls the same `run_turn` the terminal does and adds no second copy of engine logic. The engine already saves sessions, so the browser does not need to own them. It does not queue: ADR 008 puts queueing at each channel's call site, so the web route keeps its own lock per persona (built with the chat route; it cannot order a terminal chat and a web chat against each other, which are separate processes).
 
 What is not settled is the shape of the adapter and the order to build it in. Two facts from the code shape the answer:
 
@@ -43,7 +43,7 @@ The panel is loaded lazily, as the nebula already is. That helps only how fast t
 | Piece | Difficulty | Depends on |
 |---|---|---|
 | Chat state in its own file; the panel loaded lazily | Easy to medium | nothing |
-| The chat route (a thin door to `run_turn`) | Medium | nothing |
+| The chat route (a thin door to `run_turn`, with a lock per persona and the local-only guard) | Medium | nothing |
 | The status route and its polling | Medium to hard: the server has nothing like it yet | the chat route |
 | `ChatSystemLine`, reply errors shown through it | Easy | nothing |
 | Wiring the panel: send, reply, live status, no double send while a reply is in flight, auto-scroll, Markdown and wikilinks in replies | Medium | the two routes, the state, the system line |

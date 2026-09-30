@@ -93,3 +93,12 @@ class FolderDefinition(BaseModel):
     purpose: str = ""
     template: list[str] = Field(default_factory=list)
     persona: str | None = None
+
+
+class ChatTurn(BaseModel):
+    """Body of `POST /api/chat/turn` — one message to a persona. `session_id` continues a conversation;
+    omitted, a new one starts and its id comes back in the reply."""
+
+    message: str = Field(..., min_length=1)
+    persona: str | None = None
+    session_id: str | None = None

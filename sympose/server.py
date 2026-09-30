@@ -19,6 +19,7 @@ from typing import Any
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 
+from sympose import server_chat_handlers as ch
 from sympose import server_definition_handlers as dh
 from sympose import server_origin
 from sympose import server_handlers as h
@@ -28,7 +29,7 @@ from sympose import server_search_handlers as sh
 from sympose import server_trash_handlers as th
 from sympose import server_vault_handlers as vh
 from sympose import vault_paths
-from sympose.server_models import DefinitionsSwitch, FolderDefinition, HiddenPath, TrashEmpty, TrashRestore, VaultActivate
+from sympose.server_models import ChatTurn, DefinitionsSwitch, FolderDefinition, HiddenPath, TrashEmpty, TrashRestore, VaultActivate
 
 
 def create_app() -> FastAPI:
@@ -62,6 +63,14 @@ def create_app() -> FastAPI:
     @app.post("/api/vaults", status_code=201)
     def add_vault(body: VaultActivate) -> dict[str, Any]:
         return vh.add_vault(body.path)
+
+    @app.post("/api/chat/turn")
+    def chat_turn(body: ChatTurn) -> dict[str, Any]:
+        return ch.send_turn(body)
+
+    @app.get("/api/chat/status")
+    def chat_status(persona: str | None = Query(None)) -> dict[str, Any]:
+        return ch.get_status(persona)
 
     @app.get("/api/personas")
     def get_personas() -> dict[str, Any]:
