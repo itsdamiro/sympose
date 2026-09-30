@@ -28,9 +28,7 @@ The number is an estimate that leans high (the margin), so a conversation can lo
 
 ## Not built yet
 
-- Counting the message being typed. (Listed here and also under "Alternatives rejected" below: the two disagree, and it stays not built until that is settled.)
-- The web dashboard's meter.
-- Restoring the meter when a saved session is resumed. The CLI has no way to resume a saved session yet (`/history` is a placeholder and every launch starts a new session), so there is nothing to hook this to.
+- Nothing outstanding. Counting the message being typed is **rejected**, as under "Alternatives rejected" below (settled by damiro, 2026-10-01, closing #27). The web meter and restoring the meter on resume were built in the web chat (ADR 044, "the context meter"); the terminal has no way to resume a saved session, so has nothing to restore.
 
 ## Alternatives rejected
 
