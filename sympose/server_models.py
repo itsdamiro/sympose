@@ -1,6 +1,8 @@
 """Request body models for the web API — split out of
 `server_handlers.py` (project's 200-LOC-per-file guideline)."""
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -108,3 +110,9 @@ class ChatSessionStart(BaseModel):
     """Body of `POST /api/chat/session` — start a fresh, empty conversation with a persona."""
 
     persona: str | None = None
+
+
+class SettingChange(BaseModel):
+    """Body of `PUT /api/settings/{key}` — the value wanted, or `null` for the setting's default."""
+
+    value: Any = None

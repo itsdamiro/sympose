@@ -25,11 +25,12 @@ from sympose import server_origin
 from sympose import server_handlers as h
 from sympose import server_hidden_handlers as hh
 from sympose import server_persona_handlers as ph
+from sympose import server_settings_handlers as seh
 from sympose import server_search_handlers as sh
 from sympose import server_trash_handlers as th
 from sympose import server_vault_handlers as vh
 from sympose import vault_paths
-from sympose.server_models import ChatSessionStart, ChatTurn, DefinitionsSwitch, FolderDefinition, HiddenPath, TrashEmpty, TrashRestore, VaultActivate
+from sympose.server_models import ChatSessionStart, ChatTurn, DefinitionsSwitch, FolderDefinition, HiddenPath, SettingChange, TrashEmpty, TrashRestore, VaultActivate
 
 
 def create_app() -> FastAPI:
@@ -84,6 +85,14 @@ def create_app() -> FastAPI:
     @app.post("/api/chat/session")
     def chat_session_start(body: ChatSessionStart) -> dict[str, Any]:
         return ch.start_session(body)
+
+    @app.get("/api/settings")
+    def get_settings() -> dict[str, Any]:
+        return seh.get_settings()
+
+    @app.put("/api/settings/{key}")
+    def put_setting(key: str, body: SettingChange) -> dict[str, Any]:
+        return seh.put_setting(key, body)
 
     @app.get("/api/personas")
     def get_personas() -> dict[str, Any]:

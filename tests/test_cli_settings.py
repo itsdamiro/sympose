@@ -10,7 +10,7 @@ from sympose import engine, settings_store
 from sympose.cli import commands, settings_list, settings_registry as registry
 from sympose.cli.app import SymposeCLI
 from sympose.cli.composer import DEFAULT_PLACEHOLDER
-from sympose.engine import budget, embeddings, followup, memory, memory_refresh, recap
+from sympose.engine import settings_apply as apply, budget, embeddings, followup, memory, memory_refresh, recap
 
 # The rows, in the order the list shows them, and the digit that chooses each (1 to 9).
 KEYS = [
@@ -93,24 +93,24 @@ def test_every_row_fits_an_80_column_terminal_on_one_line():
 
 
 def test_a_value_reads_as_on_off_a_word_or_a_number_and_says_when_it_is_the_default():
-    assert settings_list.value_text(_setting("show_grounding")) == "on"
+    assert apply.value_text(_setting("show_grounding")) == "on"
     settings_store.set("show_grounding", False)
-    assert settings_list.value_text(_setting("show_grounding")) == "off"
-    assert settings_list.value_text(_setting("grounding_followups")) == "on"
-    assert settings_list.value_text(_setting("context_window")) == "automatic"
-    assert settings_list.value_text(_setting("reply_reveal")) == "50 (default)"
+    assert apply.value_text(_setting("show_grounding")) == "off"
+    assert apply.value_text(_setting("grounding_followups")) == "on"
+    assert apply.value_text(_setting("context_window")) == "automatic"
+    assert apply.value_text(_setting("reply_reveal")) == "50 (default)"
     settings_store.set("reply_reveal", 35)
     settings_store.set("context_window", 8192)
-    assert settings_list.value_text(_setting("reply_reveal")) == "35"
-    assert settings_list.value_text(_setting("context_window")) == "8192"
-    assert settings_list.value_text(_setting("embedding_min_similarity")) == "0.72 (default)"
+    assert apply.value_text(_setting("reply_reveal")) == "35"
+    assert apply.value_text(_setting("context_window")) == "8192"
+    assert apply.value_text(_setting("embedding_min_similarity")) == "0.72 (default)"
 
 
 def test_large_and_long_numbers_read_exactly_as_saved():
     settings_store.set("context_window", 1048576)
     settings_store.set("embedding_min_similarity", 0.123456789)
-    assert settings_list.value_text(_setting("context_window")) == "1048576"  # not 1.04858e+06
-    assert settings_list.value_text(_setting("embedding_min_similarity")) == "0.123456789"
+    assert apply.value_text(_setting("context_window")) == "1048576"  # not 1.04858e+06
+    assert apply.value_text(_setting("embedding_min_similarity")) == "0.123456789"
 
 
 # -- toggles and choices -----------------------------------------------------
@@ -118,9 +118,9 @@ def test_large_and_long_numbers_read_exactly_as_saved():
 
 def test_a_toggle_turns_off_by_writing_false_and_back_on_by_removing_the_key():
     setting = _setting("show_trim_notice")
-    assert settings_list._flip(setting) == "show_trim_notice is now off."
+    assert apply.flip(setting) == "show_trim_notice is now off."
     assert settings_store.get("show_trim_notice") is False
-    assert settings_list._flip(setting) == "show_trim_notice is now on."
+    assert apply.flip(setting) == "show_trim_notice is now on."
     assert settings_store.get("show_trim_notice") is None  # the default applies again, not a copy of it
 
 
@@ -129,17 +129,17 @@ def test_every_toggle_really_changes_what_its_module_reads():
         if setting.kind != registry.TOGGLE:
             continue
         start = setting.current()
-        settings_list._flip(setting)
+        apply.flip(setting)
         assert setting.current() is not start, setting.key
-        settings_list._flip(setting)
+        apply.flip(setting)
         assert setting.current() is start, setting.key
 
 
 def test_the_followup_choice_steps_off_and_back():
     setting = _setting("grounding_followups")
-    settings_list._flip(setting)
+    apply.flip(setting)
     assert settings_store.get("grounding_followups") == "off" and followup.enabled() is False
-    settings_list._flip(setting)
+    apply.flip(setting)
     assert settings_store.get("grounding_followups") is None and followup.enabled() is True
 
 
@@ -148,7 +148,7 @@ def test_the_search_choice_steps_through_all_four_and_the_default_removes_the_ke
     setting = _setting("grounding_search")
     seen = []
     for _ in range(4):
-        settings_list._flip(setting)
+        apply.flip(setting)
         seen.append((embeddings.mode(), settings_store.get("grounding_search")))
     assert seen == [
         ("keywords", "keywords"), ("embeddings", "embeddings"), ("hybrid", "hybrid"), ("auto", None),
@@ -157,19 +157,19 @@ def test_the_search_choice_steps_through_all_four_and_the_default_removes_the_ke
 
 def test_memory_remember_ships_off_and_turns_on_by_writing_true():
     setting = _setting("memory_remember")
-    assert settings_list.value_text(setting) == "off"
-    assert settings_list._flip(setting) == "memory_remember is now on."
+    assert apply.value_text(setting) == "off"
+    assert apply.flip(setting) == "memory_remember is now on."
     assert settings_store.get("memory_remember") is True
-    assert settings_list._flip(setting) == "memory_remember is now off."
+    assert apply.flip(setting) == "memory_remember is now off."
     assert settings_store.get("memory_remember") is None
 
 
 def test_memory_rewrite_steps_between_ask_and_auto_and_the_default_removes_the_key():
     setting = _setting("memory_rewrite")
-    assert settings_list.value_text(setting) == "ask"
-    settings_list._flip(setting)
+    assert apply.value_text(setting) == "ask"
+    apply.flip(setting)
     assert settings_store.get("memory_rewrite") == "auto"
-    settings_list._flip(setting)
+    apply.flip(setting)
     assert settings_store.get("memory_rewrite") is None  # ask is the default, so it removes the key
 
 
@@ -178,27 +178,27 @@ def test_a_toggle_that_ships_off_would_be_written_on_and_removed_when_off():
     shipped_off = registry.Setting(
         "some_knob", registry.TOGGLE, "a knob", lambda: settings_store.get("some_knob", False), lambda: False
     )
-    settings_list._flip(shipped_off)
+    apply.flip(shipped_off)
     assert settings_store.get("some_knob") is True
-    settings_list._flip(shipped_off)
+    apply.flip(shipped_off)
     assert settings_store.get("some_knob") is None
 
 
 def test_a_choice_whose_write_is_not_read_back_says_it_could_not_save(monkeypatch):
-    monkeypatch.setattr(settings_list.settings_store, "set", lambda key, value: False)
-    assert settings_list._flip(_setting("show_grounding")) == "Couldn't save show_grounding."
+    monkeypatch.setattr(settings_store, "set", lambda key, value: False)
+    assert apply.flip(_setting("show_grounding")) == "Couldn't save show_grounding."
 
 
 def test_a_change_the_module_does_not_read_back_is_reported_not_claimed():
     stuck = registry.Setting("show_grounding", registry.TOGGLE, "a knob that ignores its setting", lambda: True)
-    assert settings_list._flip(stuck) == "Couldn't save show_grounding."
+    assert apply.flip(stuck) == "Couldn't save show_grounding."
 
 
 # -- numbers ------------------------------------------------------------------
 
 
 def _type(key, text):
-    return settings_list.set_number(_setting(key), text)
+    return apply.set_number(_setting(key), text)
 
 
 def test_a_valid_number_is_saved_and_ends_the_prompt():
@@ -273,21 +273,21 @@ def test_an_empty_entry_puts_the_default_back():
 
 
 def test_when_the_old_value_cannot_be_put_back_it_says_so(monkeypatch):
-    real_set = settings_list.settings_store.set
+    real_set = settings_store.set
     calls = []
 
     def flaky_set(key, value):
         calls.append(value)
         return real_set(key, value) if len(calls) == 1 else False  # the write works, the put-back does not
 
-    settings_list.set_number(_setting("reply_limit"), "100")
-    monkeypatch.setattr(settings_list.settings_store, "set", flaky_set)
+    apply.set_number(_setting("reply_limit"), "100")
+    monkeypatch.setattr(settings_store, "set", flaky_set)
     message, done = _type("reply_limit", "10")
     assert done is False and "Couldn't put it back" in message and "left as it was" not in message
 
 
 def test_a_save_that_fails_says_so_and_keeps_the_prompt_open(monkeypatch):
-    monkeypatch.setattr(settings_list.settings_store, "set", lambda key, value: False)
+    monkeypatch.setattr(settings_store, "set", lambda key, value: False)
     assert _type("context_window", "8192") == ("Couldn't save context_window.", False)
 
 
