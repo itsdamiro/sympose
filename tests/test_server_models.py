@@ -1,0 +1,99 @@
+"""The web chat's model routes (docs/decisions/044): the one list of models, and saving a persona's own
+model into its persona.yaml, the same file the terminal's /model writes."""
+
+import pytest
+from fastapi.testclient import TestClient
+from helpers import write_persona
+
+from sympose import profile
+from sympose.engine.model_options import MODEL_OPTIONS
+from sympose.server import create_app
+
+FILE = "name: Samantha\nvault_folders: '*'\nsympose_reference: false\n# kept\n"
+
+
+@pytest.fixture(autouse=True)
+def scratch(tmp_path, monkeypatch):
+    base = tmp_path / "profiles"
+    write_persona(base, "samantha", FILE)
+    write_persona(base, "cloudy", FILE + "model: gemini/gemini-flash-latest\n")
+    monkeypatch.setenv("SYMPOSE_PROFILES_DIR", str(base))
+    monkeypatch.setenv("SYMPOSE_SETTINGS_PATH", str(tmp_path / "settings.json"))
+    monkeypatch.setenv("VAULT_PATHS", str(tmp_path))
+    return base
+
+
+@pytest.fixture
+def client():
+    return TestClient(create_app())
+
+
+def test_lists_the_shared_models_marked_cloud_or_local(client):
+    body = client.get("/api/models", params={"persona": "samantha"}).json()
+    assert [m["id"] for m in body["models"]] == [m.id for m in MODEL_OPTIONS]
+    by_id = {m["id"]: m for m in body["models"]}
+    assert by_id[MODEL_OPTIONS[0].id]["cloud"] is False
+    assert by_id["gemini/gemini-flash-latest"]["cloud"] is True
+    assert by_id["gemini/gemini-flash-latest"]["label"] == "Gemini Flash — cloud"
+
+
+def test_says_the_model_in_use_and_the_one_that_applies_with_none_of_its_own(client):
+    plain = client.get("/api/models", params={"persona": "samantha"}).json()
+    assert plain["current"] == plain["fallback"] and plain["own"] is None
+    cloudy = client.get("/api/models", params={"persona": "cloudy"}).json()
+    assert cloudy["current"] == "gemini/gemini-flash-latest" == cloudy["own"]
+    assert cloudy["fallback"] == plain["fallback"]
+
+
+def test_says_whether_the_model_in_use_is_cloud_even_when_the_list_does_not_hold_it(client, scratch):
+    assert client.get("/api/models", params={"persona": "samantha"}).json()["current_cloud"] is False
+    assert client.get("/api/models", params={"persona": "cloudy"}).json()["current_cloud"] is True
+    write_persona(scratch, "handmade", FILE + "model: openai/some-model-not-listed\n")
+    assert client.get("/api/models", params={"persona": "handmade"}).json()["current_cloud"] is True
+
+
+def test_says_whether_the_fallback_is_cloud_too_since_clearing_a_model_lands_on_it(client, monkeypatch):
+    assert client.get("/api/models", params={"persona": "samantha"}).json()["fallback_cloud"] is False
+    from sympose import settings_store
+
+    settings_store.set("chat_model", "openai/gpt-4o-mini")
+    body = client.get("/api/models", params={"persona": "samantha"}).json()
+    assert body["fallback"] == "openai/gpt-4o-mini" and body["fallback_cloud"] is True
+
+
+def test_a_listed_model_is_saved_into_the_persona_file_and_read_back(client, scratch):
+    r = client.put("/api/personas/samantha/model", json={"model": "openai/gpt-4o-mini"})
+    assert r.status_code == 200 and r.json()["current"] == "openai/gpt-4o-mini" and r.json()["own"] == "openai/gpt-4o-mini"
+    text = (scratch / "samantha" / "persona.yaml").read_text()
+    assert text.startswith(FILE) and text.endswith("model: 'openai/gpt-4o-mini'\n")  # the rest untouched
+    assert profile.get_profile("samantha")["model"] == "openai/gpt-4o-mini"  # what the terminal reads
+
+
+def test_the_answer_describes_the_persona_that_was_changed_not_the_default_one(client):
+    r = client.put("/api/personas/cloudy/model", json={"model": "openai/gpt-4o-mini"})
+    assert r.json()["own"] == "openai/gpt-4o-mini" == r.json()["current"]
+
+
+def test_null_clears_the_persona_own_model(client, scratch):
+    r = client.put("/api/personas/cloudy/model", json={"model": None})
+    assert r.status_code == 200 and r.json()["own"] is None and r.json()["current"] == r.json()["fallback"]
+    assert "model:" not in (scratch / "cloudy" / "persona.yaml").read_text()
+
+
+def test_a_model_the_list_does_not_offer_is_refused_and_nothing_is_written(client, scratch):
+    before = (scratch / "samantha" / "persona.yaml").read_text()
+    r = client.put("/api/personas/samantha/model", json={"model": "evil/anything"})
+    assert r.status_code == 422 and "evil/anything" in r.json()["detail"]
+    assert (scratch / "samantha" / "persona.yaml").read_text() == before
+
+
+def test_an_unknown_persona_is_404_for_both_routes(client):
+    assert client.get("/api/models", params={"persona": "nobody"}).status_code == 404
+    assert client.put("/api/personas/nobody/model", json={"model": None}).status_code == 404
+
+
+def test_a_file_that_cannot_be_saved_safely_is_a_500_and_left_alone(client, scratch):
+    (scratch / "samantha" / "persona.yaml").write_text("name: [unclosed\n")
+    r = client.put("/api/personas/samantha/model", json={"model": "openai/gpt-4o-mini"})
+    assert r.status_code == 500
+    assert (scratch / "samantha" / "persona.yaml").read_text() == "name: [unclosed\n"

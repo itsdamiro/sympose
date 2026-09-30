@@ -24,6 +24,7 @@ from sympose import server_definition_handlers as dh
 from sympose import server_origin
 from sympose import server_handlers as h
 from sympose import server_hidden_handlers as hh
+from sympose import server_model_handlers as mh
 from sympose import server_persona_handlers as ph
 from sympose import server_settings_handlers as seh
 from sympose import server_sharing_handlers as sph
@@ -31,7 +32,7 @@ from sympose import server_search_handlers as sh
 from sympose import server_trash_handlers as th
 from sympose import server_vault_handlers as vh
 from sympose import vault_paths
-from sympose.server_models import ChatSessionStart, ChatTurn, DefinitionsSwitch, FolderDefinition, HiddenPath, SettingChange, SharingChange, TrashEmpty, TrashRestore, VaultActivate
+from sympose.server_models import ChatSessionStart, ChatTurn, DefinitionsSwitch, FolderDefinition, HiddenPath, ModelChoice, SettingChange, SharingChange, TrashEmpty, TrashRestore, VaultActivate
 
 
 def create_app() -> FastAPI:
@@ -102,6 +103,14 @@ def create_app() -> FastAPI:
     @app.put("/api/sharing/{category}")
     def put_sharing(category: str, body: SharingChange, persona: str | None = Query(None)) -> dict[str, Any]:
         return sph.put_sharing(category, persona, body)
+
+    @app.get("/api/models")
+    def get_models(persona: str | None = Query(None)) -> dict[str, Any]:
+        return mh.get_models(persona)
+
+    @app.put("/api/personas/{handle}/model")
+    def put_persona_model(handle: str, body: ModelChoice) -> dict[str, Any]:
+        return mh.put_persona_model(handle, body)
 
     @app.get("/api/personas")
     def get_personas() -> dict[str, Any]:

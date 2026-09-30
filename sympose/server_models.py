@@ -122,3 +122,9 @@ class SharingChange(BaseModel):
     """Body of `PUT /api/sharing/{category}` — whether cloud models may receive that category."""
 
     shared: bool
+
+
+class ModelChoice(BaseModel):
+    """Body of `PUT /api/personas/{handle}/model` — the persona's own model, or `null` to clear it."""
+
+    model: str | None = None
