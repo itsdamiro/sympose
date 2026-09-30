@@ -31,6 +31,8 @@ interface ChatMessageProps extends React.ComponentProps<"div"> {
   timestamp?: string
   streaming?: boolean
   actions?: ChatAction[]
+  /** What grounded this reply (the notes it was based on) — `role: "persona"` only, under the text. */
+  grounding?: React.ReactNode
 }
 
 /**
@@ -47,6 +49,7 @@ function ChatMessage({
   timestamp,
   streaming = false,
   actions,
+  grounding,
   children,
   ...props
 }: ChatMessageProps) {
@@ -99,6 +102,7 @@ function ChatMessage({
         {children}
         {streaming && <StreamingCaret />}
       </div>
+      {grounding}
       {actions && actions.length > 0 && (
         <div className="flex flex-wrap gap-1.5 pt-0.5">
           {actions.map((a, i) => (

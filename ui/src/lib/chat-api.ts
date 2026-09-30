@@ -1,3 +1,4 @@
+import type { SentRecord } from "@/lib/chat-types"
 import { detailOf } from "@/lib/vault-note-api"
 
 /** What the persona's reply in flight is doing right now (the engine's own phases, ADR 043). */
@@ -14,7 +15,11 @@ export interface ChatReply {
   /** Categories of the vault that went to a non-local model, and those held back (ADR 031). */
   cloud: string[]
   withheld: string[]
+  /** What reached the model besides the messages; the grounded view reads its notes. */
+  sent: SentRecord | null
 }
+
+const BACKEND_DOWN = "the Sympose backend is not reachable. Is it running (`sympose web`, or `python -m sympose.main` beside `npm run dev`)?"
 
 export type SendChatTurnResult =
   | { ok: true; reply: ChatReply }
@@ -38,9 +43,13 @@ export async function sendChatTurn(
       body: JSON.stringify({ message, persona, session_id: sessionId }),
     })
     if (res.ok) return { ok: true, reply: (await res.json()) as ChatReply }
-    return { ok: false, error: (await detailOf(res)) || `HTTP ${res.status}` }
+    const detail = await detailOf(res)
+    if (detail) return { ok: false, error: detail }
+    // A gateway error with no reason of ours in it is the dev server's proxy saying nothing is behind it.
+    if ([502, 503, 504].includes(res.status)) return { ok: false, error: BACKEND_DOWN }
+    return { ok: false, error: `HTTP ${res.status}` }
   } catch (err) {
-    return { ok: false, error: `backend unreachable (${err})` }
+    return { ok: false, error: `${BACKEND_DOWN} (${err})` }
   }
 }
 
@@ -66,7 +75,7 @@ export interface SessionTurn {
   ttft_ms: number | null
   truncated: boolean
   /** What reached the model besides the messages (ADR 025); the grounded view reads it. */
-  sent: Record<string, unknown> | null
+  sent: SentRecord | null
 }
 
 export interface SessionPage {

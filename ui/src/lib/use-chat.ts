@@ -59,6 +59,7 @@ function turnsFromPage(handle: string, page: SessionPage): ChatTurn[] {
         body: saved.assistant,
         timestamp: at,
         latency: latency(saved.ttft_ms),
+        sent: saved.sent,
       },
     ]
   })
@@ -147,10 +148,10 @@ export function useChat(persona: string) {
       if (!result.ok) {
         return addTo(done, { role: "system", kind: "error", body: `@${persona} couldn't reply: ${result.error}` })
       }
-      const { reply, session_id, ttft_ms } = result.reply
+      const { reply, session_id, ttft_ms, sent } = result.reply
       return addTo(
         { ...done, sessionId: session_id },
-        { role: "persona", handle: persona, body: reply, timestamp: time(new Date()), latency: latency(ttft_ms) }
+        { role: "persona", handle: persona, body: reply, timestamp: time(new Date()), latency: latency(ttft_ms), sent }
       )
     })
   }, [convo.draft, convo.sessionId, persona, update, addTo])

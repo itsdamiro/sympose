@@ -70,7 +70,7 @@ import {
   moveVaultNote,
 } from "@/lib/vault-note-api"
 import { isNoteDrag, readNoteDrag } from "@/lib/vault-drag"
-import { findNoteByWikilink } from "@/lib/find-note-by-wikilink"
+import { findNoteByPath, findNoteByWikilink } from "@/lib/find-note-by-wikilink"
 import { findNodeByPath } from "@/lib/find-node-by-path"
 import { matchWikilinkTargets } from "@/lib/vault-wikilink-completions"
 import { matchTagTargets } from "@/lib/vault-tag-completions"
@@ -757,6 +757,14 @@ export function AppShell() {
       selectNote(match.path)
       panels.open("editor")
     }
+  }
+
+  // A note named under a chat reply (what it was based on): opened only if the user can see it, so a note
+  // hidden from view (ADR 037) or since deleted does nothing rather than opening in the editor.
+  const openGroundedNote = (path: string) => {
+    if (!findNoteByPath(vaultTree, path)) return
+    selectNote(path)
+    panels.open("editor")
   }
 
   // stylo's `wikiLinkSource` (>=0.7.0) is read once, at mount — so the
@@ -1718,6 +1726,7 @@ export function AppShell() {
               hasMore={chat.hasMore}
               loadingOlder={chat.loadingOlder}
               onLoadOlder={chat.loadOlder}
+              onOpenNote={openGroundedNote}
               onNewConversation={chat.newConversation}
               draft={chat.draft}
               onDraftChange={chat.setDraft}

@@ -25,3 +25,17 @@ export function findNoteByWikilink(
   }
   return undefined
 }
+
+/** The note at exactly `path` (its full vault-relative path), or `undefined` when the tree does not hold
+ *  it — a note hidden from view or since deleted is not in the tree. Unlike a wikilink, a path is
+ *  unambiguous, so two notes with the same name in different folders are told apart. */
+export function findNoteByPath(tree: VaultNode[], path: string): VaultNode | undefined {
+  for (const node of tree) {
+    if (node.type === "note" && node.path === path) return node
+    if (node.children) {
+      const found = findNoteByPath(node.children, path)
+      if (found) return found
+    }
+  }
+  return undefined
+}

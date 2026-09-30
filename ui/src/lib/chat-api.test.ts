@@ -27,11 +27,25 @@ describe("sendChatTurn", () => {
     expect(await sendChatTurn("hello", "samantha")).toEqual({ ok: false, error: "local models only" })
   })
 
-  it("says the backend is unreachable instead of throwing", async () => {
+  it("says the backend is not reachable instead of throwing", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")))
     const res = await sendChatTurn("hello", "samantha")
     expect(res.ok).toBe(false)
-    expect(!res.ok && res.error).toContain("unreachable")
+    expect(!res.ok && res.error).toContain("not reachable")
+  })
+
+  it("tells a dev proxy's bare 502 (nothing behind it) from the backend's own 502 with a reason", async () => {
+    stub({ ok: false, status: 502, json: () => Promise.reject(new Error("not json")) })
+    const bare = await sendChatTurn("hello", "samantha")
+    expect(!bare.ok && bare.error).toContain("not reachable")
+    expect(!bare.ok && bare.error).toContain("Is it running")
+    stub({ ok: false, status: 502, json: () => Promise.resolve({ detail: "the model is not running" }) })
+    expect(await sendChatTurn("hello", "samantha")).toEqual({ ok: false, error: "the model is not running" })
+  })
+
+  it("keeps a plain status for an error that is not a gateway one", async () => {
+    stub({ ok: false, status: 500, json: () => Promise.reject(new Error("not json")) })
+    expect(await sendChatTurn("hello", "samantha")).toEqual({ ok: false, error: "HTTP 500" })
   })
 })
 

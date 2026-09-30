@@ -128,4 +128,31 @@ describe("ChatPanel", () => {
     setup({ turns: [], onNewConversation })
     expect(screen.queryByText("New conversation")).toBeNull()
   })
+
+  it("shows what a persona reply was based on under that reply, and opens the note it names", () => {
+    const onOpenNote = vi.fn()
+    const turns: ChatTurn[] = [
+      { id: "1", role: "user", body: "which database?" },
+      {
+        id: "2",
+        role: "persona",
+        handle: "samantha",
+        body: "SQLite.",
+        sent: { notes: [{ path: "Projects/Atlas.md", heading: "", source: "vault" }] },
+      },
+    ]
+    setup({ turns, onOpenNote })
+    fireEvent.click(screen.getByRole("button", { name: /Based on Atlas/ }))
+    fireEvent.click(screen.getByRole("button", { name: "Projects/Atlas.md" }))
+    expect(onOpenNote).toHaveBeenCalledWith("Projects/Atlas.md")
+  })
+
+  it("puts no grounding line under a reply that used no note, nor under the user's own message", () => {
+    const turns: ChatTurn[] = [
+      { id: "1", role: "user", body: "hello", sent: { notes: [{ path: "A.md", heading: "", source: "vault" }] } },
+      { id: "2", role: "persona", handle: "samantha", body: "hi", sent: { notes: [] } },
+    ]
+    setup({ turns })
+    expect(screen.queryByText(/Based on/)).toBeNull()
+  })
 })

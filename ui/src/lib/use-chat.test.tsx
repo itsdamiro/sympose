@@ -309,4 +309,19 @@ describe("useChat resuming", () => {
     expect(result.current.turns).toEqual([])
     expect(result.current.hasMore).toBe(false)
   })
+
+  it("keeps what grounded a reply with it, live and when resumed", async () => {
+    const sent = { notes: [{ path: "Projects/Atlas.md", heading: "", source: "vault" }] }
+    api.fetchChatSession.mockResolvedValue(pageOf([saved(0, { sent })], 0, false))
+    api.sendChatTurn.mockResolvedValue({
+      ok: true,
+      reply: { ...ok("live").reply, sent },
+    })
+    const { result } = renderHook(() => useChat("samantha"))
+    await waitFor(() => expect(result.current.turns).toHaveLength(2))
+    expect(result.current.turns[1].sent).toEqual(sent)
+    expect(result.current.turns[0].sent).toBeUndefined()
+    await say(result, "again")
+    expect(result.current.turns[result.current.turns.length - 1].sent).toEqual(sent)
+  })
 })

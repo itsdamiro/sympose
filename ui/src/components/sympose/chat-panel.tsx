@@ -7,6 +7,7 @@ import type { ChatPhase } from "@/lib/chat-api"
 import type { ChatTurn } from "@/lib/chat-types"
 import { ChatMessage } from "@/components/sympose/chat-message"
 import { ChatSystemLine } from "@/components/sympose/chat-system-line"
+import { GroundedNotes } from "@/components/sympose/grounded-notes"
 import { ModelChip } from "@/components/sympose/model-chip"
 
 /** What a reply in flight is doing, in words: the same texts the terminal chat shows (ADR 043). */
@@ -26,6 +27,8 @@ interface ChatPanelProps extends React.ComponentProps<"div"> {
   hasMore?: boolean
   loadingOlder?: boolean
   onLoadOlder?: () => void
+  /** Opens a note named under a reply (the notes it was based on). */
+  onOpenNote?: (path: string) => void
   /** Starts a fresh conversation; the control shows once there is something to leave behind. */
   onNewConversation?: () => void
   draft: string
@@ -63,6 +66,7 @@ function ChatPanel({
   hasMore = false,
   loadingOlder = false,
   onLoadOlder,
+  onOpenNote,
   onNewConversation,
   draft,
   onDraftChange,
@@ -200,6 +204,7 @@ function ChatPanel({
                   timestamp={turn.timestamp}
                   streaming={turn.streaming}
                   actions={turn.actions}
+                  grounding={<GroundedNotes sent={turn.sent} onOpenNote={onOpenNote} />}
                 >
                   {turn.body}
                 </ChatMessage>
