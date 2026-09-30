@@ -1,7 +1,9 @@
 export { ActionBadge } from "./action-badge"
 export { ChatActionGroup } from "./chat-action-group"
 export { ChatMessage, StreamingCaret } from "./chat-message"
-export { ChatPanel } from "./chat-panel"
+// `ChatPanel` is intentionally NOT re-exported here: the app shell lazy-imports it directly from
+// "@/components/sympose/chat-panel" so the chat stays out of the first page load (docs/decisions/044).
+export { ChatSystemLine } from "./chat-system-line"
 export { ConfirmDialog } from "./confirm-dialog"
 export { ContentPanel } from "./content-panel"
 export {

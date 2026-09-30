@@ -4,7 +4,7 @@ import { Note01Icon, SearchAreaIcon } from "@hugeicons/core-free-icons"
 import type { IconSvgElement } from "@hugeicons/react"
 
 import { cn } from "@/lib/utils"
-import type { ActionKind } from "@/lib/chat-mock-data"
+import type { ActionKind } from "@/lib/chat-types"
 
 const ACTION_META: Record<ActionKind, { icon: IconSvgElement; label: string }> = {
   WRITE_NOTE: { icon: Note01Icon, label: "Note saved" },

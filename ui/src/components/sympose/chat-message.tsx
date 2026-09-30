@@ -3,7 +3,7 @@ import { HugeiconsIcon } from "@hugeicons/react"
 
 import { cn } from "@/lib/utils"
 import { resolvePersonaVisuals } from "@/lib/personas"
-import type { ChatAction } from "@/lib/chat-mock-data"
+import type { ChatAction } from "@/lib/chat-types"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { ModelChip } from "@/components/sympose/model-chip"
 import { ActionBadge } from "@/components/sympose/action-badge"

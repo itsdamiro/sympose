@@ -51,7 +51,7 @@ import {
   resolvePersonaVisuals,
   type LivePersona,
 } from "@/lib/personas"
-import type { ChatTurn } from "@/lib/chat-mock-data"
+import { useChat } from "@/lib/use-chat"
 import { fetchVaultTree } from "@/lib/vault-tree-api"
 import { searchVault, type VaultSearchResult } from "@/lib/vault-search-api"
 import {
@@ -80,7 +80,6 @@ import { fetchNoteTemplate, type NoteTemplate } from "@/lib/vault-definition-api
 import {
   PersonaCard,
   ChatActionGroup,
-  ChatPanel,
   CollapseAllButton,
   ContentPanel,
   ControlSectionsProvider,
@@ -113,6 +112,11 @@ const AmbientNebula = React.lazy(() =>
   import("@/components/sympose/ambient-nebula").then((m) => ({
     default: m.AmbientNebula,
   }))
+)
+
+// Lazy — the chat stays out of the first page load (docs/decisions/044).
+const ChatPanel = React.lazy(() =>
+  import("@/components/sympose/chat-panel").then((m) => ({ default: m.ChatPanel }))
 )
 
 /** Curated name → icon map, so known folders keep their glyph when the menu is
@@ -385,25 +389,13 @@ export function AppShell() {
   // is navigation, it keeps its dragged width even when alone.
   const editorFill = editorOpen && !chatOpen && breakpoint !== "desktop"
 
-  // Chat — presentational only (no engine yet, #29): local, non-persisted state that starts empty. No
-  // canned persona replies: a made-up answer about the vault would read as a real, grounded one.
-  const [chatTurns, setChatTurns] = React.useState<ChatTurn[]>([])
-  const [chatDraft, setChatDraft] = React.useState("")
-  const submitChatDraft = () => {
-    const body = chatDraft.trim()
-    if (!body) return
-    setChatTurns((prev) => [
-      ...prev,
-      { id: `mock-${Date.now()}`, role: "user", body },
-    ])
-    setChatDraft("")
-  }
-
   // Persona picker — the active persona is client state (a cookie), and the
   // roster is fetched once. Both feed the `MENU_ACCOUNT_ID` panel; the handle
   // is lifted here so the vault panels can scope their `?persona=` calls to it
   // once those land.
   const [activePersona, setActivePersona] = useActivePersona()
+  // Chat state lives in its own hook (docs/decisions/044), keyed on the active persona.
+  const chat = useChat(activePersona)
   const [editorPrefs, setEditorPref] = useEditorPreferences()
   const [toolbarItems, setToolbarItems] = useToolbarItems()
 
@@ -1718,18 +1710,22 @@ export function AppShell() {
             onCreated={() => setVaultRefreshKey((k) => k + 1)}
           />
 
-          <ChatPanel
-            turns={chatTurns}
-            draft={chatDraft}
-            onDraftChange={setChatDraft}
-            onSubmit={submitChatDraft}
-            model={
-              personas.find((p) => p.handle === activePersona)?.model
-            }
-            personaName={activePersonaName}
-            open={chatOpen}
-            phone={isPhone}
-          />
+          <React.Suspense fallback={null}>
+            <ChatPanel
+              turns={chat.turns}
+              sending={chat.sending}
+              phase={chat.phase}
+              draft={chat.draft}
+              onDraftChange={chat.setDraft}
+              onSubmit={chat.send}
+              model={
+                personas.find((p) => p.handle === activePersona)?.model
+              }
+              personaName={activePersonaName}
+              open={chatOpen}
+              phone={isPhone}
+            />
+          </React.Suspense>
         </div>
       </div>
     </div>

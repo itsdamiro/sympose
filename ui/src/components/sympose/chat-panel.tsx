@@ -3,12 +3,25 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { PlusSignIcon } from "@hugeicons/core-free-icons"
 
 import { cn } from "@/lib/utils"
-import type { ChatTurn } from "@/lib/chat-mock-data"
+import type { ChatPhase } from "@/lib/chat-api"
+import type { ChatTurn } from "@/lib/chat-types"
 import { ChatMessage } from "@/components/sympose/chat-message"
+import { ChatSystemLine } from "@/components/sympose/chat-system-line"
 import { ModelChip } from "@/components/sympose/model-chip"
+
+/** What a reply in flight is doing, in words: the same texts the terminal chat shows (ADR 043). */
+const PHASE_TEXT: Record<ChatPhase, string> = {
+  searching: "Searching your notes…",
+  reading: "Reading a note…",
+  asking: "Thinking about your message…",
+}
 
 interface ChatPanelProps extends React.ComponentProps<"div"> {
   turns: ChatTurn[]
+  /** A reply is in flight: shown as a status line above the composer, and a second message is not sent. */
+  sending?: boolean
+  /** What that reply is doing right now, when the backend says. */
+  phase?: ChatPhase | null
   draft: string
   onDraftChange: (value: string) => void
   onSubmit: () => void
@@ -39,6 +52,8 @@ interface ChatPanelProps extends React.ComponentProps<"div"> {
 function ChatPanel({
   className,
   turns,
+  sending = false,
+  phase = null,
   draft,
   onDraftChange,
   onSubmit,
@@ -50,9 +65,15 @@ function ChatPanel({
   ...props
 }: ChatPanelProps) {
   const submit = () => {
-    if (!draft.trim()) return
+    if (!draft.trim() || sending) return
     onSubmit()
   }
+
+  // Keep the newest turn (and the status line) in view as they arrive.
+  const endRef = React.useRef<HTMLDivElement>(null)
+  React.useEffect(() => {
+    endRef.current?.scrollIntoView?.({ block: "end" })
+  }, [turns, sending, phase])
 
   // The flex space this panel reserves in the row. On open it's claimed
   // synchronously (same render, no extra paint) so the fade/rise-in
@@ -118,7 +139,11 @@ function ChatPanel({
             </div>
           ) : (
             turns.map((turn) =>
-              turn.role === "user" ? (
+              turn.role === "system" ? (
+                <ChatSystemLine key={turn.id} kind={turn.kind ?? "notice"}>
+                  {turn.body}
+                </ChatSystemLine>
+              ) : turn.role === "user" ? (
                 <ChatMessage key={turn.id} role="user" timestamp={turn.timestamp}>
                   {turn.body}
                 </ChatMessage>
@@ -137,6 +162,12 @@ function ChatPanel({
               )
             )
           )}
+          {sending && (
+            <div role="status" className="text-xs text-fg-muted motion-safe:animate-pulse">
+              {phase ? PHASE_TEXT[phase] : PHASE_TEXT.asking}
+            </div>
+          )}
+          <div ref={endRef} />
         </div>
       </div>
 
