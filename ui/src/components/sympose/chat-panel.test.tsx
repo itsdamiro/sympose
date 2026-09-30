@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from "@testing-library/react"
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import type { ChatTurn } from "@/lib/chat-types"
 import { ChatPanel } from "./chat-panel"
@@ -9,8 +9,8 @@ afterEach(cleanup)
 
 function setup(props: Partial<Parameters<typeof ChatPanel>[0]> = {}) {
   const onSubmit = vi.fn()
-  render(<ChatPanel turns={[]} draft="hello" onDraftChange={() => {}} onSubmit={onSubmit} {...props} />)
-  return { onSubmit }
+  const view = render(<ChatPanel turns={[]} draft="hello" onDraftChange={() => {}} onSubmit={onSubmit} {...props} />)
+  return { onSubmit, rerender: view.rerender }
 }
 
 function withScroller(props: Partial<Parameters<typeof ChatPanel>[0]>) {
@@ -41,6 +41,32 @@ describe("ChatPanel", () => {
   it("says it is thinking when the backend has not named a phase yet", () => {
     setup({ sending: true, phase: null })
     expect(screen.getByText("Thinking about your message…")).toBeTruthy()
+  })
+
+  describe("the busy line's phrases and typing", () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+      vi.stubGlobal("matchMedia", () => ({ matches: false }))
+    })
+    afterEach(() => {
+      vi.useRealTimers()
+      vi.unstubAllGlobals()
+    })
+    const line = () => (document.querySelector('[data-slot="busy-line"] [aria-hidden]') as HTMLElement).textContent ?? ""
+
+    it("types the line out by letters unless typing is off", () => {
+      setup({ sending: true, phase: "reading", typeStatus: true })
+      expect(line().slice(2)).toBe("R")
+      cleanup()
+      setup({ sending: true, phase: "reading", typeStatus: false })
+      expect(line().slice(2)).toBe("Reading a note…")
+    })
+
+    it("rotates through the persona's own phrases it is given", () => {
+      setup({ sending: true, phase: "reading", typeStatus: false, statusPhrases: ["Own phrase…"] })
+      act(() => void vi.advanceTimersByTime(3100))
+      expect(line().slice(2)).toBe("Own phrase…")
+    })
   })
 
   it("shows no status line when nothing is in flight", () => {
@@ -173,6 +199,93 @@ describe("ChatPanel", () => {
   it("shows the plain chip when there is no picker", () => {
     setup({ model: "ollama_chat/gemma2:9b" })
     expect(screen.getByText("ollama_chat/gemma2:9b")).toBeTruthy()
+  })
+
+  describe("the message box grows with what is typed", () => {
+    const LINE_PX = 20
+    beforeEach(() => {
+      // jsdom does no layout: stand in for it, a line of text being LINE_PX tall.
+      Object.defineProperty(HTMLTextAreaElement.prototype, "scrollHeight", {
+        configurable: true,
+        get(this: HTMLTextAreaElement) {
+          // A closed panel has no width, so its box reads as very tall (the placeholder wraps letter by letter).
+          if (this.closest('[data-state="closed"]')) return 500
+          return Math.max(1, this.value.split("\n").length) * LINE_PX
+        },
+      })
+    })
+    afterEach(() => {
+      delete (HTMLTextAreaElement.prototype as unknown as Record<string, unknown>).scrollHeight
+    })
+    const box = () => screen.getByLabelText("Message") as HTMLTextAreaElement
+
+    it("is as tall as its text, line after line", () => {
+      const { rerender } = setup({ draft: "one" })
+      expect(box().style.height).toBe("20px")
+      rerender(<ChatPanel turns={[]} draft={"one\ntwo\nthree"} onDraftChange={vi.fn()} onSubmit={vi.fn()} />)
+      expect(box().style.height).toBe("60px")
+      expect(box().style.overflowY).toBe("hidden")
+    })
+
+    it("stops growing at about eight lines and scrolls inside from there", () => {
+      setup({ draft: Array.from({ length: 30 }, (_, i) => `line ${i}`).join("\n") })
+      expect(box().style.height).toBe("192px")
+      expect(box().style.overflowY).toBe("auto")
+    })
+
+    it("is measured again when the panel opens, not left at the height it had while closed", () => {
+      const { rerender } = setup({ draft: "", open: false })
+      expect(box().style.height).toBe("192px") // measured while closed: wrong, and must not stick
+      rerender(<ChatPanel turns={[]} draft="" open onDraftChange={vi.fn()} onSubmit={vi.fn()} />)
+      expect(box().style.height).toBe("20px")
+    })
+
+    it("watches the box's width, measures again only when it changed, and stops watching when closed", () => {
+      const seen = { observed: [] as Element[], disconnected: 0 }
+      let notify: () => void = () => {}
+      vi.stubGlobal(
+        "ResizeObserver",
+        class {
+          constructor(cb: () => void) {
+            notify = cb
+          }
+          observe(el: Element) {
+            seen.observed.push(el)
+          }
+          disconnect() {
+            seen.disconnected += 1
+          }
+        }
+      )
+      let width = 300
+      Object.defineProperty(HTMLTextAreaElement.prototype, "clientWidth", { configurable: true, get: () => width })
+      try {
+        const view = render(<ChatPanel turns={[]} draft="x" onDraftChange={vi.fn()} onSubmit={vi.fn()} />)
+        expect(seen.observed).toEqual([box()])
+        expect(box().style.height).toBe("20px")
+        box().value = "a\nb\nc" // stands in for the text wrapping onto more lines at a narrower width
+        notify()
+        expect(box().style.height).toBe("20px") // the width has not changed: nothing to measure again
+        width = 200
+        notify()
+        expect(box().style.height).toBe("60px")
+        box().value = "a\nb\nc\nd\ne"
+        notify()
+        expect(box().style.height).toBe("60px") // that width was measured already
+        view.unmount()
+        expect(seen.disconnected).toBe(1)
+      } finally {
+        vi.unstubAllGlobals()
+        delete (HTMLTextAreaElement.prototype as unknown as Record<string, unknown>).clientWidth
+      }
+    })
+
+    it("goes back to one line once the message is sent and the box is cleared", () => {
+      const { rerender } = setup({ draft: "a\nb\nc\nd" })
+      expect(box().style.height).toBe("80px")
+      rerender(<ChatPanel turns={[]} draft="" onDraftChange={vi.fn()} onSubmit={vi.fn()} />)
+      expect(box().style.height).toBe("20px")
+    })
   })
 
   it("keeps the notice above the message box", () => {

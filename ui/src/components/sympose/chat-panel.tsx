@@ -8,16 +8,10 @@ import type { ChatTurn } from "@/lib/chat-types"
 import { ChatMessage } from "@/components/sympose/chat-message"
 import { ChatMarkdown } from "@/components/sympose/chat-markdown"
 import { ChatSystemLine } from "@/components/sympose/chat-system-line"
+import { BusyLine } from "@/components/sympose/busy-line"
 import { CloudSent } from "@/components/sympose/cloud-sent"
 import { GroundedNotes } from "@/components/sympose/grounded-notes"
 import { ModelChip } from "@/components/sympose/model-chip"
-
-/** What a reply in flight is doing, in words: the same texts the terminal chat shows (ADR 043). */
-const PHASE_TEXT: Record<ChatPhase, string> = {
-  searching: "Searching your notes…",
-  reading: "Reading a note…",
-  asking: "Thinking about your message…",
-}
 
 interface ChatPanelProps extends React.ComponentProps<"div"> {
   turns: ChatTurn[]
@@ -35,6 +29,9 @@ interface ChatPanelProps extends React.ComponentProps<"div"> {
   onWikiLinkClick?: (target: string) => void
   /** The "Based on ..." line under a reply that used notes (a web display knob, on by default). */
   showGrounding?: boolean
+  /** The persona's own witty phrases for the busy line, and whether they are typed out by letters. */
+  statusPhrases?: string[]
+  typeStatus?: boolean
   /** Shown above the message box, always in view (the cloud notice, ADR 031). */
   notice?: React.ReactNode
   /** Starts a fresh conversation; the control shows once there is something to leave behind. */
@@ -68,6 +65,9 @@ interface ChatPanelProps extends React.ComponentProps<"div"> {
  * open/close motion itself is bottom-up rather than side-to-side: the panel's
  * content fades and rises into place instead of sweeping in with its width.
  */
+/** The tallest the message box grows to, about eight lines; past that it scrolls inside. */
+const MAX_INPUT_PX = 192
+
 function ChatPanel({
   className,
   turns,
@@ -80,6 +80,8 @@ function ChatPanel({
   onWikiLinkClick,
   onNewConversation,
   showGrounding = true,
+  statusPhrases = [],
+  typeStatus = true,
   notice,
   draft,
   onDraftChange,
@@ -96,6 +98,32 @@ function ChatPanel({
     if (!draft.trim() || sending) return
     onSubmit()
   }
+
+  // The message box grows with what is typed, up to `MAX_INPUT_PX`, and goes back to one line once it is
+  // sent. Measured on the box itself (`scrollHeight`) so wrapped lines count, not only line breaks; measured
+  // again when the panel opens (while it is closed the box has no width and even the placeholder wraps) and
+  // when the box's width changes (a resize, a dragged panel), since wrapping depends on it.
+  const inputRef = React.useRef<HTMLTextAreaElement>(null)
+  const fitInput = React.useCallback(() => {
+    const box = inputRef.current
+    if (!box) return
+    box.style.height = "auto"
+    box.style.height = `${Math.min(box.scrollHeight, MAX_INPUT_PX)}px`
+    box.style.overflowY = box.scrollHeight > MAX_INPUT_PX ? "auto" : "hidden"
+  }, [])
+  React.useLayoutEffect(fitInput, [fitInput, draft, open])
+  React.useEffect(() => {
+    const box = inputRef.current
+    if (!box || typeof ResizeObserver === "undefined") return
+    let width = box.clientWidth
+    const watcher = new ResizeObserver(() => {
+      if (box.clientWidth === width) return
+      width = box.clientWidth
+      fitInput()
+    })
+    watcher.observe(box)
+    return () => watcher.disconnect()
+  }, [fitInput])
 
   // Keep the newest turn (and the status line) in view as they arrive, but not when older turns are
   // added above: then the view stays where it was, so what the user was reading does not jump. The
@@ -231,9 +259,12 @@ function ChatPanel({
             )
           )}
           {sending && (
-            <div role="status" className="text-xs text-fg-muted motion-safe:animate-pulse">
-              {phase ? PHASE_TEXT[phase] : PHASE_TEXT.asking}
-            </div>
+            <BusyLine
+              phase={phase ?? "asking"}
+              phrases={statusPhrases}
+              typing={typeStatus}
+              className="text-xs text-fg-muted"
+            />
           )}
           <div ref={endRef} />
         </div>
@@ -244,6 +275,7 @@ function ChatPanel({
           {notice}
           <div className="rounded-lg border border-border bg-background transition-colors focus-within:border-brand">
             <textarea
+              ref={inputRef}
               rows={1}
               value={draft}
               onChange={(e) => onDraftChange(e.target.value)}

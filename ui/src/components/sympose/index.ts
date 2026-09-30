@@ -13,6 +13,7 @@ export {
   useCollapseAll,
   CollapseAllButton,
 } from "./control-section"
+export { BusyLine } from "./busy-line"
 export { CloudNotice } from "./cloud-notice"
 export { CloudSharingSection } from "./cloud-sharing-section"
 export { ModelPicker } from "./model-picker"

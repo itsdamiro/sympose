@@ -15,10 +15,20 @@ afterEach(() => {
 describe("ChatDisplaySection", () => {
   it("shows the grounded-notes switch as it is and sets it from the other side", () => {
     const setPref = vi.fn()
-    render(<ChatDisplaySection prefs={{ showGrounding: true }} setPref={setPref} />)
+    render(<ChatDisplaySection prefs={{ showGrounding: true, typeStatus: true }} setPref={setPref} />)
     const group = screen.getByRole("radiogroup", { name: "Notes a reply was based on" })
     expect(group.querySelector('[aria-checked="true"]')?.textContent).toBe("On")
-    fireEvent.click(screen.getByRole("radio", { name: "Off" }))
+    fireEvent.click(group.querySelector('[aria-checked="false"]') as HTMLElement)
     expect(setPref).toHaveBeenCalledWith("showGrounding", false)
+  })
+
+  it("shows the typing switch as it is and sets it from the other side, leaving the grounding one alone", () => {
+    const setPref = vi.fn()
+    render(<ChatDisplaySection prefs={{ showGrounding: true, typeStatus: false }} setPref={setPref} />)
+    const group = screen.getByRole("radiogroup", { name: "Type the busy line out by letters" })
+    expect(group.querySelector('[aria-checked="true"]')?.textContent).toBe("Off")
+    fireEvent.click(group.querySelector('[aria-checked="false"]') as HTMLElement)
+    expect(setPref).toHaveBeenCalledTimes(1)
+    expect(setPref).toHaveBeenCalledWith("typeStatus", true)
   })
 })

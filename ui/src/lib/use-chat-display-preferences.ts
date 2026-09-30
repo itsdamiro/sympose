@@ -10,13 +10,17 @@ import { getCookieBool, setCookieBool } from "@/lib/cookies"
 export interface ChatDisplayPreferences {
   /** The "Based on ..." line under a reply that used notes (the terminal's `show_grounding`). */
   showGrounding: boolean
+  /** The busy line above the message box types each phrase out by letters (ADR 043, 044; the terminal's
+   *  `status_typing`). Off shows whole phrases; a browser that asks for reduced motion gets them anyway. */
+  typeStatus: boolean
 }
 
-const COOKIES = { showGrounding: "sympose:chat.showGrounding" } as const
-const DEFAULTS: ChatDisplayPreferences = { showGrounding: true }
+const COOKIES = { showGrounding: "sympose:chat.showGrounding", typeStatus: "sympose:chat.typeStatus" } as const
+const DEFAULTS: ChatDisplayPreferences = { showGrounding: true, typeStatus: true }
 
 const read = (): ChatDisplayPreferences => ({
   showGrounding: getCookieBool(COOKIES.showGrounding, DEFAULTS.showGrounding),
+  typeStatus: getCookieBool(COOKIES.typeStatus, DEFAULTS.typeStatus),
 })
 
 export function useChatDisplayPreferences(): readonly [

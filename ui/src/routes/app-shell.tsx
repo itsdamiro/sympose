@@ -39,6 +39,7 @@ import { useVaultScopedState } from "@/lib/use-vault-scoped-state"
 import { useNotificationPreferences } from "@/lib/use-notification-preferences"
 import { useCloudNotice } from "@/lib/use-cloud-notice"
 import { useModels } from "@/lib/use-models"
+import { useStatusPhrases } from "@/lib/use-status-phrases"
 import { useModelSwitch } from "@/lib/use-model-switch"
 import { useSharing } from "@/lib/use-sharing"
 import { useChatDisplayPreferences } from "@/lib/use-chat-display-preferences"
@@ -449,6 +450,7 @@ export function AppShell() {
   const [nebulaPrefs, setNebulaPref] = useNebulaPreferences()
   const [chatDisplayPrefs, setChatDisplayPref] = useChatDisplayPreferences()
   const models = useModels(activePersona)
+  const statusPhrases = useStatusPhrases(activePersona, chat.sending)
   const switchModel = useModelSwitch({
     state: models.state,
     choose: models.choose,
@@ -1773,6 +1775,8 @@ export function AppShell() {
               onWikiLinkClick={openChatWikilink}
               onNewConversation={chat.newConversation}
               showGrounding={chatDisplayPrefs.showGrounding}
+              statusPhrases={statusPhrases}
+              typeStatus={chatDisplayPrefs.typeStatus}
               notice={cloudNotice.open ? <CloudNotice state={sharingState} onChange={setShared} onClose={cloudNotice.close} /> : undefined}
               draft={chat.draft}
               onDraftChange={chat.setDraft}
