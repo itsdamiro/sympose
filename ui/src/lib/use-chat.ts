@@ -1,6 +1,13 @@
 import * as React from "react"
 
-import { fetchChatPhase, fetchChatSession, sendChatTurn, type ChatPhase, type SessionPage } from "@/lib/chat-api"
+import {
+  fetchChatPhase,
+  fetchChatSession,
+  sendChatTurn,
+  startChatSession,
+  type ChatPhase,
+  type SessionPage,
+} from "@/lib/chat-api"
 import type { ChatTurn } from "@/lib/chat-types"
 
 /** How often the status of a reply in flight is asked for. */
@@ -62,7 +69,7 @@ function turnsFromPage(handle: string, page: SessionPage): ChatTurn[] {
  * is in flight and what it is doing. Each persona has its own conversation, so switching persona shows that
  * persona's and a reply that lands after a switch goes to the persona it was for. A persona's latest saved
  * conversation is picked up the first time it is shown (a refresh resumes it), the last turns first and
- * older ones on `loadOlder`; `newConversation` starts a fresh one. A message sent while that persona's reply
+ * older ones on `loadOlder`; `newConversation` starts a fresh one, saved as an empty conversation so a refresh shows it blank. A message sent while that persona's reply
  * is in flight is not accepted, since the queue cannot be shown yet.
  */
 export function useChat(persona: string) {
@@ -169,9 +176,12 @@ export function useChat(persona: string) {
     })
   }, [convo.hasMore, convo.loadingOlder, convo.sessionId, convo.oldest, persona, update])
 
-  const newConversation = React.useCallback(() => {
+  const newConversation = React.useCallback(async () => {
     if (inFlight.current.has(persona)) return
-    update(persona, () => ({ ...EMPTY, resumed: true }))
+    update(persona, () => ({ ...EMPTY, resumed: true })) // blank at once; the backend is told just after
+    const sessionId = await startChatSession(persona)
+    // If the user has already said something, that conversation is the one now; this one is not used.
+    update(persona, (c) => (sessionId && !c.sessionId && c.turns.length === 0 ? { ...c, sessionId } : c))
   }, [persona, update])
 
   return {

@@ -102,3 +102,9 @@ class ChatTurn(BaseModel):
     message: str = Field(..., min_length=1)
     persona: str | None = None
     session_id: str | None = None
+
+
+class ChatSessionStart(BaseModel):
+    """Body of `POST /api/chat/session` — start a fresh, empty conversation with a persona."""
+
+    persona: str | None = None

@@ -11,7 +11,7 @@ from fastapi import HTTPException
 
 from sympose.engine import model as model_mod, session, sharing, turn, turn_status
 from sympose.server_handlers import require_profile
-from sympose.server_models import ChatTurn
+from sympose.server_models import ChatSessionStart, ChatTurn
 
 # Lifted with the cloud notice and share control (docs/decisions/044, slice 2): until then the web
 # chat cannot tell the user what would leave the machine, so it only talks to local models.
@@ -62,13 +62,27 @@ def get_status(persona: str | None) -> dict[str, Any]:
 
 
 def _latest_session(handle: str) -> tuple[str, dict[str, Any]] | None:
-    """The newest of `handle`'s sessions that has anything in it (a file with only its meta line, from a
-    session opened and never used, is skipped), whichever channel wrote it."""
+    """The newest of `handle`'s sessions, whichever channel wrote it. One with no turns yet counts: it is a
+    conversation begun on purpose (`start_session`) and left blank."""
     for session_id in session.session_ids(handle):
         loaded = session.load_session(handle, session_id)
-        if loaded and loaded["turns"]:
+        if loaded:
             return session_id, loaded
     return None
+
+
+def start_session(body: ChatSessionStart) -> dict[str, Any]:
+    """A fresh, empty conversation, so a refresh before the first message shows it blank rather than
+    bringing the previous one back. When the latest is already blank it is reused, so pressing the button
+    twice does not leave empty files behind."""
+    handle = require_profile(body.persona)["handle"]
+    latest = _latest_session(handle)
+    if latest and not latest[1]["turns"]:
+        return {"session_id": latest[0]}
+    session_id = session.new_session_id()
+    if not session.start_session(handle, session_id):
+        raise HTTPException(status_code=500, detail="Could not start a new conversation.")
+    return {"session_id": session_id}
 
 
 def get_session(persona: str | None, session_id: str | None, before: int | None, limit: int) -> dict[str, Any]:

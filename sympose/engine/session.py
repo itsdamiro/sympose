@@ -96,6 +96,32 @@ def history_as_messages(session: dict[str, Any] | None, max_turns: int = 20) -> 
     return messages
 
 
+def _new_meta(handle: str, session_id: str, title: str, now: str) -> dict[str, Any]:
+    return {
+        "type": "meta",
+        "session_id": session_id,
+        "handle": handle.lower(),
+        "title": title,
+        "created_at": now,
+        "updated_at": now,
+        "turns_count": 0,
+    }
+
+
+def start_session(handle: str, session_id: str) -> bool:
+    """Open an empty session: a file with only its meta line, so a conversation begun on purpose (the web
+    chat's "New conversation") is the latest one and survives a refresh before anything is said. Its first
+    turn names it. `False` when the file could not be written."""
+    try:
+        path = session_path(handle, session_id)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        write_atomic_text(path, json.dumps(_new_meta(handle, session_id, "", datetime.now(timezone.utc).isoformat())) + "\n")
+        return True
+    except (OSError, ValueError) as e:
+        log.warning("Failed to open session %s: %s", session_id, e)
+        return False
+
+
 def append_turn(
     handle: str,
     session_id: str,
@@ -134,19 +160,13 @@ def append_turn(
     now = datetime.now(timezone.utc).isoformat()
 
     if session is None:
-        meta: dict[str, Any] = {
-            "type": "meta",
-            "session_id": session_id,
-            "handle": handle.lower(),
-            "title": make_title(user_message),
-            "created_at": now,
-            "updated_at": now,
-            "turns_count": 0,
-        }
+        meta = _new_meta(handle, session_id, make_title(user_message), now)
         turns: list[dict[str, Any]] = []
     else:
         meta = session["meta"]
         turns = session["turns"]
+        if not turns and not meta.get("title"):  # a session opened by `start_session`, named by its first message
+            meta["title"] = make_title(user_message)
 
     turns.append(
         {

@@ -29,7 +29,7 @@ from sympose import server_search_handlers as sh
 from sympose import server_trash_handlers as th
 from sympose import server_vault_handlers as vh
 from sympose import vault_paths
-from sympose.server_models import ChatTurn, DefinitionsSwitch, FolderDefinition, HiddenPath, TrashEmpty, TrashRestore, VaultActivate
+from sympose.server_models import ChatSessionStart, ChatTurn, DefinitionsSwitch, FolderDefinition, HiddenPath, TrashEmpty, TrashRestore, VaultActivate
 
 
 def create_app() -> FastAPI:
@@ -80,6 +80,10 @@ def create_app() -> FastAPI:
         limit: int = Query(20, ge=1, le=100),
     ) -> dict[str, Any]:
         return ch.get_session(persona, session_id, before, limit)
+
+    @app.post("/api/chat/session")
+    def chat_session_start(body: ChatSessionStart) -> dict[str, Any]:
+        return ch.start_session(body)
 
     @app.get("/api/personas")
     def get_personas() -> dict[str, Any]:

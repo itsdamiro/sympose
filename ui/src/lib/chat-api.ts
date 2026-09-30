@@ -101,3 +101,22 @@ export async function fetchChatSession(
     return null
   }
 }
+
+/**
+ * Client for `POST /api/chat/session` — start a fresh, empty conversation with a persona and get its id, so a
+ * refresh before the first message shows it blank instead of bringing the previous one back. `null` when the
+ * backend cannot be reached or refuses; the chat is then blank in the browser only.
+ */
+export async function startChatSession(persona: string): Promise<string | null> {
+  try {
+    const res = await fetch("/api/chat/session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ persona }),
+    })
+    if (!res.ok) return null
+    return ((await res.json()) as { session_id: string }).session_id
+  } catch {
+    return null
+  }
+}

@@ -172,12 +172,13 @@ def test_older_pages_stay_in_the_conversation_they_started_in(client):
     assert [t["user"] for t in older["turns"]] == ["question 0", "question 1"]
 
 
-def test_a_conversation_opened_and_never_used_is_not_the_latest(client, tmp_path):
+def test_a_conversation_begun_on_purpose_and_left_blank_is_the_latest(client):
     seed("20260930T090000-aaaaaaaa", 2)
-    empty = session.session_path("samantha", "20260930T100000-bbbbbbbb")
-    with open(empty, "w") as f:
-        f.write('{"type": "meta", "session_id": "20260930T100000-bbbbbbbb", "handle": "samantha"}\n')
-    assert page(client)["session_id"] == "20260930T090000-aaaaaaaa"
+    session.start_session("samantha", "20260930T100000-bbbbbbbb")
+    body = page(client)
+    assert (body["session_id"], body["turns"], body["total"], body["has_more"]) == (
+        "20260930T100000-bbbbbbbb", [], 0, False,
+    )
 
 
 def test_the_turns_carry_what_the_grounded_view_needs(client):
@@ -199,3 +200,33 @@ def test_a_page_size_outside_its_bounds_is_refused(client):
 
 def test_resume_for_an_unknown_persona_is_404(client):
     assert client.get("/api/chat/session", params={"persona": "nobody"}).status_code == 404
+
+
+# -- starting a fresh conversation ---------------------------------------------------------------------
+
+
+def test_a_new_conversation_is_what_a_refresh_then_shows(client):
+    seed("20260101T090000-aaaaaaaa", 3)
+    started = client.post("/api/chat/session", json={"persona": "samantha"}).json()
+    assert started["session_id"] != "20260101T090000-aaaaaaaa"
+    assert page(client)["session_id"] == started["session_id"] and page(client)["turns"] == []
+
+
+def test_pressing_new_conversation_twice_reuses_the_blank_one(client):
+    seed("20260101T090000-aaaaaaaa", 1)
+    first = client.post("/api/chat/session", json={"persona": "samantha"}).json()["session_id"]
+    second = client.post("/api/chat/session", json={"persona": "samantha"}).json()["session_id"]
+    assert first == second and len(session.session_ids("samantha")) == 2
+
+
+def test_the_first_message_continues_the_blank_conversation_and_names_it(client, monkeypatch):
+    model_says(monkeypatch)
+    sid = client.post("/api/chat/session", json={"persona": "samantha"}).json()["session_id"]
+    reply = client.post("/api/chat/turn", json={"message": "hello there friend", "persona": "samantha", "session_id": sid}).json()
+    saved = session.load_session("samantha", sid)
+    assert reply["session_id"] == sid and len(saved["turns"]) == 1
+    assert saved["meta"]["title"] == "hello there friend"
+
+
+def test_a_new_conversation_for_an_unknown_persona_is_404(client):
+    assert client.post("/api/chat/session", json={"persona": "nobody"}).status_code == 404

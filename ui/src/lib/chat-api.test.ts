@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { fetchChatPhase, fetchChatSession, sendChatTurn } from "./chat-api"
+import { fetchChatPhase, fetchChatSession, sendChatTurn, startChatSession } from "./chat-api"
 
 const reply = { reply: "Hi", session_id: "s1", model: "ollama_chat/gemma2:9b", ttft_ms: 400, truncated: false, saved: true, cloud: [], withheld: [] }
 
@@ -74,5 +74,23 @@ describe("fetchChatSession", () => {
     expect(await fetchChatSession("samantha")).toBeNull()
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")))
     expect(await fetchChatSession("samantha")).toBeNull()
+  })
+})
+
+describe("startChatSession", () => {
+  it("posts the persona and returns the new session's id", async () => {
+    const fetchMock = stub({ ok: true, status: 200, json: () => Promise.resolve({ session_id: "s-new" }) })
+    expect(await startChatSession("samantha")).toBe("s-new")
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe("/api/chat/session")
+    expect(init.method).toBe("POST")
+    expect(JSON.parse(init.body as string)).toEqual({ persona: "samantha" })
+  })
+
+  it("is null on an error and when unreachable", async () => {
+    stub({ ok: false, status: 500, json: () => Promise.resolve({}) })
+    expect(await startChatSession("samantha")).toBeNull()
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")))
+    expect(await startChatSession("samantha")).toBeNull()
   })
 })

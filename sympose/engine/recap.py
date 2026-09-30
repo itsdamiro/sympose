@@ -83,6 +83,11 @@ def _date(session_id: str) -> str:
         return session_id
 
 
+def _has_turns(handle: str, session_id: str) -> bool:
+    loaded = session.load_session(handle, session_id)
+    return bool(loaded and loaded["turns"])
+
+
 def latest(handle: str, exclude: str | None = None, count: int = READ_COUNT) -> list[dict[str, str | bool]]:
     """The newest recaps with something in them, newest first, as `{"session", "date",
     "text", "last"}` (`session` is the id of the session it recaps); `last` is true for the recap of the most recent earlier session of all,
@@ -99,7 +104,9 @@ def latest(handle: str, exclude: str | None = None, count: int = READ_COUNT) -> 
         names = sorted(os.listdir(session.recaps_dir(handle)), reverse=True)
     except OSError:
         return []
-    newest = next((sid for sid in session.session_ids(handle) if sid != exclude), None)
+    # A session opened and left blank (`session.start_session`) is not a conversation: it must not stand in
+    # for the last one.
+    newest = next((sid for sid in session.session_ids(handle) if sid != exclude and _has_turns(handle, sid)), None)
     for name in names:
         session_id = name.removesuffix(".md")
         if session_id == exclude:

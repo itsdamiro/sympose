@@ -2,7 +2,7 @@
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-const api = vi.hoisted(() => ({ sendChatTurn: vi.fn(), fetchChatPhase: vi.fn(), fetchChatSession: vi.fn() }))
+const api = vi.hoisted(() => ({ sendChatTurn: vi.fn(), fetchChatPhase: vi.fn(), fetchChatSession: vi.fn(), startChatSession: vi.fn() }))
 vi.mock("@/lib/chat-api", () => api)
 
 import { useChat } from "./use-chat"
@@ -15,6 +15,7 @@ const ok = (reply: string, session = "s1") => ({
 beforeEach(() => {
   api.fetchChatPhase.mockResolvedValue(null)
   api.fetchChatSession.mockResolvedValue(null)
+  api.startChatSession.mockResolvedValue(null)
 })
 afterEach(() => {
   cleanup()
@@ -203,17 +204,63 @@ describe("useChat resuming", () => {
     expect(api.fetchChatSession).toHaveBeenCalledTimes(1)
   })
 
-  it("starts over on a new conversation, and the next message opens a new session", async () => {
+  it("starts over on a new conversation, and the next message continues the one the backend opened", async () => {
     api.fetchChatSession.mockResolvedValue(pageOf([saved(0)], 0, true, "s1"))
-    api.sendChatTurn.mockResolvedValue(ok("fresh", "s2"))
+    api.startChatSession.mockResolvedValue("s-blank")
+    api.sendChatTurn.mockResolvedValue(ok("fresh", "s-blank"))
     const { result } = renderHook(() => useChat("samantha"))
     await waitFor(() => expect(result.current.turns).toHaveLength(2))
-    act(() => result.current.newConversation())
+    await act(async () => {
+      await result.current.newConversation()
+    })
+    expect(api.startChatSession).toHaveBeenCalledWith("samantha")
     expect(result.current.turns).toEqual([])
     expect(result.current.hasMore).toBe(false)
     await say(result, "hello again")
-    expect(api.sendChatTurn.mock.calls[0]).toEqual(["hello again", "samantha", undefined])
+    expect(api.sendChatTurn.mock.calls[0]).toEqual(["hello again", "samantha", "s-blank"])
     expect(api.fetchChatSession).toHaveBeenCalledTimes(1)
+  })
+
+  it("is blank at once and still works when the backend cannot open the conversation", async () => {
+    api.fetchChatSession.mockResolvedValue(pageOf([saved(0)], 0, false, "s1"))
+    api.startChatSession.mockResolvedValue(null)
+    api.sendChatTurn.mockResolvedValue(ok("fresh", "s2"))
+    const { result } = renderHook(() => useChat("samantha"))
+    await waitFor(() => expect(result.current.turns).toHaveLength(2))
+    await act(async () => {
+      await result.current.newConversation()
+    })
+    expect(result.current.turns).toEqual([])
+    await say(result, "hello again")
+    expect(api.sendChatTurn.mock.calls[0]).toEqual(["hello again", "samantha", undefined])
+  })
+
+  it("keeps the conversation the user has started when the backend's blank one arrives late", async () => {
+    let opened: (v: unknown) => void = () => {}
+    api.startChatSession.mockReturnValue(new Promise((r) => (opened = r)))
+    api.sendChatTurn.mockResolvedValueOnce(ok("one", "s-real")).mockResolvedValueOnce(ok("two", "s-real"))
+    const { result } = renderHook(() => useChat("samantha"))
+    let starting: Promise<void> = Promise.resolve()
+    act(() => {
+      starting = result.current.newConversation()
+    })
+    await say(result, "first")
+    await act(async () => {
+      opened("s-blank")
+      await starting
+    })
+    await say(result, "second")
+    expect(api.sendChatTurn.mock.calls[1]).toEqual(["second", "samantha", "s-real"])
+  })
+
+  it("resumes a conversation that was left blank as blank, and continues it", async () => {
+    api.fetchChatSession.mockResolvedValue(pageOf([], 0, false, "s-blank"))
+    api.sendChatTurn.mockResolvedValue(ok("hi", "s-blank"))
+    const { result } = renderHook(() => useChat("samantha"))
+    await waitFor(() => expect(api.fetchChatSession).toHaveBeenCalled())
+    expect(result.current.turns).toEqual([])
+    await say(result, "hello")
+    expect(api.sendChatTurn.mock.calls[0]).toEqual(["hello", "samantha", "s-blank"])
   })
 
   it("does not start over while a reply is in flight", async () => {
@@ -224,7 +271,10 @@ describe("useChat resuming", () => {
     act(() => {
       void result.current.send()
     })
-    act(() => result.current.newConversation())
+    await act(async () => {
+      await result.current.newConversation()
+    })
+    expect(api.startChatSession).not.toHaveBeenCalled()
     expect(result.current.turns.map((t) => t.body)).toEqual(["hi"])
     await act(async () => release(ok("done")))
   })
@@ -249,7 +299,9 @@ describe("useChat resuming", () => {
     act(() => {
       loading = result.current.loadOlder()
     })
-    act(() => result.current.newConversation())
+    await act(async () => {
+      await result.current.newConversation()
+    })
     await act(async () => {
       arrive(pageOf([saved(0), saved(1)], 0, false, "s1"))
       await loading

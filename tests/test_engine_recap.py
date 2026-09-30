@@ -459,6 +459,16 @@ def test_a_recap_is_not_the_last_conversation_when_a_newer_session_has_none():
     ]
 
 
+def test_a_blank_session_opened_after_it_does_not_take_the_place_of_the_last_conversation():
+    talk(OLD)
+    put(OLD, "second")
+    session.start_session("samantha", NEW)  # "New conversation" in the web chat, nothing said yet
+
+    assert recap.latest("samantha") == [
+        {"session": OLD, "date": "2026-09-23", "text": "second", "last": True}
+    ]
+
+
 def test_the_last_conversation_is_the_newest_session_other_than_the_one_being_run():
     talk(OLD)
     talk(NEW)
