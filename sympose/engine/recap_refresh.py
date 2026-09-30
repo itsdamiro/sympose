@@ -2,12 +2,11 @@
 asked, and the background run at launch. Reading them back is `recap`."""
 
 import logging
-import threading
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from sympose import profile as profile_mod
-from sympose.engine import budget, helper_limit, prompt, recap, session, sharing
+from sympose.engine import background_job, budget, helper_limit, prompt, recap, session, sharing
 from sympose.engine import model as model_mod
 
 log = logging.getLogger(__name__)
@@ -133,9 +132,7 @@ def refresh(handle: str, model: str | None = None, now: datetime | None = None) 
             return
 
 
-# One run per persona at a time; the event is set when it finishes.
-_RUNNING: dict[str, threading.Event] = {}
-_RUNNING_LOCK = threading.Lock()
+_RUNNER = background_job.Runner("recaps", "Recap refresh")
 # How long a turn waits for a refresh that is still running. The refresh is one small
 # model call on the model the turn needs anyway, so the turn would queue behind it on
 # a single GPU regardless (measured, ADR 023); a stuck call must not hold a turn for long.
@@ -143,39 +140,20 @@ _WAIT_SECONDS = 20.0
 
 
 def refresh_in_background(handle: str, model: str | None = None) -> bool:
-    """Start `refresh` (with `model`, as there) on a daemon thread and return at once, so the user can type
+    """Start `refresh` (with `model`, as there) in the background and return at once, so the user can type
     their first message meanwhile and quitting never waits on a model call. `False`
     when one is already running for `handle` (a persona switched to twice)."""
-    with _RUNNING_LOCK:
-        if handle in _RUNNING:
-            return False
-        done = _RUNNING[handle] = threading.Event()
-
-    def work() -> None:
-        try:
-            refresh(handle, model)
-        except Exception as e:  # a background thread must not print a traceback into the terminal
-            log.warning("Recap refresh for %s failed: %s", handle, e)
-        finally:
-            with _RUNNING_LOCK:
-                del _RUNNING[handle]
-            done.set()
-
-    threading.Thread(target=work, name=f"recaps-{handle}", daemon=True).start()
-    return True
+    return _RUNNER.start(handle, lambda: refresh(handle, model))
 
 
 def wait_for_refresh(handle: str, timeout: float = _WAIT_SECONDS) -> bool:
     """Give a refresh that is running for `handle` up to `timeout` seconds to finish,
     so a message sent straight after launch still gets the recap it is about. `True`
     when none is running or it finished, `False` when it is still going."""
-    with _RUNNING_LOCK:
-        done = _RUNNING.get(handle)
-    return True if done is None else done.wait(timeout)
+    return _RUNNER.wait(handle, timeout)
 
 
 def is_running(handle: str) -> bool:
     """Whether a recap refresh is in flight for `handle` right now -- for `background_status.py`'s
     busy indicator, a point-in-time read, not a wait."""
-    with _RUNNING_LOCK:
-        return handle in _RUNNING
+    return _RUNNER.is_running(handle)

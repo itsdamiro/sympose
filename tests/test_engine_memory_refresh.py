@@ -8,7 +8,7 @@ import pytest
 from helpers import write_persona
 
 from sympose import settings_store
-from sympose.engine import budget, memory, memory_refresh, memory_write, prompt, recap
+from sympose.engine import background_job, budget, memory, memory_refresh, memory_write, prompt, recap
 from sympose.engine.model import EngineModelError, ModelReply, ReplyLimitError
 
 
@@ -20,7 +20,7 @@ def profiles(tmp_path, monkeypatch):
     monkeypatch.setenv("SYMPOSE_SETTINGS_PATH", str(tmp_path / "settings.json"))
     monkeypatch.setattr(budget, "_native_max", lambda model: 8192)
     monkeypatch.setattr(memory_refresh, "_CANNOT_REWRITE", set())
-    monkeypatch.setattr(memory_refresh, "_RUNNING", {})
+    monkeypatch.setattr(memory_refresh, "_RUNNER", background_job.Runner("memory", "Memory rewrite"))
     return base
 
 

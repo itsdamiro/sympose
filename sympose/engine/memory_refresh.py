@@ -10,10 +10,9 @@ more freely, so it follows `memory_rewrite`: `ask` (the default) stages it the s
 writes it directly. Neither ever writes without `memory_write`'s own rolling `.bak`."""
 
 import logging
-import threading
 
 from sympose import profile as profile_mod, settings_store
-from sympose.engine import budget, helper_limit, memory, memory_write, prompt, recap, sharing
+from sympose.engine import background_job, budget, helper_limit, memory, memory_write, prompt, recap, sharing
 from sympose.engine import model as model_mod
 
 log = logging.getLogger(__name__)
@@ -155,47 +154,24 @@ def refresh(handle: str, model: str | None = None) -> bool:
     return ok
 
 
-# One run per persona at a time; the event is set when it finishes -- the same shape
-# `recap_refresh`'s own `_RUNNING` uses, so `/memory`'s manual "Refresh now" (`wait_for_refresh`
-# below) joins an already-running background refresh instead of racing a second one against it.
-_RUNNING: dict[str, threading.Event] = {}
-_RUNNING_LOCK = threading.Lock()
+# `/memory`'s manual "Refresh now" (`wait_for_refresh` below) joins an already-running background
+# refresh instead of racing a second one against it.
+_RUNNER = background_job.Runner("memory", "Memory rewrite")
 
 
 def refresh_in_background(handle: str, model: str | None = None) -> bool:
-    """Start `refresh` on a daemon thread and return at once, the same shape
-    `recap_refresh.refresh_in_background` already uses. `False` when one is already running
+    """Start `refresh` in the background and return at once. `False` when one is already running
     for `handle`."""
-    with _RUNNING_LOCK:
-        if handle in _RUNNING:
-            return False
-        done = _RUNNING[handle] = threading.Event()
-
-    def work() -> None:
-        try:
-            refresh(handle, model)
-        except Exception as e:  # a background thread must not print a traceback into the terminal
-            log.warning("Memory rewrite for %s failed: %s", handle, e)
-        finally:
-            with _RUNNING_LOCK:
-                del _RUNNING[handle]
-            done.set()
-
-    threading.Thread(target=work, name=f"memory-{handle}", daemon=True).start()
-    return True
+    return _RUNNER.start(handle, lambda: refresh(handle, model))
 
 
 def wait_for_refresh(handle: str, timeout: float = 60.0) -> bool:
     """Give a refresh running for `handle` up to `timeout` seconds to finish. `True` when none is
-    running or it finished, `False` when it is still going -- the same shape
-    `recap_refresh.wait_for_refresh` already uses."""
-    with _RUNNING_LOCK:
-        done = _RUNNING.get(handle)
-    return True if done is None else done.wait(timeout)
+    running or it finished, `False` when it is still going."""
+    return _RUNNER.wait(handle, timeout)
 
 
 def is_running(handle: str) -> bool:
     """Whether a memory rewrite is in flight for `handle` right now -- for `background_status.py`'s
     busy indicator, a point-in-time read, not a wait."""
-    with _RUNNING_LOCK:
-        return handle in _RUNNING
+    return _RUNNER.is_running(handle)

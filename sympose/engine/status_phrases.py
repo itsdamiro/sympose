@@ -13,11 +13,10 @@ is the persona itself, sent with every turn regardless, not the user's own data.
 
 import logging
 import os
-import threading
 
 from sympose import profile as profile_mod
 from sympose.atomic_write import write_atomic_text
-from sympose.engine import budget, helper_limit, prompt
+from sympose.engine import background_job, budget, helper_limit, prompt
 from sympose.engine import model as model_mod
 from sympose.persona_files import load_soul, persona_dir, profiles_dir
 from sympose.security import is_safe_path
@@ -102,31 +101,15 @@ def generate(handle: str, model: str | None = None) -> bool:
 
 
 # One generation per persona at a time -- there is only ever one to do, ever, per persona.
-_RUNNING: set[str] = set()
-_RUNNING_LOCK = threading.Lock()
+_RUNNER = background_job.Runner("phrases", "Status phrases")
 
 
 def generate_in_background(handle: str, model: str | None = None) -> bool:
-    """Start `generate` on a daemon thread and return at once. `False` when `handle` already has
+    """Start `generate` in the background and return at once. `False` when `handle` already has
     its own phrases, or a generation is already running for it."""
     if has_own(handle):
         return False
-    with _RUNNING_LOCK:
-        if handle in _RUNNING:
-            return False
-        _RUNNING.add(handle)
-
-    def work() -> None:
-        try:
-            generate(handle, model)
-        except Exception as e:  # a background thread must not print a traceback into the terminal
-            log.warning("Status phrases for %s failed: %s", handle, e)
-        finally:
-            with _RUNNING_LOCK:
-                _RUNNING.discard(handle)
-
-    threading.Thread(target=work, name=f"phrases-{handle}", daemon=True).start()
-    return True
+    return _RUNNER.start(handle, lambda: generate(handle, model))
 
 
 def is_running(handle: str) -> bool:
@@ -134,5 +117,4 @@ def is_running(handle: str) -> bool:
     `background_status.py`'s busy indicator, a point-in-time read, not a wait. Without this, the
     one background model call this module itself makes would be the one thing the busy indicator
     cannot show while it runs (docs/decisions/043)."""
-    with _RUNNING_LOCK:
-        return handle in _RUNNING
+    return _RUNNER.is_running(handle)

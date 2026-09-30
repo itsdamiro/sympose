@@ -6,7 +6,7 @@ import threading
 import pytest
 from helpers import write_persona
 
-from sympose.engine import status_phrases
+from sympose.engine import background_job, status_phrases
 from sympose.engine.model import EngineModelError, ModelReply
 
 
@@ -15,7 +15,7 @@ def profiles(tmp_path, monkeypatch):
     base = tmp_path / "profiles"
     directory = write_persona(base, "samantha", "name: Samantha\n")
     monkeypatch.setenv("SYMPOSE_PROFILES_DIR", str(base))
-    monkeypatch.setattr(status_phrases, "_RUNNING", set())
+    monkeypatch.setattr(status_phrases, "_RUNNER", background_job.Runner("phrases", "Status phrases"))
     return directory
 
 

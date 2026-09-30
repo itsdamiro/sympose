@@ -10,7 +10,7 @@ import pytest
 from helpers import write_persona
 
 from sympose import settings_store
-from sympose.engine import budget, prompt, recap, recap_refresh, session
+from sympose.engine import background_job, budget, prompt, recap, recap_refresh, session
 from sympose.engine.model import EngineModelError, ModelReply, ReplyLimitError
 
 NEW = "20260924T090000-aaaaaaaa"
@@ -28,7 +28,7 @@ def profiles(tmp_path, monkeypatch):
     monkeypatch.setenv("SYMPOSE_SETTINGS_PATH", str(tmp_path / "settings.json"))
     monkeypatch.setattr(budget, "_native_max", lambda model: 8192)
     monkeypatch.setattr(recap_refresh, "_CANNOT_RECAP", set())
-    monkeypatch.setattr(recap_refresh, "_RUNNING", {})
+    monkeypatch.setattr(recap_refresh, "_RUNNER", background_job.Runner("recaps", "Recap refresh"))
     return base
 
 
