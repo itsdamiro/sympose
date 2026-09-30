@@ -3,9 +3,9 @@ import type { VaultNode } from "@/components/sympose"
 /**
  * Client for `GET /api/vault/tree` — the vault manifest projected into a
  * nested `VaultNode` tree, scoped to a persona's allowed vault folders. Returns
- * an empty tree and `vaultName: null` when the backend is unreachable
- * (offline dev) so the browser still renders an empty state rather than
- * throwing.
+ * `null` when the backend cannot be reached or answers with an error, so the
+ * caller can keep the tree it has and say so; an empty tree from here always
+ * means an empty vault, never a failed fetch.
  */
 interface VaultTreeResponse {
   persona: string
@@ -20,7 +20,7 @@ export interface VaultTreeResult {
   vaultName: string | null
 }
 
-export async function fetchVaultTree(persona: string): Promise<VaultTreeResult> {
+export async function fetchVaultTree(persona: string): Promise<VaultTreeResult | null> {
   try {
     const res = await fetch(
       `/api/vault/tree?persona=${encodeURIComponent(persona)}`
@@ -29,9 +29,7 @@ export async function fetchVaultTree(persona: string): Promise<VaultTreeResult> 
     const data = (await res.json()) as VaultTreeResponse
     return { tree: data.tree ?? [], vaultName: data.vaultName ?? null }
   } catch (err) {
-    console.info(
-      `[vault-tree] /api/vault/tree unreachable (${err}) — showing an empty tree`
-    )
-    return { tree: [], vaultName: null }
+    console.info(`[vault-tree] /api/vault/tree unreachable (${err})`)
+    return null
   }
 }

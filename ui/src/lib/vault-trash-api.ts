@@ -38,10 +38,10 @@ export interface Trash {
 
 /**
  * `GET /api/vault/trash` — recoverable files for this persona, newest deletion
- * first, and the folders deleted as a unit. Returns nothing on any error so the
- * caller renders an empty state.
+ * first, and the folders deleted as a unit. Returns `null` on any error, so the
+ * caller says it could not load the bin instead of showing an empty one.
  */
-export async function fetchTrash(persona: string): Promise<Trash> {
+export async function fetchTrash(persona: string): Promise<Trash | null> {
   try {
     const res = await fetch(
       `/api/vault/trash?persona=${encodeURIComponent(persona)}`
@@ -51,7 +51,7 @@ export async function fetchTrash(persona: string): Promise<Trash> {
     return { items: body.items ?? [], folders: body.folders ?? [] }
   } catch (err) {
     console.info(`[vault-trash] /api/vault/trash unreachable (${err})`)
-    return { items: [], folders: [] }
+    return null
   }
 }
 

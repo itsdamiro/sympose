@@ -61,6 +61,7 @@ function TrashList({
   className?: string
 }) {
   const [bin, setBin] = React.useState<Trash | null>(null)
+  const [failed, setFailed] = React.useState(false)
   const [busy, setBusy] = React.useState<string | null>(null)
   const [open, setOpen] = React.useState<Set<string>>(() => new Set())
   const [localKey, setLocalKey] = React.useState(0)
@@ -68,7 +69,9 @@ function TrashList({
   React.useEffect(() => {
     let live = true
     fetchTrash(persona).then((next) => {
-      if (live) setBin(next)
+      if (!live) return
+      setFailed(next === null)
+      if (next) setBin(next) // a failed load keeps the bin that was shown, and says so
     })
     return () => {
       live = false
@@ -151,7 +154,14 @@ function TrashList({
     })
 
   if (bin === null) {
-    return (
+    return failed ? (
+      <div className={cn("flex flex-col items-start gap-2 text-sm text-fg-muted", className)}>
+        <p>Couldn&apos;t load the bin. Is the backend running?</p>
+        <button type="button" onClick={reload} className="rounded-md px-2 py-1 text-xs hover:bg-accent hover:text-foreground">
+          Try again
+        </button>
+      </div>
+    ) : (
       <p className={cn("text-sm text-fg-muted", className)}>Loading bin…</p>
     )
   }
@@ -217,6 +227,7 @@ function TrashList({
 
   return (
     <div className={cn("flex flex-col gap-1", className)}>
+      {failed && <p className="pb-1 text-xs text-destructive">Couldn&apos;t refresh the bin — showing what was loaded before.</p>}
       <div className="flex items-center justify-between pb-1">
         <span className="text-xs text-fg-muted">
           {items.length} item{items.length === 1 ? "" : "s"}

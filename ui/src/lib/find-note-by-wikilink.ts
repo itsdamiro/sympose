@@ -1,29 +1,37 @@
 import type { VaultNode } from "@/components/sympose"
 
-/** A `[[wikilink]]` target is a bare stem, e.g. "Getting Started" for
- * "journal/Getting Started.md" — strip the extension to compare against one. */
+/** A name or a path without its `.md`, lower-cased, for comparing. */
 function stem(name: string): string {
   return name.replace(/\.md$/i, "").trim().toLowerCase()
 }
 
+/** The part of a `[[target#Heading|label]]` that names a note: no label, no heading, no block id. */
+function noteTarget(target: string): string {
+  return (target.split("|")[0] ?? "").split("#")[0].split("^")[0].trim()
+}
+
+function notesOf(tree: VaultNode[]): VaultNode[] {
+  return tree.flatMap((node) => [...(node.type === "note" ? [node] : []), ...(node.children ? notesOf(node.children) : [])])
+}
+
 /**
- * Depth-first search of the vault tree for the note a `[[wikilink]]` target
- * resolves to, matched by filename stem (case-insensitive) since a wikilink
- * carries no folder path. `undefined` when nothing in the tree matches.
+ * The note a `[[wikilink]]` target resolves to in the vault tree (depth first), or `undefined` when nothing
+ * matches. A bare name (`[[Getting Started]]`) matches by file name, case-insensitively. A target with a folder
+ * (`[[Projects/Idea]]`) matches the note at that path, and failing that one whose path ends with it, as Obsidian
+ * does. A heading, block id or label after the name (`[[Idea#Plan|the plan]]`) is ignored: it opens the note.
  */
 export function findNoteByWikilink(
   tree: VaultNode[],
   target: string
 ): VaultNode | undefined {
-  const want = stem(target)
-  for (const node of tree) {
-    if (node.type === "note" && stem(node.name) === want) return node
-    if (node.children) {
-      const found = findNoteByWikilink(node.children, target)
-      if (found) return found
-    }
-  }
-  return undefined
+  const want = stem(noteTarget(target)).replace(/^\/+/, "")
+  if (!want) return undefined
+  const notes = notesOf(tree)
+  if (!want.includes("/")) return notes.find((node) => stem(node.name) === want)
+  return (
+    notes.find((node) => stem(node.path) === want) ??
+    notes.find((node) => stem(node.path).endsWith(`/${want}`))
+  )
 }
 
 /** The note at exactly `path` (its full vault-relative path), or `undefined` when the tree does not hold

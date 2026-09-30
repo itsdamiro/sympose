@@ -657,12 +657,26 @@ export function AppShell() {
   // The vault panel shows the bin instead of the tree when the main-menu
   // Bin row is the active section.
   const trashView = active === MENU_TRASH_ID
+  const treeOfPersona = React.useRef(activePersona)
   React.useEffect(() => {
     let alive = true
-    fetchVaultTree(activePersona).then(({ tree, vaultName }) => {
+    fetchVaultTree(activePersona).then((result) => {
       if (!alive) return
-      setVaultTree(tree)
-      setVaultName(vaultName)
+      const samePersona = treeOfPersona.current === activePersona
+      if (!result) {
+        // A failed fetch is not an empty vault. A refresh keeps the tree that is shown; after a persona switch the
+        // old tree is another persona's, so it goes. Either way one notice, not a stack.
+        notify.error("Couldn't load the vault. Is the backend running?", { id: "vault-tree" })
+        if (!samePersona) {
+          setVaultTree([])
+          setVaultName(null)
+          treeOfPersona.current = activePersona
+        }
+        return
+      }
+      treeOfPersona.current = activePersona
+      setVaultTree(result.tree)
+      setVaultName(result.vaultName)
     })
     return () => {
       alive = false

@@ -115,4 +115,24 @@ describe("TrashList", () => {
       await waitFor(() => expect(notify.error).toHaveBeenCalledWith("boom"))
     })
   })
+
+  describe("when the bin cannot be loaded (#90)", () => {
+    it("says so and offers to try again, instead of showing an empty bin", async () => {
+      api.fetchTrash.mockResolvedValueOnce(null).mockResolvedValue(bin([row("a.md")]))
+      render(<TrashList persona="samantha" />)
+      expect(await screen.findByText(/Couldn.t load the bin/)).toBeTruthy()
+      expect(screen.queryByText(/Bin is empty/)).toBeNull()
+      fireEvent.click(screen.getByRole("button", { name: "Try again" }))
+      expect(await screen.findByText("1 item")).toBeTruthy()
+    })
+
+    it("keeps the bin it had, with a line saying the refresh failed", async () => {
+      api.fetchTrash.mockResolvedValueOnce(bin([row("a.md")])).mockResolvedValue(null)
+      const { rerender } = render(<TrashList persona="samantha" refreshKey={0} />)
+      expect(await screen.findByText("1 item")).toBeTruthy()
+      rerender(<TrashList persona="samantha" refreshKey={1} />)
+      expect(await screen.findByText(/Couldn.t refresh the bin/)).toBeTruthy()
+      expect(screen.getByText("1 item")).toBeTruthy()
+    })
+  })
 })
