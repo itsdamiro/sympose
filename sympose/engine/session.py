@@ -80,6 +80,11 @@ def load_session(handle: str, session_id: str) -> dict[str, Any] | None:
     if meta is None and turns:
         log.warning("Session %s has no readable meta line; rebuilt from its turns", path)
         meta = meta_from_turns(handle, session_id, turns, path)
+    if meta is not None:
+        # Worked out, not stored: the file is only ever appended to (docs/decisions/049).
+        meta["turns_count"] = len(turns)
+        if turns and turns[-1].get("timestamp"):
+            meta["updated_at"] = turns[-1]["timestamp"]
     return {"meta": meta, "turns": turns} if meta is not None else None
 
 
@@ -159,35 +164,43 @@ def append_turn(
         return False
     now = datetime.now(timezone.utc).isoformat()
 
+    turn = {
+        "type": "turn",
+        "timestamp": now,
+        "user": user_message,
+        "assistant": reply,
+        "ttft_ms": ttft_ms,
+        "model": model,
+        **({"sent": sent} if sent is not None else {}),
+        **({"truncated": True} if truncated else {}),
+    }
+    lines: list[dict[str, Any]] = []
     if session is None:
-        meta = _new_meta(handle, session_id, make_title(user_message), now)
-        turns: list[dict[str, Any]] = []
-    else:
-        meta = session["meta"]
-        turns = session["turns"]
-        if not turns and not meta.get("title"):  # a session opened by `start_session`, named by its first message
-            meta["title"] = make_title(user_message)
-
-    turns.append(
-        {
-            "type": "turn",
-            "timestamp": now,
-            "user": user_message,
-            "assistant": reply,
-            "ttft_ms": ttft_ms,
-            "model": model,
-            **({"sent": sent} if sent is not None else {}),
-            **({"truncated": True} if truncated else {}),
-        }
-    )
-    meta["updated_at"] = now
-    meta["turns_count"] = len(turns)
+        lines.append(_new_meta(handle, session_id, make_title(user_message), now))
+    elif not session["turns"] and not session["meta"].get("title"):  # opened by `start_session`: named by its first message
+        lines.append({**session["meta"], "title": make_title(user_message)})  # a later meta line wins on load
+    lines.append(turn)
 
     try:
-        text = "".join(json.dumps(record) + "\n" for record in (meta, *turns))
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        write_atomic_text(path, text)
-        return True
+        _append(path, "".join(json.dumps(record) + "\n" for record in lines))
     except OSError as e:
         log.warning("Failed to write session %s: %s", path, e)
         return False
+    if session is not None:
+        session["turns"].append(turn)
+        session["meta"]["updated_at"], session["meta"]["turns_count"] = now, len(session["turns"])
+        if len(lines) > 1:
+            session["meta"]["title"] = lines[0]["title"]
+    return True
+
+
+def _append(path: str, text: str) -> None:
+    """Adds `text` to the end of `path` (creating it), after a line break if the file does not end with one, so a
+    write that was cut short cannot run into it (docs/decisions/049). Nothing already in the file is touched."""
+    with open(path, "ab+") as f:
+        if f.seek(0, os.SEEK_END) > 0:
+            f.seek(-1, os.SEEK_END)
+            if f.read(1) != b"\n":
+                f.write(b"\n")
+        f.write(text.encode("utf-8"))

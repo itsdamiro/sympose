@@ -344,15 +344,26 @@ def test_a_cut_reply_whose_only_stop_is_its_first_character_is_not_kept(asked):
 def test_a_session_whose_record_has_no_update_time_is_skipped_not_guessed(asked):
     talk(NEW)
     path = session.session_path("samantha", NEW)
-    lines = open(path, encoding="utf-8").read().splitlines()
-    meta = __import__("json").loads(lines[0])
-    del meta["updated_at"]
-    lines[0] = __import__("json").dumps(meta)
-    open(path, "w", encoding="utf-8").write("\n".join(lines) + "\n")
+    import json
+
+    records = [json.loads(line) for line in open(path, encoding="utf-8").read().splitlines()]
+    for record in records:  # no update time anywhere: not in the meta line, and no turn carries a time
+        record.pop("updated_at", None)
+        record.pop("timestamp", None)
+    open(path, "w", encoding="utf-8").write("".join(json.dumps(r) + "\n" for r in records))
 
     recap_refresh.refresh("samantha", now=LATER)
 
     assert asked == [] and not has_recap(NEW)
+
+
+def test_the_update_time_is_the_last_turns_since_the_file_is_only_appended_to(asked):
+    """ADR 049: `updated_at` is not rewritten each turn, so it is read from the turns."""
+    talk(NEW)
+    session.append_turn("samantha", NEW, "later message", "later reply")
+    loaded = session.load_session("samantha", NEW)
+    assert loaded["meta"]["updated_at"] == loaded["turns"][-1]["timestamp"]
+    assert loaded["meta"]["turns_count"] == len(loaded["turns"])
 
 
 def test_an_unusable_reply_stops_the_run_so_it_costs_one_call_not_three(asked):

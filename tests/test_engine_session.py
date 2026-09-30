@@ -43,7 +43,7 @@ def test_meta_and_turn_shape_on_disk(sessions_root):
     assert lines[0]["type"] == "meta"
     assert lines[0]["session_id"] == sid
     assert lines[0]["handle"] == "samantha"
-    assert lines[0]["turns_count"] == 1
+    assert session.load_session("samantha", sid)["meta"]["turns_count"] == 1  # worked out on load (ADR 049)
     assert lines[0]["title"].startswith("what is my name")
     assert lines[1]["type"] == "turn"
     assert lines[1]["user"] == "what is my name"
@@ -313,16 +313,74 @@ def _two_turns(handle="samantha"):
     return sid, session.session_path(handle, sid)
 
 
-def test_a_damaged_first_line_does_not_cost_the_turns_after_it(sessions_root):
+def test_a_damaged_first_line_does_not_cost_the_turns_after_it_and_is_itself_kept(sessions_root):
     sid, path = _two_turns()
     lines = open(path, encoding="utf-8").read().splitlines()
     with open(path, "w", encoding="utf-8") as f:
         f.write(lines[0][:20] + "\n" + "\n".join(lines[1:]) + "\n")
+    before = open(path, "rb").read()
 
     session.append_turn("samantha", sid, "third question", "third answer", existing=session.load_session("samantha", sid))
 
-    kept = [json.loads(line) for line in open(path, encoding="utf-8").read().splitlines()]
-    assert [t["user"] for t in kept if t["type"] == "turn"] == ["first question", "second question", "third question"]
+    after = open(path, "rb").read()
+    assert after.startswith(before)  # nothing already in the file was touched (ADR 049)
+    assert [t["user"] for t in session.load_session("samantha", sid)["turns"]] == ["first question", "second question", "third question"]
+
+
+def test_lines_the_loader_skips_survive_the_next_turn(sessions_root):
+    """#109: the rewrite used to delete a textless turn record and a malformed line for good."""
+    sid, path = _two_turns()
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(json.dumps({"type": "turn", "assistant": "an answer with no question"}) + "\n{not json at all\n")
+    before = open(path, "rb").read()
+
+    session.append_turn("samantha", sid, "third", "answer")
+
+    after = open(path, "rb").read()
+    assert after.startswith(before) and b"an answer with no question" in after and b"{not json at all" in after
+    assert [t["user"] for t in session.load_session("samantha", sid)["turns"]] == ["first question", "second question", "third"]
+
+
+def test_a_file_cut_short_mid_line_does_not_swallow_the_next_turn(sessions_root):
+    sid, path = _two_turns()
+    with open(path, "a", encoding="utf-8") as f:
+        f.write('{"type": "turn", "user": "cut sho')  # a write that stopped part way, no line break
+
+    session.append_turn("samantha", sid, "third", "answer")
+
+    assert [t["user"] for t in session.load_session("samantha", sid)["turns"]] == ["first question", "second question", "third"]
+
+
+def test_a_session_opened_on_purpose_is_named_by_its_first_turn_without_rewriting_the_file(sessions_root):
+    sid = session.new_session_id()
+    assert session.start_session("samantha", sid)
+    path = session.session_path("samantha", sid)
+    before = open(path, "rb").read()
+
+    session.append_turn("samantha", sid, "plan the garden this spring", "sure")
+
+    assert open(path, "rb").read().startswith(before)
+    loaded = session.load_session("samantha", sid)
+    assert loaded["meta"]["title"] == "plan the garden this spring" and len(loaded["turns"]) == 1
+
+
+def test_a_file_with_nothing_readable_in_it_is_added_to_not_replaced(sessions_root):
+    sid = session.new_session_id()
+    path = session.session_path("samantha", sid)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("garbage that is not a session\n")
+
+    assert session.append_turn("samantha", sid, "hello", "hi") is True
+
+    assert open(path, encoding="utf-8").read().startswith("garbage that is not a session\n")
+    assert [t["user"] for t in session.load_session("samantha", sid)["turns"]] == ["hello"]
+
+
+def test_the_update_time_and_turn_count_come_from_the_turns(sessions_root):
+    sid, path = _two_turns()
+    loaded = session.load_session("samantha", sid)
+    assert loaded["meta"]["turns_count"] == 2 and loaded["meta"]["updated_at"] == loaded["turns"][-1]["timestamp"]
 
 
 def test_a_turn_record_without_its_text_does_not_break_the_history(sessions_root):
@@ -335,38 +393,20 @@ def test_a_turn_record_without_its_text_does_not_break_the_history(sessions_root
     assert [m["content"] for m in messages][:2] == ["first question", "first answer"]
 
 
-def test_a_write_that_fails_part_way_leaves_the_earlier_turns_on_disk(sessions_root, monkeypatch):
-    sid, path = _two_turns()
-    real_dumps, calls = json.dumps, []
-
-    def fails_on_the_third_line(obj, *args, **kwargs):
-        calls.append(1)
-        if len(calls) == 3:
-            raise OSError("no space left on device")
-        return real_dumps(obj, *args, **kwargs)
-
-    with monkeypatch.context() as failing:
-        failing.setattr(session.json, "dumps", fails_on_the_third_line)
-        assert session.append_turn("samantha", sid, "third question", "third answer") is False
-
-    survivor = session.load_session("samantha", sid)
-    assert survivor is not None
-    assert [t["user"] for t in survivor["turns"]] == ["first question", "second question"]
-
-
-def test_a_replace_that_fails_keeps_the_file_as_it_was_and_leaves_nothing_beside_it(sessions_root, monkeypatch):
+def test_a_write_that_fails_leaves_the_earlier_turns_on_disk_and_the_loaded_session_unchanged(sessions_root, monkeypatch):
     sid, path = _two_turns()
     before = open(path, "rb").read()
+    existing = session.load_session("samantha", sid)
 
-    def refuse(src, dst):
-        raise OSError("disk full")
+    def boom(*a, **k):
+        raise OSError("no space left on device")
 
     with monkeypatch.context() as failing:
-        failing.setattr(os, "replace", refuse)
-        assert session.append_turn("samantha", sid, "third", "answer") is False
+        failing.setattr(session, "_append", boom)
+        assert session.append_turn("samantha", sid, "third question", "third answer", existing=existing) is False
 
     assert open(path, "rb").read() == before
-    assert os.listdir(os.path.dirname(path)) == [os.path.basename(path)]
+    assert len(existing["turns"]) == 2  # a turn that was not saved is not in the session the caller holds
 
 
 def test_a_saved_turn_reports_that_it_was_written(sessions_root):
