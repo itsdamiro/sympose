@@ -156,6 +156,21 @@ describe("ChatPanel", () => {
     expect(screen.queryByText(/Based on/)).toBeNull()
   })
 
+  it("shows what a cloud reply was sent and held back, even with the grounded-notes line off", async () => {
+    const turns: ChatTurn[] = [
+      { id: "2", role: "persona", handle: "samantha", body: "SQLite.", sent: { notes: [], cloud: ["notes"], withheld: ["recaps"] } },
+    ]
+    setup({ turns, showGrounding: false })
+    expect(await screen.findByText("Sent: notes · Held back: recaps")).toBeTruthy()
+  })
+
+  it("keeps the notice above the message box", () => {
+    setup({ notice: <p>cloud notice here</p> })
+    const notice = screen.getByText("cloud notice here")
+    const box = screen.getByLabelText("Message")
+    expect(notice.compareDocumentPosition(box) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   it("puts no grounding line under a reply that used no note, nor under the user's own message", () => {
     const turns: ChatTurn[] = [
       { id: "1", role: "user", body: "hello", sent: { notes: [{ path: "A.md", heading: "", source: "vault" }] } },

@@ -8,6 +8,7 @@ import type { ChatTurn } from "@/lib/chat-types"
 import { ChatMessage } from "@/components/sympose/chat-message"
 import { ChatMarkdown } from "@/components/sympose/chat-markdown"
 import { ChatSystemLine } from "@/components/sympose/chat-system-line"
+import { CloudSent } from "@/components/sympose/cloud-sent"
 import { GroundedNotes } from "@/components/sympose/grounded-notes"
 import { ModelChip } from "@/components/sympose/model-chip"
 
@@ -34,6 +35,8 @@ interface ChatPanelProps extends React.ComponentProps<"div"> {
   onWikiLinkClick?: (target: string) => void
   /** The "Based on ..." line under a reply that used notes (a web display knob, on by default). */
   showGrounding?: boolean
+  /** Shown above the message box, always in view (the cloud notice, ADR 031). */
+  notice?: React.ReactNode
   /** Starts a fresh conversation; the control shows once there is something to leave behind. */
   onNewConversation?: () => void
   draft: string
@@ -75,6 +78,7 @@ function ChatPanel({
   onWikiLinkClick,
   onNewConversation,
   showGrounding = true,
+  notice,
   draft,
   onDraftChange,
   onSubmit,
@@ -211,7 +215,12 @@ function ChatPanel({
                   timestamp={turn.timestamp}
                   streaming={turn.streaming}
                   actions={turn.actions}
-                  grounding={showGrounding ? <GroundedNotes sent={turn.sent} onOpenNote={onOpenNote} /> : undefined}
+                  grounding={
+                    <>
+                      {showGrounding && <GroundedNotes sent={turn.sent} onOpenNote={onOpenNote} />}
+                      <CloudSent sent={turn.sent} />
+                    </>
+                  }
                 >
                   <ChatMarkdown onWikiLinkClick={onWikiLinkClick}>{turn.body}</ChatMarkdown>
                 </ChatMessage>
@@ -229,6 +238,7 @@ function ChatPanel({
 
       <div className="shrink-0">
         <div className="mx-auto w-full max-w-[42rem] px-6 pb-6 sm:px-8">
+          {notice}
           <div className="rounded-lg border border-border bg-background transition-colors focus-within:border-brand">
             <textarea
               rows={1}

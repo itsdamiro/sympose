@@ -27,6 +27,9 @@ export interface SentRecord {
   notes: SentNote[]
   /** The query a follow-up was rewritten into, when that is what found the notes. */
   searched?: string | null
+  /** A cloud model's turn only (ADR 031): the categories of the vault that were sent, and those held back. */
+  cloud?: string[]
+  withheld?: string[]
 }
 
 export interface ChatTurn {

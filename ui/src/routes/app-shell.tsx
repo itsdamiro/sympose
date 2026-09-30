@@ -37,6 +37,7 @@ import { usePinnedNotes } from "@/lib/use-pinned-notes"
 import { useRecentNotes } from "@/lib/use-recent-notes"
 import { useVaultScopedState } from "@/lib/use-vault-scoped-state"
 import { useNotificationPreferences } from "@/lib/use-notification-preferences"
+import { useSharing } from "@/lib/use-sharing"
 import { useChatDisplayPreferences } from "@/lib/use-chat-display-preferences"
 import { useNebulaPreferences } from "@/lib/use-nebula-preferences"
 import { useNebulaGraph } from "@/lib/use-nebula-graph"
@@ -85,6 +86,7 @@ import {
   ContentPanel,
   ControlSectionsProvider,
   ChatDisplaySection,
+  CloudNotice,
   EditorPreferencesSection,
   EngineSettingsSections,
   FolderSetupDialog,
@@ -441,6 +443,7 @@ export function AppShell() {
   const [notifyPrefs, setNotifyPref] = useNotificationPreferences()
   const [nebulaPrefs, setNebulaPref] = useNebulaPreferences()
   const [chatDisplayPrefs, setChatDisplayPref] = useChatDisplayPreferences()
+  const { state: sharingState, setShared } = useSharing(activePersona)
   // Bumped after a note is created, or the active vault is switched, to
   // re-pull the tree, the nebula graph, and any live search so they follow
   // without a persona switch (a persona switch itself re-pulls them too).
@@ -1745,6 +1748,7 @@ export function AppShell() {
               onWikiLinkClick={openChatWikilink}
               onNewConversation={chat.newConversation}
               showGrounding={chatDisplayPrefs.showGrounding}
+              notice={<CloudNotice state={sharingState} onChange={setShared} />}
               draft={chat.draft}
               onDraftChange={chat.setDraft}
               onSubmit={chat.send}
