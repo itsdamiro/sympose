@@ -199,7 +199,7 @@ The web chat asks before a model switch sends an ongoing conversation's earlier 
 
 While the search index is still being built, the engine answers by keyword instead of by meaning (`semantic._vectors_for` returns nothing until the build is done). The terminal shows `indexing NN%` above the composer, but the web chat said nothing, so a first reply could be weaker with no explanation.
 
-- **Only while a reply is in flight** (chosen over also showing it while idle, which would need a slow background poll for a line nobody is waiting on). A second, quieter line sits under the busy line: "Still indexing your notes (40%), so this reply searches by keyword." It is gone as soon as the build finishes or the reply arrives.
+- **Only while a reply is in flight** (chosen over also showing it while idle, which would need a slow background poll for a line nobody is waiting on). A second, quieter line sits under the busy line: "Still indexing your notes (40%). Until it is done, searches use keywords." (worded so it holds for a reply that does not search at all) It is gone as soon as the build finishes or the reply arrives.
 - **No new route.** `GET /api/chat/status`, which the chat already polls while it waits, also returns `indexing`: the whole percent of the build (`semantic_refresh.progress()`), or `null` when none is running. The figure is the engine's and global, not per persona, as in the terminal.
 - It is a plain statement of the engine's behaviour, not a setting: the terminal's line has no knob for it either.
 

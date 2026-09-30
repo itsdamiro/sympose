@@ -69,9 +69,9 @@ describe("ChatPanel", () => {
     })
   })
 
-  it("says the reply searches by keyword while the index is being built, and only while a reply is in flight", () => {
+  it("says searches use keywords while the index is being built, and only while a reply is in flight", () => {
     setup({ sending: true, phase: "searching", indexing: 40 })
-    expect(screen.getByText("Still indexing your notes (40%), so this reply searches by keyword.")).toBeTruthy()
+    expect(screen.getByText("Still indexing your notes (40%). Until it is done, searches use keywords.")).toBeTruthy()
     cleanup()
     setup({ sending: true, phase: "searching", indexing: null })
     expect(screen.queryByText(/Still indexing/)).toBeNull()

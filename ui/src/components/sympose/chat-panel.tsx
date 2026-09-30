@@ -276,7 +276,7 @@ function ChatPanel({
           )}
           {sending && indexing !== null && (
             <p data-slot="indexing-notice" role="status" className="text-xs text-fg-muted">
-              Still indexing your notes ({indexing}%), so this reply searches by keyword.
+              Still indexing your notes ({indexing}%). Until it is done, searches use keywords.
             </p>
           )}
           <div ref={endRef} />

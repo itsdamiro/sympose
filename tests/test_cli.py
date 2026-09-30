@@ -568,6 +568,37 @@ def test_several_messages_sent_mid_reply_go_out_as_one_joined_turn(profiles, mon
     run_async(scenario())
 
 
+def test_messages_waiting_are_still_sent_when_showing_a_reply_fails(profiles, monkeypatch):
+    release = threading.Event()
+    calls = []
+
+    def fake_run_turn(handle, user_message, session_id=None, model=None):
+        calls.append(user_message)
+        if user_message == "first":
+            assert release.wait(timeout=2)
+        return engine.TurnResult(reply="ok", session_id="s", grounding=[])
+
+    def boom(*a, **k):
+        raise RuntimeError("cannot draw")
+
+    monkeypatch.setattr(turns.engine, "run_turn", fake_run_turn)
+    monkeypatch.setattr(turns, "_stream_reply", boom)
+
+    async def scenario():
+        app = SymposeCLI()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            t1 = asyncio.create_task(turns.send_message(app, "first"))
+            await asyncio.sleep(0.05)
+            t2 = asyncio.create_task(turns.send_message(app, "second"))
+            await asyncio.sleep(0.02)
+            release.set()
+            await asyncio.gather(t1, t2)
+            assert calls == ["first", "second"] and app.turn_runs == {}
+
+    run_async(scenario())
+
+
 def test_messages_waiting_behind_a_failed_reply_are_still_sent(profiles, monkeypatch):
     release = threading.Event()
     calls = []

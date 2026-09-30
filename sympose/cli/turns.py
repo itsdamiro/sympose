@@ -110,8 +110,12 @@ async def _send_message(app, value: str) -> None:
             batch = [value, *waiting]
             waiting.clear()
             while batch:
-                if not await _run_turn(app, handle, generation, "\n\n".join(batch), captured):
-                    return
+                try:
+                    if not await _run_turn(app, handle, generation, "\n\n".join(batch), captured):
+                        return
+                except Exception as e:  # showing the reply failed: what waited must still be sent
+                    log.warning("Could not show a reply: %s", e)
+                    _show_failure(app, transcript, handle, f"couldn't show the reply ({e}).")
                 batch = list(waiting)  # no await between this and the `del` below, so nothing slips past
                 waiting.clear()
     finally:
