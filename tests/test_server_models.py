@@ -61,11 +61,11 @@ def test_says_whether_the_fallback_is_cloud_too_since_clearing_a_model_lands_on_
     assert body["fallback"] == "openai/gpt-4o-mini" and body["fallback_cloud"] is True
 
 
-def test_a_listed_model_is_saved_into_the_persona_file_and_read_back(client, scratch):
+def test_a_listed_model_is_saved_into_the_local_override_and_read_back(client, scratch):
     r = client.put("/api/personas/samantha/model", json={"model": "openai/gpt-4o-mini"})
     assert r.status_code == 200 and r.json()["current"] == "openai/gpt-4o-mini" and r.json()["own"] == "openai/gpt-4o-mini"
-    text = (scratch / "samantha" / "persona.yaml").read_text()
-    assert text.startswith(FILE) and text.endswith("model: 'openai/gpt-4o-mini'\n")  # the rest untouched
+    assert (scratch / "samantha" / "persona.yaml").read_text() == FILE  # the shipped file is never written
+    assert (scratch / "samantha" / "persona.local.yaml").read_text() == "model: openai/gpt-4o-mini\n"
     assert profile.get_profile("samantha")["model"] == "openai/gpt-4o-mini"  # what the terminal reads
 
 
@@ -74,10 +74,13 @@ def test_the_answer_describes_the_persona_that_was_changed_not_the_default_one(c
     assert r.json()["own"] == "openai/gpt-4o-mini" == r.json()["current"]
 
 
-def test_null_clears_the_persona_own_model(client, scratch):
+def test_null_removes_the_pick_and_returns_to_the_shipped_model(client, scratch):
+    client.put("/api/personas/cloudy/model", json={"model": "openai/gpt-4o-mini"})
     r = client.put("/api/personas/cloudy/model", json={"model": None})
-    assert r.status_code == 200 and r.json()["own"] is None and r.json()["current"] == r.json()["fallback"]
-    assert "model:" not in (scratch / "cloudy" / "persona.yaml").read_text()
+    assert r.status_code == 200 and r.json()["own"] == "gemini/gemini-flash-latest"  # the persona file's own
+    assert not (scratch / "cloudy" / "persona.local.yaml").exists()
+    plain = client.put("/api/personas/samantha/model", json={"model": None})
+    assert plain.json()["own"] is None and plain.json()["current"] == plain.json()["fallback"]
 
 
 def test_a_model_the_list_does_not_offer_is_refused_and_nothing_is_written(client, scratch):
@@ -92,8 +95,13 @@ def test_an_unknown_persona_is_404_for_both_routes(client):
     assert client.put("/api/personas/nobody/model", json={"model": None}).status_code == 404
 
 
-def test_a_file_that_cannot_be_saved_safely_is_a_500_and_left_alone(client, scratch):
-    (scratch / "samantha" / "persona.yaml").write_text("name: [unclosed\n")
+def test_a_write_that_fails_is_a_500_and_leaves_the_shipped_file_alone(client, scratch, monkeypatch):
+    from sympose import persona_model
+
+    def boom(*a, **k):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(persona_model, "write_atomic_text", boom)
     r = client.put("/api/personas/samantha/model", json={"model": "openai/gpt-4o-mini"})
     assert r.status_code == 500
-    assert (scratch / "samantha" / "persona.yaml").read_text() == "name: [unclosed\n"
+    assert (scratch / "samantha" / "persona.yaml").read_text() == FILE

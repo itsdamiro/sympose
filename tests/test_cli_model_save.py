@@ -9,7 +9,7 @@ import pytest
 import yaml
 from helpers import write_persona
 
-from sympose import engine
+from sympose import engine, persona_model, profile
 from sympose.cli import options, runtime
 from sympose.cli.app import SymposeCLI
 
@@ -48,7 +48,8 @@ def profiles(tmp_path, monkeypatch):
 
 
 def saved_model(profiles, handle):
-    return yaml.safe_load((profiles / handle / "persona.yaml").read_text()).get("model")
+    """What the persona now resolves to: the local override (docs/decisions/046) over the shipped file."""
+    return profile.get_profile(handle)["model"]
 
 
 def test_a_model_pick_is_saved_into_the_active_personas_file_and_said(profiles):
@@ -62,22 +63,28 @@ def test_a_model_pick_is_saved_into_the_active_personas_file_and_said(profiles):
 
     run_async(scenario())
     assert saved_model(profiles, "samantha") == CLOUD
-    assert "# hand-written" in (profiles / "samantha" / "persona.yaml").read_text()  # the rest of the file kept
+    shipped = (profiles / "samantha" / "persona.yaml").read_text()
+    assert shipped == "name: Samantha\nhandle: samantha\n# hand-written\n"  # the shipped file is never written
+    assert yaml.safe_load((profiles / "samantha" / "persona.local.yaml").read_text()) == {"model": CLOUD}
     assert saved_model(profiles, "aria") == "gemini/gemini-flash-latest"  # another persona is not touched
 
 
-def test_a_pick_that_could_not_be_saved_still_applies_for_the_session_and_says_so(profiles):
+def test_a_pick_that_could_not_be_saved_still_applies_for_the_session_and_says_so(profiles, monkeypatch):
+
+    def boom(*a, **k):
+        raise OSError("disk full")
+
     async def scenario():
         app = SymposeCLI()
         async with app.run_test() as pilot:
             await pilot.pause()
-            (profiles / "samantha" / "persona.yaml").write_text("name: [unclosed\n")  # broken after the chat opened
+            monkeypatch.setattr(persona_model, "write_atomic_text", boom)  # the disk refuses after the chat opened
             runtime.apply_picker_choice(app, "model", LOCAL)
             assert app.model_override.id == LOCAL
             assert any("Couldn't save it to @samantha's persona.yaml" in t and "this session only" in t for t in lines(app))
 
     run_async(scenario())
-    assert (profiles / "samantha" / "persona.yaml").read_text() == "name: [unclosed\n"
+    assert not (profiles / "samantha" / "persona.local.yaml").exists()
 
 
 def test_switching_persona_drops_the_session_pick_so_the_other_personas_own_model_applies(profiles):

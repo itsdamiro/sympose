@@ -11,6 +11,8 @@ from sympose.security import is_safe_path
 log = logging.getLogger(__name__)
 
 PERSONA_FILENAME = "persona.yaml"
+# The user's own choices over the shipped file (docs/decisions/046): untracked, written by the app.
+PERSONA_LOCAL_FILENAME = "persona.local.yaml"
 SOUL_FILENAME = "soul.md"
 
 

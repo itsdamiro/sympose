@@ -9,14 +9,17 @@ this module deliberately stays free of that — no `litellm` import here, see
 """
 
 import glob
+import logging
 import os
 from typing import Any
 
 import yaml
 
 from sympose import settings_store
-from sympose.persona_files import PERSONA_FILENAME, persona_dir, profiles_dir
+from sympose.persona_files import PERSONA_FILENAME, PERSONA_LOCAL_FILENAME, persona_dir, profiles_dir
 from sympose.security import is_safe_path
+
+log = logging.getLogger(__name__)
 
 FACTORY_DEFAULT_PERSONA = "samantha"   # fallback value only — see resolve_default_persona
 _DEFAULT_PERSONA_SETTINGS_KEY = "default_persona"
@@ -113,7 +116,23 @@ def get_profile(handle: str) -> dict[str, Any] | None:
         return None
     if not isinstance(data, dict):
         return None
-    return _normalize(data, handle)
+    local_model = _local_model(os.path.join(os.path.dirname(path), PERSONA_LOCAL_FILENAME))
+    return _normalize({**data, "model": local_model} if local_model else data, handle)
+
+
+def _local_model(path: str) -> str | None:
+    """The model the user picked (docs/decisions/046), from the untracked override beside the shipped
+    file. An absent, unreadable or invalid file gives `None`: it never costs the persona its place."""
+    if not os.path.isfile(path):
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+    except (OSError, UnicodeDecodeError, yaml.YAMLError) as e:
+        log.warning("Ignoring %s: %s", path, e)
+        return None
+    model = data.get("model") if isinstance(data, dict) else None
+    return model if isinstance(model, str) and model.strip() else None
 
 
 def resolve_profile(persona: str | None) -> dict[str, Any] | None:
