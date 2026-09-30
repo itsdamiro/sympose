@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils"
 import type { ChatPhase } from "@/lib/chat-api"
 import type { ChatTurn } from "@/lib/chat-types"
 import { ChatMessage } from "@/components/sympose/chat-message"
+import { ChatMarkdown } from "@/components/sympose/chat-markdown"
 import { ChatSystemLine } from "@/components/sympose/chat-system-line"
 import { GroundedNotes } from "@/components/sympose/grounded-notes"
 import { ModelChip } from "@/components/sympose/model-chip"
@@ -29,6 +30,8 @@ interface ChatPanelProps extends React.ComponentProps<"div"> {
   onLoadOlder?: () => void
   /** Opens a note named under a reply (the notes it was based on). */
   onOpenNote?: (path: string) => void
+  /** A `[[wikilink]]` inside a reply was clicked. */
+  onWikiLinkClick?: (target: string) => void
   /** Starts a fresh conversation; the control shows once there is something to leave behind. */
   onNewConversation?: () => void
   draft: string
@@ -67,6 +70,7 @@ function ChatPanel({
   loadingOlder = false,
   onLoadOlder,
   onOpenNote,
+  onWikiLinkClick,
   onNewConversation,
   draft,
   onDraftChange,
@@ -206,7 +210,7 @@ function ChatPanel({
                   actions={turn.actions}
                   grounding={<GroundedNotes sent={turn.sent} onOpenNote={onOpenNote} />}
                 >
-                  {turn.body}
+                  <ChatMarkdown onWikiLinkClick={onWikiLinkClick}>{turn.body}</ChatMarkdown>
                 </ChatMessage>
               )
             )

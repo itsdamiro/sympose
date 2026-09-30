@@ -30,10 +30,11 @@ function GroundedNotes({ className, sent, onOpenNote, ...props }: GroundedNotesP
         onClick={() => setOpen(!open)}
         className="-mx-1 inline-flex max-w-full items-center gap-1.5 rounded px-1 py-0.5 text-fg-muted transition-colors hover:bg-accent hover:text-foreground"
       >
-        <HugeiconsIcon icon={BookOpen01Icon} className="size-3.5 shrink-0" />
+        <HugeiconsIcon icon={BookOpen01Icon} aria-hidden className="size-3.5 shrink-0" />
         <span className="truncate">{groundedSummary(notes)}</span>
         <HugeiconsIcon
           icon={ArrowDown01Icon}
+          aria-hidden
           className={cn("size-3 shrink-0 transition-transform", open && "rotate-180")}
         />
       </button>

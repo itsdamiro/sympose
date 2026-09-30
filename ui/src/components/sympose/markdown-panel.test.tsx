@@ -6,8 +6,8 @@ const api = vi.hoisted(() => ({ fetchVaultNote: vi.fn(), saveVaultNote: vi.fn() 
 
 vi.mock("@damiro/stylo", () => ({
   splitFrontmatter: (text: string) => ({ frontmatter: "", body: text, prefix: "" }),
-  Stylo: ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
-    <textarea aria-label="editor" value={value} onChange={(e) => onChange(e.target.value)} />
+  Stylo: ({ value, onChange, mode }: { value: string; onChange: (v: string) => void; mode?: string }) => (
+    <textarea aria-label="editor" data-mode={mode} value={value} onChange={(e) => onChange(e.target.value)} />
   ),
 }))
 vi.mock("@damiro/stylo/styles.css", () => ({}))
@@ -38,6 +38,7 @@ beforeEach(() => {
   api.saveVaultNote.mockResolvedValue({ ok: true, mtime: 200 })
 })
 afterEach(() => {
+  document.cookie = "sympose:pref.noteReadOnly=; max-age=0"
   cleanup()
   vi.unstubAllGlobals()
   vi.clearAllMocks()
@@ -86,5 +87,15 @@ describe("MarkdownPanel leaving a note with unsaved edits", () => {
     const fetches = api.fetchVaultNote.mock.calls.length
     await act(async () => options.action.onClick())
     expect(api.fetchVaultNote.mock.calls.length).toBe(fetches + 1)
+  })
+
+  it("shows a note opened from the chat in preview mode, and only when asked to", async () => {
+    const props = { path: "Old.md", preferences: PREFERENCES, toolbarItems: [] }
+    const view = render(<MarkdownPanel {...props} previewRequest={0} />)
+    expect((await screen.findByLabelText("editor")).getAttribute("data-mode")).toBe("in-place")
+    view.rerender(<MarkdownPanel {...props} previewRequest={0} />)
+    expect(screen.getByLabelText("editor").getAttribute("data-mode")).toBe("in-place")
+    view.rerender(<MarkdownPanel {...props} previewRequest={1} />)
+    await waitFor(() => expect(screen.getByLabelText("editor").getAttribute("data-mode")).toBe("preview"))
   })
 })

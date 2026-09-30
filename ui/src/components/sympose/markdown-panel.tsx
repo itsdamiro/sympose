@@ -55,6 +55,7 @@ import {
 import { fetchVaultNote, saveVaultNote } from "@/lib/vault-note-api"
 import { stashDraft } from "@/lib/local-drafts"
 import { extractWikilinks } from "@/lib/extract-wikilinks"
+import { openMarkdownLink } from "@/lib/open-markdown-link"
 import { extractInlineTags } from "@/lib/extract-inline-tags"
 import { parseFrontmatter, serializeFrontmatter } from "@/lib/frontmatter"
 import type { EditorPreferences } from "@/lib/use-editor-preferences"
@@ -156,6 +157,8 @@ interface MarkdownPanelProps extends React.ComponentProps<"div"> {
    *  literal. */
   embedSource?: EmbedSource
   /** The open note was renamed — value is its new vault-relative path. */
+  /** Bumped each time a note is opened from the chat: the editor then shows it in preview (read) mode. */
+  previewRequest?: number
   onRenamed?: (newPath: string) => void
   /** The open note was moved to trash. */
   onDeleted?: () => void
@@ -296,25 +299,7 @@ const TOGGLE_CONTENT_ENTER = cn(
   "[&_.sy-note-chrome]:animate-in [&_.sy-note-chrome]:duration-100 [&_.sy-note-chrome]:slide-in-from-top-1"
 )
 
-const SAFE_LINK_SCHEMES = new Set(["http:", "https:", "mailto:"])
 
-/** Opens a plain Markdown `[text](url)` link — stylo hands over the raw
- *  `href` and does no navigation of its own (`onWikiLinkClick`/`wikiLinkSource`
- *  above are the separate `[[wikilink]]` path). Restricted to http(s)/mailto:
- *  a note is vault content, not always authored by the current user, so a
- *  `javascript:`/`data:` URI shouldn't get a free ride into `window.open`.
- *  Anything else (including a relative path to another vault file) is a
- *  silent no-op for now, same as before this was wired up. */
-function openMarkdownLink(href: string) {
-  let url: URL
-  try {
-    url = new URL(href, window.location.href)
-  } catch {
-    return
-  }
-  if (!SAFE_LINK_SCHEMES.has(url.protocol)) return
-  window.open(url.href, "_blank", "noopener,noreferrer")
-}
 
 type NoteLoadState =
   | { status: "empty" }
@@ -415,6 +400,7 @@ function MarkdownPanel({
   embedSource,
   onRenamed,
   onDeleted,
+  previewRequest = 0,
   isPinned,
   onTogglePin,
   onNavigateToRootFolder,
@@ -491,6 +477,14 @@ function MarkdownPanel({
   const [readOnly, setReadOnly] = React.useState(() =>
     getCookieBool(NOTE_READ_ONLY_COOKIE, false)
   )
+  // A note opened from the chat (a link under a reply) is shown in preview mode: each new `previewRequest`
+  // switches to it. Set at once rather than through the animated swap below, which only completes when the
+  // toolbar row it animates is on screen; a note that is still loading, or a panel that was closed, has none.
+  const [seenPreviewRequest, setSeenPreviewRequest] = React.useState(previewRequest)
+  if (previewRequest !== seenPreviewRequest) {
+    setSeenPreviewRequest(previewRequest)
+    if (previewRequest > 0) setReadOnly(true)
+  }
   React.useEffect(() => {
     setCookieBool(NOTE_READ_ONLY_COOKIE, readOnly)
   }, [readOnly])

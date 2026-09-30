@@ -396,6 +396,7 @@ export function AppShell() {
   const [activePersona, setActivePersona] = useActivePersona()
   // Chat state lives in its own hook (docs/decisions/044), keyed on the active persona.
   const chat = useChat(activePersona)
+  const [previewRequest, setPreviewRequest] = React.useState(0)
   const [editorPrefs, setEditorPref] = useEditorPreferences()
   const [toolbarItems, setToolbarItems] = useToolbarItems()
 
@@ -765,6 +766,13 @@ export function AppShell() {
     if (!findNoteByPath(vaultTree, path)) return
     selectNote(path)
     panels.open("editor")
+    setPreviewRequest((n) => n + 1) // a note from the chat opens in preview mode
+  }
+
+  // A `[[wikilink]]` in a chat reply: the same, resolved by name among the notes the user can see.
+  const openChatWikilink = (target: string) => {
+    const match = findNoteByWikilink(vaultTree, target)
+    if (match) openGroundedNote(match.path)
   }
 
   // stylo's `wikiLinkSource` (>=0.7.0) is read once, at mount — so the
@@ -1692,6 +1700,7 @@ export function AppShell() {
             wikiLinkSource={wikiLinkSource}
             tagSource={tagSource}
             embedSource={embedSource}
+            previewRequest={previewRequest}
             onRenamed={(newPath) => {
               setSelectedNote(newPath)
               setVaultRefreshKey((k) => k + 1)
@@ -1727,6 +1736,7 @@ export function AppShell() {
               loadingOlder={chat.loadingOlder}
               onLoadOlder={chat.loadOlder}
               onOpenNote={openGroundedNote}
+              onWikiLinkClick={openChatWikilink}
               onNewConversation={chat.newConversation}
               draft={chat.draft}
               onDraftChange={chat.setDraft}
