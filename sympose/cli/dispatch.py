@@ -11,6 +11,8 @@ from textual.widgets import OptionList
 from sympose.cli import memory_command, picker, runtime, settings_list, share, turns
 from sympose.cli import transcript as transcript_mod
 from sympose.cli.commands import find_command
+from sympose.cli.selection import SelectionOption
+from sympose.engine.model_options import model_option_for
 
 CHAT_TURN_WORKER_GROUP = "chat-turn"
 
@@ -106,6 +108,19 @@ async def on_option_selected(app, event: OptionList.OptionSelected) -> None:
     if kind == memory_command.CONFIRM_KIND:
         memory_command.apply_review(app, value)
         return
+    if kind == "model" and value is not None and (question := share.history_question(app, value)):
+        transcript_mod.mount_line(app, question, "system")
+        await picker.open_picker(
+            app,
+            share.CONFIRM_KIND,
+            "Switch anyway?",
+            [SelectionOption(f"Switch to {model_option_for(value).short}", value), SelectionOption("Keep the current model", share.KEEP)],
+        )
+        return
+    if kind == share.CONFIRM_KIND:
+        if value is None or value == share.KEEP:
+            return
+        kind = "model"  # asked and accepted: the same as a pick that needed no question
     ask = runtime.apply_picker_choice(app, kind, value)
     # The model just moved from local to cloud and some of the vault is not yet allowed for it: ask
     # now (docs/decisions/031); `/share` keeps its list open so several can be flipped, Esc closes it.

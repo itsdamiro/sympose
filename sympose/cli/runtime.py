@@ -151,9 +151,6 @@ def apply_picker_choice(app, kind: str, value: str | None) -> bool:
             )
             transcript_mod.mount_line(app, f"Switched model to {model.label}. {kept}", "system")
             ask = share.on_change(app, was_cloud)
-            history = share.history_notice(app, was_cloud)
-            if history:
-                transcript_mod.mount_line(app, history, "system")
     elif kind == "persona":
         persona = next((p for p in list_personas() if p.handle == value), None)
         if persona is not None and persona.handle != app.persona.handle:

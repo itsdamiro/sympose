@@ -6,8 +6,11 @@ from sympose.cli import picker, transcript as transcript_mod
 from sympose.cli.options import ModelOption, active_model
 from sympose.cli.selection import SelectionOption
 from sympose.engine import sharing
+from sympose.engine.model_options import model_option_for
 
 PICKER_KIND = "share"
+CONFIRM_KIND = "model_confirm"  # the yes/no before a local-to-cloud switch in a conversation (ADR 044)
+KEEP = "keep"
 
 
 def is_cloud(model: ModelOption) -> bool:
@@ -76,15 +79,16 @@ def on_change(app, was_cloud: bool) -> bool:
     return not was_cloud and len(sharing.approved()) < len(sharing.CATEGORIES)
 
 
-def history_notice(app, was_cloud: bool) -> str | None:
-    """When a conversation already going moved from a local model to a cloud one: the earlier replies,
-    which may quote notes, are sent to it as history whatever is approved (docs/decisions/031, "A
-    consequence to know"; 044: the user is told, and leaves the rule as it is). Otherwise `None`."""
-    if was_cloud or not app.session_id or not in_cloud(app):
+def history_question(app, model_id: str) -> str | None:
+    """What to ask before switching a conversation already going from a local model to the cloud model
+    `model_id`: its earlier replies, which may quote notes, are sent as history whatever `/share`
+    allows (docs/decisions/031, "A consequence to know"; 044: the user is asked and accepts). `None`
+    when nothing needs asking: an empty conversation, a model already in the cloud, a local target."""
+    if not app.session_id or in_cloud(app) or sharing.is_local(model_id):
         return None
     return (
-        "Earlier replies in this conversation, which may quote your notes, are sent to it as history "
-        "whatever /share allows. Start a new conversation to leave them out."
+        f"Switching to {model_option_for(model_id).short}: earlier replies in this conversation, which may quote "
+        "your notes, are sent to it as history whatever /share allows. Start a new conversation to leave them out."
     )
 
 
