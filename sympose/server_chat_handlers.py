@@ -9,7 +9,7 @@ from typing import Any
 
 from fastapi import HTTPException
 
-from sympose.engine import session, turn, turn_status
+from sympose.engine import session, status_phrases, turn, turn_status
 from sympose.server_handlers import require_profile
 from sympose.server_models import ChatSessionStart, ChatTurn
 
@@ -53,6 +53,16 @@ def get_status(persona: str | None) -> dict[str, Any]:
     """What the persona's in-flight reply is doing right now (`searching`, `reading`, `asking`), or
     `None` when nothing is running: the web chat polls this while it waits (docs/decisions/043)."""
     return {"phase": turn_status.phase(require_profile(persona)["handle"])}
+
+
+def get_status_phrases(persona: str | None) -> dict[str, Any]:
+    """The persona's own busy-line phrases (`own`), or the generic ones while it has none. The first read
+    for a persona with none also starts the one-time background generation from its soul, the same lazy
+    trigger the terminal uses at launch (docs/decisions/043, 044): it happens when the chat opens, not when
+    a message is sent, so the model call does not compete with the first reply."""
+    handle = require_profile(persona)["handle"]
+    status_phrases.generate_in_background(handle)
+    return {"phrases": status_phrases.phrases(handle), "own": status_phrases.has_own(handle)}
 
 
 def _latest_session(handle: str) -> tuple[str, dict[str, Any]] | None:

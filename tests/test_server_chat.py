@@ -236,3 +236,51 @@ def test_the_first_message_continues_the_blank_conversation_and_names_it(client,
 
 def test_a_new_conversation_for_an_unknown_persona_is_404(client):
     assert client.post("/api/chat/session", json={"persona": "nobody"}).status_code == 404
+
+
+# -- the busy line's phrases (docs/decisions/044, 043) -------------------------
+
+
+class RunnerSpy:
+    """Stands in for the one-generation-per-persona runner: records what is started, runs nothing."""
+
+    def __init__(self):
+        self.started = []
+
+    def start(self, handle, job):
+        self.started.append(handle)
+        return True
+
+    def is_running(self, handle):
+        return False
+
+
+@pytest.fixture
+def runner(monkeypatch):
+    spy = RunnerSpy()
+    monkeypatch.setattr(ch.status_phrases, "_RUNNER", spy)
+    return spy
+
+
+def test_status_phrases_are_the_personas_own_when_it_has_them_and_nothing_is_generated(client, tmp_path, runner):
+    (tmp_path / "profiles" / "samantha" / "status_phrases.md").write_text("Humming along…\nChasing a thread…\n", encoding="utf-8")
+    body = client.get("/api/chat/status-phrases", params={"persona": "samantha"}).json()
+    assert body == {"phrases": ["Humming along…", "Chasing a thread…"], "own": True}
+    assert runner.started == []
+
+
+def test_a_persona_with_none_of_its_own_gets_the_generic_ones_and_generation_starts(client, runner):
+    body = client.get("/api/chat/status-phrases", params={"persona": "samantha"}).json()
+    assert body == {"phrases": ch.status_phrases.FALLBACK, "own": False}
+    assert runner.started == ["samantha"]
+
+
+def test_reading_the_phrases_again_asks_the_runner_again_and_the_runner_deduplicates(client, runner):
+    client.get("/api/chat/status-phrases", params={"persona": "samantha"})
+    client.get("/api/chat/status-phrases", params={"persona": "samantha"})
+    assert runner.started == ["samantha", "samantha"]  # `Runner.start` itself declines a second run in flight
+
+
+def test_status_phrases_for_an_unknown_persona_is_404_and_starts_nothing(client, runner):
+    assert client.get("/api/chat/status-phrases", params={"persona": "nobody"}).status_code == 404
+    assert runner.started == []
