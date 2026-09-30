@@ -71,11 +71,17 @@ def test_an_empty_message_is_refused(client):
     assert client.post("/api/chat/turn", json={"message": "", "persona": "samantha"}).status_code == 422
 
 
-def test_a_cloud_model_is_refused_before_anything_is_sent(client, monkeypatch):
+def test_a_cloud_model_is_chatted_with_and_the_turn_says_what_was_held_back(client, monkeypatch):
+    """The notice and switches are on screen before a message is written (docs/decisions/044), so the guard
+    is gone; nothing of the vault is sent that the user has not approved, and the reply says so."""
     calls = model_says(monkeypatch)
+    note = {"rel_path": "Atlas.md", "title": "Atlas", "heading": "Atlas", "text": "We use SQLite.", "kind": "text"}
+    monkeypatch.setattr(grounding, "ground", lambda profile, msg, max_results=5: [note])
     response = client.post("/api/chat/turn", json={"message": "hi", "persona": "cloudy"})
-    assert response.status_code == 409 and response.json()["detail"] == ch.CLOUD_NOT_AVAILABLE
-    assert calls == []
+    body = response.json()
+    assert response.status_code == 200 and calls == ["gemini/gemini-flash-latest"]
+    assert body["cloud"] == [] and body["withheld"] == ["notes"]
+    assert body["sent"]["withheld"] == ["notes"]
 
 
 def test_a_model_failure_is_a_502_with_its_message(client, monkeypatch):

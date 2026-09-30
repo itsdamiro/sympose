@@ -9,13 +9,9 @@ from typing import Any
 
 from fastapi import HTTPException
 
-from sympose.engine import model as model_mod, session, sharing, turn, turn_status
+from sympose.engine import session, turn, turn_status
 from sympose.server_handlers import require_profile
 from sympose.server_models import ChatSessionStart, ChatTurn
-
-# Lifted with the cloud notice and share control (docs/decisions/044, slice 2): until then the web
-# chat cannot tell the user what would leave the machine, so it only talks to local models.
-CLOUD_NOT_AVAILABLE = "The web chat only uses local models for now: pick a local model for this persona to chat here."
 
 _LOCKS: dict[str, threading.Lock] = {}
 _LOCKS_GUARD = threading.Lock()
@@ -29,8 +25,6 @@ def _lock_for(handle: str) -> threading.Lock:
 def send_turn(body: ChatTurn) -> dict[str, Any]:
     profile = require_profile(body.persona)
     handle = profile["handle"]
-    if not sharing.is_local(model_mod.resolve_model(profile.get("model"))):
-        raise HTTPException(status_code=409, detail=CLOUD_NOT_AVAILABLE)
     with _lock_for(handle):
         try:
             result = turn.run_turn(handle, body.message, body.session_id)

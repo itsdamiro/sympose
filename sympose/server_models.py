@@ -116,3 +116,9 @@ class SettingChange(BaseModel):
     """Body of `PUT /api/settings/{key}` — the value wanted, or `null` for the setting's default."""
 
     value: Any = None
+
+
+class SharingChange(BaseModel):
+    """Body of `PUT /api/sharing/{category}` — whether cloud models may receive that category."""
+
+    shared: bool

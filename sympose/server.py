@@ -26,11 +26,12 @@ from sympose import server_handlers as h
 from sympose import server_hidden_handlers as hh
 from sympose import server_persona_handlers as ph
 from sympose import server_settings_handlers as seh
+from sympose import server_sharing_handlers as sph
 from sympose import server_search_handlers as sh
 from sympose import server_trash_handlers as th
 from sympose import server_vault_handlers as vh
 from sympose import vault_paths
-from sympose.server_models import ChatSessionStart, ChatTurn, DefinitionsSwitch, FolderDefinition, HiddenPath, SettingChange, TrashEmpty, TrashRestore, VaultActivate
+from sympose.server_models import ChatSessionStart, ChatTurn, DefinitionsSwitch, FolderDefinition, HiddenPath, SettingChange, SharingChange, TrashEmpty, TrashRestore, VaultActivate
 
 
 def create_app() -> FastAPI:
@@ -93,6 +94,14 @@ def create_app() -> FastAPI:
     @app.put("/api/settings/{key}")
     def put_setting(key: str, body: SettingChange) -> dict[str, Any]:
         return seh.put_setting(key, body)
+
+    @app.get("/api/sharing")
+    def get_sharing(persona: str | None = Query(None)) -> dict[str, Any]:
+        return sph.get_sharing(persona)
+
+    @app.put("/api/sharing/{category}")
+    def put_sharing(category: str, body: SharingChange, persona: str | None = Query(None)) -> dict[str, Any]:
+        return sph.put_sharing(category, persona, body)
 
     @app.get("/api/personas")
     def get_personas() -> dict[str, Any]:
