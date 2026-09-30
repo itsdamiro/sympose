@@ -13,6 +13,11 @@ SETTINGS: list[Setting] = [
     toggle(meter.SETTING, "the context meter under the chat box", meter.enabled, group=DISPLAY),
     toggle(background_status.SETTING, "the busy indicator above the box", background_status.enabled, group=DISPLAY),
     Setting(
+        background_status.TYPING_SETTING, NUMBER, "how fast the busy line is typed out",
+        background_status.chars_per_second, lambda: background_status.DEFAULT_CHARS_PER_SECOND, group=DISPLAY,
+        hint="characters per second, 0 or more; 0 shows each phrase at once",
+    ),
+    Setting(
         reveal.SETTING, NUMBER, "how fast a reply is written out", reveal.words_per_second,
         lambda: reveal.DEFAULT_WORDS_PER_SECOND, group=DISPLAY,
         hint="words per second, 0 or more; 0 shows the whole reply at once",

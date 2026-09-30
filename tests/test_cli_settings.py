@@ -14,7 +14,7 @@ from sympose.engine import settings_apply as apply, budget, embeddings, followup
 
 # The rows, in the order the list shows them, and the digit that chooses each (1 to 9).
 KEYS = [
-    "show_grounding", "show_trim_notice", "show_context_meter", "show_background_status", "reply_reveal",
+    "show_grounding", "show_trim_notice", "show_context_meter", "show_background_status", "status_typing", "reply_reveal",
     "context_window", "reply_limit", "grounding_followups", "session_recaps",
     "grounding_search", "embedding_min_similarity", "embedding_margin", "vault_lookup", "vault_lookup_rounds",
     "memory_remember", "memory_rewrite", "memory_auto_refresh",
@@ -310,10 +310,11 @@ def test_slash_settings_lists_every_setting_with_its_value(profiles):
             await _open(pilot, app)
             assert app.panel_kind == settings_list.PICKER_KIND
             labels = [str(app.panel.get_option_at_index(i).prompt) for i in range(app.panel.option_count)]
-            assert len(labels) == 17
+            assert len(labels) == 18
             assert "show_grounding — off:" in labels[0]
-            assert "context_window — automatic:" in labels[5]
-            assert "reply_reveal — 50 (default):" in labels[4]
+            assert "status_typing — 40 (default):" in labels[4]
+            assert "reply_reveal — 50 (default):" in labels[5]
+            assert "context_window — automatic:" in labels[6]
 
     run_async(scenario())
 
@@ -342,7 +343,7 @@ def test_choosing_a_number_asks_for_it_in_the_chat_box_and_saves_it_on_enter(pro
         app = SymposeCLI()
         async with app.run_test() as pilot:
             await _open(pilot, app)
-            await pilot.press("6")  # context_window
+            await pilot.press("7")  # context_window
             await pilot.pause()
             assert app.pending_setting == "context_window" and app.panel is None
             assert "context_window" in app.composer.placeholder and "Esc cancels" in app.composer.placeholder
@@ -352,8 +353,8 @@ def test_choosing_a_number_asks_for_it_in_the_chat_box_and_saves_it_on_enter(pro
             assert app.pending_setting is None and app.composer.placeholder == DEFAULT_PLACEHOLDER
             assert app.composer.value == ""
             assert "context_window is now 8192." in _lines(app)
-            assert app.panel_kind == settings_list.PICKER_KIND and app.panel.highlighted == 5
-            assert "context_window — 8192:" in str(app.panel.get_option_at_index(5).prompt)
+            assert app.panel_kind == settings_list.PICKER_KIND and app.panel.highlighted == 6
+            assert "context_window — 8192:" in str(app.panel.get_option_at_index(6).prompt)
 
     run_async(scenario())
 
@@ -363,7 +364,7 @@ def test_what_is_typed_at_the_prompt_is_a_value_not_a_command_and_a_bad_one_keep
         app = SymposeCLI()
         async with app.run_test() as pilot:
             await _open(pilot, app)
-            await pilot.press("7")  # reply_limit
+            await pilot.press("8")  # reply_limit
             await pilot.pause()
             await pilot.press("/", "m")  # would list /model
             await pilot.pause()
@@ -390,7 +391,7 @@ def test_an_empty_entry_at_the_prompt_resets_the_setting(profiles):
         app = SymposeCLI()
         async with app.run_test() as pilot:
             await _open(pilot, app)
-            await pilot.press("6", "enter")
+            await pilot.press("7", "enter")
             await pilot.pause()
             assert settings_store.get("context_window") is None
             assert app.pending_setting is None
@@ -406,7 +407,7 @@ def test_escape_at_the_prompt_leaves_the_setting_as_it_was(profiles):
         app = SymposeCLI()
         async with app.run_test() as pilot:
             await _open(pilot, app)
-            await pilot.press("6")
+            await pilot.press("7")
             await pilot.pause()
             await pilot.press(*"9999", "escape")
             await pilot.pause()
@@ -446,7 +447,7 @@ def test_a_setting_changed_here_applies_to_the_module_that_reads_it(profiles):
         app = SymposeCLI()
         async with app.run_test() as pilot:
             await _open(pilot, app)
-            await pilot.press("9")  # session_recaps
+            await pilot.press(*["down"] * 10, "enter")  # session_recaps, the tenth row
             await pilot.pause()
             assert recap.enabled() is False
 
@@ -460,7 +461,7 @@ def test_rows_past_the_ninth_are_reached_with_the_arrow_keys(profiles):
         app = SymposeCLI()
         async with app.run_test() as pilot:
             await _open(pilot, app)
-            await pilot.press(*["down"] * 12, "enter")  # the first press lands on the first row
+            await pilot.press(*["down"] * 13, "enter")  # the first press lands on the first row
             await pilot.pause()
             assert app.pending_setting == "embedding_margin"
 

@@ -6,7 +6,7 @@ Settings are stored in `settings.json`, in the folder where Sympose runs. `SYMPO
 
 Type /settings for a list of the common ones, each with its value. Choose a row to change it: a true or false one flips, one with a few values moves to the next, and for a number the chat box asks for it. Enter saves, an empty line puts the default back and Esc leaves it as it was. A number that cannot be used is refused.
 
-The list has `show_grounding`, `show_trim_notice`, `show_context_meter`, `show_background_status`, `reply_reveal`, `context_window`, `reply_limit`, `grounding_followups`, `session_recaps`, `grounding_search`, `embedding_min_similarity`, `embedding_margin`, `vault_lookup` and `vault_lookup_rounds`.
+The list has `show_grounding`, `show_trim_notice`, `show_context_meter`, `show_background_status`, `status_typing`, `reply_reveal`, `context_window`, `reply_limit`, `grounding_followups`, `session_recaps`, `grounding_search`, `embedding_min_similarity`, `embedding_margin`, `vault_lookup` and `vault_lookup_rounds`.
 
 `memory_remember`, `memory_rewrite` and `memory_auto_refresh` are the memory settings. The model, the persona and what a cloud model may receive have /model, /persona and /share.
 
@@ -115,6 +115,8 @@ The `folder_template_share` setting is the share of a folder's notes that must c
 Setting `show_background_status` to `false` hides the animated line directly above the chat box. It is separate from `show_context_meter`.
 
 This line shows what is happening while you wait: a recap refresh, a memory update, or the search index build running in the background, or, while a reply is being written, whether Samantha is searching your notes, reading one, or thinking through your message.
+
+The words are typed out one letter at a time; the `status_typing` setting is how fast, in characters per second. The default is 40, and 0 shows each phrase at once.
 
 ## memory_remember
 

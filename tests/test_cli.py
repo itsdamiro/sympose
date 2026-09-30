@@ -13,7 +13,7 @@ import threading
 
 import pytest
 
-from sympose import engine
+from sympose import engine, settings_store
 from sympose.cli import background_status, commands, grounding_line, meter, options, runtime, trim_notice, turns
 from sympose.cli.app import SymposeCLI
 from sympose.engine import status_phrases, turn_status
@@ -42,6 +42,9 @@ def isolated_settings_store(tmp_path, monkeypatch):
     # `/default` writes the settings file and every turn's header reads
     # `chat_model` from it — never the real one in the working directory.
     monkeypatch.setenv("SYMPOSE_SETTINGS_PATH", str(tmp_path / "settings.json"))
+    # These tests read what the busy line says, not how it is typed out: whole phrases at once. The typing
+    # itself is tested in test_cli_status_animation.py.
+    settings_store.set(background_status.TYPING_SETTING, 0)
 
 
 @pytest.fixture(autouse=True)

@@ -7,6 +7,7 @@ than the line looking frozen. Replaces the old `indexing NN%` notice that used t
 meter's far right (docs/decisions/027) -- one place for all of it, so a quiet wait during any of
 these reads as the persona being busy, not the app being broken."""
 
+import math
 import random
 from time import monotonic as _monotonic
 
@@ -17,9 +18,16 @@ from sympose import settings_store
 from sympose.engine import memory_refresh, recap_refresh, semantic_refresh, status_phrases, turn_status
 
 SETTING = "show_background_status"
+# How fast a phrase is typed out, in characters per second; `0` shows it whole at once
+# (docs/decisions/043, amendment of 2026-09-30).
+TYPING_SETTING = "status_typing"
+DEFAULT_CHARS_PER_SECOND = 40
 
 _SPINNER_FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
-_FRAME_SECONDS = 0.12
+# The line is redrawn this often, so typed letters look smooth; the spinner advances every third
+# redraw (about 0.12 s), the pace it always had.
+_FRAMES_PER_SECOND = 25
+_FRAMES_PER_SPINNER_STEP = 3
 # A real phase (docs/decisions/043's second follow-up) that runs long enough starts alternating
 # with the persona's own witty lines every this many seconds, the literal phrase reasserting itself
 # every other slot -- a single frozen sentence for many seconds reads as stuck, not busy, but the
@@ -39,6 +47,14 @@ REAL_STATUS_TEXT = {
 def enabled() -> bool:
     """On unless explicitly turned off, like the other display knobs."""
     return settings_store.flag(SETTING)
+
+
+def chars_per_second() -> float:
+    """The user's `status_typing`, else the default. Only a finite number that is not a bool and not
+    negative counts (`0` shows the phrase at once); anything else leaves the default."""
+    value = settings_store.get(TYPING_SETTING)
+    usable = isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value) and value >= 0
+    return value if usable else DEFAULT_CHARS_PER_SECOND
 
 
 def activity(handle: str) -> tuple[str | None, str]:
@@ -81,45 +97,68 @@ class BackgroundStatus(Static):
     }
     """
 
-    _frame = 0
+    _ticks = 0
     # Keyed by (handle, kind), not kind alone: a persona switch that lands on the same kind of
     # activity (e.g. both persona's launches start a recap refresh) must still re-pick a phrase
     # from the *new* persona's own set, not keep showing the previous persona's under its name.
     _key: tuple[str | None, str | None] = (None, None)
     _phrase = ""
+    _phrase_at = 0.0  # when the phrase now showing was chosen: typing counts from here
+    _last_witty = ""  # the last witty phrase shown, so the next pick is a different one
     _phase_started = 0.0
     _rotation_slot = 0
+    _shown = ""
 
     def on_mount(self) -> None:
-        self.set_interval(_FRAME_SECONDS, self._tick)
+        self.set_interval(1 / _FRAMES_PER_SECOND, self._tick)
+
+    def _witty(self, handle: str) -> str:
+        """A random one of the persona's own phrases, not the one shown just before when it has others."""
+        phrases = status_phrases.phrases(handle)
+        choice = random.choice([p for p in phrases if p != self._last_witty] or phrases)
+        self._last_witty = choice
+        return choice
+
+    def _set_phrase(self, phrase: str, now: float) -> None:
+        self._phrase, self._phrase_at = phrase, now
+
+    def _line(self, handle: str | None, kind: str | None, detail: str, now: float) -> str:
+        """The whole line for this moment (spinner, the typed part of the phrase, detail), `""` when
+        nothing is running. Every kind rotates: a real phase shows its literal text, then from
+        `_REAL_ROTATE_AFTER` a witty line, the literal one again every other slot; anything else
+        shows a new witty phrase every `_REAL_ROTATE_INTERVAL`."""
+        key = (handle, kind)
+        if key != self._key:
+            self._key, self._phase_started, self._rotation_slot = key, now, 0
+            if kind in REAL_STATUS_TEXT:
+                self._set_phrase(REAL_STATUS_TEXT[kind], now)
+            elif kind and handle:
+                self._set_phrase(self._witty(handle), now)
+            else:
+                self._set_phrase("", now)
+        elif kind and handle:
+            elapsed = now - self._phase_started
+            real = kind in REAL_STATUS_TEXT
+            if real:
+                slot = int((elapsed - _REAL_ROTATE_AFTER) // _REAL_ROTATE_INTERVAL) + 1  # 0 until the threshold
+            else:
+                slot = int(elapsed // _REAL_ROTATE_INTERVAL)
+            if slot != self._rotation_slot:
+                self._rotation_slot = slot
+                self._set_phrase(REAL_STATUS_TEXT[kind] if real and slot % 2 == 0 else self._witty(handle), now)
+        if kind is None:
+            return ""
+        speed = chars_per_second()
+        shown = self._phrase if speed <= 0 else self._phrase[: int((now - self._phrase_at) * speed) + 1]
+        frame = _SPINNER_FRAMES[(self._ticks // _FRAMES_PER_SPINNER_STEP) % len(_SPINNER_FRAMES)]
+        self._ticks += 1
+        return f"{frame} {shown}{detail}"
 
     def _tick(self) -> None:
         persona = getattr(self.app, "persona", None)
         handle = persona.handle if persona else None
         kind, detail = activity(handle) if handle and enabled() else (None, "")
-        key = (handle, kind)
-        now = _monotonic()
-        if key != self._key:
-            self._key = key
-            self._phase_started = now
-            self._rotation_slot = 0
-            if kind in REAL_STATUS_TEXT:
-                self._phrase = REAL_STATUS_TEXT[kind]
-            elif kind and handle:
-                self._phrase = random.choice(status_phrases.phrases(handle))
-            else:
-                self._phrase = ""
-        elif kind in REAL_STATUS_TEXT and handle:
-            elapsed = now - self._phase_started
-            if elapsed >= _REAL_ROTATE_AFTER:
-                slot = int((elapsed - _REAL_ROTATE_AFTER) // _REAL_ROTATE_INTERVAL) + 1
-                if slot != self._rotation_slot:
-                    self._rotation_slot = slot
-                    self._phrase = (
-                        random.choice(status_phrases.phrases(handle)) if slot % 2 else REAL_STATUS_TEXT[kind]
-                    )
-        if kind is None:
-            self.update(Text(""))
-            return
-        self._frame = (self._frame + 1) % len(_SPINNER_FRAMES)
-        self.update(Text(f"{_SPINNER_FRAMES[self._frame]} {self._phrase}{detail}"))
+        line = self._line(handle, kind, detail, _monotonic())
+        if line != self._shown:  # only redraw when something changed
+            self._shown = line
+            self.update(Text(line))
