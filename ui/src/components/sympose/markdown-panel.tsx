@@ -53,7 +53,7 @@ import {
   slideExitClassName,
 } from "@/lib/use-slide-swap"
 import { fetchVaultNote, saveVaultNote } from "@/lib/vault-note-api"
-import { stashDraft } from "@/lib/local-drafts"
+import { setUnsavedGuard } from "@/lib/unsaved-guard"
 import { extractWikilinks } from "@/lib/extract-wikilinks"
 import { openMarkdownLink } from "@/lib/open-markdown-link"
 import { extractInlineTags } from "@/lib/extract-inline-tags"
@@ -659,20 +659,16 @@ function MarkdownPanel({
   // `silent` — it defaults to "explicit save" (`!silent`) but the flush
   // overrides it back on, since leaving a note silently is still a
   // deliberate-enough moment to finalize its tags (see the flush effect below
-  // for why autosave itself must stay excluded). `target: "local"` is the
-  // vault-switch case: stashes to `localStorage` (`stashDraft`) instead of
-  // `PUT`-ing — see the flush effect below for why that PUT would otherwise
-  // risk landing on a different vault's file at the same relative path.
+  // for why autosave itself must stay excluded). Resolves `true` when the note
+  // is saved or had nothing to save, `false` when a save failed or was busy.
   const saveNote = React.useCallback(
     async ({
       silent = false,
       syncTags = !silent,
-      target = "vault",
     }: {
       silent?: boolean
       syncTags?: boolean
-      target?: "vault" | "local"
-    } = {}) => {
+    } = {}): Promise<boolean> => {
       // Targets `loadedPathRef.current` — the note `body`/`frontmatter`
       // state actually holds — rather than the `path` prop directly. On a
       // note switch `path` moves to the next note a frame before its fetch
@@ -682,7 +678,8 @@ function MarkdownPanel({
       // state belongs to — which is exactly what the leave-note flush below
       // needs to call this mid-switch without racing it.
       const targetPath = loadedPathRef.current
-      if (!targetPath || savingRef.current) return
+      if (!targetPath) return true
+      if (savingRef.current) return false
 
       // Autosave's 1.5s debounce fires on any typing pause, including
       // mid-word inside a tag the user hasn't finished typing yet (`#cs` on
@@ -703,13 +700,7 @@ function MarkdownPanel({
         originalPrefixRef.current,
         frontmatterEditedRef.current
       )
-      if (text === savedTextRef.current) return
-
-      if (target === "local") {
-        stashDraft(loadedVaultPathRef.current, targetPath, text)
-        savedTextRef.current = text
-        return
-      }
+      if (text === savedTextRef.current) return true
 
       savingRef.current = true
       const result = await saveVaultNote(targetPath, text, persona, mtimeRef.current)
@@ -723,13 +714,16 @@ function MarkdownPanel({
         // every keystroke.
         setFetch({ status: "ready", content: text })
         if (!silent) notify.success("Note saved")
-      } else if (result.conflict) {
+        return true
+      }
+      if (result.conflict) {
         notify.error(result.error, {
           action: { label: "Discard my edits and reload", onClick: () => setReloadKey((k) => k + 1) },
         })
       } else {
         notify.error(result.error)
       }
+      return false
     },
     [persona, frontmatter, body]
   )
@@ -744,6 +738,22 @@ function MarkdownPanel({
     saveNoteRef.current = saveNote
   })
 
+  // What the vault switcher asks before it changes the vault under this editor (`unsaved-guard`).
+  const isDirtyRef = React.useRef<() => boolean>(() => false)
+  React.useEffect(() => {
+    isDirtyRef.current = () =>
+      !!loadedPathRef.current &&
+      joinNote(frontmatter, body, originalPrefixRef.current, frontmatterEditedRef.current) !== savedTextRef.current
+  })
+  React.useEffect(() => {
+    setUnsavedGuard({
+      name: () => (loadedPathRef.current ?? "").split("/").pop()?.replace(/\.md$/, "") ?? "",
+      isDirty: () => isDirtyRef.current(),
+      save: () => saveNoteRef.current({ silent: true, syncTags: true }),
+    })
+    return () => setUnsavedGuard(null)
+  }, [])
+
   // Flush a save when leaving this note — switching to another one, or the
   // panel unmounting entirely (a full route change away from `/shell`) — so
   // an edit isn't lost just because autosave is off (its default) and the
@@ -754,34 +764,21 @@ function MarkdownPanel({
   // still names the *leaving* note during the gap before the next note's
   // fetch resolves.
   //
-  // A vault switch specifically is *not* a normal "flush to the vault"
-  // moment: `loadedVaultPathRef.current` (the vault this note's content
-  // actually came from) is compared against `currentVaultPathRef.current`
-  // (kept live every render, so this cleanup — which otherwise only ever
-  // sees the *previous* render's closed-over values — reads the vault this
-  // note is closing into, not the one it opened in). They differ exactly
-  // when the active vault changed, not just the open note; by the time a
-  // `PUT` from this flush would land, the backend has already switched
-  // vaults, so it would silently write this note's content into whatever
-  // file now sits at the *same relative path in the new vault* — a
-  // different note entirely. `target: "local"` avoids that: the edit is
-  // stashed (`stashDraft`) rather than sent to the backend at all.
+  // A vault switch is not a normal "flush to the vault" moment: by the time a
+  // `PUT` from this cleanup landed, the backend would already have switched
+  // vaults and the edit would be written over whatever file sits at the same
+  // relative path in the new one. The switcher asks first and saves while the
+  // old vault is still active (`unsaved-guard`, ADR 004 amendment), so when the
+  // vault did change here (another window, the terminal) nothing is written.
   //
-  // Either way this stays silent (no toast — a background flush, not
-  // something the user asked for). Tag-syncing only happens on the normal
-  // vault-flush path: unlike autosave's blind timer, leaving a note for
-  // another *in the same vault* is a real "I'm done with this one" signal,
-  // not a mid-word coincidence — but a vault-switch stash is closer to
-  // autosave's "background, not final" spirit, so it skips the sync too.
+  // This stays silent (no toast — a background flush, not something the user
+  // asked for). Tag-syncing happens because leaving a note for another in the
+  // same vault is a real "I'm done with this one" signal, not a mid-word
+  // coincidence as autosave's blind timer is.
   React.useEffect(() => {
     return () => {
-      const switchedVault =
-        loadedVaultPathRef.current !== currentVaultPathRef.current
-      if (switchedVault) {
-        void saveNoteRef.current({ silent: true, syncTags: false, target: "local" })
-      } else {
-        void saveNoteRef.current({ silent: true, syncTags: true })
-      }
+      if (loadedVaultPathRef.current !== currentVaultPathRef.current) return
+      void saveNoteRef.current({ silent: true, syncTags: true })
     }
   }, [path, vaultPath])
 

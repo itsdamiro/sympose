@@ -1,5 +1,6 @@
 import * as React from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
+import { askToSaveFirst } from "@/lib/ask-to-save-first"
 import { notify } from "@/lib/notify"
 import {
   Add01Icon,
@@ -715,7 +716,7 @@ export function AppShell() {
   // Workspace switcher: persist the choice, then re-pull everything scoped
   // to "the active vault" via the same `vaultRefreshKey` bump a note create
   // already uses.
-  const handleSwitchVault = React.useCallback(
+  const switchVaultNow = React.useCallback(
     async (path: string) => {
       const res = await setActiveVault(path)
       if (res.ok) {
@@ -737,11 +738,18 @@ export function AppShell() {
     },
     [setVaultsState, setSelectedNote, setVaultRefreshKey]
   )
+  const handleSwitchVault = React.useCallback(
+    async (path: string) => {
+      if (askToSaveFirst(() => void switchVaultNow(path))) return
+      await switchVaultNow(path)
+    },
+    [switchVaultNow]
+  )
 
   // Workspace switcher's add-path input (ADR 004) — adds and activates in
   // one round trip. Resolves `false` on failure so the switcher's input
   // keeps the typed path instead of clearing it.
-  const handleAddVault = React.useCallback(
+  const addVaultNow = React.useCallback(
     async (path: string) => {
       const res = await addVault(path)
       if (res.ok) {
@@ -760,6 +768,13 @@ export function AppShell() {
       return false
     },
     [setVaultsState, setSelectedNote, setVaultRefreshKey]
+  )
+  const handleAddVault = React.useCallback(
+    async (path: string) => {
+      if (askToSaveFirst(() => void addVaultNow(path))) return false // asked; the typed path stays until it is added
+      return addVaultNow(path)
+    },
+    [addVaultNow]
   )
 
   // Main menu = the vault's surface (top-level folders + root notes like
