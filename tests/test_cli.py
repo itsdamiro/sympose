@@ -3222,3 +3222,14 @@ def test_context_forgets_the_old_figures_when_the_persona_is_switched(profiles, 
     lines = _run_meter_scenario(monkeypatch, [_result(3100, 5000)], then=then)["then"]
     assert any("No context figure yet" in line for line in lines)
     assert not any("3,100" in line for line in lines)
+
+
+def test_a_plain_line_is_never_read_as_markup():
+    from types import SimpleNamespace
+
+    from sympose.cli import transcript as transcript_mod
+
+    mounted = []
+    app = SimpleNamespace(last_speaker=None, transcript=SimpleNamespace(mount=mounted.append))
+    widget = transcript_mod.mount_line(app, "Todo [x] item [/oops]", "system")
+    assert widget.content.plain == "Todo [x] item [/oops]"

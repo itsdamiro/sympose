@@ -62,6 +62,8 @@ def get_allowed_dirs(profile: dict[str, Any]) -> list[str]:
         return []
     try:
         folders = profile.get("vault_folders") or [profile.get("vault_folder", "")]
+        if isinstance(folders, str):  # `vault_folders: Code` -- one folder, not a substring test below
+            folders = [folders]
         if "" in folders or "*" in folders or "all" in folders:
             return [mv]
         allowed = []

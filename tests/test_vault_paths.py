@@ -108,3 +108,8 @@ def test_every_read_of_a_persona_pointed_at_a_missing_folder_is_empty_and_create
     assert vault_backlinks.get_backlinks(profile, "B") == []
     assert grounding.ground(profile, "what is atlas") == []
     assert os.listdir(vault_root) == ["Notes"]
+
+
+def test_a_single_folder_written_as_a_string_grants_only_that_folder(vault_root):
+    profile = {"vault_folders": "Code"}
+    assert vault_paths.get_allowed_dirs(profile) == [os.path.join(vault_root, "Code")]

@@ -32,6 +32,8 @@ def mount_line(app, content, speaker: str) -> Static:
         and speaker != app.last_speaker
     )
     classes = [name for name, on in (("turn-gap", changed), ("system-line", speaker == "system")) if on]
+    if isinstance(content, str):  # plain words, never markup: a note heading or typed text like `[/x]` must not parse
+        content = Text(content)
     widget = Static(content, classes=" ".join(classes))
     app.transcript.mount(widget)
     app.last_speaker = speaker

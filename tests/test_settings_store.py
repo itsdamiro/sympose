@@ -144,3 +144,35 @@ def test_remove_drops_only_its_key_and_leaves_a_damaged_file_alone(settings_file
 
     path.write_text("{not json")
     assert settings_store.remove("a") and path.read_text() == "{not json"
+
+
+def test_saving_never_replaces_a_settings_file_that_cannot_be_read(settings_file):
+    broken = b"{not valid json, hand edited"
+    with open(settings_file, "wb") as f:
+        f.write(broken)
+    assert settings_store.set("active_vault", "/vault/one") is False
+    assert settings_store.remove("active_vault") is True
+    with open(settings_file, "rb") as f:
+        assert f.read() == broken
+
+
+def test_a_blank_settings_file_is_written_as_no_settings(settings_file):
+    with open(settings_file, "w", encoding="utf-8") as f:
+        f.write("  \n")
+    assert settings_store.set("active_vault", "/vault/one") is True
+    assert settings_store.get("active_vault") == "/vault/one"
+
+
+def test_two_threads_saving_different_keys_keep_both(settings_file):
+    import threading
+
+    def save(key):
+        for n in range(30):
+            settings_store.set(f"{key}{n}", n)
+
+    threads = [threading.Thread(target=save, args=(k,)) for k in ("a", "b")]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert all(settings_store.get(f"{k}{n}") == n for k in ("a", "b") for n in range(30))

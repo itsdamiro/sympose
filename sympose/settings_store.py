@@ -11,11 +11,13 @@ in response to a UI action.
 import json
 import logging
 import os
+import threading
 from typing import Any
 
 from sympose.atomic_write import write_atomic_text
 
 log = logging.getLogger(__name__)
+_LOCK = threading.Lock()  # one read-modify-write at a time, so two requests cannot drop each other's key
 
 
 def settings_path() -> str:
@@ -32,6 +34,25 @@ def _load() -> dict[str, Any]:
         return data if isinstance(data, dict) else {}
     except (OSError, ValueError):  # ValueError: not JSON, or not valid UTF-8
         return {}
+
+
+def _load_for_write() -> dict[str, Any] | None:
+    """The settings a read-modify-write starts from: `{}` when there is no file yet (or it is blank),
+    `None` when one exists that cannot be read, which must never be replaced by what is left of it."""
+    try:
+        with open(settings_path(), "r", encoding="utf-8") as f:
+            text = f.read()
+    except FileNotFoundError:
+        return {}
+    except (OSError, ValueError):
+        return None
+    if not text.strip():
+        return {}
+    try:
+        data = json.loads(text)
+    except ValueError:
+        return None
+    return data if isinstance(data, dict) else None
 
 
 def get(key: str, default: Any = None) -> Any:
@@ -64,20 +85,25 @@ def set(key: str, value: Any) -> bool:
     whole — the file is small (a handful of app-wide knobs), so a
     read-modify-write on every call is simpler than an in-memory cache
     that a second backend process could silently drift from."""
-    data = _load()
-    data[key] = value
-    return _write(data)
+    with _LOCK:
+        data = _load_for_write()
+        if data is None:
+            log.warning("Not saving %s: %s exists and cannot be read", key, settings_path())
+            return False
+        data[key] = value
+        return _write(data)
 
 
 def remove(key: str) -> bool:
     """Drops `key` so its default applies again. A missing key, or a file
     that cannot be read, is left exactly as it is (nothing to drop, and a
     damaged file is never overwritten with what is left of it)."""
-    data = _load()
-    if key not in data:
-        return True
-    del data[key]
-    return _write(data)
+    with _LOCK:
+        data = _load_for_write()
+        if not data or key not in data:
+            return True
+        del data[key]
+        return _write(data)
 
 
 def _write(data: dict[str, Any]) -> bool:
