@@ -20,6 +20,7 @@ from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from sympose import server_definition_handlers as dh
+from sympose import server_origin
 from sympose import server_handlers as h
 from sympose import server_hidden_handlers as hh
 from sympose import server_persona_handlers as ph
@@ -43,6 +44,8 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    app.middleware("http")(server_origin.refuse_foreign_origin)
 
     @app.get("/health")
     def health() -> dict[str, Any]:

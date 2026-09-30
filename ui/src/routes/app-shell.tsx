@@ -51,7 +51,7 @@ import {
   resolvePersonaVisuals,
   type LivePersona,
 } from "@/lib/personas"
-import { MOCK_TURNS, type ChatTurn } from "@/lib/chat-mock-data"
+import type { ChatTurn } from "@/lib/chat-mock-data"
 import { fetchVaultTree } from "@/lib/vault-tree-api"
 import { searchVault, type VaultSearchResult } from "@/lib/vault-search-api"
 import {
@@ -385,11 +385,9 @@ export function AppShell() {
   // is navigation, it keeps its dragged width even when alone.
   const editorFill = editorOpen && !chatOpen && breakpoint !== "desktop"
 
-  // Chat — presentational mock only (no engine yet): local, non-persisted
-  // state seeded from canned sample turns. Not cookie-backed like everything
-  // else in this shell on purpose — persisting fake turns risks them quietly
-  // surviving a refresh and reading as real during review.
-  const [chatTurns, setChatTurns] = React.useState<ChatTurn[]>(MOCK_TURNS)
+  // Chat — presentational only (no engine yet, #29): local, non-persisted state that starts empty. No
+  // canned persona replies: a made-up answer about the vault would read as a real, grounded one.
+  const [chatTurns, setChatTurns] = React.useState<ChatTurn[]>([])
   const [chatDraft, setChatDraft] = React.useState("")
   const submitChatDraft = () => {
     const body = chatDraft.trim()
