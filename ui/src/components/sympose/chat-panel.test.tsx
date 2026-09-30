@@ -13,6 +13,11 @@ function setup(props: Partial<Parameters<typeof ChatPanel>[0]> = {}) {
   return { onSubmit }
 }
 
+function withScroller(props: Partial<Parameters<typeof ChatPanel>[0]>) {
+  const view = render(<ChatPanel turns={[]} draft="" onDraftChange={() => {}} onSubmit={() => {}} {...props} />)
+  return { scroller: () => view.container.querySelector<HTMLElement>(".overflow-y-auto")! }
+}
+
 const enter = () => fireEvent.keyDown(screen.getByLabelText("Message"), { key: "Enter" })
 
 describe("ChatPanel", () => {
@@ -50,5 +55,77 @@ describe("ChatPanel", () => {
     ]
     setup({ turns })
     expect(screen.getByRole("alert").textContent).toBe("@samantha couldn't reply: offline")
+  })
+
+  it("loads older turns when the user scrolls to the top and there are some", () => {
+    const onLoadOlder = vi.fn()
+    const { scroller } = withScroller({ hasMore: true, onLoadOlder })
+    scroller().scrollTop = 10
+    fireEvent.scroll(scroller())
+    expect(onLoadOlder).toHaveBeenCalledTimes(1)
+  })
+
+  it("does not ask for older turns from the middle of the conversation, when none exist, or while loading", () => {
+    const onLoadOlder = vi.fn()
+    const first = withScroller({ hasMore: true, onLoadOlder })
+    first.scroller().scrollTop = 500
+    fireEvent.scroll(first.scroller())
+    cleanup()
+    const none = withScroller({ hasMore: false, onLoadOlder })
+    none.scroller().scrollTop = 0
+    fireEvent.scroll(none.scroller())
+    cleanup()
+    const busy = withScroller({ hasMore: true, loadingOlder: true, onLoadOlder })
+    busy.scroller().scrollTop = 0
+    fireEvent.scroll(busy.scroller())
+    expect(onLoadOlder).not.toHaveBeenCalled()
+  })
+
+  it("says it is loading earlier messages", () => {
+    setup({ loadingOlder: true, hasMore: true })
+    expect(screen.getByText("Loading earlier messages…")).toBeTruthy()
+  })
+
+  it("keeps the reader's place when older turns are added above", () => {
+    const turns = [
+      { id: "b", role: "user", body: "recent" },
+      { id: "c", role: "persona", body: "reply" },
+    ] as ChatTurn[]
+    const props = { draft: "", onDraftChange: () => {}, onSubmit: () => {}, hasMore: true, onLoadOlder: vi.fn() }
+    const view = render(<ChatPanel turns={turns} {...props} />)
+    const box = view.container.querySelector<HTMLElement>(".overflow-y-auto")!
+    let height = 600
+    Object.defineProperty(box, "scrollHeight", { configurable: true, get: () => height })
+    box.scrollTop = 0
+    fireEvent.scroll(box) // near the top with older turns waiting: asks for them, noting the height
+    expect(props.onLoadOlder).toHaveBeenCalledTimes(1)
+    height = 1000 // 400px of older turns arrive above
+    view.rerender(<ChatPanel turns={[{ id: "a", role: "user", body: "older" } as ChatTurn, ...turns]} {...props} />)
+    expect(box.scrollTop).toBe(400)
+  })
+
+  it("goes to the newest turn, not to the old place, when a new turn is added", () => {
+    const turns = [{ id: "b", role: "user", body: "recent" }] as ChatTurn[]
+    const scrollIntoView = vi.fn()
+    Element.prototype.scrollIntoView = scrollIntoView
+    const props = { draft: "", onDraftChange: () => {}, onSubmit: () => {} }
+    const view = render(<ChatPanel turns={turns} {...props} />)
+    scrollIntoView.mockClear()
+    view.rerender(<ChatPanel turns={[...turns, { id: "c", role: "persona", body: "reply" } as ChatTurn]} {...props} />)
+    expect(scrollIntoView).toHaveBeenCalled()
+  })
+
+  it("offers a new conversation once there is one to leave, and not while a reply is in flight", () => {
+    const onNewConversation = vi.fn()
+    const turns: ChatTurn[] = [{ id: "1", role: "user", body: "hi" }]
+    setup({ turns, onNewConversation })
+    fireEvent.click(screen.getByText("New conversation"))
+    expect(onNewConversation).toHaveBeenCalledTimes(1)
+    cleanup()
+    setup({ turns, onNewConversation, sending: true })
+    expect(screen.queryByText("New conversation")).toBeNull()
+    cleanup()
+    setup({ turns: [], onNewConversation })
+    expect(screen.queryByText("New conversation")).toBeNull()
   })
 })

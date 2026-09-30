@@ -54,3 +54,50 @@ export async function fetchChatPhase(persona: string): Promise<ChatPhase | null>
     return null
   }
 }
+
+/** One saved turn of a conversation, as `GET /api/chat/session` returns it. */
+export interface SessionTurn {
+  /** The turn's number in the whole conversation, from 0. */
+  index: number
+  user: string
+  assistant: string
+  timestamp: string | null
+  model: string | null
+  ttft_ms: number | null
+  truncated: boolean
+  /** What reached the model besides the messages (ADR 025); the grounded view reads it. */
+  sent: Record<string, unknown> | null
+}
+
+export interface SessionPage {
+  /** `null` when the persona has no conversation yet. */
+  session_id: string | null
+  turns: SessionTurn[]
+  /** The number of the first turn on this page, and how many turns the conversation has in all. */
+  start: number
+  total: number
+  has_more: boolean
+}
+
+/**
+ * Client for `GET /api/chat/session` — one section of a persona's conversation: the latest turns, or the
+ * turns before number `before` in the conversation `sessionId` (given so older pages stay in the one the
+ * first page came from). `null` when the backend cannot be reached or refuses, so the chat starts empty
+ * instead of failing.
+ */
+export async function fetchChatSession(
+  persona: string,
+  options: { sessionId?: string; before?: number; limit?: number } = {}
+): Promise<SessionPage | null> {
+  const params = new URLSearchParams({ persona })
+  if (options.sessionId) params.set("session_id", options.sessionId)
+  if (options.before !== undefined) params.set("before", String(options.before))
+  if (options.limit !== undefined) params.set("limit", String(options.limit))
+  try {
+    const res = await fetch(`/api/chat/session?${params}`)
+    if (!res.ok) return null
+    return (await res.json()) as SessionPage
+  } catch {
+    return null
+  }
+}

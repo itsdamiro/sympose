@@ -2,7 +2,7 @@
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-const api = vi.hoisted(() => ({ sendChatTurn: vi.fn(), fetchChatPhase: vi.fn() }))
+const api = vi.hoisted(() => ({ sendChatTurn: vi.fn(), fetchChatPhase: vi.fn(), fetchChatSession: vi.fn() }))
 vi.mock("@/lib/chat-api", () => api)
 
 import { useChat } from "./use-chat"
@@ -14,6 +14,7 @@ const ok = (reply: string, session = "s1") => ({
 
 beforeEach(() => {
   api.fetchChatPhase.mockResolvedValue(null)
+  api.fetchChatSession.mockResolvedValue(null)
 })
 afterEach(() => {
   cleanup()
@@ -116,5 +117,144 @@ describe("useChat", () => {
     expect(result.current.turns).toEqual([])
     rerender({ p: "samantha" })
     await waitFor(() => expect(result.current.turns.map((t) => t.body)).toEqual(["hi", "for samantha"]))
+  })
+})
+
+// -- resuming a saved conversation ----------------------------------------------------------------
+
+const saved = (index: number, extra: Record<string, unknown> = {}) => ({
+  index,
+  user: `question ${index}`,
+  assistant: `answer ${index}`,
+  timestamp: "2026-09-30T10:00:00+00:00",
+  model: "m",
+  ttft_ms: 500,
+  truncated: false,
+  sent: null,
+  ...extra,
+})
+const pageOf = (turns: ReturnType<typeof saved>[], start: number, hasMore: boolean, sid = "s1") => ({
+  session_id: sid,
+  turns,
+  start,
+  total: start + turns.length,
+  has_more: hasMore,
+})
+
+describe("useChat resuming", () => {
+  it("shows the persona's latest saved conversation as user and persona turns", async () => {
+    api.fetchChatSession.mockResolvedValue(pageOf([saved(4), saved(5)], 4, true))
+    const { result } = renderHook(() => useChat("samantha"))
+    await waitFor(() => expect(result.current.turns).toHaveLength(4))
+    expect(result.current.turns.map((t) => [t.role, t.body])).toEqual([
+      ["user", "question 4"], ["persona", "answer 4"], ["user", "question 5"], ["persona", "answer 5"],
+    ])
+    expect(result.current.turns[1]).toMatchObject({ handle: "samantha", latency: "0.50s" })
+    expect(result.current.hasMore).toBe(true)
+  })
+
+  it("continues the resumed conversation, not a new one, when the user replies", async () => {
+    api.fetchChatSession.mockResolvedValue(pageOf([saved(0)], 0, false, "s7"))
+    api.sendChatTurn.mockResolvedValue(ok("next", "s7"))
+    const { result } = renderHook(() => useChat("samantha"))
+    await waitFor(() => expect(result.current.turns).toHaveLength(2))
+    await say(result, "and then?")
+    expect(api.sendChatTurn.mock.calls[0]).toEqual(["and then?", "samantha", "s7"])
+  })
+
+  it("asks for a persona's conversation once, however often it is shown", async () => {
+    const { rerender } = renderHook(({ p }) => useChat(p), { initialProps: { p: "samantha" } })
+    rerender({ p: "aria" })
+    rerender({ p: "samantha" })
+    await waitFor(() => expect(api.fetchChatSession).toHaveBeenCalledTimes(2))
+    expect(api.fetchChatSession.mock.calls.map((c) => c[0]).sort()).toEqual(["aria", "samantha"])
+  })
+
+  it("starts empty when there is nothing saved or the backend cannot say", async () => {
+    api.fetchChatSession.mockResolvedValue(pageOf([], 0, false))
+    const { result } = renderHook(() => useChat("samantha"))
+    await waitFor(() => expect(api.fetchChatSession).toHaveBeenCalled())
+    expect(result.current.turns).toEqual([])
+    expect(result.current.hasMore).toBe(false)
+  })
+
+  it("loads older turns in front of the ones shown, from the same conversation", async () => {
+    api.fetchChatSession.mockResolvedValueOnce(pageOf([saved(2), saved(3)], 2, true, "s1"))
+    api.fetchChatSession.mockResolvedValueOnce(pageOf([saved(0), saved(1)], 0, false, "s1"))
+    const { result } = renderHook(() => useChat("samantha"))
+    await waitFor(() => expect(result.current.hasMore).toBe(true))
+    await act(async () => {
+      await result.current.loadOlder()
+    })
+    expect(api.fetchChatSession.mock.calls[1]).toEqual(["samantha", { sessionId: "s1", before: 2, limit: 20 }])
+    expect(result.current.turns.map((t) => t.body)).toEqual([
+      "question 0", "answer 0", "question 1", "answer 1", "question 2", "answer 2", "question 3", "answer 3",
+    ])
+    expect(result.current.hasMore).toBe(false)
+  })
+
+  it("does not ask for older turns when there are none", async () => {
+    api.fetchChatSession.mockResolvedValue(pageOf([saved(0)], 0, false))
+    const { result } = renderHook(() => useChat("samantha"))
+    await waitFor(() => expect(result.current.turns).toHaveLength(2))
+    await act(async () => {
+      await result.current.loadOlder()
+    })
+    expect(api.fetchChatSession).toHaveBeenCalledTimes(1)
+  })
+
+  it("starts over on a new conversation, and the next message opens a new session", async () => {
+    api.fetchChatSession.mockResolvedValue(pageOf([saved(0)], 0, true, "s1"))
+    api.sendChatTurn.mockResolvedValue(ok("fresh", "s2"))
+    const { result } = renderHook(() => useChat("samantha"))
+    await waitFor(() => expect(result.current.turns).toHaveLength(2))
+    act(() => result.current.newConversation())
+    expect(result.current.turns).toEqual([])
+    expect(result.current.hasMore).toBe(false)
+    await say(result, "hello again")
+    expect(api.sendChatTurn.mock.calls[0]).toEqual(["hello again", "samantha", undefined])
+    expect(api.fetchChatSession).toHaveBeenCalledTimes(1)
+  })
+
+  it("does not start over while a reply is in flight", async () => {
+    let release: (v: unknown) => void = () => {}
+    api.sendChatTurn.mockReturnValue(new Promise((r) => (release = r)))
+    const { result } = renderHook(() => useChat("samantha"))
+    act(() => result.current.setDraft("hi"))
+    act(() => {
+      void result.current.send()
+    })
+    act(() => result.current.newConversation())
+    expect(result.current.turns.map((t) => t.body)).toEqual(["hi"])
+    await act(async () => release(ok("done")))
+  })
+
+  it("does not put a saved conversation in front of one the user has already started", async () => {
+    let arrive: (v: unknown) => void = () => {}
+    api.fetchChatSession.mockReturnValue(new Promise((r) => (arrive = r)))
+    api.sendChatTurn.mockResolvedValue(ok("fresh", "s2"))
+    const { result } = renderHook(() => useChat("samantha"))
+    await say(result, "hello")
+    await act(async () => arrive(pageOf([saved(0), saved(1)], 0, false, "s1")))
+    expect(result.current.turns.map((t) => t.body)).toEqual(["hello", "fresh"])
+  })
+
+  it("drops older turns that arrive after the conversation was started over", async () => {
+    let arrive: (v: unknown) => void = () => {}
+    api.fetchChatSession.mockResolvedValueOnce(pageOf([saved(2)], 2, true, "s1"))
+    api.fetchChatSession.mockReturnValueOnce(new Promise((r) => (arrive = r)))
+    const { result } = renderHook(() => useChat("samantha"))
+    await waitFor(() => expect(result.current.hasMore).toBe(true))
+    let loading: Promise<void> = Promise.resolve()
+    act(() => {
+      loading = result.current.loadOlder()
+    })
+    act(() => result.current.newConversation())
+    await act(async () => {
+      arrive(pageOf([saved(0), saved(1)], 0, false, "s1"))
+      await loading
+    })
+    expect(result.current.turns).toEqual([])
+    expect(result.current.hasMore).toBe(false)
   })
 })

@@ -22,6 +22,12 @@ interface ChatPanelProps extends React.ComponentProps<"div"> {
   sending?: boolean
   /** What that reply is doing right now, when the backend says. */
   phase?: ChatPhase | null
+  /** Older turns of this conversation exist and are loaded when the user scrolls to the top. */
+  hasMore?: boolean
+  loadingOlder?: boolean
+  onLoadOlder?: () => void
+  /** Starts a fresh conversation; the control shows once there is something to leave behind. */
+  onNewConversation?: () => void
   draft: string
   onDraftChange: (value: string) => void
   onSubmit: () => void
@@ -54,6 +60,10 @@ function ChatPanel({
   turns,
   sending = false,
   phase = null,
+  hasMore = false,
+  loadingOlder = false,
+  onLoadOlder,
+  onNewConversation,
   draft,
   onDraftChange,
   onSubmit,
@@ -69,11 +79,40 @@ function ChatPanel({
     onSubmit()
   }
 
-  // Keep the newest turn (and the status line) in view as they arrive.
+  // Keep the newest turn (and the status line) in view as they arrive, but not when older turns are
+  // added above: then the view stays where it was, so what the user was reading does not jump. The
+  // height to keep is taken when the older turns are asked for, not after each render, since the
+  // panel's height is still changing while it opens and a stale figure would misplace the view. The
+  // browser's own scroll anchoring is off on the scroller (`[overflow-anchor:none]`), so this is the
+  // only thing that moves the view when turns are added above.
+  const scrollRef = React.useRef<HTMLDivElement>(null)
   const endRef = React.useRef<HTMLDivElement>(null)
-  React.useEffect(() => {
-    endRef.current?.scrollIntoView?.({ block: "end" })
+  const lastTurnId = React.useRef<string | undefined>(undefined)
+  const firstTurnId = React.useRef<string | undefined>(undefined)
+  const heightAtRequest = React.useRef<number | null>(null)
+  React.useLayoutEffect(() => {
+    const box = scrollRef.current
+    const first = turns[0]?.id
+    const last = turns[turns.length - 1]?.id
+    const prepended =
+      heightAtRequest.current !== null && first !== firstTurnId.current && last === lastTurnId.current
+    if (box && prepended && heightAtRequest.current !== null) {
+      box.scrollTop += box.scrollHeight - heightAtRequest.current
+      heightAtRequest.current = null
+    } else {
+      endRef.current?.scrollIntoView?.({ block: "end" })
+    }
+    firstTurnId.current = first
+    lastTurnId.current = last
   }, [turns, sending, phase])
+
+  const nearTop = () => {
+    const box = scrollRef.current
+    if (box && hasMore && !loadingOlder && box.scrollTop < 80) {
+      heightAtRequest.current = box.scrollHeight
+      onLoadOlder?.()
+    }
+  }
 
   // The flex space this panel reserves in the row. On open it's claimed
   // synchronously (same render, no extra paint) so the fade/rise-in
@@ -131,8 +170,13 @@ function ChatPanel({
       }}
       {...props}
     >
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div ref={scrollRef} onScroll={nearTop} className="min-h-0 flex-1 overflow-y-auto [overflow-anchor:none]">
         <div className="mx-auto flex min-h-full w-full max-w-[42rem] flex-col justify-end gap-6 px-6 pt-14 pb-8 sm:px-8">
+          {loadingOlder && (
+            <div role="status" className="text-center text-xs text-fg-muted">
+              Loading earlier messages…
+            </div>
+          )}
           {turns.length === 0 ? (
             <div className="grid flex-1 place-items-center px-6 text-center text-sm text-fg-muted">
               Ask {personaName} anything about your vault.
@@ -203,7 +247,18 @@ function ChatPanel({
             >
               <HugeiconsIcon icon={PlusSignIcon} className="size-4" />
             </button>
-            {model && <ModelChip model={model} />}
+            <div className="flex items-center gap-2">
+              {onNewConversation && turns.length > 0 && !sending && (
+                <button
+                  type="button"
+                  onClick={onNewConversation}
+                  className="rounded px-1.5 py-0.5 text-xs text-fg-muted transition-colors hover:bg-accent hover:text-foreground"
+                >
+                  New conversation
+                </button>
+              )}
+              {model && <ModelChip model={model} />}
+            </div>
           </div>
         </div>
       </div>

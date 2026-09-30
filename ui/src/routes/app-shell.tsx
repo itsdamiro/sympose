@@ -1715,6 +1715,10 @@ export function AppShell() {
               turns={chat.turns}
               sending={chat.sending}
               phase={chat.phase}
+              hasMore={chat.hasMore}
+              loadingOlder={chat.loadingOlder}
+              onLoadOlder={chat.loadOlder}
+              onNewConversation={chat.newConversation}
               draft={chat.draft}
               onDraftChange={chat.setDraft}
               onSubmit={chat.send}
