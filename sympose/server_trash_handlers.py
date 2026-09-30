@@ -7,7 +7,7 @@ from typing import Any
 
 from fastapi import HTTPException
 
-from sympose import vault_paths, vault_trash
+from sympose import vault_paths, vault_trash, vault_trash_unit
 from sympose.server_handlers import require_profile, sandbox_denied, translate_vault_result
 from sympose.server_models import TrashEmpty, TrashRestore
 
@@ -34,8 +34,9 @@ def _require_trash_scope(persona: str | None) -> tuple[str, list[str]]:
 def list_trash(persona: str | None) -> dict[str, Any]:
     mv, allowed_dirs = _trash_scope(persona)
     if not mv or not allowed_dirs:
-        return {"items": []}
-    return {"items": vault_trash.list_trashed(mv, allowed_dirs)}
+        return {"items": [], "folders": []}
+    rows = vault_trash.list_trashed(mv, allowed_dirs)
+    return {"items": rows, "folders": vault_trash_unit.summarize(mv, rows)}
 
 
 def restore_trash(body: TrashRestore) -> dict[str, Any]:
@@ -48,6 +49,21 @@ def restore_trash(body: TrashRestore) -> dict[str, Any]:
         denied=sandbox_denied(body.path),
     )
     return {"path": restored, "detail": result}
+
+
+def restore_trash_folder(body: TrashRestore) -> dict[str, Any]:
+    mv, allowed_dirs = _require_trash_scope(body.persona)
+    result = vault_trash_unit.restore_folder(mv, allowed_dirs, body.path)
+    if isinstance(result, str):
+        raise HTTPException(status_code=404, detail=f"`{body.path}` is not a deleted folder in the bin.")
+    restored, skipped = result
+    total = len(restored) + len(skipped)
+    detail = f"Restored {len(restored)} of {total} file{'' if total == 1 else 's'}."
+    if skipped:
+        names = ", ".join(s["path"].rsplit("/", 1)[-1] for s in skipped[:5])
+        more = f" and {len(skipped) - 5} more" if len(skipped) > 5 else ""
+        detail += f" Skipped {len(skipped)}: {names}{more}."
+    return {"restored": restored, "skipped": skipped, "detail": detail}
 
 
 def purge_trash(path: str, persona: str | None) -> dict[str, Any]:

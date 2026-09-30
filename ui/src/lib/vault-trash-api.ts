@@ -17,23 +17,41 @@ export interface TrashedNote {
   /** Epoch seconds of the deletion (the trashed file's mtime). */
   deleted_at: number
   size: number
+  /** The bin directory of the deleted folder this file went with (docs/decisions/050); absent for a file deleted alone. */
+  folder?: string
+}
+
+/** A folder deleted as a unit: one row in the bin, restorable whole. */
+export interface TrashedFolder {
+  /** `.trash`-relative directory — the handle for "restore folder". */
+  trash_dir: string
+  original_path: string
+  deleted_at: number
+  /** Files of it still in the bin (and in this persona's scope). */
+  count: number
+}
+
+export interface Trash {
+  items: TrashedNote[]
+  folders: TrashedFolder[]
 }
 
 /**
- * `GET /api/vault/trash` — recoverable notes for this persona, newest deletion
- * first. Returns `[]` on any error so the caller renders an empty state.
+ * `GET /api/vault/trash` — recoverable files for this persona, newest deletion
+ * first, and the folders deleted as a unit. Returns nothing on any error so the
+ * caller renders an empty state.
  */
-export async function fetchTrash(persona: string): Promise<TrashedNote[]> {
+export async function fetchTrash(persona: string): Promise<Trash> {
   try {
     const res = await fetch(
       `/api/vault/trash?persona=${encodeURIComponent(persona)}`
     )
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const body = (await res.json()) as { items: TrashedNote[] }
-    return body.items ?? []
+    const body = (await res.json()) as Partial<Trash>
+    return { items: body.items ?? [], folders: body.folders ?? [] }
   } catch (err) {
     console.info(`[vault-trash] /api/vault/trash unreachable (${err})`)
-    return []
+    return { items: [], folders: [] }
   }
 }
 
@@ -60,6 +78,31 @@ export async function restoreTrashNote(
       ok: false,
       error: (await detailOf(res)) || `Restore failed (HTTP ${res.status})`,
     }
+  } catch (err) {
+    return { ok: false, error: `Restore failed — backend unreachable (${err})` }
+  }
+}
+
+export type RestoreFolderResult =
+  | { ok: true; detail: string; restored: string[]; skipped: { path: string; reason: string }[] }
+  | { ok: false; error: string }
+
+/**
+ * `POST /api/vault/trash/restore-folder` — put back every file of a deleted folder whose place is free. Nothing is
+ * overwritten; a file whose place is taken is skipped and named in `skipped` (docs/decisions/050).
+ */
+export async function restoreTrashFolder(trashDir: string, persona: string): Promise<RestoreFolderResult> {
+  try {
+    const res = await fetch("/api/vault/trash/restore-folder", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: trashDir, persona }),
+    })
+    if (res.ok) {
+      const body = (await res.json()) as { detail: string; restored: string[]; skipped: { path: string; reason: string }[] }
+      return { ok: true, ...body }
+    }
+    return { ok: false, error: (await detailOf(res)) || `Restore failed (HTTP ${res.status})` }
   } catch (err) {
     return { ok: false, error: `Restore failed — backend unreachable (${err})` }
   }

@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const api = vi.hoisted(() => ({
   fetchTrash: vi.fn(),
+  restoreTrashFolder: vi.fn(),
   restoreTrashNote: vi.fn(),
   purgeTrashNote: vi.fn(),
   emptyTrash: vi.fn(),
@@ -11,7 +12,7 @@ const api = vi.hoisted(() => ({
 vi.mock("@/lib/vault-trash-api", () => api)
 const { confirmMock } = vi.hoisted(() => ({ confirmMock: vi.fn() }))
 vi.mock("@/lib/confirm-store", () => ({ confirm: confirmMock }))
-vi.mock("@/lib/notify", () => ({ notify: { success: vi.fn(), error: vi.fn() } }))
+vi.mock("@/lib/notify", () => ({ notify: { success: vi.fn(), error: vi.fn(), warning: vi.fn() } }))
 
 import { TrashList } from "./trash-list"
 
@@ -23,8 +24,10 @@ const row = (path: string, extra: Record<string, unknown> = {}) => ({
   ...extra,
 })
 
+const bin = (items: ReturnType<typeof row>[], folders: unknown[] = []) => ({ items, folders })
+
 beforeEach(() => {
-  api.fetchTrash.mockResolvedValue([row("Trip/Plan.md"), row("Trip/img/map.png"), row("Trip/board.canvas")])
+  api.fetchTrash.mockResolvedValue(bin([row("Trip/Plan.md"), row("Trip/img/map.png"), row("Trip/board.canvas")]))
 })
 afterEach(() => {
   cleanup()
@@ -41,17 +44,17 @@ describe("TrashList", () => {
   })
 
   it("says one item in the singular, and that notes and files land in an empty bin", async () => {
-    api.fetchTrash.mockResolvedValue([row("map.png")])
+    api.fetchTrash.mockResolvedValue(bin([row("map.png")]))
     const { unmount } = render(<TrashList persona="samantha" />)
     expect(await screen.findByText("1 item")).toBeTruthy()
     unmount()
-    api.fetchTrash.mockResolvedValue([])
+    api.fetchTrash.mockResolvedValue(bin([]))
     render(<TrashList persona="samantha" />)
     expect(await screen.findByText(/Deleted notes and files land here/)).toBeTruthy()
   })
 
   it("restores an attachment by its bin path and tells the shell where it went, even when the two differ", async () => {
-    api.fetchTrash.mockResolvedValue([row("Trip-20260101000000/img/map.png", { original_path: "Trip/img/map.png" })])
+    api.fetchTrash.mockResolvedValue(bin([row("Trip-20260101000000/img/map.png", { original_path: "Trip/img/map.png" })]))
     api.restoreTrashNote.mockResolvedValue({ ok: true, detail: "Restored to `Trip/img/map.png`" })
     const onRestored = vi.fn()
     render(<TrashList persona="samantha" onRestored={onRestored} />)
@@ -73,5 +76,43 @@ describe("TrashList", () => {
     const request = confirmMock.mock.calls[0][0]
     expect(request.description).toBe("Permanently deletes everything in the bin (3 items) from disk. This cannot be undone.")
     expect(request.permanent).toBe(true)
+  })
+
+  describe("a folder deleted as a unit (docs/decisions/050)", () => {
+    const folder = { trash_dir: "Trip", original_path: "Trip", deleted_at: Date.now() / 1000, count: 2 }
+    const inTrip = [row("Trip/a.md", { folder: "Trip" }), row("Trip/img/b.png", { folder: "Trip" })]
+
+    it("shows it as one row with its file count, the files inside only once it is opened, and loose files beside it", async () => {
+      api.fetchTrash.mockResolvedValue(bin([...inTrip, row("Loose.md")], [folder]))
+      render(<TrashList persona="samantha" />)
+      expect(await screen.findByText("Trip/")).toBeTruthy()
+      expect(screen.getByText(/2 files, deleted/)).toBeTruthy()
+      expect(screen.getByRole("button", { name: "Restore Loose" })).toBeTruthy()
+      expect(screen.queryByRole("button", { name: "Restore a" })).toBeNull() // folded away
+      fireEvent.click(screen.getByRole("button", { name: "Show the files of Trip" }))
+      expect(screen.getByRole("button", { name: "Restore a" })).toBeTruthy()
+      expect(screen.getByRole("button", { name: "Restore b.png" })).toBeTruthy()
+    })
+
+    it("restores the folder whole and tells the shell, saying plainly when something was skipped", async () => {
+      api.fetchTrash.mockResolvedValue(bin(inTrip, [folder]))
+      api.restoreTrashFolder.mockResolvedValue({ ok: true, detail: "Restored 1 of 2 files. Skipped 1: a.md.", restored: ["Trip/img/b.png"], skipped: [{ path: "Trip/a.md", reason: "already exists" }] })
+      const onRestored = vi.fn()
+      render(<TrashList persona="samantha" onRestored={onRestored} />)
+      fireEvent.click(await screen.findByRole("button", { name: "Restore folder Trip" }))
+      await waitFor(() => expect(api.restoreTrashFolder).toHaveBeenCalledWith("Trip", "samantha"))
+      const { notify } = await import("@/lib/notify")
+      await waitFor(() => expect(notify.warning).toHaveBeenCalledWith("Restored 1 of 2 files. Skipped 1: a.md."))
+      expect(onRestored).toHaveBeenCalledWith("Trip/img/b.png")
+    })
+
+    it("shows the error and changes nothing when the folder could not be restored", async () => {
+      api.fetchTrash.mockResolvedValue(bin(inTrip, [folder]))
+      api.restoreTrashFolder.mockResolvedValue({ ok: false, error: "boom" })
+      render(<TrashList persona="samantha" />)
+      fireEvent.click(await screen.findByRole("button", { name: "Restore folder Trip" }))
+      const { notify } = await import("@/lib/notify")
+      await waitFor(() => expect(notify.error).toHaveBeenCalledWith("boom"))
+    })
   })
 })

@@ -215,6 +215,10 @@ def create_app() -> FastAPI:
     def restore_trash(body: TrashRestore) -> dict[str, Any]:
         return th.restore_trash(body)
 
+    @app.post("/api/vault/trash/restore-folder")
+    def restore_trash_folder(body: TrashRestore) -> dict[str, Any]:
+        return th.restore_trash_folder(body)
+
     @app.delete("/api/vault/trash")
     def purge_trash(
         path: str = Query(..., description="`.trash`-relative path to delete"),

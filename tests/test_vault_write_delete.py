@@ -39,11 +39,11 @@ def read(path):
 
 
 def trash_files(vault):
-    """Every file under `.trash/` as `{trash-relative path: text}` (the clash index excluded)."""
+    """Every file under `.trash/` as `{trash-relative path: text}` (the clash index and the folder record excluded)."""
     found = {}
     for root, _, files in os.walk(os.path.join(vault, ".trash")):
         for name in files:
-            if name != ".trash-index.json":
+            if name not in (".trash-index.json", ".trash-folders.json"):
                 path = os.path.join(root, name)
                 found[os.path.relpath(path, os.path.join(vault, ".trash")).replace(os.sep, "/")] = read(path)
     return found

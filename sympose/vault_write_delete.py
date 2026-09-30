@@ -7,7 +7,7 @@ import datetime
 import os
 from typing import Any
 
-from sympose import vault_paths
+from sympose import vault_paths, vault_trash_folders
 from sympose.security import is_safe_path
 from sympose.vault_trash import TRASH_DIRNAME
 from sympose.vault_trash_index import record_clashes
@@ -58,6 +58,19 @@ def _record_folder_clash(mv: str, dest: str, original_rel: str) -> None:
             inside = os.path.relpath(os.path.join(cur, name), dest).replace(os.sep, "/")
             entries[trash_rel] = f"{original_rel.replace(os.sep, '/')}/{inside}"
     record_clashes(troot, entries)
+
+
+def _record_folder_group(mv: str, dest: str, original_rel: str) -> None:
+    """Notes which files this folder held, so the bin can show it as one folder and restore it as a unit
+    (docs/decisions/050)."""
+    troot = os.path.join(mv, TRASH_DIRNAME)
+    files = [
+        os.path.relpath(os.path.join(cur, name), dest).replace(os.sep, "/")
+        for cur, _, names in os.walk(dest)
+        for name in names
+    ]
+    trash_dir = os.path.relpath(dest, troot).replace(os.sep, "/")
+    vault_trash_folders.record(troot, trash_dir, original_rel.replace(os.sep, "/"), files)
 
 
 def delete_folder(profile: dict[str, Any], folder_name: str) -> str:
@@ -115,6 +128,7 @@ def delete_folder(profile: dict[str, Any], folder_name: str) -> str:
             return error
         if dest != planned:
             _record_folder_clash(mv, dest, rel_display)
+        _record_folder_group(mv, dest, rel_display)
         dest_rel = os.path.relpath(dest, mv).replace(os.sep, "/")
         return f"Moved folder to the bin: `{dest_rel}`"
 

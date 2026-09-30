@@ -20,6 +20,7 @@ from typing import Any
 
 from sympose.security import is_safe_path
 from sympose.vault_paths import is_within_any
+from sympose import vault_trash_folders
 from sympose.vault_trash_index import INDEX_FILENAME, forget_clash, load_index, original_relpath
 from sympose.vault_write import get_file_lock, get_file_locks
 from sympose.vault_write_status import NOTE_DENIED, NOTE_EXISTS, NOTE_NOT_FOUND
@@ -44,7 +45,7 @@ def _prune_empty_dirs(root: str, start: str) -> None:
 
 def list_trashed(mv: str, allowed_dirs: list[str]) -> list[dict[str, Any]]:
     """Recoverable files under `<mv>/.trash` (notes and everything else a deleted folder held),
-    newest deletion first. Each row: `{trash_path, original_path, deleted_at (mtime epoch), size}`.
+    newest deletion first. Each row: `{trash_path, original_path, deleted_at (mtime epoch), size}`, plus `folder` (its bin directory) when it was deleted with a folder (docs/decisions/050).
     Hidden files and folders (`.DS_Store`, `.obsidian`, the clash index) are not listed, as the tree
     does not list them; emptying the bin still removes them. Scoped to the persona: an entry whose
     original location sits outside `allowed_dirs` is omitted."""
@@ -54,6 +55,7 @@ def list_trashed(mv: str, allowed_dirs: list[str]) -> list[dict[str, Any]]:
     # Loaded once for the whole listing — `original_relpath` alone would
     # re-read the index file from disk once per trashed item.
     index = load_index(troot)
+    group_of = vault_trash_folders.members(troot)
     rows: list[dict[str, Any]] = []
     for cur, dirs, files in os.walk(troot):
         dirs[:] = [d for d in dirs if not d.startswith(".")]
@@ -78,6 +80,7 @@ def list_trashed(mv: str, allowed_dirs: list[str]) -> list[dict[str, Any]]:
                     "original_path": orig_rel,
                     "deleted_at": st.st_mtime,
                     "size": st.st_size,
+                    **({"folder": group_of[trash_rel]} if trash_rel in group_of else {}),
                 }
             )
     rows.sort(key=lambda r: r["deleted_at"], reverse=True)
@@ -184,11 +187,12 @@ def purge_all(mv: str, allowed_dirs: list[str]) -> int:
     for cur, _, files in os.walk(troot):
         for fn in files:
             rel = os.path.relpath(os.path.join(cur, fn), troot).replace(os.sep, "/")
-            if rel != INDEX_FILENAME:  # the clash index is bookkeeping, not a file the user deleted
+            if rel not in (INDEX_FILENAME, vault_trash_folders.FOLDERS_FILENAME):  # bookkeeping, not files the user deleted
                 found.append((rel, any(part.startswith(".") for part in rel.split("/"))))
     removed = 0
     for rel, hidden in found:
         if purge(mv, allowed_dirs, rel) == "" and not hidden:
             removed += 1
     _prune_empty_folders(mv, troot, allowed_dirs)
+    vault_trash_folders.prune(troot)
     return removed
