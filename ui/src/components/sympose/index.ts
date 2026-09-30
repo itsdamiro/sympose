@@ -15,6 +15,7 @@ export {
 } from "./control-section"
 export { BusyLine } from "./busy-line"
 export { CloudNotice } from "./cloud-notice"
+export { ContextMeter } from "./context-meter"
 export { CloudSharingSection } from "./cloud-sharing-section"
 export { ModelPicker } from "./model-picker"
 export { ChatDisplaySection } from "./chat-display-section"

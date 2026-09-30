@@ -288,6 +288,13 @@ describe("ChatPanel", () => {
     })
   })
 
+  it("shows the context meter in the footer when it has a figure, and nothing when it has none", () => {
+    const { rerender } = setup({ contextFigure: { used: 620, limit: 1000, estimated: false } })
+    expect(screen.getByRole("meter").textContent).toBe("62%")
+    rerender(<ChatPanel turns={[]} draft="" onDraftChange={vi.fn()} onSubmit={vi.fn()} contextFigure={null} />)
+    expect(screen.queryByRole("meter")).toBeNull()
+  })
+
   it("keeps the notice above the message box", () => {
     setup({ notice: <p>cloud notice here</p> })
     const notice = screen.getByText("cloud notice here")

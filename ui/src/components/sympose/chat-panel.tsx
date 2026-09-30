@@ -10,6 +10,8 @@ import { ChatMarkdown } from "@/components/sympose/chat-markdown"
 import { ChatSystemLine } from "@/components/sympose/chat-system-line"
 import { BusyLine } from "@/components/sympose/busy-line"
 import { CloudSent } from "@/components/sympose/cloud-sent"
+import { ContextMeter } from "@/components/sympose/context-meter"
+import type { ContextFigure } from "@/lib/context-meter"
 import { GroundedNotes } from "@/components/sympose/grounded-notes"
 import { ModelChip } from "@/components/sympose/model-chip"
 
@@ -29,6 +31,8 @@ interface ChatPanelProps extends React.ComponentProps<"div"> {
   onWikiLinkClick?: (target: string) => void
   /** The "Based on ..." line under a reply that used notes (a web display knob, on by default). */
   showGrounding?: boolean
+  /** The context meter's figure (a ring and a percentage in the footer), or `null` for none. */
+  contextFigure?: ContextFigure | null
   /** The persona's own witty phrases for the busy line, and whether they are typed out by letters. */
   statusPhrases?: string[]
   typeStatus?: boolean
@@ -80,6 +84,7 @@ function ChatPanel({
   onWikiLinkClick,
   onNewConversation,
   showGrounding = true,
+  contextFigure = null,
   statusPhrases = [],
   typeStatus = true,
   notice,
@@ -305,6 +310,7 @@ function ChatPanel({
               <HugeiconsIcon icon={PlusSignIcon} className="size-4" />
             </button>
             <div className="flex items-center gap-2">
+              <ContextMeter figure={contextFigure} />
               {onNewConversation && turns.length > 0 && !sending && (
                 <button
                   type="button"

@@ -13,14 +13,18 @@ export interface ChatDisplayPreferences {
   /** The busy line above the message box types each phrase out by letters (ADR 043, 044; the terminal's
    *  `status_typing`). Off shows whole phrases; a browser that asks for reduced motion gets them anyway. */
   typeStatus: boolean
+  /** The context meter (a ring and a percentage) in the composer's footer (ADR 018, 044; the terminal's
+   *  `show_context_meter`). */
+  showMeter: boolean
 }
 
-const COOKIES = { showGrounding: "sympose:chat.showGrounding", typeStatus: "sympose:chat.typeStatus" } as const
-const DEFAULTS: ChatDisplayPreferences = { showGrounding: true, typeStatus: true }
+const COOKIES = { showGrounding: "sympose:chat.showGrounding", typeStatus: "sympose:chat.typeStatus", showMeter: "sympose:chat.showMeter" } as const
+const DEFAULTS: ChatDisplayPreferences = { showGrounding: true, typeStatus: true, showMeter: true }
 
 const read = (): ChatDisplayPreferences => ({
   showGrounding: getCookieBool(COOKIES.showGrounding, DEFAULTS.showGrounding),
   typeStatus: getCookieBool(COOKIES.typeStatus, DEFAULTS.typeStatus),
+  showMeter: getCookieBool(COOKIES.showMeter, DEFAULTS.showMeter),
 })
 
 export function useChatDisplayPreferences(): readonly [

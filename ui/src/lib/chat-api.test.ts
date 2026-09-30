@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { fetchChatPhase, fetchChatSession, sendChatTurn, startChatSession } from "./chat-api"
+import { fetchChatPhase, fetchChatSession, fetchContextEstimate, sendChatTurn, startChatSession } from "./chat-api"
 
 const reply = { reply: "Hi", session_id: "s1", model: "ollama_chat/gemma2:9b", ttft_ms: 400, truncated: false, saved: true, cloud: [], withheld: [] }
 
@@ -46,6 +46,33 @@ describe("sendChatTurn", () => {
   it("keeps a plain status for an error that is not a gateway one", async () => {
     stub({ ok: false, status: 500, json: () => Promise.reject(new Error("not json")) })
     expect(await sendChatTurn("hello", "samantha")).toEqual({ ok: false, error: "HTTP 500" })
+  })
+})
+
+describe("fetchContextEstimate", () => {
+  it("asks for that persona's conversation and returns the figures", async () => {
+    const fetchMock = stub({ ok: true, status: 200, json: () => Promise.resolve({ used: 3812, limit: 6144 }) })
+    expect(await fetchContextEstimate("sam ntha", "s 1")).toEqual({ used: 3812, limit: 6144 })
+    expect(fetchMock).toHaveBeenCalledWith("/api/chat/context?persona=sam%20ntha&session_id=s%201")
+  })
+
+  it("is null when there is nothing to count, or when only one figure is known", async () => {
+    stub({ ok: true, status: 200, json: () => Promise.resolve({ used: null, limit: null }) })
+    expect(await fetchContextEstimate("s", "s1")).toBeNull()
+    stub({ ok: true, status: 200, json: () => Promise.resolve({ used: 5, limit: null }) })
+    expect(await fetchContextEstimate("s", "s1")).toBeNull()
+  })
+
+  it("keeps a figure of zero tokens", async () => {
+    stub({ ok: true, status: 200, json: () => Promise.resolve({ used: 0, limit: 100 }) })
+    expect(await fetchContextEstimate("s", "s1")).toEqual({ used: 0, limit: 100 })
+  })
+
+  it("is null when the backend answers an error or cannot be reached", async () => {
+    stub({ ok: false, status: 404, json: () => Promise.resolve({}) })
+    expect(await fetchContextEstimate("s", "s1")).toBeNull()
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")))
+    expect(await fetchContextEstimate("s", "s1")).toBeNull()
   })
 })
 

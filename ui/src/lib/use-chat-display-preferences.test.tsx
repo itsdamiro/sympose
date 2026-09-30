@@ -8,6 +8,7 @@ afterEach(() => {
   cleanup()
   document.cookie = "sympose:chat.showGrounding=; max-age=0"
   document.cookie = "sympose:chat.typeStatus=; max-age=0"
+  document.cookie = "sympose:chat.showMeter=; max-age=0"
 })
 
 describe("useChatDisplayPreferences", () => {
@@ -24,6 +25,17 @@ describe("useChatDisplayPreferences", () => {
     first.unmount()
     expect(renderHook(() => useChatDisplayPreferences()).result.current[0].typeStatus).toBe(false)
     expect(renderHook(() => useChatDisplayPreferences()).result.current[0].showGrounding).toBe(true) // independent
+  })
+
+  it("shows the context meter unless the user turned it off, and keeps that in a cookie too", () => {
+    const first = renderHook(() => useChatDisplayPreferences())
+    expect(first.result.current[0].showMeter).toBe(true)
+    act(() => first.result.current[1]("showMeter", false))
+    expect(document.cookie).toContain("sympose:chat.showMeter=0")
+    first.unmount()
+    const again = renderHook(() => useChatDisplayPreferences()).result.current[0]
+    expect(again.showMeter).toBe(false)
+    expect(again.typeStatus).toBe(true) // independent of the other switches
   })
 
   it("keeps a change in a cookie, so the next visit remembers it", () => {

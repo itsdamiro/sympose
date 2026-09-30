@@ -17,6 +17,10 @@ export interface ChatReply {
   withheld: string[]
   /** What reached the model besides the messages; the grounded view reads its notes. */
   sent: SentRecord | null
+  /** The conversation's tokens and the prompt budget they were counted against, for the context meter (ADR
+   *  018); `null` when the model's window is unknown. */
+  context_used: number | null
+  context_limit: number | null
 }
 
 const BACKEND_DOWN = "the Sympose backend is not reachable. Is it running (`sympose web`, or `python -m sympose.main` beside `npm run dev`)?"
@@ -59,6 +63,27 @@ export async function fetchChatPhase(persona: string): Promise<ChatPhase | null>
     const res = await fetch(`/api/chat/status?persona=${encodeURIComponent(persona)}`)
     if (!res.ok) return null
     return ((await res.json()) as { phase: ChatPhase | null }).phase
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Client for `GET /api/chat/context` — the context meter's estimate for a conversation on the persona's current
+ * model (docs/decisions/044): its tokens in use and the prompt budget, worked out without a model call, or `null`
+ * when there is nothing to count (no reply yet, the model's window unknown) or the backend cannot say.
+ */
+export async function fetchContextEstimate(
+  persona: string,
+  sessionId: string
+): Promise<{ used: number; limit: number } | null> {
+  try {
+    const res = await fetch(
+      `/api/chat/context?persona=${encodeURIComponent(persona)}&session_id=${encodeURIComponent(sessionId)}`
+    )
+    if (!res.ok) return null
+    const body = (await res.json()) as { used: number | null; limit: number | null }
+    return body.used != null && body.limit != null ? { used: body.used, limit: body.limit } : null
   } catch {
     return null
   }

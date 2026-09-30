@@ -27,6 +27,8 @@ interface Conversation {
   sending: boolean
   phase: ChatPhase | null
   sessionId?: string
+  /** The last reply's token count and the model that made it, for the context meter (ADR 018, 044). */
+  context?: { used: number; limit: number; model: string }
   /** The persona's saved conversation was looked for (found or not); it is asked for once. */
   resumed: boolean
   /** The number of the oldest saved turn shown, and whether older ones exist. */
@@ -148,9 +150,10 @@ export function useChat(persona: string) {
       if (!result.ok) {
         return addTo(done, { role: "system", kind: "error", body: `@${persona} couldn't reply: ${result.error}` })
       }
-      const { reply, session_id, ttft_ms, sent } = result.reply
+      const { reply, session_id, ttft_ms, sent, model, context_used, context_limit } = result.reply
+      const context = model && context_used != null && context_limit != null ? { used: context_used, limit: context_limit, model } : undefined
       return addTo(
-        { ...done, sessionId: session_id },
+        { ...done, sessionId: session_id, context },
         { role: "persona", handle: persona, body: reply, timestamp: time(new Date()), latency: latency(ttft_ms), sent }
       )
     })
@@ -193,6 +196,8 @@ export function useChat(persona: string) {
 
   return {
     notice,
+    sessionId: convo.sessionId,
+    context: convo.context,
     turns: convo.turns,
     draft: convo.draft,
     setDraft,

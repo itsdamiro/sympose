@@ -38,6 +38,7 @@ import { useRecentNotes } from "@/lib/use-recent-notes"
 import { useVaultScopedState } from "@/lib/use-vault-scoped-state"
 import { useNotificationPreferences } from "@/lib/use-notification-preferences"
 import { useCloudNotice } from "@/lib/use-cloud-notice"
+import { useContextMeter } from "@/lib/use-context-meter"
 import { useModels } from "@/lib/use-models"
 import { useStatusPhrases } from "@/lib/use-status-phrases"
 import { useModelSwitch } from "@/lib/use-model-switch"
@@ -451,6 +452,13 @@ export function AppShell() {
   const [chatDisplayPrefs, setChatDisplayPref] = useChatDisplayPreferences()
   const models = useModels(activePersona)
   const statusPhrases = useStatusPhrases(activePersona, chat.sending)
+  const contextFigure = useContextMeter({
+    persona: activePersona,
+    sessionId: chat.sessionId,
+    model: models.state?.current,
+    real: chat.context,
+    hasReplies: chat.turns.some((t) => t.role === "persona"),
+  })
   const switchModel = useModelSwitch({
     state: models.state,
     choose: models.choose,
@@ -1776,6 +1784,7 @@ export function AppShell() {
               onNewConversation={chat.newConversation}
               showGrounding={chatDisplayPrefs.showGrounding}
               statusPhrases={statusPhrases}
+              contextFigure={chatDisplayPrefs.showMeter ? contextFigure : null}
               typeStatus={chatDisplayPrefs.typeStatus}
               notice={cloudNotice.open ? <CloudNotice state={sharingState} onChange={setShared} onClose={cloudNotice.close} /> : undefined}
               draft={chat.draft}

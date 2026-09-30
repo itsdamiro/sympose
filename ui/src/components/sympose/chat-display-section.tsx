@@ -48,6 +48,22 @@ function ChatDisplaySection({
         The line above the message box while a reply is being written. Off shows each phrase at once; a browser set to
         reduce motion does that anyway.
       </p>
+      <ControlRow label="Context meter">
+        <SegmentedControl
+          size="sm"
+          aria-label="Context meter"
+          value={prefs.showMeter ? "on" : "off"}
+          onValueChange={(v) => setPref("showMeter", v === "on")}
+          options={[
+            { value: "on", label: "On" },
+            { value: "off", label: "Off" },
+          ]}
+        />
+      </ControlRow>
+      <p className="text-xs text-fg-muted">
+        A ring and a percentage beside the message box: how much of the conversation the model can hold is in use. At
+        100% your next message starts leaving the oldest turns out.
+      </p>
     </ControlSection>
   )
 }

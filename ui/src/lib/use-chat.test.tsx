@@ -58,6 +58,42 @@ describe("useChat", () => {
     expect(last).toMatchObject({ role: "system", kind: "error", body: "@samantha couldn't reply: local models only" })
   })
 
+  it("keeps the last reply's token count and the model that made it, for the context meter", async () => {
+    api.sendChatTurn.mockResolvedValue({ ok: true, reply: { ...ok("Hi").reply, model: "ollama_chat/gemma2:9b", context_used: 3812, context_limit: 6144 } })
+    const { result } = renderHook(() => useChat("samantha"))
+    expect(result.current.context).toBeUndefined()
+    await say(result, "hi")
+    expect(result.current.context).toEqual({ used: 3812, limit: 6144, model: "ollama_chat/gemma2:9b" })
+    expect(result.current.sessionId).toBe("s1")
+  })
+
+  it("has no count when the model's window is unknown, or the reply names no model", async () => {
+    api.sendChatTurn.mockResolvedValue({ ok: true, reply: { ...ok("Hi").reply, model: "m", context_used: null, context_limit: null } })
+    const { result } = renderHook(() => useChat("samantha"))
+    await say(result, "hi")
+    expect(result.current.context).toBeUndefined()
+  })
+
+  it("keeps a count of zero tokens", async () => {
+    api.sendChatTurn.mockResolvedValue({ ok: true, reply: { ...ok("Hi").reply, model: "m", context_used: 0, context_limit: 100 } })
+    const { result } = renderHook(() => useChat("samantha"))
+    await say(result, "hi")
+    expect(result.current.context).toEqual({ used: 0, limit: 100, model: "m" })
+  })
+
+  it("leaves the count as it was when a reply fails, and clears it in a new conversation", async () => {
+    api.sendChatTurn.mockResolvedValueOnce({ ok: true, reply: { ...ok("Hi").reply, model: "m", context_used: 10, context_limit: 100 } })
+    const { result } = renderHook(() => useChat("samantha"))
+    await say(result, "one")
+    api.sendChatTurn.mockResolvedValueOnce({ ok: false, error: "down" })
+    await say(result, "two")
+    expect(result.current.context?.used).toBe(10)
+    await act(async () => {
+      await result.current.newConversation()
+    })
+    expect(result.current.context).toBeUndefined()
+  })
+
   it("adds a system line to this persona's conversation only", async () => {
     const { result, rerender } = renderHook(({ p }) => useChat(p), { initialProps: { p: "samantha" } })
     act(() => result.current.notice("confirmation", "Switched model to X."))
