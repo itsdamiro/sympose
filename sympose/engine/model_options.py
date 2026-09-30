@@ -45,3 +45,11 @@ def model_option_for(model_id: str) -> ModelOption:
     `model`, or the `chat_model` setting, can name anything litellm resolves)."""
     known = next((m for m in MODEL_OPTIONS if m.id == model_id), None)
     return known or ModelOption(id=model_id, label=model_id, short=model_id.split("/")[-1])
+
+
+def offered(*in_use: str) -> list[ModelOption]:
+    """The list a picker shows: the models above, then one entry for each id in use that they do not hold
+    (a model named by hand in `chat_model` or a persona's `persona.yaml`, docs/decisions/046), so what is
+    running is always a row that can be seen and switched away from."""
+    extra = [model_option_for(i) for i in dict.fromkeys(i for i in in_use if i) if all(m.id != i for m in MODEL_OPTIONS)]
+    return [*MODEL_OPTIONS, *extra]

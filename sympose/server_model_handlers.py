@@ -9,7 +9,7 @@ from fastapi import HTTPException
 
 from sympose import persona_model
 from sympose.engine import model as model_mod, sharing
-from sympose.engine.model_options import MODEL_OPTIONS
+from sympose.engine.model_options import offered
 from sympose.server_handlers import require_profile
 from sympose.server_models import ModelChoice
 
@@ -19,7 +19,7 @@ def _state(persona: str | None) -> dict[str, Any]:
     current = model_mod.resolve_model(own)
     fallback = model_mod.resolve_model(None)
     return {
-        "models": [{"id": m.id, "label": m.label, "short": m.short, "cloud": not sharing.is_local(m.id)} for m in MODEL_OPTIONS],
+        "models": [{"id": m.id, "label": m.label, "short": m.short, "cloud": not sharing.is_local(m.id)} for m in offered(current)],
         "current": current,
         "current_cloud": not sharing.is_local(current),  # the model may be one the list does not hold
         "own": own,
@@ -34,8 +34,10 @@ def get_models(persona: str | None) -> dict[str, Any]:
 
 def put_persona_model(handle: str, body: ModelChoice) -> dict[str, Any]:
     profile = require_profile(handle)
-    if body.model is not None and body.model not in {m.id for m in MODEL_OPTIONS}:
+    state = _state(handle)
+    # The listed models, and the one already in use or set as the default (a model named by hand).
+    if body.model is not None and body.model not in {m["id"] for m in state["models"]} | {state["fallback"]}:
         raise HTTPException(status_code=422, detail=f"{body.model} is not one of the models offered.")
     if not persona_model.set_model(profile["handle"], body.model):
-        raise HTTPException(status_code=500, detail=f"Couldn't save the model into {profile['handle']}'s persona.yaml.")
+        raise HTTPException(status_code=500, detail=f"Couldn't save the model for {profile['handle']}.")
     return _state(handle)

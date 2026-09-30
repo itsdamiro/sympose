@@ -105,3 +105,26 @@ def test_a_write_that_fails_is_a_500_and_leaves_the_shipped_file_alone(client, s
     r = client.put("/api/personas/samantha/model", json={"model": "openai/gpt-4o-mini"})
     assert r.status_code == 500
     assert (scratch / "samantha" / "persona.yaml").read_text() == FILE
+
+
+def test_a_model_named_by_hand_gets_its_own_row_and_keeps_its_cloud_flag(client, scratch):
+    write_persona(scratch, "handmade2", FILE + "model: openrouter/mistralai/mistral-large\n")
+    body = client.get("/api/models", params={"persona": "handmade2"}).json()
+    row = next(m for m in body["models"] if m["id"] == "openrouter/mistralai/mistral-large")
+    assert row["cloud"] is True and row["short"] == "mistral-large" and body["current_cloud"] is True
+    assert [m["id"] for m in body["models"]].count("openrouter/mistralai/mistral-large") == 1
+    assert len(body["models"]) == len(MODEL_OPTIONS) + 1
+    # Choosing the row that is already in use is accepted, and an unrelated unlisted id is still refused.
+    assert client.put("/api/personas/handmade2/model", json={"model": row["id"]}).status_code == 200
+    assert client.put("/api/personas/handmade2/model", json={"model": "evil/anything"}).status_code == 422
+
+
+def test_a_hand_named_default_model_is_accepted_so_the_default_can_be_picked(client):
+    from sympose import settings_store
+
+    settings_store.set("chat_model", "openrouter/mistralai/mistral-large")
+    assert client.put("/api/personas/samantha/model", json={"model": "openrouter/mistralai/mistral-large"}).status_code == 200
+
+
+def test_a_listed_model_gets_no_extra_row(client):
+    assert len(client.get("/api/models", params={"persona": "samantha"}).json()["models"]) == len(MODEL_OPTIONS)

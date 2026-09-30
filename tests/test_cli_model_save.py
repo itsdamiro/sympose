@@ -12,6 +12,7 @@ from helpers import write_persona
 
 from sympose import engine, persona_model, profile
 from sympose.cli import dispatch, options, picker, runtime, share
+from sympose.cli.commands import find_command
 from sympose.cli.selection import SelectionOption
 from sympose.cli.app import SymposeCLI
 
@@ -167,3 +168,37 @@ def test_nothing_is_asked_for_an_empty_conversation_a_cloud_to_cloud_switch_or_a
     for first, second in ((CLOUD, OTHER_CLOUD), (CLOUD, LOCAL), (LOCAL, LOCAL)):
         kind, model, said = run_async(in_conversation(first)(second))
         assert kind != share.CONFIRM_KIND and model == second
+
+
+HAND = "openrouter/mistralai/mistral-large"
+
+
+def test_a_model_named_by_hand_is_a_row_in_the_model_picker_and_counts_as_cloud(profiles):
+    write_persona(profiles, "hand", f"name: Hand\nhandle: hand\nmodel: {HAND}\n")
+
+    async def scenario():
+        app = SymposeCLI()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            runtime.apply_picker_choice(app, "persona", "hand")
+            await runtime.run_command(app, find_command("/model"))
+            ids = [app.panel.get_option_at_index(i).id for i in range(app.panel.option_count)]
+            assert ids.count(HAND) == 1 and len(ids) == len(options.MODEL_OPTIONS) + 1
+            assert share.in_cloud(app)  # the cloud notice and /share rules apply to it like a listed cloud model
+
+    run_async(scenario())
+
+
+def test_going_from_local_to_a_hand_named_cloud_model_in_a_conversation_asks_first(profiles):
+    async def scenario():
+        app = SymposeCLI()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            runtime.apply_picker_choice(app, "model", LOCAL)
+            app.session_id = "20260930T100000-aaaaaaaa"
+            app.persona = options.PersonaOption("samantha", "Samantha", "", HAND)  # named by hand, not yet picked
+            app.model_override = options.model_option_for(LOCAL)
+            await pick(app, HAND)
+            return app.panel_kind
+
+    assert run_async(scenario()) == share.CONFIRM_KIND

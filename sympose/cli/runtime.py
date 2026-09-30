@@ -17,7 +17,8 @@ from sympose.cli import (
 )
 from sympose.cli.commands import COMMANDS
 from sympose import persona_model
-from sympose.cli.options import MODEL_OPTIONS, list_personas
+from sympose.cli.options import active_model, list_personas
+from sympose.engine.model_options import offered
 from sympose.cli.selection import SelectionOption
 from sympose.engine import memory, memory_refresh
 from sympose.profile import set_default_persona
@@ -43,7 +44,7 @@ async def run_command(app, command, args: str = "") -> None:
         await help_notes.open_picker(app)  # the Sympose guide: the notes the persona answers from (ADR 019)
     elif command.name == "/model":
         await picker.open_picker(
-            app, "model", "Select a model", [SelectionOption(m.label, m.id) for m in MODEL_OPTIONS]
+            app, "model", "Select a model", [SelectionOption(m.label, m.id) for m in offered(active_model(app.persona, app.model_override).id)]
         )
     elif command.name == "/persona":
         await picker.open_picker(
@@ -137,7 +138,7 @@ def apply_picker_choice(app, kind: str, value: str | None) -> bool:
     was_cloud = share.in_cloud(app)
     ask = False
     if kind == "model":
-        model = next((m for m in MODEL_OPTIONS if m.id == value), None)
+        model = next((m for m in offered(active_model(app.persona, app.model_override).id) if m.id == value), None)
         if model is not None:
             app.model_override = model
             saved = persona_model.set_model(app.persona.handle, model.id)  # the persona's own, kept (ADR 044)

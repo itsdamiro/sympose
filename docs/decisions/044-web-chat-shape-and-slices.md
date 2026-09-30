@@ -185,3 +185,12 @@ The web chat asks before a model switch sends an ongoing conversation's earlier 
 - **What a yes does:** the same as a pick that needed no question: saved for the persona (ADR 046), the meter re-estimated, the cloud notice said, and the `/share` list opened if some categories are not yet approved (ADR 031).
 - **The old after-the-fact notice is removed** (`share.history_notice`): it would now repeat what the user has just been asked and accepted. The rule itself is unchanged: a conversation is not cut on a switch, and "Start a new conversation" is how to leave the history out; the question says so.
 - **Not affected:** `/persona` switching (it starts a fresh session), and the direct `apply_picker_choice` path used by tests and by any future caller that has already asked.
+
+## Amendment (2026-10-01): a model named by hand is a row in the picker (damiro)
+
+`chat_model` or a persona's `persona.yaml` can name any model litellm resolves, but the picker only listed the fixed set, so such a model ran with no row to show it or to switch back to. `model_options.offered(*in_use)` now returns the fixed list plus one row for each id in use that it does not hold (labelled with its own id, `short` the last path part); the terminal's `/model` and the web's `GET /api/models` use it, for the model in use. The web app needed no change: its button already showed an unlisted current model and its icon already followed `current_cloud`.
+
+- **Cloud or local stays the engine's rule** (`sharing.is_local`), not something the list says, so a hand-named cloud model gets the cloud notice, the `/share` rules and the question before a local-to-cloud switch in a conversation exactly as a listed one.
+- **What the route accepts** widened by the same rule and no further: a listed id, the model already in use, or the default (`chat_model`), so a hand-named model can be chosen again and "Use the default" works. Any other unlisted id is still refused with 422, so the browser cannot make the server call a model nobody configured.
+- **Not done:** typing a new model name into the picker (it would be a way to reach any model from the browser); a missing API key is still the engine's own error line.
+
