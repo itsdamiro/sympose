@@ -32,6 +32,8 @@ interface ChatPanelProps extends React.ComponentProps<"div"> {
   onOpenNote?: (path: string) => void
   /** A `[[wikilink]]` inside a reply was clicked. */
   onWikiLinkClick?: (target: string) => void
+  /** The "Based on ..." line under a reply that used notes (a web display knob, on by default). */
+  showGrounding?: boolean
   /** Starts a fresh conversation; the control shows once there is something to leave behind. */
   onNewConversation?: () => void
   draft: string
@@ -72,6 +74,7 @@ function ChatPanel({
   onOpenNote,
   onWikiLinkClick,
   onNewConversation,
+  showGrounding = true,
   draft,
   onDraftChange,
   onSubmit,
@@ -208,7 +211,7 @@ function ChatPanel({
                   timestamp={turn.timestamp}
                   streaming={turn.streaming}
                   actions={turn.actions}
-                  grounding={<GroundedNotes sent={turn.sent} onOpenNote={onOpenNote} />}
+                  grounding={showGrounding ? <GroundedNotes sent={turn.sent} onOpenNote={onOpenNote} /> : undefined}
                 >
                   <ChatMarkdown onWikiLinkClick={onWikiLinkClick}>{turn.body}</ChatMarkdown>
                 </ChatMessage>

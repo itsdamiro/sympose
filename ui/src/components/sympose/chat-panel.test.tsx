@@ -147,6 +147,15 @@ describe("ChatPanel", () => {
     expect(onOpenNote).toHaveBeenCalledWith("Projects/Atlas.md")
   })
 
+  it("leaves the line out when the user turned it off", async () => {
+    const turns: ChatTurn[] = [
+      { id: "2", role: "persona", handle: "samantha", body: "SQLite.", sent: { notes: [{ path: "Projects/Atlas.md", heading: "", source: "vault" }] } },
+    ]
+    setup({ turns, showGrounding: false })
+    expect(await screen.findByText("SQLite.")).toBeTruthy()
+    expect(screen.queryByText(/Based on/)).toBeNull()
+  })
+
   it("puts no grounding line under a reply that used no note, nor under the user's own message", () => {
     const turns: ChatTurn[] = [
       { id: "1", role: "user", body: "hello", sent: { notes: [{ path: "A.md", heading: "", source: "vault" }] } },

@@ -13,6 +13,7 @@ export {
   useCollapseAll,
   CollapseAllButton,
 } from "./control-section"
+export { ChatDisplaySection } from "./chat-display-section"
 export { EditorPreferencesSection } from "./editor-preferences-section"
 export { FolderSetupDialog } from "./folder-setup-dialog"
 export { FrontmatterCard } from "./frontmatter-card"
