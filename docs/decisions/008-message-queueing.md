@@ -223,3 +223,13 @@ human typing produces.
   this one) without the engine needing to know about queueing at all.
 
 **Update (#65):** `_force_exit` was removed, so where this record says a quit with a call pending calls it, the quit now takes the normal `self.exit()` path and `main()` ends the process; see the update at the end of ADR 006. `pending_turns` is still what marks a message as queued.
+
+## Amendment (2026-10-01): messages sent mid-reply are joined, not queued (damiro)
+
+Queueing showed the user a mechanism ("· queued") and answered each waiting message as its own turn, in order, so someone who typed a question and then "also check X" got two replies, the first to a thought already overtaken by the second. A queue solved no problem the user has. The rule is now:
+
+- **The first message goes at once, alone.** A message sent while that conversation's reply is in flight appears in the transcript at once, with no marker, and waits.
+- **When the reply lands, everything that waited goes as one turn**, the messages joined by blank lines, and the persona answers all of them together. One waiting message goes on its own, as before. A reply that failed does not drop what waited: it goes as the next turn.
+- **Stored as one user turn**, joined, because that is what the model was given; the transcript still shows each message as typed.
+- **Where:** the terminal and the web chat each do the joining (the engine still runs one turn at a time per persona, and the per-persona lock stays as the safety net, for two windows on one persona). The engine and its API are unchanged, so the queue-reporting API ADR 044 had planned is not needed.
+- **Unchanged:** a persona switch starts a new conversation (generation), so a message joins only the run of its own conversation; `/clear` and `/quit` still wait for or refuse while anything is pending.

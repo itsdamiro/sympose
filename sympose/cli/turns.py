@@ -55,12 +55,6 @@ def _record_session_result(app, generation: int, session_id: str, sent: dict | N
         app.last_sent = sent  # a persona switched away from mid-flight must not overwrite it (#26)
 
 
-def _queued_text(base: Text) -> Text:
-    text = base.copy()
-    text.append("  · queued", style=Style(dim=True, italic=True))
-    return text
-
-
 async def send_message(app, value: str) -> None:
     # Counts this call for the *whole* time it's alive, including any time
     # spent queued behind another turn for the same persona — not just
@@ -79,7 +73,7 @@ async def send_message(app, value: str) -> None:
 async def _send_message(app, value: str) -> None:
     transcript = app.transcript
     line = transcript_mod.styled_line("You  ", Style(bold=True, dim=True), value)
-    user_widget = transcript_mod.mount_line(app, line, "user")
+    transcript_mod.mount_line(app, line, "user")
     transcript.scroll_end(animate=False)
 
     # Captured now, not re-read after the await below: a persona/model
@@ -92,55 +86,79 @@ async def _send_message(app, value: str) -> None:
     # but must still be treated as stale, since the second switch's reset
     # is what should win.
     handle = app.persona.handle
-    # `None` when the user hasn't picked one with `/model`: the engine then
-    # applies the persona's own model / the setting / the default itself
-    # (docs/decisions/010), and `active_model` shows that same resolution.
-    model_id = app.model_override.id if app.model_override else None
-    reply_header = f"@{handle} · {active_model(app.persona, app.model_override).short}"
     generation = app.session_generation
-    meter_epoch = meter.epoch(app)  # a model or persona switch meanwhile makes the figure stale
+
+    # A message sent while this conversation's reply is running or waiting is not a turn of its
+    # own: it joins the run, and everything that waited goes out as one turn when the reply lands
+    # (docs/decisions/008, amendment of 2026-10-01). No marker, nothing to see but the message.
+    key = (handle, generation)
+    waiting = app.turn_runs.get(key)
+    if waiting is not None:
+        waiting.append(value)
+        return
+    waiting = app.turn_runs[key] = []
 
     # One lock per persona (docs/decisions/008), not one global lock:
     # sessions are stored per-handle (sympose/engine/session.py), so two
     # different personas' turns never touch the same file and never
-    # actually race each other — only two turns for the *same* persona
-    # need to queue behind one another. The composer itself is never
-    # blocked either way; a message just waits its turn here if its
-    # persona's lock is already held.
+    # actually race each other — only two runs for the *same* persona
+    # take turns here. The composer itself is never blocked.
     lock = app.turn_locks.setdefault(handle, asyncio.Lock())
-    was_queued = lock.locked()
-    if was_queued:
-        user_widget.update(_queued_text(line))
+    captured = _model_and_header(app)
+    try:
+        async with lock:
+            batch = [value, *waiting]
+            waiting.clear()
+            while batch:
+                if not await _run_turn(app, handle, generation, "\n\n".join(batch), captured):
+                    return
+                batch = list(waiting)  # no await between this and the `del` below, so nothing slips past
+                waiting.clear()
+    finally:
+        del app.turn_runs[key]
 
-    async with lock:
-        if was_queued:
-            user_widget.update(line)  # clear the "queued" marker
 
-        # Deliberately not `app.session_id` read live: that single slot can
-        # be reset by an unrelated persona switch that bumped
-        # `session_generation` in between, orphaning a queued message onto
-        # a fresh session instead of the one it should continue
-        # (docs/decisions/008).
-        session_id = app.session_by_generation.get(generation)
-        try:
-            result = await asyncio.get_running_loop().run_in_executor(
-                _ENGINE_EXECUTOR, engine.run_turn, handle, value, session_id, model_id
-            )
-        except engine.EngineModelError as e:
-            _show_failure(app, transcript, handle, str(e))
-            return
-        except Exception as e:
-            # Anything other than EngineModelError is a bug somewhere in
-            # the engine pipeline (grounding/prompt/session), not an
-            # expected failure mode — still degrade to an in-transcript
-            # line rather than letting it crash the whole app, the same
-            # as every other failure path here.
-            log.warning("Unexpected error during a turn: %s", e)
-            _show_failure(app, transcript, handle, f"unexpected error ({e}).")
-            return
-        if app._exit:  # /quit fired while this call was in flight
-            return
-        _record_session_result(app, generation, result.session_id, result.sent)
+def _model_and_header(app) -> tuple[str | None, str]:
+    """`None` when the user hasn't picked one with `/model`: the engine then applies the persona's own
+    model / the setting / the default itself (docs/decisions/010), and `active_model` shows that same
+    resolution."""
+    model_id = app.model_override.id if app.model_override else None
+    return model_id, f"@{app.persona.handle} · {active_model(app.persona, app.model_override).short}"
+
+
+async def _run_turn(app, handle: str, generation: int, text: str, captured: tuple[str | None, str]) -> bool:
+    """One engine call and its reply on screen; `False` when the app is quitting and nothing more should run."""
+    transcript = app.transcript
+    # A model picked while an earlier turn ran applies to this one, unless the user left this conversation
+    # (a persona switch), when the header must keep naming who generated it.
+    model_id, reply_header = _model_and_header(app) if generation == app.session_generation else captured
+    meter_epoch = meter.epoch(app)  # a model or persona switch meanwhile makes the figure stale
+
+    # Deliberately not `app.session_id` read live: that single slot can
+    # be reset by an unrelated persona switch that bumped
+    # `session_generation` in between, orphaning a queued message onto
+    # a fresh session instead of the one it should continue
+    # (docs/decisions/008).
+    session_id = app.session_by_generation.get(generation)
+    try:
+        result = await asyncio.get_running_loop().run_in_executor(
+            _ENGINE_EXECUTOR, engine.run_turn, handle, text, session_id, model_id
+        )
+    except engine.EngineModelError as e:
+        _show_failure(app, transcript, handle, str(e))
+        return True
+    except Exception as e:
+        # Anything other than EngineModelError is a bug somewhere in
+        # the engine pipeline (grounding/prompt/session), not an
+        # expected failure mode — still degrade to an in-transcript
+        # line rather than letting it crash the whole app, the same
+        # as every other failure path here.
+        log.warning("Unexpected error during a turn: %s", e)
+        _show_failure(app, transcript, handle, f"unexpected error ({e}).")
+        return True
+    if app._exit:  # /quit fired while this call was in flight
+        return False
+    _record_session_result(app, generation, result.session_id, result.sent)
 
     meter.show(app, result.context_used, result.context_limit, meter_epoch)
     if result.ttft_ms is not None:
@@ -158,6 +176,7 @@ async def _send_message(app, value: str) -> None:
             app, Text(f"@{handle}'s reply was not saved: the conversation file could not be written."), "system"
         )
         transcript.scroll_end(animate=False)
+    return True
 
 
 def _format_ttft(ms: int) -> str:

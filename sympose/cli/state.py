@@ -43,6 +43,10 @@ def init(app) -> None:
     # only two turns for the *same* persona need to queue behind one
     # another. The composer itself is never blocked either way.
     app.turn_locks: dict[str, asyncio.Lock] = {}
+    # The messages sent while a reply for (persona handle, session generation) is running or waiting
+    # its turn; they go out together as one turn when it lands (docs/decisions/008, amendment of
+    # 2026-10-01). A key is present exactly while that conversation has a run going.
+    app.turn_runs: dict[tuple[str, int], list[str]] = {}
     # Every currently-streaming reply's own timer — not a single slot,
     # since turns for different personas (or two queued same-persona
     # turns) can now genuinely stream concurrently post-lock.

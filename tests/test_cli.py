@@ -479,7 +479,7 @@ def test_concurrent_sends_do_not_race_the_engine_call(profiles, monkeypatch):
             # also genuinely overlap now that dispatch fires `send_message`
             # via `app.run_worker` instead of awaiting it in the message
             # handler (docs/decisions/008) — see
-            # `test_queued_marker_is_reachable_through_a_real_second_keypress`
+            # `test_a_mid_reply_message_is_reachable_through_a_real_second_keypress`
             # for that path specifically.
             task1 = asyncio.create_task(turns.send_message(app, "first"))
             await asyncio.sleep(0.05)
@@ -496,22 +496,19 @@ def test_concurrent_sends_do_not_race_the_engine_call(profiles, monkeypatch):
     run_async(scenario())
 
 
-def test_queued_message_shows_a_queued_marker_until_it_starts(profiles, monkeypatch):
-    """docs/decisions/008: a message sent while its persona's lock is
-    already held must be visibly marked as queued, not silently waiting
-    with no indication anything happened."""
+def test_a_message_sent_mid_reply_shows_at_once_with_no_marker_and_waits(profiles, monkeypatch):
+    """docs/decisions/008 (amendment of 2026-10-01): a message sent while its persona's reply is running
+    appears at once, unmarked; nothing shows the user a queue."""
     first_started = threading.Event()
     release_first = threading.Event()
-    call_count = {"n": 0}
+    calls = []
 
     def fake_run_turn(handle, user_message, session_id=None, model=None):
-        call_count["n"] += 1
-        if call_count["n"] == 1:
+        calls.append(user_message)
+        if user_message == "first":
             first_started.set()
             assert release_first.wait(timeout=2)
-        return engine.TurnResult(
-            reply=f"reply {call_count['n']}", session_id="sess-x", grounding=[]
-        )
+        return engine.TurnResult(reply=f"reply to {user_message}", session_id="sess-x", grounding=[])
 
     monkeypatch.setattr(turns.engine, "run_turn", fake_run_turn)
 
@@ -528,18 +525,78 @@ def test_queued_message_shows_a_queued_marker_until_it_starts(profiles, monkeypa
             await asyncio.sleep(0.05)
 
             lines = [plain_text(child) for child in app.transcript.children]
-            assert any("second" in line and "queued" in line for line in lines)
+            assert any("second" in line for line in lines) and not any("queued" in line for line in lines)
+            assert calls == ["first"]  # still waiting, not a turn of its own
 
             release_first.set()
             await asyncio.gather(task1, task2)
-
-            lines = [plain_text(child) for child in app.transcript.children]
-            assert not any("queued" in line for line in lines)
+            assert calls == ["first", "second"]
 
     run_async(scenario())
 
 
-def test_queued_marker_is_reachable_through_a_real_second_keypress(profiles, monkeypatch):
+def test_several_messages_sent_mid_reply_go_out_as_one_joined_turn(profiles, monkeypatch):
+    release = threading.Event()
+    calls = []
+
+    def fake_run_turn(handle, user_message, session_id=None, model=None):
+        calls.append((user_message, session_id))
+        if user_message == "first":
+            assert release.wait(timeout=2)
+        return engine.TurnResult(reply=f"reply {len(calls)}", session_id="real", grounding=[])
+
+    monkeypatch.setattr(turns.engine, "run_turn", fake_run_turn)
+
+    async def scenario():
+        app = SymposeCLI()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            tasks = [asyncio.create_task(turns.send_message(app, "first"))]
+            await asyncio.sleep(0.05)
+            for text in ("second", "third", "fourth"):
+                tasks.append(asyncio.create_task(turns.send_message(app, text)))
+                await asyncio.sleep(0.02)
+            release.set()
+            await asyncio.gather(*tasks)
+            await asyncio.sleep(0.2)
+            assert calls == [("first", None), ("second\n\nthird\n\nfourth", "real")]
+            lines = [plain_text(child) for child in app.transcript.children]
+            for text in ("second", "third", "fourth"):  # each message still shows as typed
+                assert sum(1 for line in lines if line.startswith("You") and text in line) == 1
+            assert app.pending_turns == 0 and app.turn_runs == {}
+
+    run_async(scenario())
+
+
+def test_messages_waiting_behind_a_failed_reply_are_still_sent(profiles, monkeypatch):
+    release = threading.Event()
+    calls = []
+
+    def fake_run_turn(handle, user_message, session_id=None, model=None):
+        calls.append(user_message)
+        if user_message == "first":
+            assert release.wait(timeout=2)
+            raise engine.EngineModelError("model down")
+        return engine.TurnResult(reply="ok", session_id="s", grounding=[])
+
+    monkeypatch.setattr(turns.engine, "run_turn", fake_run_turn)
+
+    async def scenario():
+        app = SymposeCLI()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            t1 = asyncio.create_task(turns.send_message(app, "first"))
+            await asyncio.sleep(0.05)
+            t2 = asyncio.create_task(turns.send_message(app, "second"))
+            await asyncio.sleep(0.02)
+            release.set()
+            await asyncio.gather(t1, t2)
+            assert calls == ["first", "second"]
+
+    run_async(scenario())
+
+
+def test_a_mid_reply_message_is_reachable_through_a_real_second_keypress(profiles, monkeypatch):
     """Regression test for a bug live verification caught (not code
     reading): `dispatch.on_input_submitted` used to `await
     turns.send_message` directly, so Textual's `App` — which fully awaits
@@ -580,7 +637,7 @@ def test_queued_marker_is_reachable_through_a_real_second_keypress(profiles, mon
             await pilot.press(*"second", "enter")
 
             lines = [plain_text(child) for child in app.transcript.children]
-            assert any("second" in line and "queued" in line for line in lines)
+            assert any("second" in line for line in lines)
 
             release_first.set()
             await app.workers.wait_for_complete()
@@ -692,43 +749,6 @@ def test_queued_message_for_same_persona_continues_predecessors_session_despite_
             # task2 must see task1's *real* resolved session_id, not `None`
             # (which the intervening switches reset `app.session_id` to).
             assert calls == [("first", None), ("second", "real-session")]
-
-    run_async(scenario())
-
-
-def test_three_queued_messages_for_the_same_persona_process_in_submission_order(
-    profiles, monkeypatch
-):
-    release = {"first": threading.Event(), "second": threading.Event(), "third": threading.Event()}
-    order = []
-
-    def fake_run_turn(handle, user_message, session_id=None, model=None):
-        assert release[user_message].wait(timeout=2)
-        order.append(user_message)
-        return engine.TurnResult(reply=f"reply {user_message}", session_id="sess-x", grounding=[])
-
-    monkeypatch.setattr(turns.engine, "run_turn", fake_run_turn)
-
-    async def scenario():
-        app = SymposeCLI()
-        async with app.run_test() as pilot:
-            await pilot.pause()
-            task1 = asyncio.create_task(turns.send_message(app, "first"))
-            await asyncio.sleep(0.02)
-            task2 = asyncio.create_task(turns.send_message(app, "second"))
-            await asyncio.sleep(0.02)
-            task3 = asyncio.create_task(turns.send_message(app, "third"))
-            await asyncio.sleep(0.02)
-
-            # Set out of order — only one call is ever actually dispatched
-            # to the engine at a time (the others are still waiting on the
-            # lock), so release order can't affect processing order.
-            release["third"].set()
-            release["second"].set()
-            release["first"].set()
-            await asyncio.gather(task1, task2, task3)
-
-            assert order == ["first", "second", "third"]
 
     run_async(scenario())
 
@@ -1154,7 +1174,7 @@ def test_quit_while_a_second_message_is_queued_but_not_yet_started_exits_the_nor
 
     run_async(scenario())
 
-def test_pending_turns_counts_queued_and_in_flight_calls_for_quit_detection(
+def test_pending_turns_stays_counted_for_a_run_with_messages_waiting_for_quit_detection(
     profiles, monkeypatch
 ):
     """Regression test from a `/code-review` finding: `action_quit` used to
@@ -1192,7 +1212,7 @@ def test_pending_turns_counts_queued_and_in_flight_calls_for_quit_detection(
 
             task2 = asyncio.create_task(turns.send_message(app, "second"))
             await asyncio.sleep(0.05)
-            assert app.pending_turns == 2  # queued, not yet started -- still counted
+            assert app.pending_turns == 1  # it joined the run, which stays outstanding until it has sent it too
 
             release_first.set()
             await asyncio.gather(task1, task2)
