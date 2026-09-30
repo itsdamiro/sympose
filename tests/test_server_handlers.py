@@ -150,3 +150,35 @@ def test_every_persona_scoped_handler_404s_an_unknown_persona(monkeypatch, tmp_p
         with pytest.raises(HTTPException) as exc_info:
             call()
         assert exc_info.value.status_code == 404
+
+
+def test_a_save_reports_the_mtime_the_next_save_must_present(monkeypatch, tmp_path):
+    monkeypatch.setenv("VAULT_PATHS", str(tmp_path))
+    (tmp_path / "Note.md").write_text("original\n")
+    opened = server_handlers.read_note("Note.md", None)["mtime"]
+
+    saved = server_handlers.write_note(
+        server_handlers.NoteWrite(path="Note.md", content="first", expected_mtime=opened)
+    )
+    assert saved["mtime"] == (tmp_path / "Note.md").stat().st_mtime
+
+    again = server_handlers.write_note(
+        server_handlers.NoteWrite(path="Note.md", content="second", expected_mtime=saved["mtime"])
+    )
+    assert (tmp_path / "Note.md").read_text() == "second\n" and again["mtime"] is not None
+
+
+def test_a_save_from_a_stale_mtime_is_refused_and_leaves_the_file_alone(monkeypatch, tmp_path):
+    monkeypatch.setenv("VAULT_PATHS", str(tmp_path))
+    note = tmp_path / "Note.md"
+    note.write_text("original\n")
+    opened = server_handlers.read_note("Note.md", None)["mtime"]
+    note.write_text("edited elsewhere\n")
+    os.utime(note, (opened + 10, opened + 10))
+
+    with pytest.raises(HTTPException) as exc_info:
+        server_handlers.write_note(
+            server_handlers.NoteWrite(path="Note.md", content="mine", expected_mtime=opened)
+        )
+    assert exc_info.value.status_code == 409
+    assert note.read_text() == "edited elsewhere\n"

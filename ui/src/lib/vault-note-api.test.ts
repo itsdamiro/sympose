@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { moveVaultNote } from "./vault-note-api"
+import { moveVaultNote, saveVaultNote } from "./vault-note-api"
 
 function stubRename(reply: { path: string; detail: string }) {
   const fetchMock = vi.fn().mockResolvedValue({
@@ -49,5 +49,36 @@ describe("moveVaultNote", () => {
       detail: "",
     })
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+})
+
+describe("saveVaultNote", () => {
+  it("sends the mtime the note was opened from and returns the one the save left", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ mtime: 222 }),
+    } as Response)
+    vi.stubGlobal("fetch", fetchMock)
+    const res = await saveVaultNote("N.md", "text", "samantha", 111)
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(JSON.parse(init.body as string).expected_mtime).toBe(111)
+    expect(res).toEqual({ ok: true, mtime: 222 })
+  })
+
+  it("reports a 409 as a conflict", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 409,
+        json: () => Promise.resolve({ detail: "changed on disk" }),
+      } as Response)
+    )
+    expect(await saveVaultNote("N.md", "text", "samantha", 111)).toEqual({
+      ok: false,
+      error: "changed on disk",
+      conflict: true,
+    })
   })
 })

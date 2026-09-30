@@ -13,7 +13,8 @@ vi.mock("@damiro/stylo", () => ({
 vi.mock("@damiro/stylo/styles.css", () => ({}))
 vi.mock("@damiro/stylo/katex.css", () => ({}))
 vi.mock("@/lib/vault-note-api", () => api)
-vi.mock("@/lib/notify", () => ({ notify: { success: vi.fn(), error: vi.fn() } }))
+const notify = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }))
+vi.mock("@/lib/notify", () => ({ notify }))
 vi.mock("@/components/sympose/note-actions-menu", () => ({
   NoteActionsMenu: ({ onRenamed, onDeleted }: { onRenamed: (p: string) => void; onDeleted: () => void }) => (
     <>
@@ -33,8 +34,8 @@ const PREFERENCES: EditorPreferences = {
 
 beforeEach(() => {
   vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} })
-  api.fetchVaultNote.mockResolvedValue({ ok: true, content: "old" })
-  api.saveVaultNote.mockResolvedValue({ ok: true })
+  api.fetchVaultNote.mockResolvedValue({ path: "Old.md", content: "old", mtime: 100 })
+  api.saveVaultNote.mockResolvedValue({ ok: true, mtime: 200 })
 })
 afterEach(() => {
   cleanup()
@@ -67,5 +68,23 @@ describe("MarkdownPanel leaving a note with unsaved edits", () => {
     expect(onDeleted).toHaveBeenCalled()
     view.unmount()
     expect(api.saveVaultNote).not.toHaveBeenCalled()
+  })
+
+  it("presents the mtime it loaded when it saves", async () => {
+    await openAndEdit()
+    // Renaming saves through the same path as ⌘S and the leave-note flush.
+    await act(async () => fireEvent.click(screen.getByText("rename")))
+    expect(api.saveVaultNote.mock.calls[0][3]).toBe(100)
+  })
+
+  it("does not overwrite a note that changed elsewhere: it offers to discard the edits and reload", async () => {
+    api.saveVaultNote.mockResolvedValue({ ok: false, error: "changed on disk", conflict: true })
+    await openAndEdit()
+    await act(async () => fireEvent.click(screen.getByText("rename")))
+    const [message, options] = notify.error.mock.calls[0]
+    expect(message).toBe("changed on disk")
+    const fetches = api.fetchVaultNote.mock.calls.length
+    await act(async () => options.action.onClick())
+    expect(api.fetchVaultNote.mock.calls.length).toBe(fetches + 1)
   })
 })

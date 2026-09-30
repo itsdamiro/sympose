@@ -1,6 +1,8 @@
 export interface VaultNote {
   path: string
   content: string
+  /** The file's mtime when it was read; a later save presents it so a change made elsewhere is caught. */
+  mtime?: number
 }
 
 /** Pulls the backend's `{detail}` message out of a non-ok fetch Response, or
@@ -37,29 +39,35 @@ export async function fetchVaultNote(
 }
 
 export type SaveVaultNoteResult =
-  | { ok: true }
-  | { ok: false; error: string }
+  | { ok: true; mtime?: number }
+  | { ok: false; error: string; conflict?: boolean }
 
 /**
  * Client for `PUT /api/vault/note` — write the editor's full Markdown (with
  * frontmatter) back to an existing vault note. The backend never creates a new
  * file: a 404 means the note is gone, a 403 that the path fell outside the
- * persona's sandbox. Returns a discriminated result rather than
- * throwing so the caller can toast the message.
+ * persona's sandbox, a 409 that the file changed since `expectedMtime` (from
+ * `fetchVaultNote` or the last save). Returns a discriminated result rather
+ * than throwing so the caller can toast the message.
  */
 export async function saveVaultNote(
   path: string,
   content: string,
-  persona: string
+  persona: string,
+  expectedMtime?: number
 ): Promise<SaveVaultNoteResult> {
   try {
     const res = await fetch("/api/vault/note", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ path, content, persona }),
+      body: JSON.stringify({ path, content, persona, expected_mtime: expectedMtime }),
     })
-    if (res.ok) return { ok: true }
-    return { ok: false, error: (await detailOf(res)) || `Save failed (HTTP ${res.status})` }
+    if (res.ok) return { ok: true, mtime: ((await res.json()) as { mtime?: number }).mtime }
+    return {
+      ok: false,
+      error: (await detailOf(res)) || `Save failed (HTTP ${res.status})`,
+      conflict: res.status === 409,
+    }
   } catch (err) {
     return { ok: false, error: `Save failed — backend unreachable (${err})` }
   }

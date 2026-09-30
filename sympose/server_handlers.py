@@ -26,7 +26,7 @@ from sympose import (
 )
 from sympose.profile import resolve_default_persona, resolve_profile
 from sympose.server_models import FolderCreate, NoteCreate, NoteRename, NoteWrite
-from sympose.vault_write_concurrency import NOTE_CONFLICT
+from sympose.vault_write_concurrency import NOTE_CONFLICT, current_mtime
 from sympose.vault_write_resolve import resolve_existing_note
 from sympose.vault_write_status import (
     NOTE_DENIED,
@@ -138,7 +138,9 @@ def write_note(body: NoteWrite) -> dict[str, Any]:
         denied=sandbox_denied(body.path),
         conflict=f"Note `{body.path}` changed on disk since it was opened — reload before saving.",
     )
-    return {"path": body.path, "detail": result}
+    # The mtime the editor's next save must present: what this write left on disk.
+    target = resolve_existing_note(profile, body.path)
+    return {"path": body.path, "detail": result, "mtime": current_mtime(target) if target else None}
 
 
 def create_note(body: NoteCreate) -> dict[str, Any]:

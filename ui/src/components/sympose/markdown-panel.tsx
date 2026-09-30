@@ -542,6 +542,10 @@ function MarkdownPanel({
   const savedTextRef = React.useRef<string>("")
   const savingRef = React.useRef(false)
   const loadedPathRef = React.useRef<string | undefined>(undefined)
+  // The on-disk mtime this buffer was loaded from or last saved as; a save presents it so a change made
+  // elsewhere (Obsidian, sync, the persona) is refused instead of overwritten. `reloadKey` refetches.
+  const mtimeRef = React.useRef<number | undefined>(undefined)
+  const [reloadKey, setReloadKey] = React.useState(0)
   // Which vault `loadedPathRef`'s content was actually fetched from — set
   // alongside it, same "only moves once the fetch lands" contract. The
   // leave-note flush below compares this against `vaultPath`'s *current*
@@ -640,6 +644,7 @@ function MarkdownPanel({
       frontmatterEditedRef.current = false
       savedTextRef.current = joinNote(fm, bd, prefix, false)
       loadedPathRef.current = path
+      mtimeRef.current = result.mtime
       loadedVaultPathRef.current = currentVaultPathRef.current
       setFetch({ status: "ready", content: result.content })
     })
@@ -651,7 +656,7 @@ function MarkdownPanel({
     // new vault's own last-open note happens to share the old one's exact
     // relative path — otherwise this effect would see no `path` change and
     // go on showing the previous vault's content under the new vault's name.
-  }, [path, persona, vaultPath])
+  }, [path, persona, vaultPath, reloadKey])
 
   // Persist the current frontmatter + body to the vault. Shared by the toolbar
   // `save` button, `⌘/Ctrl-S` (both via stylo's `onSave`), autosave, and the
@@ -713,16 +718,21 @@ function MarkdownPanel({
       }
 
       savingRef.current = true
-      const result = await saveVaultNote(targetPath, text, persona)
+      const result = await saveVaultNote(targetPath, text, persona, mtimeRef.current)
       savingRef.current = false
       if (result.ok) {
         savedTextRef.current = text
+        mtimeRef.current = result.mtime
         // Refresh `note.content` from the just-written text so the wikilink
         // footer (derived from `note`, not the live buffer) picks up any
         // `[[links]]` added since the last load — without rescanning on
         // every keystroke.
         setFetch({ status: "ready", content: text })
         if (!silent) notify.success("Note saved")
+      } else if (result.conflict) {
+        notify.error(result.error, {
+          action: { label: "Discard my edits and reload", onClick: () => setReloadKey((k) => k + 1) },
+        })
       } else {
         notify.error(result.error)
       }
