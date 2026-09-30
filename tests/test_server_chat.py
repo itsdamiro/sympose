@@ -284,3 +284,42 @@ def test_reading_the_phrases_again_asks_the_runner_again_and_the_runner_deduplic
 def test_status_phrases_for_an_unknown_persona_is_404_and_starts_nothing(client, runner):
     assert client.get("/api/chat/status-phrases", params={"persona": "nobody"}).status_code == 404
     assert runner.started == []
+
+
+# -- the context meter's estimate (docs/decisions/044, 018) --------------------
+
+
+def test_the_estimate_is_the_engines_for_the_personas_current_model(client, monkeypatch):
+    seen = []
+    monkeypatch.setattr(ch.context_estimate, "estimate", lambda handle, session_id, model: seen.append((handle, session_id, model)) or (3812, 6144))
+    body = client.get("/api/chat/context", params={"persona": "samantha", "session_id": "s1"}).json()
+    assert body == {"used": 3812, "limit": 6144}
+    assert seen == [("samantha", "s1", "ollama_chat/gemma2:9b")]
+
+
+def test_the_estimate_uses_the_model_the_persona_runs_on(client, monkeypatch):
+    seen = []
+    monkeypatch.setattr(ch.context_estimate, "estimate", lambda handle, session_id, model: seen.append((handle, model)) or (10, 100))
+    client.get("/api/chat/context", params={"persona": "cloudy", "session_id": "s1"})
+    assert seen == [("cloudy", "gemini/gemini-flash-latest")]  # that persona, and the model it runs on
+
+
+def test_no_estimate_when_there_is_nothing_to_count(client, monkeypatch):
+    monkeypatch.setattr(ch.context_estimate, "estimate", lambda handle, session_id, model: None)
+    assert client.get("/api/chat/context", params={"persona": "samantha", "session_id": "s1"}).json() == {"used": None, "limit": None}
+
+
+def test_no_estimate_without_a_session_and_an_unknown_persona_or_session_is_handled(client, monkeypatch):
+    calls = []
+    monkeypatch.setattr(ch.context_estimate, "estimate", lambda handle, session_id, model: calls.append(session_id) or None)
+    assert client.get("/api/chat/context", params={"persona": "samantha"}).json() == {"used": None, "limit": None}
+    assert client.get("/api/chat/context", params={"persona": "nobody", "session_id": "s1"}).status_code == 404
+    assert calls == [None]  # the engine is asked with no session (it answers None); never for an unknown persona
+
+
+def test_a_real_estimate_from_a_saved_conversation(client, monkeypatch):
+    monkeypatch.setattr(turn.budget, "_native_max", lambda model: 8192)  # the module the estimate counts against too
+    monkeypatch.setattr(turn.model_mod, "call_model", lambda messages, model=None, **_: ModelReply("A reply.", 5))
+    first = client.post("/api/chat/turn", json={"message": "hello there", "persona": "samantha"}).json()
+    body = client.get("/api/chat/context", params={"persona": "samantha", "session_id": first["session_id"]}).json()
+    assert body["used"] and body["limit"] and 0 < body["used"] < body["limit"]

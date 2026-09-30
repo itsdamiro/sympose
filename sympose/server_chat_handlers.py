@@ -9,7 +9,7 @@ from typing import Any
 
 from fastapi import HTTPException
 
-from sympose.engine import session, status_phrases, turn, turn_status
+from sympose.engine import context_estimate, model as model_mod, session, status_phrases, turn, turn_status
 from sympose.server_handlers import require_profile
 from sympose.server_models import ChatSessionStart, ChatTurn
 
@@ -63,6 +63,16 @@ def get_status_phrases(persona: str | None) -> dict[str, Any]:
     handle = require_profile(persona)["handle"]
     status_phrases.generate_in_background(handle)
     return {"phrases": status_phrases.phrases(handle), "own": status_phrases.has_own(handle)}
+
+
+def get_context(persona: str | None, session_id: str | None) -> dict[str, Any]:
+    """The context meter's estimate for the persona's current model and the conversation `session_id` names:
+    the engine's own count of its system prompt plus the kept history against the model's prompt budget, no
+    model call (docs/decisions/044, 018). Both `None` when there is nothing to count: no session or no reply
+    yet, or a model whose window is unknown. It leans low where a real turn's figure leans high."""
+    profile = require_profile(persona)
+    figures = context_estimate.estimate(profile["handle"], session_id, model_mod.resolve_model(profile.get("model")))
+    return {"used": figures[0], "limit": figures[1]} if figures else {"used": None, "limit": None}
 
 
 def _latest_session(handle: str) -> tuple[str, dict[str, Any]] | None:
