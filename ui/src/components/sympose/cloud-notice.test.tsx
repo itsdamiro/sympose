@@ -50,6 +50,20 @@ describe("CloudNotice", () => {
     expect(onChange).toHaveBeenNthCalledWith(2, "recaps", false)
   })
 
+  it("can be closed with its own button, which only asks the caller to close it", () => {
+    const onClose = vi.fn()
+    const onChange = vi.fn()
+    render(<CloudNotice state={state()} onChange={onChange} onClose={onClose} />)
+    fireEvent.click(screen.getByRole("button", { name: "Close notice" }))
+    expect(onClose).toHaveBeenCalledTimes(1)
+    expect(onChange).not.toHaveBeenCalled() // closing changes nothing that is shared
+  })
+
+  it("has no close button when nothing is given to close it with", () => {
+    render(<CloudNotice state={state()} onChange={vi.fn()} />)
+    expect(screen.queryByRole("button", { name: "Close notice" })).toBeNull()
+  })
+
   it("shows nothing for a local model, or while the state is not known", () => {
     const { container, rerender } = render(<CloudNotice state={state({ cloud: false })} onChange={vi.fn()} />)
     expect(container.textContent).toBe("")

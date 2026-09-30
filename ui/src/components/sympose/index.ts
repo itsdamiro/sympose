@@ -14,6 +14,7 @@ export {
   CollapseAllButton,
 } from "./control-section"
 export { CloudNotice } from "./cloud-notice"
+export { CloudSharingSection } from "./cloud-sharing-section"
 export { ModelPicker } from "./model-picker"
 export { ChatDisplaySection } from "./chat-display-section"
 export { EditorPreferencesSection } from "./editor-preferences-section"

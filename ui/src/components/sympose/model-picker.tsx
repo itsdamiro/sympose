@@ -14,16 +14,22 @@ import type { ModelsState } from "@/lib/models-api"
 /**
  * The model chip in the composer footer, as a picker (docs/decisions/044): the persona's model now, and the
  * models on offer. A pick is saved on the persona, from here or from the terminal's `/model`, so it is kept.
- * "Use the default" appears only while the persona has a model of its own to clear. Local models get the same
+ * A cloud model's menu also offers "What this model may receive…" while its notice is closed, so closing the
+ * notice never leaves the switches out of reach. "Use the default" appears only while the persona has a model of its own to clear. Local models get the same
  * quiet on-device mark as `ModelChip`, cloud ones a cloud glyph.
  */
 function ModelPicker({
   state,
   onChoose,
+  noticeClosed = false,
+  onShowNotice,
   className,
 }: {
   state: ModelsState | null
   onChoose: (model: string | null) => void
+  /** The cloud notice was closed: a cloud model's menu then offers to bring it back. */
+  noticeClosed?: boolean
+  onShowNotice?: () => void
   className?: string
 }) {
   if (!state) return null
@@ -53,6 +59,14 @@ function ModelPicker({
             {m.id === state.current && <HugeiconsIcon icon={Tick02Icon} className="shrink-0" />}
           </DropdownMenuItem>
         ))}
+        {state.currentCloud && noticeClosed && onShowNotice && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={onShowNotice}>
+              <span className="min-w-0 flex-1 truncate">What this model may receive…</span>
+            </DropdownMenuItem>
+          </>
+        )}
         {state.own !== null && (
           <>
             <DropdownMenuSeparator />

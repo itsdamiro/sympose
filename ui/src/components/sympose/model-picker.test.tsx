@@ -62,6 +62,23 @@ describe("ModelPicker", () => {
     expect(onChoose).not.toHaveBeenCalled()
   })
 
+  it("offers to bring the cloud notice back only for a cloud model whose notice is closed", async () => {
+    const cloud = state({ current: "gemini/gemini-flash-latest", currentCloud: true })
+    const onShowNotice = vi.fn()
+    const { unmount } = render(<ModelPicker state={cloud} onChoose={vi.fn()} noticeClosed onShowNotice={onShowNotice} />)
+    open()
+    fireEvent.click(await screen.findByRole("menuitem", { name: /What this model may receive/ }))
+    expect(onShowNotice).toHaveBeenCalledTimes(1)
+    unmount()
+    for (const props of [{ noticeClosed: false }, { noticeClosed: true, state: state() }]) {
+      const { unmount: again } = render(<ModelPicker state={props.state ?? cloud} onChoose={vi.fn()} noticeClosed={props.noticeClosed} onShowNotice={onShowNotice} />)
+      open()
+      await screen.findByRole("menuitem", { name: /Gemini Flash/ })
+      expect(screen.queryByRole("menuitem", { name: /What this model may receive/ })).toBeNull()
+      again()
+    }
+  })
+
   it("offers to clear the persona's own model only while it has one, and clears with null", async () => {
     const onChoose = vi.fn()
     const { unmount } = render(<ModelPicker state={state()} onChoose={onChoose} />)

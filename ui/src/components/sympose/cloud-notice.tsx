@@ -1,3 +1,6 @@
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Cancel01Icon } from "@hugeicons/core-free-icons"
+
 import { cn } from "@/lib/utils"
 import type { SharingState } from "@/lib/sharing-api"
 
@@ -5,15 +8,18 @@ import type { SharingState } from "@/lib/sharing-api"
  * The standing notice while the persona's model is a cloud one (docs/decisions/031, 044): what always goes to
  * it (the messages and the conversation) and, one switch per category, what may go from the user's vault.
  * Everything starts off; it is on screen before the first message is written, which is what lets the web chat
- * talk to a cloud model at all. A local model shows nothing: nothing leaves the machine.
+ * talk to a cloud model at all. A local model shows nothing: nothing leaves the machine. It can be closed
+ * (`onClose`); closing hides the box only, and the categories stay as they were set.
  */
 function CloudNotice({
   state,
   onChange,
+  onClose,
   className,
 }: {
   state: SharingState | null
   onChange: (category: string, shared: boolean) => void
+  onClose?: () => void
   className?: string
 }) {
   if (!state?.cloud) return null
@@ -23,9 +29,19 @@ function CloudNotice({
       role="region"
       aria-label="Cloud model"
       data-slot="cloud-notice"
-      className={cn("mb-3 rounded-lg border border-border bg-muted/40 px-3 py-2.5 text-xs text-fg-muted", className)}
+      className={cn("relative mb-3 rounded-lg border border-border bg-muted/40 px-3 py-2.5 text-xs text-fg-muted", className)}
     >
-      <p>
+      {onClose && (
+        <button
+          type="button"
+          aria-label="Close notice"
+          onClick={onClose}
+          className="absolute top-1.5 right-1.5 grid size-6 place-items-center rounded-md text-fg-muted transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+        >
+          <HugeiconsIcon icon={Cancel01Icon} className="size-3.5" />
+        </button>
+      )}
+      <p className={cn(onClose && "pr-6")}>
         <span className="font-medium text-foreground">{state.model}</span> is a cloud model: it receives your messages and
         this conversation.{" "}
         {allowed.length > 0

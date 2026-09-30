@@ -37,6 +37,7 @@ import { usePinnedNotes } from "@/lib/use-pinned-notes"
 import { useRecentNotes } from "@/lib/use-recent-notes"
 import { useVaultScopedState } from "@/lib/use-vault-scoped-state"
 import { useNotificationPreferences } from "@/lib/use-notification-preferences"
+import { useCloudNotice } from "@/lib/use-cloud-notice"
 import { useModels } from "@/lib/use-models"
 import { useModelSwitch } from "@/lib/use-model-switch"
 import { useSharing } from "@/lib/use-sharing"
@@ -89,6 +90,7 @@ import {
   ControlSectionsProvider,
   ChatDisplaySection,
   CloudNotice,
+  CloudSharingSection,
   ModelPicker,
   EditorPreferencesSection,
   EngineSettingsSections,
@@ -455,6 +457,7 @@ export function AppShell() {
   })
   const modelInUse = models.state?.current
   const { state: sharingState, setShared } = useSharing(activePersona, modelInUse)
+  const cloudNotice = useCloudNotice(sharingState?.cloud)
   // Bumped after a note is created, or the active vault is switched, to
   // re-pull the tree, the nebula graph, and any live search so they follow
   // without a persona switch (a persona switch itself re-pulls them too).
@@ -1382,6 +1385,12 @@ export function AppShell() {
           }
         />
         <ChatDisplaySection prefs={chatDisplayPrefs} setPref={setChatDisplayPref} />
+        <CloudSharingSection
+          state={sharingState}
+          onChange={setShared}
+          noticeOpen={cloudNotice.open}
+          onNoticeOpenChange={(open) => (open ? cloudNotice.reopen() : cloudNotice.close())}
+        />
         <EngineSettingsSections />
       </ControlSectionsProvider>
     ) : (
@@ -1764,14 +1773,14 @@ export function AppShell() {
               onWikiLinkClick={openChatWikilink}
               onNewConversation={chat.newConversation}
               showGrounding={chatDisplayPrefs.showGrounding}
-              notice={<CloudNotice state={sharingState} onChange={setShared} />}
+              notice={cloudNotice.open ? <CloudNotice state={sharingState} onChange={setShared} onClose={cloudNotice.close} /> : undefined}
               draft={chat.draft}
               onDraftChange={chat.setDraft}
               onSubmit={chat.send}
               model={
                 personas.find((p) => p.handle === activePersona)?.model
               }
-              modelSlot={models.state ? <ModelPicker state={models.state} onChoose={switchModel} /> : undefined}
+              modelSlot={models.state ? <ModelPicker state={models.state} onChoose={switchModel} noticeClosed={!cloudNotice.open} onShowNotice={cloudNotice.reopen} /> : undefined}
               personaName={activePersonaName}
               open={chatOpen}
               phone={isPhone}
