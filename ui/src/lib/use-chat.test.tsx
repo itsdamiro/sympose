@@ -108,9 +108,11 @@ describe("useChat", () => {
     expect(api.sendChatTurn).not.toHaveBeenCalled()
   })
 
-  it("does not send a second message while a reply is in flight", async () => {
+  it("shows a message sent while a reply is in flight at once, and sends the ones that waited as one turn", async () => {
     let release: (v: unknown) => void = () => {}
-    api.sendChatTurn.mockReturnValue(new Promise((r) => (release = r)))
+    api.sendChatTurn
+      .mockReturnValueOnce(new Promise((r) => (release = r)))
+      .mockResolvedValueOnce(ok("both answered", "s1"))
     const { result } = renderHook(() => useChat("samantha"))
     act(() => result.current.setDraft("first"))
     let first: Promise<void> = Promise.resolve()
@@ -119,11 +121,36 @@ describe("useChat", () => {
     })
     expect(result.current.sending).toBe(true)
     await say(result, "second")
+    await say(result, "third")
     expect(api.sendChatTurn).toHaveBeenCalledTimes(1)
+    expect(result.current.turns.map((t) => t.body)).toEqual(["first", "second", "third"]) // shown at once, unmarked
     await act(async () => {
-      release(ok("done"))
+      release(ok("to the first", "s1"))
       await first
     })
+    expect(api.sendChatTurn).toHaveBeenCalledTimes(2)
+    expect(api.sendChatTurn.mock.calls[1]).toEqual(["second\n\nthird", "samantha", "s1"])
+    expect(result.current.turns.map((t) => t.body)).toEqual(["first", "second", "third", "to the first", "both answered"])
+    expect(result.current.sending).toBe(false)
+  })
+
+  it("still sends what waited when the reply it waited for failed", async () => {
+    let release: (v: unknown) => void = () => {}
+    api.sendChatTurn
+      .mockReturnValueOnce(new Promise((r) => (release = r)))
+      .mockResolvedValueOnce(ok("fine", "s2"))
+    const { result } = renderHook(() => useChat("samantha"))
+    act(() => result.current.setDraft("first"))
+    let first: Promise<void> = Promise.resolve()
+    act(() => {
+      first = result.current.send()
+    })
+    await say(result, "second")
+    await act(async () => {
+      release({ ok: false, error: "model down" })
+      await first
+    })
+    expect(api.sendChatTurn.mock.calls[1]).toEqual(["second", "samantha", undefined])
     expect(result.current.sending).toBe(false)
   })
 

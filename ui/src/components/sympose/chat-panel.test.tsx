@@ -27,10 +27,10 @@ describe("ChatPanel", () => {
     expect(onSubmit).toHaveBeenCalledTimes(1)
   })
 
-  it("does not send while a reply is in flight", () => {
+  it("still sends while a reply is in flight: the message waits and goes out with the others", () => {
     const { onSubmit } = setup({ sending: true })
     enter()
-    expect(onSubmit).not.toHaveBeenCalled()
+    expect(onSubmit).toHaveBeenCalledTimes(1)
   })
 
   it("says what the reply in flight is doing, in the terminal's own words", () => {

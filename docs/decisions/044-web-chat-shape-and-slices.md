@@ -202,3 +202,12 @@ While the search index is still being built, the engine answers by keyword inste
 - **Only while a reply is in flight** (chosen over also showing it while idle, which would need a slow background poll for a line nobody is waiting on). A second, quieter line sits under the busy line: "Still indexing your notes (40%), so this reply searches by keyword." It is gone as soon as the build finishes or the reply arrives.
 - **No new route.** `GET /api/chat/status`, which the chat already polls while it waits, also returns `indexing`: the whole percent of the build (`semantic_refresh.progress()`), or `null` when none is running. The figure is the engine's and global, not per persona, as in the terminal.
 - It is a plain statement of the engine's behaviour, not a setting: the terminal's line has no knob for it either.
+
+## Amendment (2026-10-01): messages sent mid-reply are joined, as in the terminal (damiro)
+
+The first slice blocked sending while a reply was in flight, waiting for a way to show a queue. ADR 008's amendment of the same day drops the queue for the terminal: a message sent mid-reply shows at once and waits, and what waited goes out as one turn when the reply lands. The web chat does the same, so "Slice 3: queued-message display" is settled by not needing one.
+
+- **The message box never blocks.** A message sent while the persona's reply is in flight appears in the conversation at once, unmarked, and waits in the browser (`use-chat`), per persona.
+- **When the reply lands**, what waited is sent as one turn, the messages joined by blank lines, continuing the session the reply returned; one waiting message goes alone. The persona answers them together and the conversation file holds them as one user turn, as in the terminal. A reply that failed shows its error line and the waiting messages are still sent.
+- **Nothing in the engine or the API changes**; no route reports a queue. Waiting messages live only in the open tab: closing it before the reply lands drops them, as an unsent draft would (they were never sent).
+- "New conversation" is still unavailable while a reply is in flight.

@@ -103,7 +103,7 @@ function ChatPanel({
   ...props
 }: ChatPanelProps) {
   const submit = () => {
-    if (!draft.trim() || sending) return
+    if (!draft.trim()) return
     onSubmit()
   }
 

@@ -76,11 +76,13 @@ function turnsFromPage(handle: string, page: SessionPage): ChatTurn[] {
  * persona's and a reply that lands after a switch goes to the persona it was for. A persona's latest saved
  * conversation is picked up the first time it is shown (a refresh resumes it), the last turns first and
  * older ones on `loadOlder`; `newConversation` starts a fresh one, saved as an empty conversation so a refresh shows it blank. A message sent while that persona's reply
- * is in flight is not accepted, since the queue cannot be shown yet.
+ * is in flight shows at once and waits; when the reply lands, everything that waited is sent as one turn.
  */
 export function useChat(persona: string) {
   const [all, setAll] = React.useState<Record<string, Conversation>>({})
   const inFlight = React.useRef(new Set<string>())
+  /** Messages sent while a persona's reply is in flight; they go out together as one turn when it lands. */
+  const waiting = React.useRef(new Map<string, string[]>())
   const resuming = React.useRef(new Set<string>())
   const nextId = React.useRef(0)
   const convo = all[persona] ?? EMPTY
@@ -138,29 +140,41 @@ export function useChat(persona: string) {
 
   const send = React.useCallback(async () => {
     const message = convo.draft.trim()
-    if (!message || inFlight.current.has(persona)) return
+    if (!message) return
+    const shown = { role: "user" as const, body: message, timestamp: time(new Date()) }
+    // A message sent while this persona's reply is in flight shows at once and waits; everything that waited
+    // goes out as one turn when the reply lands (ADR 008, 044: amendments of 2026-10-01).
+    if (inFlight.current.has(persona)) {
+      waiting.current.set(persona, [...(waiting.current.get(persona) ?? []), message])
+      update(persona, (c) => ({ ...addTo(c, shown), draft: "" }))
+      return
+    }
     inFlight.current.add(persona)
-    update(persona, (c) => ({
-      ...addTo(c, { role: "user", body: message, timestamp: time(new Date()) }),
-      draft: "",
-      sending: true,
-      phase: null,
-      indexing: null,
-    }))
-    const result = await sendChatTurn(message, persona, convo.sessionId)
-    inFlight.current.delete(persona)
-    update(persona, (c) => {
-      const done = { ...c, sending: false, phase: null, indexing: null }
-      if (!result.ok) {
-        return addTo(done, { role: "system", kind: "error", body: `@${persona} couldn't reply: ${result.error}` })
-      }
-      const { reply, session_id, ttft_ms, sent, model, context_used, context_limit } = result.reply
-      const context = model && context_used != null && context_limit != null ? { used: context_used, limit: context_limit, model } : undefined
-      return addTo(
-        { ...done, sessionId: session_id, context },
-        { role: "persona", handle: persona, body: reply, timestamp: time(new Date()), latency: latency(ttft_ms), sent }
-      )
-    })
+    update(persona, (c) => ({ ...addTo(c, shown), draft: "", sending: true, phase: null, indexing: null }))
+    let text = message
+    let sessionId = convo.sessionId
+    for (;;) {
+      const result = await sendChatTurn(text, persona, sessionId)
+      const next = waiting.current.get(persona) ?? []
+      waiting.current.delete(persona)
+      const more = next.length > 0 // decided with no await before `inFlight` is released below
+      if (!more) inFlight.current.delete(persona)
+      if (result.ok) sessionId = result.reply.session_id
+      update(persona, (c) => {
+        const done = { ...c, sending: more, phase: null, indexing: null }
+        if (!result.ok) {
+          return addTo(done, { role: "system", kind: "error", body: `@${persona} couldn't reply: ${result.error}` })
+        }
+        const { reply, session_id, ttft_ms, sent, model, context_used, context_limit } = result.reply
+        const context = model && context_used != null && context_limit != null ? { used: context_used, limit: context_limit, model } : undefined
+        return addTo(
+          { ...done, sessionId: session_id, context },
+          { role: "persona", handle: persona, body: reply, timestamp: time(new Date()), latency: latency(ttft_ms), sent }
+        )
+      })
+      if (!more) return
+      text = next.join("\n\n")
+    }
   }, [convo.draft, convo.sessionId, persona, update, addTo])
 
   const loadOlder = React.useCallback(async () => {
