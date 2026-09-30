@@ -21,6 +21,8 @@ interface ChatPanelProps extends React.ComponentProps<"div"> {
   sending?: boolean
   /** What that reply is doing right now, when the backend says. */
   phase?: ChatPhase | null
+  /** The search index build in progress (whole percent) while a reply waits: the reply searches by keyword. */
+  indexing?: number | null
   /** Older turns of this conversation exist and are loaded when the user scrolls to the top. */
   hasMore?: boolean
   loadingOlder?: boolean
@@ -77,6 +79,7 @@ function ChatPanel({
   turns,
   sending = false,
   phase = null,
+  indexing = null,
   hasMore = false,
   loadingOlder = false,
   onLoadOlder,
@@ -270,6 +273,11 @@ function ChatPanel({
               typing={typeStatus}
               className="text-xs text-fg-muted"
             />
+          )}
+          {sending && indexing !== null && (
+            <p data-slot="indexing-notice" role="status" className="text-xs text-fg-muted">
+              Still indexing your notes ({indexing}%), so this reply searches by keyword.
+            </p>
           )}
           <div ref={endRef} />
         </div>

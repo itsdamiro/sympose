@@ -57,14 +57,22 @@ export async function sendChatTurn(
   }
 }
 
-/** Client for `GET /api/chat/status` — the phase of the persona's reply in flight, or `null`. */
-export async function fetchChatPhase(persona: string): Promise<ChatPhase | null> {
+/** What the reply in flight is doing, and the search index build still running (whole percent) or `null`. */
+export interface ChatStatus {
+  phase: ChatPhase | null
+  indexing: number | null
+}
+
+/** Client for `GET /api/chat/status` — the phase of the persona's reply in flight and any index build. */
+export async function fetchChatStatus(persona: string): Promise<ChatStatus> {
+  const none = { phase: null, indexing: null }
   try {
     const res = await fetch(`/api/chat/status?persona=${encodeURIComponent(persona)}`)
-    if (!res.ok) return null
-    return ((await res.json()) as { phase: ChatPhase | null }).phase
+    if (!res.ok) return none
+    const body = (await res.json()) as Partial<ChatStatus>
+    return { phase: body.phase ?? null, indexing: typeof body.indexing === "number" ? body.indexing : null }
   } catch {
-    return null
+    return none
   }
 }
 

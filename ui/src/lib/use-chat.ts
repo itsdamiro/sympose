@@ -1,7 +1,7 @@
 import * as React from "react"
 
 import {
-  fetchChatPhase,
+  fetchChatStatus,
   fetchChatSession,
   sendChatTurn,
   startChatSession,
@@ -26,6 +26,8 @@ interface Conversation {
   draft: string
   sending: boolean
   phase: ChatPhase | null
+  /** The search index build in progress while a reply waits (whole percent), else `null`. */
+  indexing: number | null
   sessionId?: string
   /** The last reply's token count and the model that made it, for the context meter (ADR 018, 044). */
   context?: { used: number; limit: number; model: string }
@@ -42,6 +44,7 @@ const EMPTY: Conversation = {
   draft: "",
   sending: false,
   phase: null,
+  indexing: null,
   resumed: false,
   oldest: 0,
   hasMore: false,
@@ -123,8 +126,8 @@ export function useChat(persona: string) {
     if (!convo.sending) return
     let alive = true
     const id = window.setInterval(() => {
-      void fetchChatPhase(persona).then((phase) => {
-        if (alive) update(persona, (c) => ({ ...c, phase }))
+      void fetchChatStatus(persona).then(({ phase, indexing }) => {
+        if (alive) update(persona, (c) => ({ ...c, phase, indexing }))
       })
     }, PHASE_POLL_MS)
     return () => {
@@ -142,11 +145,12 @@ export function useChat(persona: string) {
       draft: "",
       sending: true,
       phase: null,
+      indexing: null,
     }))
     const result = await sendChatTurn(message, persona, convo.sessionId)
     inFlight.current.delete(persona)
     update(persona, (c) => {
-      const done = { ...c, sending: false, phase: null }
+      const done = { ...c, sending: false, phase: null, indexing: null }
       if (!result.ok) {
         return addTo(done, { role: "system", kind: "error", body: `@${persona} couldn't reply: ${result.error}` })
       }
@@ -204,6 +208,7 @@ export function useChat(persona: string) {
     send,
     sending: convo.sending,
     phase: convo.phase,
+    indexing: convo.indexing,
     hasMore: convo.hasMore,
     loadingOlder: convo.loadingOlder,
     loadOlder,

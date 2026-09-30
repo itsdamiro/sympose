@@ -194,3 +194,11 @@ The web chat asks before a model switch sends an ongoing conversation's earlier 
 - **What the route accepts** widened by the same rule and no further: a listed id, the model already in use, or the default (`chat_model`), so a hand-named model can be chosen again and "Use the default" works. Any other unlisted id is still refused with 422, so the browser cannot make the server call a model nobody configured.
 - **Not done:** typing a new model name into the picker (it would be a way to reach any model from the browser); a missing API key is still the engine's own error line.
 
+
+## Amendment (2026-10-01): the indexing notice, while a reply is in flight (damiro)
+
+While the search index is still being built, the engine answers by keyword instead of by meaning (`semantic._vectors_for` returns nothing until the build is done). The terminal shows `indexing NN%` above the composer, but the web chat said nothing, so a first reply could be weaker with no explanation.
+
+- **Only while a reply is in flight** (chosen over also showing it while idle, which would need a slow background poll for a line nobody is waiting on). A second, quieter line sits under the busy line: "Still indexing your notes (40%), so this reply searches by keyword." It is gone as soon as the build finishes or the reply arrives.
+- **No new route.** `GET /api/chat/status`, which the chat already polls while it waits, also returns `indexing`: the whole percent of the build (`semantic_refresh.progress()`), or `null` when none is running. The figure is the engine's and global, not per persona, as in the terminal.
+- It is a plain statement of the engine's behaviour, not a setting: the terminal's line has no knob for it either.

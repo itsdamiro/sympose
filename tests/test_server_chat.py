@@ -94,12 +94,19 @@ def test_a_model_failure_is_a_502_with_its_message(client, monkeypatch):
 
 
 def test_status_reports_the_phase_of_the_reply_in_flight(client):
-    assert client.get("/api/chat/status", params={"persona": "samantha"}).json() == {"phase": None}
+    assert client.get("/api/chat/status", params={"persona": "samantha"}).json() == {"phase": None, "indexing": None}
     turn_status.set_phase("samantha", turn_status.SEARCHING)
     try:
-        assert client.get("/api/chat/status", params={"persona": "samantha"}).json() == {"phase": "searching"}
+        assert client.get("/api/chat/status", params={"persona": "samantha"}).json() == {"phase": "searching", "indexing": None}
     finally:
         turn_status.set_phase("samantha", None)
+
+
+def test_status_reports_the_index_build_percent_while_one_runs(client, monkeypatch):
+    from sympose.engine import semantic_refresh
+
+    monkeypatch.setattr(semantic_refresh, "progress", lambda: 40)
+    assert client.get("/api/chat/status", params={"persona": "samantha"}).json()["indexing"] == 40
 
 
 def test_status_for_an_unknown_persona_is_404(client):

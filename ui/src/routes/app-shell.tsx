@@ -1776,6 +1776,7 @@ export function AppShell() {
               turns={chat.turns}
               sending={chat.sending}
               phase={chat.phase}
+              indexing={chat.indexing}
               hasMore={chat.hasMore}
               loadingOlder={chat.loadingOlder}
               onLoadOlder={chat.loadOlder}

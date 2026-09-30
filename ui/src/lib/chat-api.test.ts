@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { fetchChatPhase, fetchChatSession, fetchContextEstimate, sendChatTurn, startChatSession } from "./chat-api"
+import { fetchChatStatus, fetchChatSession, fetchContextEstimate, sendChatTurn, startChatSession } from "./chat-api"
 
 const reply = { reply: "Hi", session_id: "s1", model: "ollama_chat/gemma2:9b", ttft_ms: 400, truncated: false, saved: true, cloud: [], withheld: [] }
 
@@ -76,20 +76,23 @@ describe("fetchContextEstimate", () => {
   })
 })
 
-describe("fetchChatPhase", () => {
-  it("returns the phase the backend reports", async () => {
-    const fetchMock = stub({ ok: true, status: 200, json: () => Promise.resolve({ phase: "reading" }) })
-    expect(await fetchChatPhase("samantha")).toBe("reading")
+describe("fetchChatStatus", () => {
+  it("returns the phase and the index build the backend reports", async () => {
+    const fetchMock = stub({ ok: true, status: 200, json: () => Promise.resolve({ phase: "reading", indexing: 40 }) })
+    expect(await fetchChatStatus("samantha")).toEqual({ phase: "reading", indexing: 40 })
     expect(fetchMock.mock.calls[0][0]).toBe("/api/chat/status?persona=samantha")
   })
 
-  it("is null when nothing is running, on an error, and when unreachable", async () => {
-    stub({ ok: true, status: 200, json: () => Promise.resolve({ phase: null }) })
-    expect(await fetchChatPhase("samantha")).toBeNull()
+  it("is empty when nothing is running, on an error, and when unreachable", async () => {
+    const none = { phase: null, indexing: null }
+    stub({ ok: true, status: 200, json: () => Promise.resolve({ phase: null, indexing: null }) })
+    expect(await fetchChatStatus("samantha")).toEqual(none)
+    stub({ ok: true, status: 200, json: () => Promise.resolve({ phase: "asking" }) })
+    expect(await fetchChatStatus("samantha")).toEqual({ phase: "asking", indexing: null })
     stub({ ok: false, status: 500, json: () => Promise.resolve({}) })
-    expect(await fetchChatPhase("samantha")).toBeNull()
+    expect(await fetchChatStatus("samantha")).toEqual(none)
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")))
-    expect(await fetchChatPhase("samantha")).toBeNull()
+    expect(await fetchChatStatus("samantha")).toEqual(none)
   })
 })
 

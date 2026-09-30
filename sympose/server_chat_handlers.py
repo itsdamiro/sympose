@@ -9,7 +9,7 @@ from typing import Any
 
 from fastapi import HTTPException
 
-from sympose.engine import context_estimate, model as model_mod, session, status_phrases, turn, turn_status
+from sympose.engine import context_estimate, model as model_mod, semantic_refresh, session, status_phrases, turn, turn_status
 from sympose.server_handlers import require_profile
 from sympose.server_models import ChatSessionStart, ChatTurn
 
@@ -51,8 +51,10 @@ def send_turn(body: ChatTurn) -> dict[str, Any]:
 
 def get_status(persona: str | None) -> dict[str, Any]:
     """What the persona's in-flight reply is doing right now (`searching`, `reading`, `asking`), or
-    `None` when nothing is running: the web chat polls this while it waits (docs/decisions/043)."""
-    return {"phase": turn_status.phase(require_profile(persona)["handle"])}
+    `None` when nothing is running: the web chat polls this while it waits (docs/decisions/043). `indexing` is
+    the whole percent of the search index build still running, or `None`: until it is done the reply searches
+    by keyword, which the chat says (docs/decisions/044, amendment of 2026-10-01)."""
+    return {"phase": turn_status.phase(require_profile(persona)["handle"]), "indexing": semantic_refresh.progress()}
 
 
 def get_status_phrases(persona: str | None) -> dict[str, Any]:

@@ -2,7 +2,7 @@
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-const api = vi.hoisted(() => ({ sendChatTurn: vi.fn(), fetchChatPhase: vi.fn(), fetchChatSession: vi.fn(), startChatSession: vi.fn() }))
+const api = vi.hoisted(() => ({ sendChatTurn: vi.fn(), fetchChatStatus: vi.fn(), fetchChatSession: vi.fn(), startChatSession: vi.fn() }))
 vi.mock("@/lib/chat-api", () => api)
 
 import { useChat } from "./use-chat"
@@ -13,7 +13,7 @@ const ok = (reply: string, session = "s1") => ({
 })
 
 beforeEach(() => {
-  api.fetchChatPhase.mockResolvedValue(null)
+  api.fetchChatStatus.mockResolvedValue({ phase: null, indexing: null })
   api.fetchChatSession.mockResolvedValue(null)
   api.startChatSession.mockResolvedValue(null)
 })
@@ -129,7 +129,7 @@ describe("useChat", () => {
 
   it("asks what the reply is doing while it waits", async () => {
     vi.useFakeTimers()
-    api.fetchChatPhase.mockResolvedValue("searching")
+    api.fetchChatStatus.mockResolvedValue({ phase: "searching", indexing: 40 })
     let release: (v: unknown) => void = () => {}
     api.sendChatTurn.mockReturnValue(new Promise((r) => (release = r)))
     const { result } = renderHook(() => useChat("samantha"))
@@ -141,11 +141,13 @@ describe("useChat", () => {
       await vi.advanceTimersByTimeAsync(600)
     })
     expect(result.current.phase).toBe("searching")
+    expect(result.current.indexing).toBe(40)
     await act(async () => {
       release(ok("done"))
       await vi.advanceTimersByTimeAsync(0)
     })
     expect(result.current.phase).toBeNull()
+    expect(result.current.indexing).toBeNull()
   })
 
   it("keeps a conversation per persona, and a late reply goes to the persona it was for", async () => {
