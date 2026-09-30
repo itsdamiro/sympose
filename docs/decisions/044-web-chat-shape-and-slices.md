@@ -1,6 +1,6 @@
 # 044 — The web chat: its shape, and the order it is built in
 
-> **Status: Accepted (2026-09-30).** Nothing here is built yet. It settles how #29 (chat in the web app) is put together and in which slices, before any code, after the full code review of 2026-09-30 found that the web app's shell is the one place in the project where modularity has slipped (#95).
+> **Status: Accepted (2026-09-30). Slice 1 built and pushed (see the amendment at the end); slices 2 and 3 are not.** It settles how #29 (chat in the web app) is put together and in which slices, before any code, after the full code review of 2026-09-30 found that the web app's shell is the one place in the project where modularity has slipped (#95).
 
 ## Context
 
@@ -77,3 +77,16 @@ The parts that need the most attention are the live status (new kind of route fo
 - **A broad clean-up of the whole shell first.** Not needed to build chat, and a large risky job of its own; the goal is that chat is not added to the tangle, not that the tangle is undone.
 - **A persistent live connection for the status.** More machinery for the same result on a local, single-user server.
 - **Cloud models in the first slice with only a notice.** Possible, since the engine already reports what was sent and withheld, but the controls are part of the same settings work and the first slice is useful without them.
+
+## Amendment (2026-09-30): slice 1 as built, and three decisions made while building it
+
+**Built (slice 1, local models only).** `POST /api/chat/turn` (a lock per persona, a non-local model refused with 409 and a plain message), `GET /api/chat/status` (the live phase), `GET /api/chat/session` (the latest conversation in sections, `before`/`limit`, pinned to a `session_id` so older pages stay in the conversation the first page came from) and `POST /api/chat/session` (a fresh, empty conversation); in the browser `useChat` (one conversation per persona, resume, older turns on scroll, New conversation), `chat-api`, `ChatSystemLine`, the panel loaded lazily as its own chunk, `GroundedNotes`, `ChatMarkdown`. Checked in a real headless Chrome on a scratch vault and against `gemma2:9b`.
+
+**A note is only ever a link in the chat.** The chat never shows a note's content. A note appears as a link: a `[[wikilink]]` in a reply, or a path under the reply's "Based on ..." line. Clicking it opens the note in the markdown editor in preview (read) mode, through a `previewRequest` the shell bumps; it is set at once rather than through the animated read/edit swap, which only completes when the toolbar row it animates is on screen. The mode is the existing read/edit preference, so it stays until the user switches back. A note hidden from view (ADR 037) or since deleted is not opened. Links from the built-in reference library are never offered.
+
+**Replies are formatted.** A persona's reply is drawn as Markdown through stylo's read-only preview, styled as text in the conversation (no card, list markers restored, headings at reply scale): bold, lists, code and tables come out; raw HTML from a model shows as harmless text and a `javascript:` link is dead. Web links open only for http, https and mailto (`openMarkdownLink`, shared with the editor, which also no longer opens a relative link as a broken tab of this app).
+
+**New conversation is saved, not only cleared.** It opens an empty session (a file with only its meta line, named by its first message) that counts as the latest, so a refresh shows it blank; pressing the button twice reuses the blank one. Recaps ignore blank sessions when picking the last conversation. The plain alternative (blank in the browser only) brought the old conversation back after a refresh, which was wrong.
+
+**Known and deliberate.** The web ignores the terminal's `show_grounding` setting (always on) until slice 2 gives it a way to read settings. A message sent while a reply is in flight is not accepted (no queue display yet, slice 3). The terminal and the web chat write the same session files but cannot lock against each other (separate processes).
+
