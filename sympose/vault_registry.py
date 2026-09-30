@@ -13,7 +13,7 @@ keys directly.
 
 import os
 
-from sympose import settings_store
+from sympose import settings_store, vault_path_guard
 
 
 def get_configured_vaults() -> list[dict[str, str]]:
@@ -58,7 +58,7 @@ def add_vault(path: str) -> dict[str, str] | None:
     if not path:
         return None
     abspath = os.path.abspath(os.path.expanduser(path))
-    if not os.path.isdir(abspath):
+    if not os.path.isdir(abspath) or vault_path_guard.check(abspath):
         return None
     existing = next(
         (v for v in get_configured_vaults() if v["path"] == abspath), None

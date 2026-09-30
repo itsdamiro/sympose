@@ -5,11 +5,12 @@ search and the bin are, to keep each handler module to one concern
 (project's 200-LOC-per-file guideline).
 """
 
+import os
 from typing import Any
 
 from fastapi import HTTPException
 
-from sympose import vault_registry
+from sympose import vault_path_guard, vault_registry
 
 
 def list_vaults() -> dict[str, Any]:
@@ -33,6 +34,9 @@ def add_vault(path: str) -> dict[str, Any]:
     """Adds and activates `path` — the switcher's add-path input makes the
     newly added vault active immediately rather than leaving it configured
     but unselected, so typing a path and hitting Enter is the whole flow."""
+    resolved = os.path.abspath(os.path.expanduser((path or "").strip()))
+    if os.path.isdir(resolved) and (reason := vault_path_guard.check(resolved)):
+        raise HTTPException(status_code=400, detail=reason)
     vault = vault_registry.add_vault(path)
     if vault is None:
         raise HTTPException(
