@@ -195,8 +195,13 @@ function ScalarField({
   onLinkClick?: (target: string) => void
   readOnly?: boolean
 }) {
+  // A nested map is not a scalar (`parseFrontmatter` lets one through): show it as JSON and never edit it,
+  // since committing its text would overwrite the map with the string "[object Object]".
+  const nested = typeof value === "object" && value !== null
+  const text = nested ? JSON.stringify(value) : String(value ?? "")
+  readOnly = readOnly || nested
   const [editing, setEditing] = React.useState(false)
-  const [draft, setDraft] = React.useState(String(value ?? ""))
+  const [draft, setDraft] = React.useState(text)
   const inputRef = React.useRef<HTMLInputElement>(null)
 
   // Runs once per entry into edit mode, not on every keystroke — an inline
@@ -226,7 +231,7 @@ function ScalarField({
     if (readOnly) {
       return (
         <span className="rounded px-1 -mx-1 text-left text-muted-foreground">
-          {String(value ?? "") || <span className="text-fg-muted">—</span>}
+          {text || <span className="text-fg-muted">—</span>}
         </span>
       )
     }
@@ -234,18 +239,19 @@ function ScalarField({
       <button
         type="button"
         onClick={() => {
-          setDraft(String(value ?? ""))
+          setDraft(text)
           setEditing(true)
         }}
         className="rounded px-1 -mx-1 text-left text-muted-foreground transition-colors hover:bg-accent"
       >
-        {String(value ?? "") || <span className="text-fg-muted">—</span>}
+        {text || <span className="text-fg-muted">—</span>}
       </button>
     )
   }
 
   const commit = () => {
-    onChange(draft)
+    // Unchanged text is not an edit: writing it back would turn `true` into "true" and `3` into "3".
+    if (draft !== text) onChange(draft)
     setEditing(false)
   }
 

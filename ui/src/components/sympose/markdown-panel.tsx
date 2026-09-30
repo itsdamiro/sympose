@@ -839,8 +839,18 @@ function MarkdownPanel({
       <NoteActionsMenu
         path={path}
         persona={persona}
-        onRenamed={(next) => onRenamed?.(next)}
-        onDeleted={() => onDeleted?.()}
+        onRenamed={async (next) => {
+          // The file has moved: save this note's unsaved edits to its new path now, while the buffer still
+          // belongs to it, instead of letting the leave-note flush PUT to the old path (404, edits lost).
+          loadedPathRef.current = next
+          await saveNoteRef.current({ silent: true, syncTags: false })
+          onRenamed?.(next)
+        }}
+        onDeleted={() => {
+          // Nothing to save to: the flush would PUT to a path that no longer exists.
+          loadedPathRef.current = undefined
+          onDeleted?.()
+        }}
         pinned={!!isPinned?.(path)}
         onTogglePin={onTogglePin}
       />
