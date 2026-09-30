@@ -72,6 +72,15 @@ def create_app() -> FastAPI:
     def chat_status(persona: str | None = Query(None)) -> dict[str, Any]:
         return ch.get_status(persona)
 
+    @app.get("/api/chat/session")
+    def chat_session(
+        persona: str | None = Query(None),
+        session_id: str | None = Query(None),
+        before: int | None = Query(None, ge=0),
+        limit: int = Query(20, ge=1, le=100),
+    ) -> dict[str, Any]:
+        return ch.get_session(persona, session_id, before, limit)
+
     @app.get("/api/personas")
     def get_personas() -> dict[str, Any]:
         return ph.get_personas()

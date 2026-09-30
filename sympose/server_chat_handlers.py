@@ -9,7 +9,7 @@ from typing import Any
 
 from fastapi import HTTPException
 
-from sympose.engine import model as model_mod, sharing, turn, turn_status
+from sympose.engine import model as model_mod, session, sharing, turn, turn_status
 from sympose.server_handlers import require_profile
 from sympose.server_models import ChatTurn
 
@@ -59,3 +59,57 @@ def get_status(persona: str | None) -> dict[str, Any]:
     """What the persona's in-flight reply is doing right now (`searching`, `reading`, `asking`), or
     `None` when nothing is running: the web chat polls this while it waits (docs/decisions/043)."""
     return {"phase": turn_status.phase(require_profile(persona)["handle"])}
+
+
+def _latest_session(handle: str) -> tuple[str, dict[str, Any]] | None:
+    """The newest of `handle`'s sessions that has anything in it (a file with only its meta line, from a
+    session opened and never used, is skipped), whichever channel wrote it."""
+    for session_id in session.session_ids(handle):
+        loaded = session.load_session(handle, session_id)
+        if loaded and loaded["turns"]:
+            return session_id, loaded
+    return None
+
+
+def get_session(persona: str | None, session_id: str | None, before: int | None, limit: int) -> dict[str, Any]:
+    """One section of a conversation, so a long one is loaded a piece at a time (docs/decisions/044): the
+    last `limit` turns, or the `limit` turns before turn number `before`. `session_id` fixes which
+    conversation the pages come from (the first page names it), so older pages stay in the same one even if
+    another starts meanwhile; left out, it is the latest. Each turn carries its number, the running
+    index into the whole conversation."""
+    handle = require_profile(persona)["handle"]
+    if session_id:
+        try:
+            loaded = session.load_session(handle, session_id)
+        except ValueError:
+            loaded = None
+        if loaded is None:
+            raise HTTPException(status_code=404, detail=f"No session `{session_id}` for `{handle}`.")
+    else:
+        found = _latest_session(handle)
+        if found is None:
+            return {"session_id": None, "turns": [], "start": 0, "total": 0, "has_more": False}
+        session_id, loaded = found
+    all_turns = loaded["turns"]
+    total = len(all_turns)
+    end = total if before is None else min(before, total)
+    start = max(0, end - limit)
+    return {
+        "session_id": session_id,
+        "turns": [
+            {
+                "index": start + offset,
+                "user": t["user"],
+                "assistant": t["assistant"],
+                "timestamp": t.get("timestamp"),
+                "model": t.get("model"),
+                "ttft_ms": t.get("ttft_ms"),
+                "truncated": t.get("truncated") is True,
+                "sent": t.get("sent"),
+            }
+            for offset, t in enumerate(all_turns[start:end])
+        ],
+        "start": start,
+        "total": total,
+        "has_more": start > 0,
+    }

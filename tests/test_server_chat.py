@@ -121,3 +121,81 @@ def test_two_messages_for_one_persona_run_one_at_a_time(monkeypatch):
     for t in threads:
         t.join()
     assert most == 1
+
+
+# -- resuming a conversation, a section at a time ----------------------------------------------------
+
+
+def seed(sid, count, handle="samantha"):
+    for n in range(count):
+        session.append_turn(handle, sid, f"question {n}", f"answer {n}")
+
+
+def page(client, **params):
+    return client.get("/api/chat/session", params={"persona": "samantha", **params}).json()
+
+
+def test_no_conversation_yet_is_an_empty_page(client):
+    assert page(client) == {"session_id": None, "turns": [], "start": 0, "total": 0, "has_more": False}
+
+
+def test_the_latest_conversation_comes_back_as_its_last_turns(client):
+    seed("20260930T090000-aaaaaaaa", 2)
+    seed("20260930T100000-bbbbbbbb", 5)
+    body = page(client, limit=3)
+    assert body["session_id"] == "20260930T100000-bbbbbbbb"
+    assert [t["index"] for t in body["turns"]] == [2, 3, 4]
+    assert body["turns"][-1]["user"] == "question 4" and body["turns"][-1]["assistant"] == "answer 4"
+    assert (body["start"], body["total"], body["has_more"]) == (2, 5, True)
+
+
+def test_older_turns_come_from_the_turn_before_the_one_given(client):
+    seed("20260930T100000-bbbbbbbb", 5)
+    first = page(client, limit=3)
+    older = page(client, limit=3, before=first["start"], session_id=first["session_id"])
+    assert [t["index"] for t in older["turns"]] == [0, 1]
+    assert older["has_more"] is False
+
+
+def test_a_whole_short_conversation_has_nothing_older(client):
+    seed("20260930T100000-bbbbbbbb", 2)
+    body = page(client, limit=20)
+    assert [t["index"] for t in body["turns"]] == [0, 1] and body["has_more"] is False
+
+
+def test_older_pages_stay_in_the_conversation_they_started_in(client):
+    seed("20260930T100000-bbbbbbbb", 4)
+    first = page(client, limit=2)
+    seed("20260930T110000-cccccccc", 3)  # another conversation starts meanwhile
+    older = page(client, limit=2, before=first["start"], session_id=first["session_id"])
+    assert older["session_id"] == "20260930T100000-bbbbbbbb"
+    assert [t["user"] for t in older["turns"]] == ["question 0", "question 1"]
+
+
+def test_a_conversation_opened_and_never_used_is_not_the_latest(client, tmp_path):
+    seed("20260930T090000-aaaaaaaa", 2)
+    empty = session.session_path("samantha", "20260930T100000-bbbbbbbb")
+    with open(empty, "w") as f:
+        f.write('{"type": "meta", "session_id": "20260930T100000-bbbbbbbb", "handle": "samantha"}\n')
+    assert page(client)["session_id"] == "20260930T090000-aaaaaaaa"
+
+
+def test_the_turns_carry_what_the_grounded_view_needs(client):
+    session.append_turn("samantha", "20260930T100000-bbbbbbbb", "hi", "hello", ttft_ms=610, model="m", sent={"notes": []})
+    turn_ = page(client)["turns"][0]
+    assert (turn_["ttft_ms"], turn_["model"], turn_["sent"], turn_["truncated"]) == (610, "m", {"notes": []}, False)
+
+
+def test_an_unknown_or_unsafe_session_id_is_404(client):
+    for sid in ("20260930T100000-nothere", "../../etc/passwd"):
+        response = client.get("/api/chat/session", params={"persona": "samantha", "session_id": sid})
+        assert response.status_code == 404
+
+
+def test_a_page_size_outside_its_bounds_is_refused(client):
+    for limit in (0, 101):
+        assert client.get("/api/chat/session", params={"persona": "samantha", "limit": limit}).status_code == 422
+
+
+def test_resume_for_an_unknown_persona_is_404(client):
+    assert client.get("/api/chat/session", params={"persona": "nobody"}).status_code == 404
