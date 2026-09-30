@@ -16,6 +16,7 @@ export {
 export { EditorPreferencesSection } from "./editor-preferences-section"
 export { FolderSetupDialog } from "./folder-setup-dialog"
 export { FrontmatterCard } from "./frontmatter-card"
+export { EngineSettingsSections } from "./engine-settings-section"
 export { HiddenSection } from "./hidden-section"
 // `AmbientNebula` is intentionally NOT re-exported here — it pulls in
 // `react-force-graph`. The app shell lazy-imports it directly from

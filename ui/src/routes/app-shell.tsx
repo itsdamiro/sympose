@@ -84,6 +84,7 @@ import {
   ContentPanel,
   ControlSectionsProvider,
   EditorPreferencesSection,
+  EngineSettingsSections,
   FolderSetupDialog,
   HiddenSection,
   MainMenu,
@@ -1358,6 +1359,7 @@ export function AppShell() {
             changeHidden(setShowDefinitionNotes(show))
           }
         />
+        <EngineSettingsSections />
       </ControlSectionsProvider>
     ) : (
       <div className="flex flex-col gap-2">
