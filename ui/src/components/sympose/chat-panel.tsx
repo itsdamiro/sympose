@@ -44,6 +44,8 @@ interface ChatPanelProps extends React.ComponentProps<"div"> {
   onSubmit: () => void
   /** Model label shown in the composer footer chip. */
   model?: string
+  /** Replaces the chip with the model picker, once the backend has said which models there are. */
+  modelSlot?: React.ReactNode
   /** Active persona's display name, for the empty-state copy and placeholder. */
   personaName?: string
   /** Revealed when true (default), collapsed when false — same contract as
@@ -83,6 +85,7 @@ function ChatPanel({
   onDraftChange,
   onSubmit,
   model,
+  modelSlot,
   personaName = "Samantha",
   open = true,
   phone = false,
@@ -279,7 +282,7 @@ function ChatPanel({
                   New conversation
                 </button>
               )}
-              {model && <ModelChip model={model} />}
+              {modelSlot ?? (model && <ModelChip model={model} />)}
             </div>
           </div>
         </div>

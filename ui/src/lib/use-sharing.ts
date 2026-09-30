@@ -5,11 +5,12 @@ import { changeSharing, fetchSharing, type SharingState } from "@/lib/sharing-ap
 
 /**
  * What the persona's model may receive (docs/decisions/044, 031), read when the persona changes and changed
- * one category at a time. `state` is `null` until known, or when the backend cannot say: the chat then shows
+ * one category at a time. `model` is only a reason to read again: a persona's model can change (the picker), and
+ * what it may receive follows it. `state` is `null` until known, or when the backend cannot say: the chat then shows
  * no notice, and the engine's own gate still holds back whatever was not approved. A failed save is an error
  * toast and the row keeps what the backend last reported.
  */
-export function useSharing(persona: string | null | undefined) {
+export function useSharing(persona: string | null | undefined, model?: string | null) {
   const [loaded, setLoaded] = React.useState<{ persona: string; state: SharingState } | null>(null)
 
   React.useEffect(() => {
@@ -21,7 +22,7 @@ export function useSharing(persona: string | null | undefined) {
     return () => {
       cancelled = true
     }
-  }, [persona])
+  }, [persona, model])
 
   const setShared = React.useCallback(
     async (category: string, shared: boolean) => {

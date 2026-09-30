@@ -56,6 +56,19 @@ describe("useSharing", () => {
     expect(fetchMock.mock.calls[1][0]).toBe("/api/sharing/notes?persona=cloudy")
   })
 
+  it("reads again when the persona's model changes, so the notice follows the model in use", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(json(stateFor("ollama/x")))
+      .mockResolvedValueOnce(json(stateFor("gemini/y")))
+    vi.stubGlobal("fetch", fetchMock)
+    const { result, rerender } = renderHook(({ m }) => useSharing("cloudy", m), { initialProps: { m: "ollama/x" } })
+    await waitFor(() => expect(result.current.state?.model).toBe("ollama/x"))
+    rerender({ m: "gemini/y" })
+    await waitFor(() => expect(result.current.state?.model).toBe("gemini/y"))
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
   it("changes a category for the persona now chosen, not the one it started with", async () => {
     const fetchMock = vi.fn().mockResolvedValue(json(stateFor("gemini/x")))
     vi.stubGlobal("fetch", fetchMock)

@@ -8,7 +8,7 @@ import {
   type ChatPhase,
   type SessionPage,
 } from "@/lib/chat-api"
-import type { ChatTurn } from "@/lib/chat-types"
+import type { ChatTurn, SystemKind } from "@/lib/chat-types"
 
 /** How often the status of a reply in flight is asked for. */
 const PHASE_POLL_MS = 500
@@ -185,7 +185,14 @@ export function useChat(persona: string) {
     update(persona, (c) => (sessionId && !c.sessionId && c.turns.length === 0 ? { ...c, sessionId } : c))
   }, [persona, update])
 
+  /** A system line in this persona's conversation (a confirmation of something the user did outside it). */
+  const notice = React.useCallback(
+    (kind: SystemKind, body: string) => update(persona, (c) => addTo(c, { role: "system", kind, body })),
+    [persona, update, addTo]
+  )
+
   return {
+    notice,
     turns: convo.turns,
     draft: convo.draft,
     setDraft,

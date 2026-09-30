@@ -58,6 +58,14 @@ describe("useChat", () => {
     expect(last).toMatchObject({ role: "system", kind: "error", body: "@samantha couldn't reply: local models only" })
   })
 
+  it("adds a system line to this persona's conversation only", async () => {
+    const { result, rerender } = renderHook(({ p }) => useChat(p), { initialProps: { p: "samantha" } })
+    act(() => result.current.notice("confirmation", "Switched model to X."))
+    expect(result.current.turns.map((t) => [t.role, t.kind, t.body])).toEqual([["system", "confirmation", "Switched model to X."]])
+    rerender({ p: "aria" })
+    expect(result.current.turns).toEqual([])
+  })
+
   it("does not send a blank message", async () => {
     const { result } = renderHook(() => useChat("samantha"))
     await say(result, "   ")

@@ -164,6 +164,17 @@ describe("ChatPanel", () => {
     expect(await screen.findByText("Sent: notes · Held back: recaps")).toBeTruthy()
   })
 
+  it("shows the model picker in place of the plain chip when there is one", () => {
+    setup({ model: "ollama_chat/gemma2:9b", modelSlot: <button>pick a model</button> })
+    expect(screen.getByRole("button", { name: "pick a model" })).toBeTruthy()
+    expect(screen.queryByText("ollama_chat/gemma2:9b")).toBeNull()
+  })
+
+  it("shows the plain chip when there is no picker", () => {
+    setup({ model: "ollama_chat/gemma2:9b" })
+    expect(screen.getByText("ollama_chat/gemma2:9b")).toBeTruthy()
+  })
+
   it("keeps the notice above the message box", () => {
     setup({ notice: <p>cloud notice here</p> })
     const notice = screen.getByText("cloud notice here")

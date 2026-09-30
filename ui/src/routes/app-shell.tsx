@@ -37,6 +37,8 @@ import { usePinnedNotes } from "@/lib/use-pinned-notes"
 import { useRecentNotes } from "@/lib/use-recent-notes"
 import { useVaultScopedState } from "@/lib/use-vault-scoped-state"
 import { useNotificationPreferences } from "@/lib/use-notification-preferences"
+import { useModels } from "@/lib/use-models"
+import { useModelSwitch } from "@/lib/use-model-switch"
 import { useSharing } from "@/lib/use-sharing"
 import { useChatDisplayPreferences } from "@/lib/use-chat-display-preferences"
 import { useNebulaPreferences } from "@/lib/use-nebula-preferences"
@@ -87,6 +89,7 @@ import {
   ControlSectionsProvider,
   ChatDisplaySection,
   CloudNotice,
+  ModelPicker,
   EditorPreferencesSection,
   EngineSettingsSections,
   FolderSetupDialog,
@@ -443,7 +446,15 @@ export function AppShell() {
   const [notifyPrefs, setNotifyPref] = useNotificationPreferences()
   const [nebulaPrefs, setNebulaPref] = useNebulaPreferences()
   const [chatDisplayPrefs, setChatDisplayPref] = useChatDisplayPreferences()
-  const { state: sharingState, setShared } = useSharing(activePersona)
+  const models = useModels(activePersona)
+  const switchModel = useModelSwitch({
+    state: models.state,
+    choose: models.choose,
+    hasReplies: chat.turns.some((t) => t.role === "persona"),
+    notice: chat.notice,
+  })
+  const modelInUse = models.state?.current
+  const { state: sharingState, setShared } = useSharing(activePersona, modelInUse)
   // Bumped after a note is created, or the active vault is switched, to
   // re-pull the tree, the nebula graph, and any live search so they follow
   // without a persona switch (a persona switch itself re-pulls them too).
@@ -514,6 +525,11 @@ export function AppShell() {
       alive = false
     }
   }, [])
+  // The persona card lists each persona's model: the active one's follows a pick made in the chat.
+  const rosterPersonas = React.useMemo(
+    () => personas.map((p) => (p.handle === activePersona && modelInUse ? { ...p, model: modelInUse } : p)),
+    [personas, activePersona, modelInUse]
+  )
   // Self-heal a persona cookie left over from a roster that has since
   // shrunk (e.g. a persona removed as a shipped default) — otherwise the
   // account row is stuck showing a raw, unresolvable handle forever, since
@@ -1326,7 +1342,7 @@ export function AppShell() {
   const contentBody =
     active === MENU_ACCOUNT_ID ? (
       <PersonaCard
-        personas={personas}
+        personas={rosterPersonas}
         active={activePersona}
         onSwitch={setActivePersona}
         phone={isPhone}
@@ -1755,6 +1771,7 @@ export function AppShell() {
               model={
                 personas.find((p) => p.handle === activePersona)?.model
               }
+              modelSlot={models.state ? <ModelPicker state={models.state} onChoose={switchModel} /> : undefined}
               personaName={activePersonaName}
               open={chatOpen}
               phone={isPhone}
