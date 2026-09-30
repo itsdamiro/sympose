@@ -16,6 +16,7 @@ from sympose.cli import (
     settings_list, share, transcript as transcript_mod,
 )
 from sympose.cli.commands import COMMANDS
+from sympose import persona_model
 from sympose.cli.options import MODEL_OPTIONS, list_personas
 from sympose.cli.selection import SelectionOption
 from sympose.engine import memory, memory_refresh
@@ -139,15 +140,26 @@ def apply_picker_choice(app, kind: str, value: str | None) -> bool:
         model = next((m for m in MODEL_OPTIONS if m.id == value), None)
         if model is not None:
             app.model_override = model
+            saved = persona_model.set_model(app.persona.handle, model.id)  # the persona's own, kept (ADR 044)
             meter.clear(app)  # the old figure was measured against the previous window
             meter_estimate.start(app, model.id)  # ...and an estimate for the new one, if there is anything to count
             picker.update_banner(app)
-            transcript_mod.mount_line(app, f"Switched model to {model.label}.", "system")
+            kept = (
+                f"Saved for @{app.persona.handle}."
+                if saved
+                else f"Couldn't save it to @{app.persona.handle}'s persona.yaml: it applies for this session only."
+            )
+            transcript_mod.mount_line(app, f"Switched model to {model.label}. {kept}", "system")
             ask = share.on_change(app, was_cloud)
+            history = share.history_notice(app, was_cloud)
+            if history:
+                transcript_mod.mount_line(app, history, "system")
     elif kind == "persona":
         persona = next((p for p in list_personas() if p.handle == value), None)
         if persona is not None and persona.handle != app.persona.handle:
             app.persona = persona
+            # Each persona has its own saved model (ADR 044): the session's pick was for the last one.
+            app.model_override = None
             # Sessions are stored per-handle (sympose/engine/session.py) — an
             # old session_id from the previous persona would resolve to a
             # different persona's directory under the new handle (nothing

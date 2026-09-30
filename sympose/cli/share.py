@@ -76,6 +76,18 @@ def on_change(app, was_cloud: bool) -> bool:
     return not was_cloud and len(sharing.approved()) < len(sharing.CATEGORIES)
 
 
+def history_notice(app, was_cloud: bool) -> str | None:
+    """When a conversation already going moved from a local model to a cloud one: the earlier replies,
+    which may quote notes, are sent to it as history whatever is approved (docs/decisions/031, "A
+    consequence to know"; 044: the user is told, and leaves the rule as it is). Otherwise `None`."""
+    if was_cloud or not app.session_id or not in_cloud(app):
+        return None
+    return (
+        "Earlier replies in this conversation, which may quote your notes, are sent to it as history "
+        "whatever /share allows. Start a new conversation to leave them out."
+    )
+
+
 def header_segment(cloud: list[str], withheld: list[str]) -> str:
     """` · cloud: notes, recaps · withheld: properties` for a cloud turn, `""` when the turn was local or
     nothing of the vault was involved."""

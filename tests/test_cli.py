@@ -1037,7 +1037,7 @@ def test_recaps_are_refreshed_at_launch_and_when_another_persona_is_picked(profi
     run_async(scenario())
 
 
-def test_a_model_picked_with_slash_model_is_the_one_a_persona_switch_writes_recaps_with(profiles, recap_calls):
+def test_a_persona_switch_writes_recaps_with_the_new_personas_own_model_not_the_last_ones_pick(profiles, recap_calls):
     async def scenario():
         app = SymposeCLI()
         async with app.run_test() as pilot:
@@ -1055,7 +1055,8 @@ def test_a_model_picked_with_slash_model_is_the_one_a_persona_switch_writes_reca
             await pilot.press("1")
             await pilot.pause()
             assert recap_calls == ["samantha", "aria"]
-            assert recap_calls.models == [None, "anthropic/claude-sonnet-5"]
+            # The pick was saved for the first persona (ADR 044); the one switched to uses its own.
+            assert recap_calls.models == [None, None]
 
     run_async(scenario())
 

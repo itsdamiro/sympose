@@ -21,6 +21,14 @@ def _keyword_search_by_default(request, tmp_path_factory, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _profiles_of_their_own(tmp_path_factory, monkeypatch):
+    """Saving a persona's model writes its `persona.yaml` (docs/decisions/044), so a test never reaches the
+    real `./profiles/`: it starts with an empty folder of its own. A test that needs personas sets
+    `SYMPOSE_PROFILES_DIR` itself, which takes over from this."""
+    monkeypatch.setenv("SYMPOSE_PROFILES_DIR", str(tmp_path_factory.mktemp("profiles")))
+
+
+@pytest.fixture(autouse=True)
 def _no_ollama_capability_lookup(monkeypatch):
     """Which local models take tools (docs/decisions/040) is asked of a running Ollama; a test must not
     depend on which models this machine has pulled, so the question is refused unless a test answers it."""
