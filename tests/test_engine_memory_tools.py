@@ -106,3 +106,10 @@ def test_apply_marker_with_nothing_to_remember_writes_nothing(tmp_path, monkeypa
     cleaned, lookups = memory_tools.apply_marker("samantha", "Just chatting.")
     assert cleaned == "Just chatting." and lookups == []
     assert memory.decisions("samantha") == []
+
+
+def test_apply_marker_on_a_reply_that_is_only_the_marker_still_says_something(tmp_path, monkeypatch):
+    _persona(tmp_path, monkeypatch)
+    cleaned, lookups = memory_tools.apply_marker("samantha", "<!-- remember: likes dark mode -->")
+    assert cleaned == memory_tools.MARKER_ONLY_REPLY
+    assert lookups == [{"tool": "remember", "saved": True}]

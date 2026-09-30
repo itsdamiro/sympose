@@ -176,3 +176,16 @@ def test_a_second_background_generation_while_one_runs_is_refused(monkeypatch):
     for thread in threading.enumerate():
         if thread.name.startswith("phrases-"):
             thread.join(5)
+
+
+def test_generation_asks_in_the_chats_window(asked, monkeypatch):
+    monkeypatch.setattr(status_phrases.budget, "_native_max", lambda model: 8192)
+    status_phrases.generate("samantha", model="ollama_chat/gemma2:9b")
+    assert asked[0]["num_ctx"] == status_phrases.budget.budget_for("ollama_chat/gemma2:9b").num_ctx
+    assert asked[0]["max_tokens"] == status_phrases._MAX_REPLY_TOKENS
+
+
+def test_a_cloud_models_reply_limit_is_not_the_small_local_one(asked, tmp_path, monkeypatch):
+    monkeypatch.setenv("SYMPOSE_SETTINGS_PATH", str(tmp_path / "settings.json"))
+    status_phrases.generate("samantha", model="gemini/gemini-flash-latest")
+    assert asked[0]["max_tokens"] > status_phrases._MAX_REPLY_TOKENS

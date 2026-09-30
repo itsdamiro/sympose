@@ -187,3 +187,15 @@ def test_append_decision_serializes_on_its_own_write_lock(tmp_path, monkeypatch)
     assert blocked_while_held is True
     assert done.is_set()  # completed once the lock was released
     assert memory.decisions("samantha") == [f"- {_TODAY}: x"]
+
+
+def test_a_memory_file_in_another_encoding_reads_as_nothing_and_is_never_overwritten(tmp_path, monkeypatch):
+    directory = _persona(tmp_path, monkeypatch)
+    latin1 = "Préfère les réponses courtes.".encode("latin-1")
+    (directory / "decisions.md").write_bytes(latin1)
+    (directory / "profile.md").write_bytes(latin1)
+
+    assert memory.profile("samantha") is None
+    assert memory.decisions("samantha") == []
+    assert memory.append_decision("samantha", "Kept the four retrieval modes") is False
+    assert (directory / "decisions.md").read_bytes() == latin1

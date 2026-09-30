@@ -1268,3 +1268,19 @@ def test_the_phase_is_cleared_even_when_the_turn_raises(sessions_root, monkeypat
         turn.run_turn("samantha", "hello")
 
     assert turn_status.phase("samantha") is None
+
+
+def test_a_mixed_case_handle_leaves_no_phase_behind(sessions_root, monkeypatch):
+    """`lookup.converse` sets its phases under the persona's own lower-cased handle, so `run_turn` must
+    clear that same key even when it was called with `Samantha`."""
+    monkeypatch.setattr(grounding, "ground", lambda profile, msg, max_results=5: [])
+
+    def call_model(messages, model=None, **_):
+        turn_status.set_phase("samantha", turn_status.SEARCHING)  # as `converse` does mid-turn
+        return ModelReply("reply", 12)
+
+    monkeypatch.setattr(turn.model_mod, "call_model", call_model)
+
+    turn.run_turn("Samantha", "hello")
+
+    assert turn_status.phase("samantha") is None

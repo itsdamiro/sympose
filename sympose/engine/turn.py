@@ -50,6 +50,7 @@ def run_turn(
     persona = profile_mod.resolve_profile(handle)
     if persona is None:
         raise PersonaNotFoundError(f"No profile found for persona '{handle}'.")
+    handle = persona["handle"]  # the canonical, lower-cased key `lookup.converse` and the CLI also use
     sid = session_id or session.new_session_id()
     # A brand-new sid resolves to a file that doesn't exist yet, so this is
     # a cheap `os.path.exists` check in that case, not a real extra read —

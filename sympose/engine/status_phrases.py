@@ -17,7 +17,7 @@ import threading
 
 from sympose import profile as profile_mod
 from sympose.atomic_write import write_atomic_text
-from sympose.engine import prompt
+from sympose.engine import budget, helper_limit, prompt
 from sympose.engine import model as model_mod
 from sympose.persona_files import load_soul, persona_dir, profiles_dir
 from sympose.security import is_safe_path
@@ -80,7 +80,13 @@ def generate(handle: str, model: str | None = None) -> bool:
     soul = load_soul(handle) or prompt.DEFAULT_SOUL
     model = model or model_mod.resolve_model(persona.get("model"))
     try:
-        reply = model_mod.call_model(_request(soul), model=model, max_tokens=_MAX_REPLY_TOKENS)
+        limits = budget.budget_for(model)  # the chat's own window, so a local model is not reloaded for this call
+        reply = model_mod.call_model(
+            _request(soul),
+            model=model,
+            num_ctx=limits.num_ctx if limits else None,
+            max_tokens=helper_limit.for_model(model, _MAX_REPLY_TOKENS),
+        )
     except model_mod.EngineModelError as e:
         log.warning("Status phrases for %s failed: %s", handle, e)
         return False

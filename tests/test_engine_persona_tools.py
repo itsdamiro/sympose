@@ -149,3 +149,17 @@ def test_resolve_remember_does_not_need_a_vault(tmp_path, monkeypatch):
     modes = persona_tools.resolve({"vault_folders": ["*"]}, LOCAL)
 
     assert modes.ask is False and modes.remember is not None
+
+
+def test_the_tool_capability_is_not_probed_when_no_tool_could_be_used(tmp_path, monkeypatch):
+    _settings(tmp_path, monkeypatch)
+    _persona(tmp_path, monkeypatch)
+
+    def probe(model):
+        raise AssertionError("probed a model that no setting needs tools from")
+
+    monkeypatch.setattr(tool_support, "can_call_tools", probe)
+
+    modes = persona_tools.resolve({"handle": "samantha"}, LOCAL)
+
+    assert (modes.ask, modes.chose_ask, modes.remember) == (False, False, None)

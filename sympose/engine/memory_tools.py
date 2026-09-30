@@ -17,6 +17,8 @@ from sympose.engine import memory
 from sympose.engine.lookup_tools import Result
 
 REMEMBER = "remember"
+# Shown when a marker was all the model wrote, so the saved reply is never blank.
+MARKER_ONLY_REPLY = "Noted."
 
 TOOLS: list[dict[str, Any]] = [
     {
@@ -88,4 +90,5 @@ def apply_marker(handle: str, text: str) -> tuple[str, list[dict[str, Any]]]:
     """`extract`, applied: each marker found is appended to `handle`'s decisions.md and recorded
     the same way a `remember` tool call is, so a turn's record does not care which mechanism ran."""
     cleaned, remembered = extract(text)
+    cleaned = cleaned or (MARKER_ONLY_REPLY if remembered else cleaned)
     return cleaned, [{"tool": REMEMBER, "saved": memory.append_decision(handle, item)} for item in remembered]

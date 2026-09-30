@@ -54,7 +54,7 @@ def mode() -> str:
 
 
 def _request(profile_text: str | None, context_text: str | None, recaps: list) -> list[dict[str, str]]:
-    recap_lines = "\n".join(f"- {r['date']}: {r['text']}" for r in recaps)
+    recap_lines = "\n".join(f"- {r['date']}: {r['text']}" for r in reversed(recaps))
     body = (
         f"profile.md:\n{profile_text or _NO_FILE}\n\n"
         f"context.md:\n{context_text or _NO_FILE}\n\n"

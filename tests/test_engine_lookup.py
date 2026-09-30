@@ -66,20 +66,6 @@ def test_the_number_of_rounds_is_a_whole_number_from_one_and_bounded(value, expe
     assert lookup.rounds() == expected
 
 
-def test_ask_runs_only_on_a_model_that_can_call_tools(monkeypatch):
-    settings_store.set("vault_lookup", "ask")
-    monkeypatch.setattr(tool_support.litellm, "supports_function_calling", lambda model: model == CLOUD)
-
-    assert lookup.effective_mode(CLOUD) == "ask"
-    assert lookup.effective_mode(LOCAL) == "auto"
-
-
-def test_auto_stays_auto_on_a_model_that_can_call_tools(monkeypatch):
-    monkeypatch.setattr(tool_support.litellm, "supports_function_calling", lambda model: True)
-
-    assert lookup.effective_mode(CLOUD) == "auto"
-
-
 def test_a_model_litellm_cannot_tell_about_is_treated_as_unable(monkeypatch):
     def unknown(model):
         raise ValueError("this model isn't mapped")
@@ -90,12 +76,11 @@ def test_a_model_litellm_cannot_tell_about_is_treated_as_unable(monkeypatch):
 
 
 def test_a_model_marked_unable_is_not_asked_again(monkeypatch):
-    settings_store.set("vault_lookup", "ask")
     monkeypatch.setattr(tool_support.litellm, "supports_function_calling", lambda model: True)
 
     tool_support.mark_unable(CLOUD)
 
-    assert lookup.effective_mode(CLOUD) == "auto"
+    assert tool_support.can_call_tools(CLOUD) is False
 
 
 def test_a_reply_with_no_tool_call_is_the_answer_and_nothing_was_looked_up():

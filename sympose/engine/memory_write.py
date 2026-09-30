@@ -79,7 +79,7 @@ def _apply(handle: str, filename: str, text: str) -> bool:
                 current = f.read()
         except FileNotFoundError:
             current = ""
-        except OSError:
+        except (OSError, ValueError):
             return False
         try:
             os.makedirs(os.path.dirname(path), exist_ok=True)

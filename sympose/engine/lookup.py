@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from sympose import settings_store
-from sympose.engine import budget, lookup_tools, model as model_mod, model_tools, tool_support, turn_status
+from sympose.engine import budget, lookup_tools, model as model_mod, model_tools, turn_status
 
 log = logging.getLogger(__name__)
 
@@ -74,11 +74,6 @@ def rounds() -> int:
     if isinstance(value, int) and not isinstance(value, bool) and value >= 1:
         return min(value, MAX_ROUNDS)
     return DEFAULT_ROUNDS
-
-
-def effective_mode(model: str) -> str:
-    """The mode a turn on `model` really runs: `ask` only when the setting says so and the model can call tools."""
-    return ASK if mode() == ASK and tool_support.can_call_tools(model) else AUTO
 
 
 def _tokens(text: str, model: str) -> int:

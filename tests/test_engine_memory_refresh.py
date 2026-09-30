@@ -256,3 +256,13 @@ def test_a_second_refresh_for_the_same_handle_while_one_runs_is_refused(monkeypa
     for thread in threading.enumerate():
         if thread.name.startswith("memory-"):
             thread.join(5)
+
+
+def test_the_recaps_are_listed_oldest_first_as_the_request_says(asked):
+    recap.write("samantha", "20260920T090000-aaaaaaaa", 2, "First talk.")
+    recap.write("samantha", "20260924T090000-bbbbbbbb", 2, "Latest talk.")
+
+    memory_refresh.propose("samantha")
+
+    body = asked[0]["messages"][1]["content"]
+    assert body.index("First talk.") < body.index("Latest talk.")

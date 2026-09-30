@@ -154,3 +154,12 @@ def test_apply_serializes_on_its_own_write_lock(tmp_path, monkeypatch):
 
     assert blocked_while_held is True
     assert done.is_set()
+
+
+def test_applying_over_a_file_in_another_encoding_fails_and_leaves_it_alone(tmp_path, monkeypatch):
+    directory = _persona(tmp_path, monkeypatch)
+    latin1 = "Préfère les réponses courtes.".encode("latin-1")
+    (directory / "context.md").write_bytes(latin1)
+
+    assert mw.apply_context("samantha", "Working on the Atlas migration.") is False
+    assert (directory / "context.md").read_bytes() == latin1

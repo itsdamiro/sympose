@@ -76,7 +76,7 @@ def read_file(handle: str, filename: str) -> str | None:
             return f.read().strip() or None
     except FileNotFoundError:
         return None
-    except OSError:
+    except (OSError, ValueError):  # ValueError: a file saved in some other encoding
         return None
 
 
@@ -162,7 +162,7 @@ def append_decision(handle: str, text: str) -> bool:
                 current = f.read()
         except FileNotFoundError:
             current = ""
-        except OSError:
+        except (OSError, ValueError):
             return False
         updated = f"{current.rstrip()}\n{line}\n" if current.strip() else f"{line}\n"
         try:

@@ -24,10 +24,12 @@ def resolve(persona: dict[str, Any], target_model: str) -> Modes:
     capability and a persona with or without a vault -- the one place `run_turn` needs to check
     both settings against the model before deciding whether to run the tool-calling loop at all."""
     has_vault = vault_paths.resolve_sandbox(persona) is not None
-    can_call_tools = tool_support.can_call_tools(target_model)
+    chose_ask = lookup.mode() == lookup.ASK and has_vault
+    # Asking whether the model can call tools may cost a network probe, so only when a tool could be used.
+    can_call_tools = (chose_ask or memory.remember_enabled()) and tool_support.can_call_tools(target_model)
     return Modes(
-        ask=lookup.mode() == lookup.ASK and has_vault and can_call_tools,
-        chose_ask=lookup.mode() == lookup.ASK and has_vault,
+        ask=chose_ask and can_call_tools,
+        chose_ask=chose_ask,
         remember=memory.remember_mode(can_call_tools),
     )
 
