@@ -1,7 +1,6 @@
 """The slash-command registry. `/clear` and `/quit` are real, wired to
-the actual engine's concurrency state (docs/decisions/008); `/compact`
-and `/history` are still inert mocks — nothing backs them
-yet (see `runtime.py`'s `run_command`)."""
+the actual engine's concurrency state (docs/decisions/008). `/compact` and `/history` were mock
+commands and were removed until they are real (#111)."""
 
 from dataclasses import dataclass
 
@@ -30,8 +29,6 @@ COMMANDS: list[SlashCommand] = [
     SlashCommand("/remember", "Save something to decisions.md, in your own words", takes_args=True),
     SlashCommand("/memory", "Refresh or review context.md/profile.md"),
     SlashCommand("/share", "Choose what cloud models may receive"),
-    SlashCommand("/history", "Browse past conversations (placeholder)"),
-    SlashCommand("/compact", "Compact the conversation (mock)"),
     SlashCommand("/clear", "Clear the transcript", danger=True),
     SlashCommand("/settings", "Change the settings"),
     SlashCommand("/quit", "Exit the CLI"),

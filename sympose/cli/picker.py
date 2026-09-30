@@ -1,5 +1,5 @@
 """Picker lifecycle: the banner, and mounting/closing a `SelectionPanel`
-— either focused (the `/model`/`/persona`/`/history` pickers, where digit
+— either focused (the `/model`/`/persona` pickers, where digit
 keys should select a row) or unfocused (the live `/`-autocomplete preview,
 where the `Input` keeps focus so the user can keep typing). Split out of
 `dispatch.py`/`runtime.py` so both can depend on this without depending on

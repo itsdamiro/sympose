@@ -174,3 +174,32 @@ def test_the_spinner_advances_every_third_frame_whatever_the_typing_speed():
     assert frames[0] == frames[1] == frames[2]
     assert frames[3] != frames[2] and frames[3] == frames[4] == frames[5]
     assert frames[6] != frames[5]
+
+
+# -- the settings file is not read on every redraw (#113) --------------------
+
+
+def test_the_knobs_are_read_from_the_settings_file_at_most_once_a_second(monkeypatch):
+    clock = {"t": 100.0}
+    monkeypatch.setattr(bs, "_knob_clock", lambda: clock["t"])
+    reads = []
+    real_get = settings_store.get
+    monkeypatch.setattr(settings_store, "get", lambda key, default=None: (reads.append(key), real_get(key, default))[1])
+    w = widget()
+    for _ in range(25):  # a second of redraws at 25 a second, the clock not moving
+        w._knobs()
+    assert len(reads) == 2  # the on/off knob and the typing speed, once
+    clock["t"] += 1.1
+    w._knobs()
+    assert len(reads) == 4
+
+
+def test_a_knob_turned_off_is_noticed_within_a_second(monkeypatch):
+    clock = {"t": 0.0}
+    monkeypatch.setattr(bs, "_knob_clock", lambda: clock["t"])
+    w = widget()
+    assert w._knobs()[0] is True
+    settings_store.set(bs.SETTING, False)
+    assert w._knobs()[0] is True  # still the cached answer
+    clock["t"] = 1.1
+    assert w._knobs()[0] is False

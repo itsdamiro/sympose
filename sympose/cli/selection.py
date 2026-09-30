@@ -1,7 +1,7 @@
 """A reusable boxed, color-coded selection list, in two modes:
 
-- **Numbered** (`numbered=True`, the default) — the `/model`/`/persona`/
-  `/history` pickers. Each row gets a `[N]` badge; digit keys `1`-`9`
+- **Numbered** (`numbered=True`, the default) — the `/model`/`/persona`
+  pickers. Each row gets a `[N]` badge; digit keys `1`-`9`
   highlight the corresponding row only while this widget itself holds
   focus — never globally, and never while the main input has focus,
   since a Textual key binding only fires on whichever widget the key

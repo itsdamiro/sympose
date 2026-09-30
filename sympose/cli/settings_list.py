@@ -3,7 +3,7 @@ and a choice steps when its row is chosen; a number is typed into the chat box, 
 Enter or Esc. A value is saved and read back through the module that owns the setting, which decides
 whether it is valid (`settings_registry`)."""
 
-from sympose.cli import picker, transcript as transcript_mod
+from sympose.cli import meter, picker, transcript as transcript_mod
 from sympose.cli.composer import DEFAULT_PLACEHOLDER
 from sympose.cli.selection import SelectionOption
 from sympose.cli.settings_registry import NUMBER, SETTINGS, find
@@ -33,6 +33,7 @@ def choose(app, key: str) -> bool:
         app.composer.placeholder = f"{key}: {setting.hint} · Esc cancels"
         return False
     transcript_mod.mount_line(app, flip(setting), "system")
+    meter.redraw(app)  # the context meter follows its knob at once, not at the next reply (#106)
     app.transcript.scroll_end(animate=False)
     return True
 

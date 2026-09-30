@@ -100,10 +100,10 @@ def test_a_new_note_starts_with_a_title_stub_made_from_its_file_name(vault):
     assert result == f"Created note: `{os.path.join('Folder', 'my_new-note.md')}`"
     text = read(vault, "Folder/my_new-note.md")
     meta, body = parse_frontmatter(text)
-    assert meta["title"] == "My New Note"
+    assert meta["title"] == "my_new-note"  # the file name as given (#102)
     assert meta["tags"] == []
     assert str(meta["created"]) == datetime.date.today().isoformat()
-    assert body == "\n# My New Note\n\n"
+    assert body == "\n# my_new-note\n\n"
 
 
 def test_the_stub_is_used_when_the_template_is_not_frontmatter(vault):
@@ -116,8 +116,8 @@ def test_a_folders_template_seeds_the_new_note(vault):
     write(vault, "Templates/Project template.md", "---\ntitle: {{title}}\nstatus: new\n---")
     create.create_note(ALL, "Projects/big_plan")
     meta, body = parse_frontmatter(read(vault, "Projects/big_plan.md"))
-    assert meta == {"title": "Big Plan", "status": "new"}
-    assert body == "\n# Big Plan\n\n"
+    assert meta == {"title": "big_plan", "status": "new"}
+    assert body == "\n# big_plan\n\n"
 
 
 def test_given_content_is_written_as_it_is_with_one_final_newline(vault):
@@ -186,6 +186,18 @@ def test_a_failed_write_reports_the_error_and_leaves_no_note(vault, monkeypatch)
 def test_the_generated_title_reads_back_as_the_same_text(vault, title):
     create.create_note(ALL, title)
     assert parse_frontmatter(read(vault, f"{title}.md"))[0]["title"] == title
+
+
+@pytest.mark.parametrize("name", ["johns-notes", "it's", "iPhone tips", "NASA-plan", "a_b"])
+def test_the_title_is_the_file_name_as_given_so_vault_health_does_not_flag_it(vault, name):
+    """`str.title()` made `johns-notes` "Johns Notes" and `it's` "It'S"; the health check then reported the
+    title as not the file name (#102)."""
+    from sympose import vault_health
+
+    create.create_note(ALL, name)
+    meta, body = parse_frontmatter(read(vault, f"{name}.md"))
+    assert meta["title"] == name and f"# {name}\n" in body
+    assert vault_health._same_title(meta["title"], name)
 
 
 def test_the_generated_title_is_written_readably_in_the_file(vault):

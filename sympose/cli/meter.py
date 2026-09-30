@@ -85,6 +85,14 @@ def clear(app) -> None:
     widget.set_left(Text(""))
 
 
+def redraw(app) -> None:
+    """Draws (or empties) the line again from the figure it holds, for a knob that was just turned
+    on or off; there is nothing to show until a figure exists."""
+    widget = app.query_one(ContextMeter)
+    if widget.figures is not None:
+        show(app, *widget.figures, widget.epoch, widget.estimated)
+
+
 def show(app, used: int | None, limit: int | None, since: int, estimated: bool = False) -> None:
     """Shows the conversation's size after a reply that was sent when the
     meter's epoch was `since`; a reply that has since been made stale by a

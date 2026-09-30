@@ -1,8 +1,7 @@
 """Slash-command handling and applying a picker's selection. `/clear` and
 `/quit` are real, concurrency-aware (they check `pending_turns`/
 `turn_locks`/`active_reply_timers`, state `turns.py`/`app.py` own);
-`/compact`/`/history` are still canned — no session/history
-data model exists yet. Persona-switch continuity (`session_id`/
+Persona-switch continuity (`session_id`/
 `session_generation` reset in `apply_picker_choice`) is also real state
 that `turns.py`'s generation-guard logic depends on, not mock behavior.
 The chat-turn dispatch/streaming path itself lives in `turns.py`, split
@@ -22,15 +21,6 @@ from sympose.engine.model_options import offered
 from sympose.cli.selection import SelectionOption
 from sympose.engine import memory, memory_refresh
 from sympose.profile import set_default_persona
-
-
-# Visual placeholder only — no session/history data model exists anywhere
-# yet (backend or frontend), so this list never changes and selecting a
-# row just says so.
-MOCK_HISTORY: list[str] = [
-    "Q3 roadmap — 12 turns, yesterday",
-    "Trash cleanup follow-up — 4 turns, Monday",
-]
 
 
 async def run_command(app, command, args: str = "") -> None:
@@ -70,7 +60,7 @@ async def run_command(app, command, args: str = "") -> None:
             line = "Couldn't save the grounded-notes setting."
         transcript_mod.mount_line(app, line, "system")
     elif command.name == "/grounded":
-        for line in grounded_list.render(app.last_sent):
+        for line in grounded_list.render(app.last_sent, app.persona.name):
             transcript_mod.mount_line(app, line, "system")
     elif command.name == "/context":
         widget = app.query_one(meter.ContextMeter)
@@ -89,12 +79,6 @@ async def run_command(app, command, args: str = "") -> None:
         await memory_command.open_picker(app)
     elif command.name == "/share":
         await share.open_picker(app)
-    elif command.name == "/history":
-        await picker.open_picker(
-            app, "history", "Recent conversations", [SelectionOption(e, e) for e in MOCK_HISTORY]
-        )
-    elif command.name == "/compact":
-        transcript_mod.mount_line(app, "Conversation compacted (mock) — nothing to trim yet.", "system")
     elif command.name == "/clear":
         # A turn that's queued or still running its engine call has no
         # reply widget yet — clearing now would wipe its "You" line, so
@@ -107,7 +91,7 @@ async def run_command(app, command, args: str = "") -> None:
         # an active stream.
         if app.pending_turns > 0:
             transcript_mod.mount_line(
-                app, "Can't clear while a reply is queued or in progress.", "system"
+                app, "Can't clear while a reply is in progress or messages are waiting.", "system"
             )
         else:
             # A reply may still be mid-stream — stop its timer rather than
@@ -166,6 +150,7 @@ def apply_picker_choice(app, kind: str, value: str | None) -> bool:
             # A new persona starts a fresh session, same as a fresh process.
             app.session_id = None
             app.session_generation += 1
+            app.last_sent = None  # `/grounded` describes the last reply of the persona now talking, not the previous one (#106)
             meter.clear(app)  # a fresh session starts empty
             picker.update_banner(app)
             # Recaps use the model the user picked, not only the persona's own: the messages go to it (ADR 023).
@@ -183,9 +168,5 @@ def apply_picker_choice(app, kind: str, value: str | None) -> bool:
     elif kind == help_notes.PICKER_KIND:
         if value is not None:
             help_notes.show(app, value)
-    elif kind == "history":
-        transcript_mod.mount_line(
-            app, "History browsing isn't wired up yet — this is a placeholder.", "system"
-        )
     transcript.scroll_end(animate=False)
     return ask

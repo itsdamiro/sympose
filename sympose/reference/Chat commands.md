@@ -1,6 +1,6 @@
 # Chat commands
 
-The chat commands are /help, /model, /persona, /default, /grounding, /grounded, /context, /remember, /memory, /share, /settings, /clear, /quit, and the placeholders /history and /compact. Type / in the chat to see them; Tab, or the Down and Up arrows, cycle through them.
+The chat commands are /help, /model, /persona, /default, /grounding, /grounded, /context, /remember, /memory, /share, /settings, /clear and /quit. Type / in the chat to see them; Tab, or the Down and Up arrows, cycle through them.
 
 ## /help
 
@@ -50,16 +50,12 @@ If a proposal is staged for review, "Review pending change" also appears: it sho
 
 ## /clear
 
-/clear clears the transcript on screen. It is refused while a reply is queued or being written.
+/clear clears the transcript on screen. It is refused while a reply is being written or messages are waiting for it.
 
 ## /quit
 
 /quit exits the chat.
 
-## Which commands are placeholders?
-
-/history and /compact do nothing useful yet.
-
 ## Can I send messages while she is writing?
 
-Yes. You can keep typing and sending while a reply is being written. Your messages queue up and are answered one after another.
+Yes. You can keep typing and sending while a reply is being written. Messages you send while a reply is being written appear at once and wait. When that reply is done, everything that waited is sent together as one message and answered together.

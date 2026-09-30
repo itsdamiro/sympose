@@ -1,7 +1,6 @@
 """Routes `Input`/`OptionList` events to the picker lifecycle
 (`picker.py`), real chat turns (`turns.py`), and command handling
-(`runtime.py` — real for `/clear`/`/quit`, still mock for `/compact`/
-`/history`). Kept as thin routing so none of those modules
+(`runtime.py`). Kept as thin routing so none of those modules
 has to depend on the others."""
 
 from rich.style import Style

@@ -70,6 +70,8 @@ export function usePanels(breakpoint: Breakpoint): Panels {
   const timers = React.useRef<
     Partial<Record<StagePanel, ReturnType<typeof setTimeout>>>
   >({})
+  // Which panel each pending newcomer is waiting to replace, so cancelling the newcomer brings it back.
+  const evictions = React.useRef<Partial<Record<StagePanel, StagePanel>>>({})
 
   React.useEffect(() => {
     setCookie(ORDER_COOKIE, order.join(","))
@@ -84,11 +86,23 @@ export function usePanels(breakpoint: Breakpoint): Panels {
     []
   )
 
+  // Cancels `p`'s pending arrival. The panel it was about to replace comes back, since the timer that would
+  // have cleared its hiding is gone with it; without this, toggling within SEQUENCE_MS left it hidden for good.
   const settlePending = React.useCallback((p: StagePanel) => {
     const t = timers.current[p]
     if (t) {
       clearTimeout(t)
       delete timers.current[p]
+    }
+    const evicted = evictions.current[p]
+    if (evicted) {
+      delete evictions.current[p]
+      setPendingEvicts((s) => {
+        if (!s.has(evicted)) return s
+        const next = new Set(s)
+        next.delete(evicted)
+        return next
+      })
     }
   }, [])
 
@@ -109,8 +123,10 @@ export function usePanels(breakpoint: Breakpoint): Panels {
         // SEQUENCE_MS to leave, so the two don't animate over each other.
         const evicted = visible[0]
         setPendingEvicts((s) => new Set(s).add(evicted))
+        evictions.current[p] = evicted
         timers.current[p] = setTimeout(() => {
           delete timers.current[p]
+          delete evictions.current[p]
           setPendingEvicts((s) => {
             if (!s.has(evicted)) return s
             const next = new Set(s)

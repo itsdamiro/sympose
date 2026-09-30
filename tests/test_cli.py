@@ -1511,18 +1511,11 @@ def test_help_with_no_reference_notes_installed_only_lists_the_commands(profiles
     run_async(scenario())
 
 
-def test_compact_shows_a_mock_placeholder(profiles):
-    async def scenario():
-        app = SymposeCLI()
-        async with app.run_test() as pilot:
-            await pilot.pause()
-            app.composer.focus()
-            await pilot.press(*"/compact", "enter")
-            await pilot.pause()
-            lines = [plain_text(child) for child in app.transcript.children]
-            assert any("compacted" in line.lower() for line in lines)
+def test_the_mock_history_and_compact_commands_are_gone(profiles):
+    from sympose.cli.commands import COMMANDS
 
-    run_async(scenario())
+    names = {c.name for c in COMMANDS}
+    assert "/history" not in names and "/compact" not in names
 
 
 def test_unknown_command_shows_error(profiles):
@@ -1545,13 +1538,13 @@ def test_escape_closes_autocomplete_and_keeps_typed_text(profiles):
         async with app.run_test() as pilot:
             await pilot.pause()
             app.composer.focus()
-            await pilot.press(*"/his")
+            await pilot.press(*"/hel")
             await pilot.pause()
             assert app.panel is not None
             await pilot.press("escape")
             await pilot.pause()
             assert app.panel is None
-            assert app.composer.value == "/his"
+            assert app.composer.value == "/hel"
             assert app.focused is app.composer
 
     run_async(scenario())
@@ -3288,3 +3281,33 @@ def test_a_plain_line_is_never_read_as_markup():
     app = SimpleNamespace(last_speaker=None, transcript=SimpleNamespace(mount=mounted.append))
     widget = transcript_mod.mount_line(app, "Todo [x] item [/oops]", "system")
     assert widget.content.plain == "Todo [x] item [/oops]"
+
+
+def test_turning_the_context_meter_knob_off_and_on_takes_effect_at_once(profiles, monkeypatch):
+    """#106: the line used to follow the knob only at the next reply."""
+    from sympose import settings_store
+    from sympose.cli import settings_list
+
+    async def toggle_twice(app, pilot):
+        shown = []
+        for _ in range(2):
+            assert settings_list.choose(app, meter.SETTING)
+            shown.append(_meter_text(app))
+        return shown
+
+    off, on = _run_meter_scenario(monkeypatch, [_result(3100, 5000)], then=toggle_twice)["then"]
+    assert off == "" and on == "context ██████░░░░ 62% · 3.1k of 5.0k"
+    assert settings_store.flag(meter.SETTING) is True
+
+
+def test_grounded_after_a_persona_switch_does_not_show_the_previous_personas_reply(profiles):
+    async def scenario():
+        app = SymposeCLI()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.last_sent = {"notes": [], "recaps": [], "searched": None, "history_dropped": 0, "rewrite": False}
+            write_persona(profiles, "grace", "name: Grace\nvault_folders: '*'\n")
+            runtime.apply_picker_choice(app, "persona", "grace")
+            assert app.last_sent is None
+
+    run_async(scenario())

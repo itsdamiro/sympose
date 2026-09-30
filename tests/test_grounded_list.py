@@ -85,9 +85,9 @@ def test_lookups_are_listed_as_they_were_made_and_notes_they_found_say_who_found
 
     lines = grounded_list.render(sent)
 
-    assert "  1. Projects/Atlas.md (found by her search)" in lines
-    assert "  2. Projects/Atlas.md (opened by her)" in lines
-    assert 'She looked up: searched "Atlas database" (1 found); opened "Projects/Atlas.md" (1 found).' in lines
+    assert "  1. Projects/Atlas.md (found by the persona's search)" in lines
+    assert "  2. Projects/Atlas.md (opened by the persona)" in lines
+    assert 'The persona looked up: searched "Atlas database" (1 found); opened "Projects/Atlas.md" (1 found).' in lines
 
 
 def test_a_lookup_that_found_nothing_is_still_shown_when_nothing_grounded_the_reply():
@@ -95,14 +95,14 @@ def test_a_lookup_that_found_nothing_is_still_shown_when_nothing_grounded_the_re
 
     assert grounded_list.render(sent) == [
         "Nothing from the vault grounded the last reply.",
-        'She looked up: searched "tax deadline" (0 found).',
+        'The persona looked up: searched "tax deadline" (0 found).',
     ]
 
 
-def test_ask_with_no_lookup_says_she_looked_nothing_up():
+def test_ask_with_no_lookup_says_nothing_was_looked_up():
     lines = grounded_list.render({**_SENT, "mode": "ask", "lookups": []})
 
-    assert lines[-1] == "She looked nothing up for this message."
+    assert lines[-1] == "The persona looked nothing up for this message."
 
 
 def test_ask_that_ran_as_auto_says_why_the_search_happened():
@@ -113,3 +113,29 @@ def test_ask_that_ran_as_auto_says_why_the_search_happened():
 
 def test_without_the_setting_nothing_is_said_about_lookups():
     assert grounded_list.render(_SENT) == ["Nothing from the vault grounded the last reply."]
+
+
+def test_the_persona_is_named_not_called_she():
+    sent = _sent(mode="ask", lookups=[])
+    assert grounded_list.render(sent, "Aria")[-1] == "Aria looked nothing up for this message."
+
+
+def test_a_remember_call_is_said_plainly_and_never_printed_as_a_query():
+    saved = grounded_list.render(_sent(lookups=[{"tool": "remember", "saved": True}]), "Aria")
+    failed = grounded_list.render(_sent(lookups=[{"tool": "remember", "saved": False}]), "Aria")
+    assert saved[-1] == "Aria remembered something."
+    assert failed[-1] == "Aria tried to remember something and could not save it."
+    assert not any("None" in line for line in saved + failed)
+
+
+def test_a_reply_grounded_only_in_memory_says_which_memory_files_reached_it():
+    lines = grounded_list.render(_sent(memory=["profile", "decisions"]))
+    assert lines == ["Nothing from the vault grounded the last reply.", "Also sent: the persona's memory (profile.md, decisions.md)."]
+    with_notes = grounded_list.render(_sent(notes=[{"path": "A.md", "heading": "", "source": "vault"}], memory=["context"]))
+    assert "Also sent: the persona's memory (context.md)." in with_notes
+    assert grounded_list.render(_sent(memory=[])) == ["Nothing from the vault grounded the last reply."]
+
+
+def test_a_search_and_a_remember_in_one_turn_each_get_their_line():
+    sent = _sent(mode="ask", lookups=[{"tool": "search_notes", "query": "x", "found": 2}, {"tool": "remember", "saved": True}])
+    assert grounded_list.render(sent, "Aria")[-2:] == ['Aria looked up: searched "x" (2 found).', "Aria remembered something."]

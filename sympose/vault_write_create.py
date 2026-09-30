@@ -118,13 +118,7 @@ def create_note(
             return NOTE_EXISTS
 
         if content is None:
-            title = (
-                os.path.splitext(os.path.basename(clean_name))[0]
-                .replace("_", " ")
-                .replace("-", " ")
-                .strip()
-                .title()
-            )
+            title = os.path.splitext(os.path.basename(clean_name))[0].strip()  # the file name as given (#102)
             now = datetime.datetime.now().astimezone()
             raw_tmpl = get_template_for_path(mv, clean_name, allowed_dirs)
             if not (raw_tmpl and raw_tmpl.strip().startswith("---")):

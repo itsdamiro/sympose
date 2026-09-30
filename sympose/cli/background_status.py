@@ -9,7 +9,7 @@ these reads as the persona being busy, not the app being broken."""
 
 import math
 import random
-from time import monotonic as _monotonic
+from time import monotonic as _monotonic, monotonic as _knob_clock
 
 from rich.text import Text
 from textual.widgets import Static
@@ -32,6 +32,9 @@ _FRAMES_PER_SPINNER_STEP = 3
 # with the persona's own witty lines every this many seconds, the literal phrase reasserting itself
 # every other slot -- a single frozen sentence for many seconds reads as stuck, not busy, but the
 # line must still say what is actually happening at least as often as it says something merely lively.
+# The two knobs the line reads (on or off, typing speed) come from settings.json, which is read and parsed
+# from disk on every call; the line is redrawn 25 times a second, so they are read this often instead (#113).
+_KNOB_REFRESH_SECONDS = 1.0
 _REAL_ROTATE_AFTER = 3.0
 _REAL_ROTATE_INTERVAL = 3.0
 
@@ -108,6 +111,8 @@ class BackgroundStatus(Static):
     _phase_started = 0.0
     _rotation_slot = 0
     _shown = ""
+    _knobs_at: float | None = None
+    _knob_values: tuple[bool, float] = (True, DEFAULT_CHARS_PER_SECOND)
 
     def on_mount(self) -> None:
         self.set_interval(1 / _FRAMES_PER_SECOND, self._tick)
@@ -122,7 +127,14 @@ class BackgroundStatus(Static):
     def _set_phrase(self, phrase: str, now: float) -> None:
         self._phrase, self._phrase_at = phrase, now
 
-    def _line(self, handle: str | None, kind: str | None, detail: str, now: float) -> str:
+    def _knobs(self) -> tuple[bool, float]:
+        """`(on, characters per second)` as the settings say, looked at most once a second."""
+        clock = _knob_clock()
+        if self._knobs_at is None or clock - self._knobs_at >= _KNOB_REFRESH_SECONDS:
+            self._knobs_at, self._knob_values = clock, (enabled(), chars_per_second())
+        return self._knob_values
+
+    def _line(self, handle: str | None, kind: str | None, detail: str, now: float, speed: float | None = None) -> str:
         """The whole line for this moment (spinner, the typed part of the phrase, detail), `""` when
         nothing is running. Every kind rotates: a real phase shows its literal text, then from
         `_REAL_ROTATE_AFTER` a witty line, the literal one again every other slot; anything else
@@ -148,7 +160,7 @@ class BackgroundStatus(Static):
                 self._set_phrase(REAL_STATUS_TEXT[kind] if real and slot % 2 == 0 else self._witty(handle), now)
         if kind is None:
             return ""
-        speed = chars_per_second()
+        speed = chars_per_second() if speed is None else speed
         shown = self._phrase if speed <= 0 else self._phrase[: int((now - self._phrase_at) * speed) + 1]
         frame = _SPINNER_FRAMES[(self._ticks // _FRAMES_PER_SPINNER_STEP) % len(_SPINNER_FRAMES)]
         self._ticks += 1
@@ -157,8 +169,9 @@ class BackgroundStatus(Static):
     def _tick(self) -> None:
         persona = getattr(self.app, "persona", None)
         handle = persona.handle if persona else None
-        kind, detail = activity(handle) if handle and enabled() else (None, "")
-        line = self._line(handle, kind, detail, _monotonic())
+        on, speed = self._knobs()
+        kind, detail = activity(handle) if handle and on else (None, "")
+        line = self._line(handle, kind, detail, _monotonic(), speed)
         if line != self._shown:  # only redraw when something changed
             self._shown = line
             self.update(Text(line))

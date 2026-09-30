@@ -3,8 +3,7 @@ bottom with a scrolling transcript above it — the one thing legacy's
 blocking `rich.prompt.Prompt` loop couldn't do (see `docs/VISION.md`,
 lines 46-50). Chat replies now come from the real engine
 (`sympose/engine/`, docs/decisions/006); model/persona pickers use real
-data (`options.py`); `/compact` and `/history` are still
-inert or mock, since nothing backs them yet. Event handling and the
+data (`options.py`). Event handling and the
 actual command/streaming behavior live in `dispatch.py`/`runtime.py`/
 `turns.py`/`picker.py`, split out to hold the 200-LOC-per-file cap."""
 
