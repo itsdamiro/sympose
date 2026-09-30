@@ -44,7 +44,7 @@ def restore_trash(body: TrashRestore) -> dict[str, Any]:
     translate_vault_result(
         result,
         not_found=_not_in_bin(body.path),
-        exists="Something already occupies that note's original location.",
+        exists="Something already occupies that file's original location.",
         denied=sandbox_denied(body.path),
     )
     return {"path": restored, "detail": result}
@@ -66,5 +66,5 @@ def empty_trash(body: TrashEmpty) -> dict[str, Any]:
     count = vault_trash.purge_all(mv, allowed_dirs)
     return {
         "count": count,
-        "detail": f"Emptied the bin ({count} note{'' if count == 1 else 's'}).",
+        "detail": f"Emptied the bin ({count} item{'' if count == 1 else 's'}).",
     }

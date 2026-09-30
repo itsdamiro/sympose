@@ -49,3 +49,38 @@ def test_a_note_whose_name_starts_with_error_is_restored_not_reported_as_a_failu
 
     assert result == {"path": "Error: timeout notes.md", "detail": "Restored to `Error: timeout notes.md`"}
     assert (tmp_path / "Error: timeout notes.md").read_text(encoding="utf-8") == "kept"
+
+
+def _bin_file(tmp_path, rel, data="x"):
+    path = tmp_path / ".trash" / rel
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(data, encoding="utf-8")
+    return path
+
+
+def test_the_bin_lists_and_restores_every_file_a_deleted_folder_held(profiles_dir, tmp_path):
+    """Issue #100: attachments were unlisted, so a deleted folder's images could not be recovered."""
+    _bin_file(tmp_path, "Trip/Plan.md")
+    _bin_file(tmp_path, "Trip/img/map.png", "png")
+    assert sorted(r["trash_path"] for r in th.list_trash("samantha")["items"]) == ["Trip/Plan.md", "Trip/img/map.png"]
+    result = th.restore_trash(TrashRestore(path="Trip/img/map.png", persona="samantha"))
+    assert result["path"] == "Trip/img/map.png" and (tmp_path / "Trip" / "img" / "map.png").read_text() == "png"
+
+
+def test_emptying_the_bin_removes_every_file_and_says_how_many_items(profiles_dir, tmp_path):
+    _bin_file(tmp_path, "Trip/Plan.md")
+    _bin_file(tmp_path, "Trip/img/map.png")
+    _bin_file(tmp_path, "Trip/.DS_Store")
+    assert th.empty_trash(TrashEmpty(persona="samantha")) == {"count": 2, "detail": "Emptied the bin (2 items)."}
+    assert not any(p.is_file() for p in (tmp_path / ".trash").rglob("*"))
+    _bin_file(tmp_path, "One.png")
+    assert th.empty_trash(TrashEmpty(persona="samantha"))["detail"] == "Emptied the bin (1 item)."
+
+
+def test_a_restore_onto_an_occupied_path_says_it_is_a_file_not_a_note(profiles_dir, tmp_path):
+    _bin_file(tmp_path, "map.png", "bin")
+    (tmp_path / "map.png").write_text("here", encoding="utf-8")
+    with pytest.raises(HTTPException) as exc_info:
+        th.restore_trash(TrashRestore(path="map.png", persona="samantha"))
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.detail == "Something already occupies that file's original location."
