@@ -15,8 +15,27 @@ SEARCHING = "searching"
 READING = "reading"
 ASKING = "asking"
 
-_PHASE: dict[str, str] = {}
+# Keyed by persona and conversation (docs/decisions/057), so two conversations of one persona replying at
+# once each have their own phase. A turn names its conversation with `bind`; a caller that does not (or
+# asks only about a persona) sees the persona's phase, as before.
+_PHASE: dict[tuple[str, str | None], str] = {}
 _LOCK = threading.Lock()
+_HERE = threading.local()
+
+
+def bind(handle: str, session_id: str | None) -> None:
+    """The turn this thread is running, so `set_phase` called from deep inside it (the lookup tools) needs
+    no conversation parameter. `unbind` ends it; a thread with none binds nothing."""
+    _HERE.turn = (handle, session_id)
+
+
+def unbind() -> None:
+    _HERE.turn = None
+
+
+def _key(handle: str) -> tuple[str, str | None]:
+    bound = getattr(_HERE, "turn", None)
+    return bound if bound and bound[0] == handle else (handle, None)
 
 
 def set_phase(handle: str | None, value: str | None) -> None:
@@ -24,13 +43,17 @@ def set_phase(handle: str | None, value: str | None) -> None:
     dict with no `handle` at all, and tracking nothing is the right behavior there, not an error."""
     if not handle:
         return
+    key = _key(handle)
     with _LOCK:
         if value is None:
-            _PHASE.pop(handle, None)
+            _PHASE.pop(key, None)
         else:
-            _PHASE[handle] = value
+            _PHASE[key] = value
 
 
-def phase(handle: str) -> str | None:
+def phase(handle: str, session_id: str | None = None) -> str | None:
+    """The phase of `session_id`'s reply, or without it of the persona's: the oldest of its replies in flight."""
     with _LOCK:
-        return _PHASE.get(handle)
+        if session_id is not None:
+            return _PHASE.get((handle, session_id))
+        return next((value for (owner, _), value in _PHASE.items() if owner == handle), None)

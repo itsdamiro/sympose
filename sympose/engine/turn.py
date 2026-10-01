@@ -72,8 +72,9 @@ def run_turn(
     # `EngineModelError`, or anything else) must not leave the busy indicator (docs/decisions/043)
     # showing a phase forever for a turn that's already over. `_run` narrows this further (searching,
     # reading) around its own steps; this is just the default for everything else in between.
+    turn_status.bind(handle, sid)  # this turn's phase and stop are its conversation's own (docs/decisions/057)
     turn_status.set_phase(handle, turn_status.ASKING)
-    turn_cancel.begin(handle)  # from here a stop request is heard (docs/decisions/054); cleared in `finally`
+    turn_cancel.begin(handle, sid)  # from here a stop request is heard (docs/decisions/054); cleared in `finally`
     try:
         try:
             result = _run(persona, handle, user_message, sid, existing, history, target_model, modes)
@@ -94,7 +95,8 @@ def run_turn(
         return result
     finally:
         turn_status.set_phase(handle, None)
-        turn_cancel.finish(handle)
+        turn_status.unbind()
+        turn_cancel.finish(handle, sid)
 
 
 def _run(

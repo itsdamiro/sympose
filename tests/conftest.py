@@ -32,6 +32,18 @@ def _profiles_of_their_own(tmp_path_factory, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _no_reply_state_left_behind():
+    """The live phase and the stop requests of replies in flight (docs/decisions/043, 054, 057) are kept per
+    persona and conversation, so a test that starts a turn by hand and does not end it would leave a phase
+    that a later test reads. Each test starts with none."""
+    from sympose.engine import turn_cancel, turn_status
+
+    yield
+    for registry in (turn_status._PHASE, turn_cancel._ACTIVE, turn_cancel._REQUESTED, turn_cancel._COMMITTED):
+        registry.clear()
+
+
+@pytest.fixture(autouse=True)
 def _no_ollama_capability_lookup(monkeypatch):
     """Which local models take tools (docs/decisions/040) is asked of a running Ollama; a test must not
     depend on which models this machine has pulled, so the question is refused unless a test answers it."""

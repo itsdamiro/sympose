@@ -17,6 +17,8 @@ def clean_registry():
     yield
     for handle in ("samantha", "aria"):
         turn_cancel.finish(handle)
+        for session_id in ("a", "b"):
+            turn_cancel.finish(handle, session_id)
 
 
 class TestRegistry:
@@ -151,6 +153,75 @@ class TestCallModel:
             model.call_model([{"role": "user", "content": "hi"}])
 
 
+class TestOneConversationOfSeveral:
+    """Two conversations of one persona replying at once (docs/decisions/057): a stop is for one of them."""
+
+    @staticmethod
+    def _running(session_id):
+        started, release, outcome = threading.Event(), threading.Event(), {}
+
+        def run():
+            turn_cancel.begin("samantha", session_id)
+            started.set()
+            release.wait(5)
+            try:
+                turn_cancel.check()
+                outcome["stopped"] = False
+            except turn_cancel.TurnCancelled:
+                outcome["stopped"] = True
+            finally:
+                turn_cancel.finish("samantha", session_id)
+
+        thread = threading.Thread(target=run)
+        thread.start()
+        started.wait(5)
+        return thread, release, outcome
+
+    def test_a_stop_for_one_conversation_leaves_the_other_running(self):
+        (first, release_a, a), (second, release_b, b) = self._running("a"), self._running("b")
+        assert turn_cancel.request("samantha", "a") is True
+        release_a.set()
+        release_b.set()
+        first.join()
+        second.join()
+        assert a == {"stopped": True} and b == {"stopped": False}
+
+    def test_a_stop_for_the_persona_alone_stops_every_reply_it_is_writing(self):
+        (first, release_a, a), (second, release_b, b) = self._running("a"), self._running("b")
+        assert turn_cancel.request("samantha") is True
+        release_a.set()
+        release_b.set()
+        first.join()
+        second.join()
+        assert a == {"stopped": True} and b == {"stopped": True}
+
+    def test_a_stop_for_a_conversation_with_no_reply_running_is_refused(self):
+        thread, release, outcome = self._running("a")
+        assert turn_cancel.request("samantha", "b") is False
+        release.set()
+        thread.join()
+        assert outcome == {"stopped": False}
+
+    def test_a_reply_past_its_commit_refuses_a_stop_while_the_other_still_accepts_one(self):
+        committed, finish = threading.Event(), threading.Event()
+
+        def past_commit():
+            turn_cancel.begin("samantha", "a")
+            turn_cancel.commit()
+            committed.set()
+            finish.wait(5)
+            turn_cancel.finish("samantha", "a")
+
+        thread = threading.Thread(target=past_commit)
+        thread.start()
+        committed.wait(5)
+        turn_cancel.begin("samantha", "b")  # this thread runs the other conversation
+        assert turn_cancel.request("samantha", "a") is False
+        assert turn_cancel.request("samantha", "b") is True
+        finish.set()
+        thread.join()
+
+
 class TestToolLoop:
     def test_a_stop_before_a_tool_runs_ends_the_turn_without_running_it(self):
         ran: list[str] = []
@@ -165,8 +236,12 @@ class TestToolLoop:
             return lookup_tools.Result("Remembered.", lookup={"tool": name})
 
         persona = {"handle": "samantha"}
-        with pytest.raises(turn_cancel.TurnCancelled):
-            lookup.converse(persona, [], "ollama_chat/x", None, call=call, tools=[], run_tool=run_tool)
+        try:
+            with pytest.raises(turn_cancel.TurnCancelled):
+                lookup.converse(persona, [], "ollama_chat/x", None, call=call, tools=[], run_tool=run_tool)
+        finally:  # this test begins a turn by hand, so it ends it by hand (`run_turn` does it in a real one)
+            turn_status.set_phase("samantha", None)
+            turn_cancel.finish("samantha")
         assert ran == []
 
 
