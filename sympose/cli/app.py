@@ -15,12 +15,13 @@ from textual.containers import VerticalScroll
 from textual.widgets import Input, OptionList, Static
 
 from sympose import engine, persona_files
-from sympose.cli import dispatch, memory_command, picker, settings_list, share, state
+from sympose.cli import dispatch, memory_command, picker, settings_list, share, state, stop
 from sympose.cli import transcript as transcript_mod
 from sympose.cli.background_status import BackgroundStatus
 from sympose.cli.composer import DEFAULT_PLACEHOLDER, ComposerInput
 from sympose.cli.meter import ContextMeter
 from sympose.cli.options import list_personas
+from sympose.cli.stop import StopButton
 from sympose.engine import memory_refresh
 from sympose.profile import resolve_default_persona
 
@@ -73,6 +74,7 @@ class SymposeCLI(App):
         yield VerticalScroll(id="transcript")
         yield BackgroundStatus("")
         yield ComposerInput(placeholder=DEFAULT_PLACEHOLDER, id="composer")
+        yield StopButton(stop.LABEL)
         yield ContextMeter("")
 
     def on_mount(self) -> None:

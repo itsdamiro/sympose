@@ -45,6 +45,12 @@ def init(app) -> None:
     # since turns for different personas (or two queued same-persona
     # turns) can now genuinely stream concurrently post-lock.
     app.active_reply_timers: set = set()
+    # What the Stop line acts on (docs/decisions/054): the persona handles whose engine call is running
+    # right now, the functions that show a reply that is being revealed whole, and whether a stop was
+    # accepted and is waiting for the engine to end its call.
+    app.generating: set[str] = set()
+    app.reply_skips: set = set()
+    app.stopping = False
     # A plain counter, not `turn_locks[...].locked()`, for "is any turn
     # genuinely in flight right now" (docs/decisions/008): incremented
     # the instant `send_message` starts and decremented only once it's

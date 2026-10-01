@@ -12,7 +12,7 @@ from rich.style import Style
 from sympose import engine
 from sympose.cli import (
     context_explain, grounded_list, grounding_line, help_notes, memory_command, meter, meter_estimate, picker,
-    settings_list, share, transcript as transcript_mod,
+    settings_list, share, stop, transcript as transcript_mod,
 )
 from sympose.cli.commands import COMMANDS
 from sympose import persona_model
@@ -102,6 +102,8 @@ async def run_command(app, command, args: str = "") -> None:
             for timer in app.active_reply_timers:
                 timer.stop()
             app.active_reply_timers.clear()
+            app.reply_skips.clear()
+            stop.refresh_for(app)
             await transcript.remove_children()
             app.last_speaker = None
     elif command.name == "/settings":

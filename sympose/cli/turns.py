@@ -14,7 +14,7 @@ from rich.style import Style
 from rich.text import Text
 
 from sympose import engine
-from sympose.cli import grounding_line, meter, off_thread, reveal, share, trim_notice
+from sympose.cli import grounding_line, meter, off_thread, reveal, share, stop, trim_notice
 from sympose.cli import transcript as transcript_mod
 from sympose.cli.options import active_model
 
@@ -46,6 +46,18 @@ def _show_failure(app, transcript, handle: str, message: str) -> None:
     # (a `[/foo]` in it would stop the app when the line is drawn).
     transcript_mod.mount_line(app, Text(f"@{handle} couldn't reply: {message}"), "system")
     transcript.scroll_end(animate=False)
+
+
+def _show_stopped(app, handle: str, generation: int, text: str) -> None:
+    """The reply was stopped (docs/decisions/054): nothing of it was saved, so the message that asked for
+    it goes back into the input when that is empty and this is still the conversation it was sent in."""
+    if off_thread.quitting(app):
+        return
+    transcript_mod.mount_line(app, Text(f"Stopped. @{handle} did not reply."), "system")
+    app.transcript.scroll_end(animate=False)
+    if generation == app.session_generation and not app.composer.value:
+        app.composer.value = text
+        app.composer.cursor_position = len(text)
 
 
 def _record_session_result(app, generation: int, session_id: str, sent: dict | None) -> None:
@@ -96,6 +108,7 @@ async def _send_message(app, value: str) -> None:
         waiting.append(value)
         return
     waiting = app.turn_runs[key] = []
+    stop.refresh_for(app)
 
     # One lock per persona (docs/decisions/008), not one global lock:
     # sessions are stored per-handle (sympose/engine/session.py), so two
@@ -119,6 +132,7 @@ async def _send_message(app, value: str) -> None:
                 waiting.clear()
     finally:
         del app.turn_runs[key]
+        stop.refresh_for(app)
 
 
 def _model_and_header(app) -> tuple[str | None, str]:
@@ -143,8 +157,12 @@ async def _run_turn(app, handle: str, generation: int, text: str, captured: tupl
     # a fresh session instead of the one it should continue
     # (docs/decisions/008).
     session_id = app.session_by_generation.get(generation)
+    app.generating.add(handle)
     try:
         result = await off_thread.run(_ENGINE_EXECUTOR, engine.run_turn, handle, text, session_id, model_id)
+    except engine.TurnCancelled:
+        _show_stopped(app, handle, generation, text)
+        return True
     except engine.EngineModelError as e:
         _show_failure(app, transcript, handle, str(e))
         return True
@@ -157,6 +175,10 @@ async def _run_turn(app, handle: str, generation: int, text: str, captured: tupl
         log.warning("Unexpected error during a turn: %s", e)
         _show_failure(app, transcript, handle, f"unexpected error ({e}).")
         return True
+    finally:
+        app.generating.discard(handle)
+        app.stopping = False
+        stop.refresh_for(app)
     if off_thread.quitting(app):
         return False
     _record_session_result(app, generation, result.session_id, result.sent)
@@ -195,6 +217,8 @@ def _stream_reply(app, reply: str, header: str) -> None:
     def _finish() -> None:
         timer.stop()
         app.active_reply_timers.discard(timer)
+        app.reply_skips.discard(skip)
+        stop.refresh_for(app)
 
     def tick() -> None:
         # Defensive: the widget can be gone before the timer is (e.g. a
@@ -219,5 +243,11 @@ def _stream_reply(app, reply: str, header: str) -> None:
     # (or two queued same-persona replies processed back-to-back) can now
     # genuinely stream at once post-lock — the lock only serializes the
     # engine call, not this word-by-word reveal (docs/decisions/008).
+    def skip() -> None:  # Stop while the words are still appearing: the whole reply at once (docs/decisions/054)
+        frames["count"] = 10**9
+        tick()
+
     timer = app.set_interval(0.05, tick)
     app.active_reply_timers.add(timer)
+    app.reply_skips.add(skip)
+    stop.refresh_for(app)
