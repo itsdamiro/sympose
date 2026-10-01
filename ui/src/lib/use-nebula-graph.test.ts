@@ -98,6 +98,18 @@ describe("useNebulaGraph persona scoping (ADR 010)", () => {
     rerender({ persona: "dev" })
 
     // A wider graph must never linger under a narrower persona.
-    await waitFor(() => expect(result.current.source).toBe("sample"))
+    await waitFor(() => expect(result.current.source).toBe("offline"))
+    expect(result.current.graph.nodes).toEqual([])
+  })
+
+  it("starts empty and never shows a stand-in graph while loading or offline", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")))
+
+    const { result } = renderHook(() => useNebulaGraph(0, "/vault", "dev"))
+
+    expect(result.current.source).toBe("loading")
+    expect(result.current.graph.nodes).toEqual([])
+    await waitFor(() => expect(result.current.source).toBe("offline"))
+    expect(result.current.graph.nodes).toEqual([])
   })
 })

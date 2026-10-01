@@ -47,6 +47,12 @@ type SetPref = <K extends keyof NebulaPreferences>(
  * The app shell lazy-mounts this whole component after first paint so
  * `react-force-graph` never sits on the TTFT hot path either way.
  */
+const SOURCE_LABEL: Record<NebulaGraphSource, string> = {
+  loading: "connecting",
+  live: "live vault",
+  offline: "vault unreachable",
+}
+
 function AmbientNebula({
   graph,
   source,
@@ -209,7 +215,7 @@ function AmbientNebula({
                 source === "live" ? "bg-ok" : "bg-fg-muted"
               )}
             />
-            {source === "live" ? "live vault" : "bundled sample"} · {graph.nodes.length} nodes
+            {SOURCE_LABEL[source]} · {graph.nodes.length} nodes
           </div>
 
           {prefs.dock && (

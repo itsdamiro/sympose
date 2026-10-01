@@ -39,7 +39,6 @@ export interface NebulaPreferences {
   nodeVividness: number
   nodeRelSize: number
   linkWidth: number
-  noteDelayMs: number
   clickZoomDistance: number
   /**
    * Focus-mode scrim — how the graph is hidden behind the panels. No effect in
@@ -106,7 +105,6 @@ const SPEC: {
   nodeVividness: { cookie: "sympose:nebula.node_vividness", kind: "num", default: 0 },
   nodeRelSize: { cookie: "sympose:nebula.node_rel_size", kind: "num", default: 1.67 * 2.4 },
   linkWidth: { cookie: "sympose:nebula.link_width", kind: "num", default: 0.8 },
-  noteDelayMs: { cookie: "sympose:nebula.note_delay_ms", kind: "num", default: 25 },
   clickZoomDistance: { cookie: "sympose:nebula.click_zoom_distance", kind: "num", default: 60 },
   focusBlur: { cookie: "sympose:nebula.focus_blur", kind: "num", default: 12 },
   focusTint: { cookie: "sympose:nebula.focus_tint", kind: "num", default: 0.8 },

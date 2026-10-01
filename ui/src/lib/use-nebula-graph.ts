@@ -1,10 +1,13 @@
 import * as React from "react"
 
 import { buildMasterGraph, type NebulaGraph } from "@/lib/nebula-graph"
-import rawMock from "@/lib/mock-nebula.json"
 
-/** Which feed is on screen — the live vault or the bundled offline sample. */
-export type NebulaGraphSource = "sample" | "live"
+/**
+ * Where the graph stands: `"loading"` until the first answer, `"live"` once
+ * the vault has answered, `"offline"` when it could not be reached. Never a
+ * stand-in graph: a note or tag that is not in the vault must not appear.
+ */
+export type NebulaGraphSource = "loading" | "live" | "offline"
 
 export interface NebulaGraphState {
   /** Master graph (notes + pre-indexed tag hubs), ready for the renderers. */
@@ -13,14 +16,13 @@ export interface NebulaGraphState {
   source: NebulaGraphSource
 }
 
-const MOCK_MASTER = buildMasterGraph(rawMock as NebulaGraph)
 const EMPTY_LIVE = buildMasterGraph({ nodes: [], links: [] })
 
 /**
- * The Knowledge Nebula's data feed. First paint (and the offline fallback) is
- * the bundled `mock-nebula.json`; once `GET /api/vault/graph` answers with
- * an answer (even an empty one) we swap to the live vault and flip `source`
- * to `"live"`; the sample only shows while the backend is unreachable. The endpoint
+ * The Knowledge Nebula's data feed. Starts empty; once `GET /api/vault/graph`
+ * answers (even with an empty answer) the graph is the live vault and `source`
+ * is `"live"`; while the backend is unreachable it stays empty and `source`
+ * is `"offline"`. The endpoint
  * is scoped to the active persona's allowed folders (ADR 010), so `persona`
  * is both a request parameter and a refetch trigger: switching to a
  * restricted persona must not leave the previous persona's wider graph on
@@ -50,8 +52,8 @@ export function useNebulaGraph(
   persona?: string
 ): NebulaGraphState {
   const [state, setState] = React.useState<NebulaGraphState>({
-    graph: MOCK_MASTER,
-    source: "sample",
+    graph: EMPTY_LIVE,
+    source: "loading",
   })
   // Whether the currently-displayed graph is known to match `vaultPath` and
   // `persona` — cleared whenever either changes (a persona switch can
@@ -93,9 +95,9 @@ export function useNebulaGraph(
         if (Array.isArray(data?.nodes)) {
           // An empty answer is a real answer: a persona whose allowed
           // folders hold no notes (or a vault with none yet) gets an empty
-          // nebula, not the bundled sample — the sample's mock notes and
-          // tags don't exist in that vault, and would also feed the
-          // editor's `#tag` autocomplete. Also what clears a previous
+          // nebula, and never a stand-in graph, whose notes and tags
+          // would not exist in that vault and would feed the editor's `#tag`
+          // autocomplete. Also what clears a previous
           // persona's/vault's graph on a switch to an empty one.
           setState({
             graph: data.nodes.length ? buildMasterGraph(data) : EMPTY_LIVE,
@@ -105,10 +107,8 @@ export function useNebulaGraph(
             `[nebula] live vault · ${data.nodes.length} notes, ${data.links?.length ?? 0} links from /api/vault/graph`
           )
         } else {
-          setState({ graph: MOCK_MASTER, source: "sample" })
-          console.info(
-            "[nebula] /api/vault/graph returned an unexpected shape — showing the bundled sample"
-          )
+          setState({ graph: EMPTY_LIVE, source: "offline" })
+          console.info("[nebula] /api/vault/graph returned an unexpected shape — showing nothing")
         }
       })
       .catch((err) => {
@@ -123,10 +123,8 @@ export function useNebulaGraph(
         // perfectly good, still-current graph over nothing more than a
         // network hiccup unrelated to which vault is active.
         if (!vaultConfirmedRef.current) {
-          setState({ graph: MOCK_MASTER, source: "sample" })
-          console.info(
-            `[nebula] /api/vault/graph unreachable (${err}) — showing the bundled sample`
-          )
+          setState({ graph: EMPTY_LIVE, source: "offline" })
+          console.info(`[nebula] /api/vault/graph unreachable (${err}) — showing nothing`)
         } else {
           console.info(
             `[nebula] /api/vault/graph unreachable (${err}) — keeping the last-loaded graph`

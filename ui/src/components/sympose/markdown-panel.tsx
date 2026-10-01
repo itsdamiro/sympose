@@ -1241,7 +1241,15 @@ function MarkdownPanel({
           // first and must never fire either one early, which would commit
           // the swap (or drop `entered`) while content is still mid-slide.
           onAnimationEnd={(e) => {
-            if ((e.target as HTMLElement).closest(".sy-note-chrome")) return
+            // Only the slot itself or the three scoped content elements count;
+            // chrome and any other descendant's animation must not commit.
+            const target = e.target as HTMLElement
+            if (
+              target !== e.currentTarget &&
+              !target.matches(".cm-scroller, .sy-note-preview, .sy-note-footer")
+            ) {
+              return
+            }
             if (noteExitDirection) onNoteExitComplete()
             else if (noteEnterDirection) onNoteEnterComplete()
           }}

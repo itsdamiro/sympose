@@ -1,8 +1,6 @@
 /**
  * Client shape of the `GET /api/vault/graph` contract. Vault notes are
- * nodes, `[[wikilinks]]` are links. `mock-nebula.json` is the fallback feed
- * when the endpoint is unreachable or returns no nodes (see
- * `use-nebula-graph.ts`), not a stand-in for a missing route.
+ * nodes, `[[wikilinks]]` are links.
  */
 export interface NebulaNode {
   /** Vault-relative stem, unique across the graph — e.g. `"Architecture"`. */
@@ -107,8 +105,8 @@ export function foldersInGraph(graph: NebulaGraph): string[] {
 }
 
 /**
- * Fold a raw `{ nodes, links }` feed — from `GET /api/vault/graph` or the
- * bundled `mock-nebula.json` — into the master graph the renderers consume:
+ * Fold a raw `{ nodes, links }` feed — from `GET /api/vault/graph` — into the master graph the
+ * renderers consume:
  * every distinct frontmatter tag becomes a `tag:<name>` hub node in the `Tags`
  * folder (sized by how many notes carry it), and each tagged note gains a link
  * to its hubs. Pre-indexing the hubs once here keeps the `Tags` filter a pure

@@ -1106,3 +1106,18 @@
   padding: 0 !important;
   background: transparent !important;
 }
+
+/* Honour the OS "reduce motion" setting everywhere at once. Durations are
+   shortened rather than the animations removed, so `animationend` and
+   `transitionend` still fire and the slide-swap logic that waits on them
+   keeps committing. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

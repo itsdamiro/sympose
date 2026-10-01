@@ -1774,7 +1774,13 @@ export function AppShell() {
                       slideEnterClassName(contentEnterDirection)
               )}
               onAnimationEnd={
-                contentExitDirection ? onContentExitComplete : undefined
+                contentExitDirection
+                  ? (e) => {
+                      // Only this element's own slide-out: a descendant's
+                      // animation bubbles here too and must not commit early.
+                      if (e.target === e.currentTarget) onContentExitComplete()
+                    }
+                  : undefined
               }
             >
               {contentDisplayNode}
