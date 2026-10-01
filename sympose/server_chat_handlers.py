@@ -9,10 +9,13 @@ from typing import Any
 
 from fastapi import HTTPException
 
-from sympose.engine import context_estimate, model as model_mod, semantic_refresh, session, status_phrases, turn, turn_status
+from sympose.engine import (
+    compaction, context_estimate, model as model_mod, semantic_refresh, session, session_compaction, status_phrases,
+    turn, turn_status,
+)
 from sympose.engine.turn_cancel import request as cancel_requested
 from sympose.server_handlers import require_profile
-from sympose.server_models import ChatCancel, ChatSessionStart, ChatTurn
+from sympose.server_models import ChatCancel, ChatCompact, ChatSessionStart, ChatTurn
 
 _LOCKS: dict[str, threading.Lock] = {}
 _LOCKS_GUARD = threading.Lock()
@@ -44,6 +47,7 @@ def send_turn(body: ChatTurn) -> dict[str, Any]:
         "saved": result.saved,
         "searched": result.searched,
         "history_dropped": result.history_dropped,
+        "condensed": result.condensed,
         "context_used": result.context_used,
         "context_limit": result.context_limit,
         "cloud": result.cloud,
@@ -57,6 +61,28 @@ def cancel_turn(body: ChatCancel) -> dict[str, Any]:
     turn's own request answers `{"cancelled": true}` when the engine reaches its next check, so this does
     not wait for it."""
     return {"stopping": cancel_requested(require_profile(body.persona)["handle"])}
+
+
+def compact_session(body: ChatCompact) -> dict[str, Any]:
+    """Condense the earlier part of the conversation into notes now, with the persona's model, and wait for
+    it (docs/decisions/055). `status` says what happened (`done`, `nothing`, `too_small`, `failed`, `busy`); on
+    every answer carries the notes in force, how many turns they stand for, and on `done` the size before and after. It does not
+    take the persona's turn lock: a reply in flight is not held up by it, and the notes reach the turns after."""
+    profile = require_profile(body.persona)
+    handle = profile["handle"]
+    try:
+        found = session.load_session(handle, body.session_id)
+    except ValueError:
+        found = None
+    if found is None:
+        raise HTTPException(status_code=404, detail=f"No session `{body.session_id}` for `{handle}`.")
+    outcome = compaction.compact_now(handle, body.session_id, model_mod.resolve_model(profile.get("model")))
+    # `text` is always the notes in force afterwards (the new ones on `done`, else any that already stood).
+    text = outcome.text or session_compaction.notes(session.load_session(handle, body.session_id)) or ""
+    return {
+        "status": outcome.status, "covered": outcome.covered, "text": text,
+        "before": outcome.before, "after": outcome.after,
+    }
 
 
 def get_status(persona: str | None) -> dict[str, Any]:
@@ -152,4 +178,9 @@ def get_session(persona: str | None, session_id: str | None, before: int | None,
         "start": start,
         "total": total,
         "has_more": start > 0,
+        # The notes standing for the start of the conversation (docs/decisions/055), or `None`.
+        "compaction": (
+            {"through": session_compaction.covered(loaded), "text": session_compaction.notes(loaded)}
+            if session_compaction.notes(loaded) else None
+        ),
     }

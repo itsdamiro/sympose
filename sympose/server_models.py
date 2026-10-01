@@ -112,6 +112,14 @@ class ChatTurn(BaseModel):
     session_id: str | None = None
 
 
+class ChatCompact(BaseModel):
+    """Body of `POST /api/chat/compact` — condense the earlier part of a conversation into notes now
+    (docs/decisions/055)."""
+
+    persona: str | None = None
+    session_id: str = Field(..., min_length=1)
+
+
 class ChatSessionStart(BaseModel):
     """Body of `POST /api/chat/session` — start a fresh, empty conversation with a persona."""
 
