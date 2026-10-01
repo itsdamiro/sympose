@@ -14,7 +14,7 @@ from rich.style import Style
 from rich.text import Text
 
 from sympose import engine
-from sympose.cli import grounding_line, meter, reveal, share, trim_notice
+from sympose.cli import grounding_line, meter, off_thread, reveal, share, trim_notice
 from sympose.cli import transcript as transcript_mod
 from sympose.cli.options import active_model
 
@@ -40,7 +40,7 @@ def _show_failure(app, transcript, handle: str, message: str) -> None:
     Textual upgrade that renames/removes it rather than this silently
     becoming a no-op (see `tests/test_cli.py`'s quit-while-in-flight
     test)."""
-    if app._exit:
+    if off_thread.quitting(app):
         return
     # A `Text`, not a string: the message comes from a provider, and a string is read as markup
     # (a `[/foo]` in it would stop the app when the line is drawn).
@@ -51,7 +51,6 @@ def _show_failure(app, transcript, handle: str, message: str) -> None:
 def _record_session_result(app, generation: int, session_id: str, sent: dict | None) -> None:
     app.session_by_generation[generation] = session_id
     if generation == app.session_generation:  # still the live conversation
-        app.session_id = session_id
         app.last_sent = sent  # a persona switched away from mid-flight must not overwrite it (#26)
 
 
@@ -145,9 +144,7 @@ async def _run_turn(app, handle: str, generation: int, text: str, captured: tupl
     # (docs/decisions/008).
     session_id = app.session_by_generation.get(generation)
     try:
-        result = await asyncio.get_running_loop().run_in_executor(
-            _ENGINE_EXECUTOR, engine.run_turn, handle, text, session_id, model_id
-        )
+        result = await off_thread.run(_ENGINE_EXECUTOR, engine.run_turn, handle, text, session_id, model_id)
     except engine.EngineModelError as e:
         _show_failure(app, transcript, handle, str(e))
         return True
@@ -160,7 +157,7 @@ async def _run_turn(app, handle: str, generation: int, text: str, captured: tupl
         log.warning("Unexpected error during a turn: %s", e)
         _show_failure(app, transcript, handle, f"unexpected error ({e}).")
         return True
-    if app._exit:  # /quit fired while this call was in flight
+    if off_thread.quitting(app):
         return False
     _record_session_result(app, generation, result.session_id, result.sent)
 

@@ -147,8 +147,8 @@ def apply_picker_choice(app, kind: str, value: str | None) -> bool:
             # different persona's directory under the new handle (nothing
             # there, silently empty history) while still writing new turns
             # under the old id, forking/losing history across the switch.
-            # A new persona starts a fresh session, same as a fresh process.
-            app.session_id = None
+            # A new persona starts a fresh session, same as a fresh process: a new generation has no
+            # session id yet, and the old one's stays for a message still queued behind it.
             app.session_generation += 1
             app.last_sent = None  # `/grounded` describes the last reply of the persona now talking, not the previous one (#106)
             meter.clear(app)  # a fresh session starts empty

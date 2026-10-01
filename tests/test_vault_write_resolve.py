@@ -4,9 +4,10 @@ note of the same name elsewhere (docs/decisions/047, #99)."""
 import os
 
 import pytest
+from helpers import rename_note
 from fastapi import HTTPException
 
-from sympose import server_handlers, vault_write, vault_write_delete, vault_write_rename, vault_write_resolve
+from sympose import server_handlers, vault_write, vault_write_delete, vault_write_resolve
 from sympose.vault_write_status import NOTE_NOT_FOUND
 
 
@@ -95,7 +96,7 @@ def test_saving_an_exact_path_that_is_gone_is_not_found_and_overwrites_nothing(o
 
 
 def test_renaming_an_exact_path_that_is_gone_is_not_found_and_moves_nothing(only_b, profile):
-    assert vault_write_rename.rename_note(profile, "A/Note.md", "Other") == NOTE_NOT_FOUND
+    assert rename_note(profile, "A/Note.md", "Other") == NOTE_NOT_FOUND
     assert unchanged(only_b)
 
 

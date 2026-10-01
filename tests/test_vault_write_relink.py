@@ -7,9 +7,9 @@ Everything runs in a temporary vault."""
 import os
 
 import pytest
+from helpers import rename_note
 
 from sympose import vault_write_relink as relink
-from sympose import vault_write_rename
 from sympose.vault_write_status import NOTE_INVALID_NAME
 
 ALL = {"vault_folders": ["*"]}
@@ -226,7 +226,7 @@ def test_renaming_a_note_retargets_its_backlinks_and_reports_how_many(vault):
     a = write(vault, "A.md", "see [[Old]] and [[Old|this]]")
     b = write(vault, "Sub/B.md", "![[Old#Top]]")
     untouched = write(vault, "C.md", "about [[Older]] and Old")
-    result = vault_write_rename.rename_note(ALL, "Old", "New")
+    result = rename_note(ALL, "Old", "New")
     assert result == "Renamed to `New.md` (2 files relinked)"
     assert read(a) == b"see [[New]] and [[New|this]]"
     assert read(b) == b"![[New#Top]]"
@@ -236,13 +236,13 @@ def test_renaming_a_note_retargets_its_backlinks_and_reports_how_many(vault):
 
 def test_renaming_a_note_with_no_backlinks_reports_no_relink(vault):
     write(vault, "Old.md", "alone")
-    assert vault_write_rename.rename_note(ALL, "Old", "New") == "Renamed to `New.md`"
+    assert rename_note(ALL, "Old", "New") == "Renamed to `New.md`"
 
 
 def test_a_bare_link_from_another_folder_is_retargeted_when_the_name_is_unique(vault):
     write(vault, "Notes/Old.md", "the note")
     link = write(vault, "Elsewhere/x.md", "[[Old]]")
-    vault_write_rename.rename_note(ALL, "Notes/Old", "New")
+    rename_note(ALL, "Notes/Old", "New")
     assert read(link) == b"[[New]]"
 
 
@@ -251,7 +251,7 @@ def test_a_bare_link_to_a_same_named_note_elsewhere_is_left_alone(vault):
     write(vault, "B/Old.md", "the other")
     from_a = write(vault, "A/x.md", "[[Old]]")
     from_b = write(vault, "B/y.md", "[[Old]]")
-    vault_write_rename.rename_note(ALL, "A/Old", "New")
+    rename_note(ALL, "A/Old", "New")
     assert read(from_a) == b"[[New]]"
     assert read(from_b) == b"[[Old]]"  # it may mean B/Old.md: not guessed
 
@@ -260,7 +260,7 @@ def test_a_restricted_persona_leaves_backlinks_outside_its_folders_stale(vault):
     write(vault, "Code/Old.md", "note")
     inside = write(vault, "Code/A.md", "[[Old]]")
     outside = write(vault, "Private/B.md", "[[Old]]")
-    vault_write_rename.rename_note({"vault_folders": ["Code"]}, "Code/Old", "New")
+    rename_note({"vault_folders": ["Code"]}, "Code/Old", "New")
     assert read(inside) == b"[[New]]"
     assert read(outside) == b"[[Old]]"
 
@@ -269,7 +269,7 @@ def test_a_restricted_persona_leaves_backlinks_outside_its_folders_stale(vault):
 def test_a_new_name_that_would_break_wikilinks_is_refused_and_nothing_changes(vault, bad):
     old = write(vault, "Old.md", "note")
     link = write(vault, "A.md", "[[Old]]")
-    assert vault_write_rename.rename_note(ALL, "Old", bad) == NOTE_INVALID_NAME
+    assert rename_note(ALL, "Old", bad) == NOTE_INVALID_NAME
     assert os.path.exists(old)
     assert read(link) == b"[[Old]]"
 
@@ -306,12 +306,12 @@ def test_relinking_keeps_a_private_notes_permissions_and_a_symlink(vault):
 def test_renaming_a_note_with_a_dot_in_its_name_relinks_the_notes_that_link_to_it(vault):
     write(vault, "Node.js.md", "the runtime")
     link = write(vault, "A.md", "uses [[Node.js]] and [[Node.js#Install|how]]")
-    assert vault_write_rename.rename_note(ALL, "Node.js", "Runtime") == "Renamed to `Runtime.md` (1 file relinked)"
+    assert rename_note(ALL, "Node.js", "Runtime") == "Renamed to `Runtime.md` (1 file relinked)"
     assert read(link) == b"uses [[Runtime]] and [[Runtime#Install|how]]"
 
 
 def test_renaming_a_note_relinks_a_link_written_in_another_case(vault):
     write(vault, "Foo.md", "x")
     link = write(vault, "A.md", "see [[foo]] and [[FOO]]")
-    assert vault_write_rename.rename_note(ALL, "Foo", "Bar") == "Renamed to `Bar.md` (1 file relinked)"
+    assert rename_note(ALL, "Foo", "Bar") == "Renamed to `Bar.md` (1 file relinked)"
     assert read(link) == b"see [[Bar]] and [[Bar]]"

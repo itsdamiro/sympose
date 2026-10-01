@@ -4,8 +4,9 @@ to the vault, and a leading slash (`/name`) is the vault root. The route reports
 import os
 
 import pytest
+from helpers import rename_note
 
-from sympose import server_handlers, vault_write_rename
+from sympose import server_handlers
 from sympose.server_models import NoteRename
 from sympose.vault_write_status import NOTE_DENIED, NOTE_EXISTS
 
@@ -34,20 +35,20 @@ def exists(vault, rel):
 
 def test_a_bare_new_name_keeps_the_note_in_its_folder(vault):
     write(vault, "F/a.md")
-    assert vault_write_rename.rename_note(ALL, "F/a.md", "b") == "Renamed to `F/b.md`"
+    assert rename_note(ALL, "F/a.md", "b") == "Renamed to `F/b.md`"
     assert exists(vault, "F/b.md") and not exists(vault, "F/a.md") and not exists(vault, "b.md")
 
 
 def test_a_new_name_with_a_folder_is_relative_to_the_vault(vault):
     write(vault, "F/a.md")
-    assert vault_write_rename.rename_note(ALL, "F/a.md", "G/H/b") == "Renamed to `G/H/b.md`"
+    assert rename_note(ALL, "F/a.md", "G/H/b") == "Renamed to `G/H/b.md`"
     assert exists(vault, "G/H/b.md") and not exists(vault, "F/a.md")
 
 
 @pytest.mark.parametrize("new_name", ["/a", "/a.md", "'/a'", "\\a"])
 def test_a_leading_slash_moves_the_note_to_the_vault_root(vault, new_name):
     write(vault, "F/a.md", "text")
-    assert vault_write_rename.rename_note(ALL, "F/a.md", new_name) == "Renamed to `a.md`"
+    assert rename_note(ALL, "F/a.md", new_name) == "Renamed to `a.md`"
     assert exists(vault, "a.md") and not exists(vault, "F/a.md")
     with open(os.path.join(vault, "a.md"), encoding="utf-8") as f:
         assert f.read() == "text"
@@ -55,25 +56,25 @@ def test_a_leading_slash_moves_the_note_to_the_vault_root(vault, new_name):
 
 def test_a_leading_slash_keeps_a_folder_relative_to_the_vault(vault):
     write(vault, "F/a.md")
-    assert vault_write_rename.rename_note(ALL, "F/a.md", "/G/b") == "Renamed to `G/b.md`"
+    assert rename_note(ALL, "F/a.md", "/G/b") == "Renamed to `G/b.md`"
 
 
 def test_moving_to_the_root_onto_a_note_already_there_is_rejected(vault):
     write(vault, "F/a.md", "in folder")
     write(vault, "a.md", "at root")
-    assert vault_write_rename.rename_note(ALL, "F/a.md", "/a") == NOTE_EXISTS
+    assert rename_note(ALL, "F/a.md", "/a") == NOTE_EXISTS
     assert exists(vault, "F/a.md")
 
 
 def test_a_restricted_persona_cannot_move_a_note_to_the_root_outside_its_folders(vault):
     write(vault, "Code/a.md")
-    assert vault_write_rename.rename_note({"vault_folders": ["Code"]}, "Code/a.md", "/a") == NOTE_DENIED
+    assert rename_note({"vault_folders": ["Code"]}, "Code/a.md", "/a") == NOTE_DENIED
     assert exists(vault, "Code/a.md") and not exists(vault, "a.md")
 
 
 def test_a_slash_alone_is_not_a_name(vault):
     write(vault, "F/a.md")
-    assert vault_write_rename.rename_note(ALL, "F/a.md", "/") == NOTE_DENIED
+    assert rename_note(ALL, "F/a.md", "/") == NOTE_DENIED
     assert exists(vault, "F/a.md")
 
 
@@ -84,7 +85,7 @@ def test_a_note_that_lands_on_the_destination_after_the_first_check_is_not_overw
         write(vault, "b.md", "someone else's note")  # after the early check, before the rename's lock
         return []
 
-    result = vault_write_rename.rename_note(
+    result = rename_note(
         ALL, "a", "b", get_backlinks_fn=another_request_creates_the_target, find_notes_by_stem_fn=lambda *_: []
     )
     assert result == NOTE_EXISTS

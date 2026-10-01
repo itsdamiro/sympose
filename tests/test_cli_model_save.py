@@ -126,7 +126,7 @@ def in_conversation(first):
         async with app.run_test() as pilot:
             await pilot.pause()
             runtime.apply_picker_choice(app, "model", first)
-            app.session_id = "20260930T100000-aaaaaaaa"  # a conversation is going
+            app.session_by_generation[app.session_generation] = "20260930T100000-aaaaaaaa"  # a conversation is going
             before = len(lines(app))
             await pick(app, second)
             if then:
@@ -195,7 +195,7 @@ def test_going_from_local_to_a_hand_named_cloud_model_in_a_conversation_asks_fir
         async with app.run_test() as pilot:
             await pilot.pause()
             runtime.apply_picker_choice(app, "model", LOCAL)
-            app.session_id = "20260930T100000-aaaaaaaa"
+            app.session_by_generation[app.session_generation] = "20260930T100000-aaaaaaaa"
             app.persona = options.PersonaOption("samantha", "Samantha", "", HAND)  # named by hand, not yet picked
             app.model_override = options.model_option_for(LOCAL)
             await pick(app, HAND)

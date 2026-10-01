@@ -73,31 +73,6 @@ def _resolve_rename_destination(
     return dst, ""
 
 
-def rename_note(
-    profile: dict[str, Any],
-    old_name: str,
-    new_name: str,
-    *,
-    get_backlinks_fn: Callable[
-        [dict[str, Any], str], list[dict[str, Any]]
-    ] = vault_backlinks.get_backlinks,
-    find_notes_by_stem_fn: Callable[
-        [dict[str, Any], str], list[str]
-    ] = vault_backlinks.find_notes_by_stem,
-) -> str:
-    """Rename a vault note and rewrite every `[[wikilink]]` that pointed at
-    it. `new_name` stays in the same folder unless it carries a separator;
-    a leading slash means the vault root. `NOTE_NOT_FOUND` / `NOTE_EXISTS` /
-    `NOTE_DENIED` as for the other note ops."""
-    return rename_note_to_path(
-        profile,
-        old_name,
-        new_name,
-        get_backlinks_fn=get_backlinks_fn,
-        find_notes_by_stem_fn=find_notes_by_stem_fn,
-    )[0]
-
-
 def rename_note_to_path(
     profile: dict[str, Any],
     old_name: str,
@@ -110,9 +85,13 @@ def rename_note_to_path(
         [dict[str, Any], str], list[str]
     ] = vault_backlinks.find_notes_by_stem,
 ) -> tuple[str, str | None]:
-    """`rename_note`'s result together with the note's new vault-relative
-    path (`None` when the result is not a success), for a caller that must
-    tell its client where the note went."""
+    """Rename a vault note and rewrite every `[[wikilink]]` that pointed at
+    it. `new_name` stays in the same folder unless it carries a separator;
+    a leading slash means the vault root. The result is `NOTE_NOT_FOUND` /
+    `NOTE_EXISTS` / `NOTE_DENIED` as for the other note ops, or the success
+    message, together with the note's new vault-relative path (`None` when
+    the result is not a success), for a caller that must tell its client
+    where the note went."""
     scope = vault_paths.resolve_sandbox(profile)
     if scope is None:
         return NOTE_DENIED, None

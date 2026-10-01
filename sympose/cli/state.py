@@ -15,21 +15,15 @@ def init(app) -> None:
     app.panel_kind: str | None = None
     # The number `/settings` is asking for in the chat box, while it is (docs/decisions/036).
     app.pending_setting: str | None = None
-    # One session per CLI process run — the engine starts a new one on
-    # the first real turn; `/clear` wipes the visible transcript only,
-    # it does not reset this (no `/new`-style command exists yet).
-    app.session_id: str | None = None
-    # Bumped every time `session_id` is deliberately reset (a persona
-    # switch), so a call still in flight then must not write its own
-    # now-stale session_id back once it resolves. The persona handle
-    # alone isn't enough: switching away and back to the *same* persona
-    # would restore a matching handle with a stale session_id anyway.
+    # `/clear` wipes the visible transcript only; it does not start a new session (no `/new`-style
+    # command exists yet). A persona switch does: it bumps `session_generation`, so a call still in
+    # flight from before must not be read as the live conversation once it resolves. The persona
+    # handle alone isn't enough: switching away and back to the *same* persona would restore a
+    # matching handle with a stale session id anyway.
     app.session_generation = 0
-    # The session id each generation actually resolved to, so a queued
-    # message for the same persona/generation can continue it even if
-    # an unrelated persona switch has since reset `session_id` itself
-    # (docs/decisions/008). `session_id` above stays a convenient
-    # mirror of the *current* generation's entry here.
+    # The session id each generation actually resolved to (docs/decisions/008), so a queued message
+    # for the same persona/generation can continue it even after an unrelated persona switch.
+    # `SymposeCLI.session_id` is this dict read at the current generation, never a second copy.
     app.session_by_generation: dict[int, str | None] = {}
     # Exactly what the last completed reply's `TurnResult.sent` held (docs/decisions/025) — `None`
     # before any reply, and after `/clear`, which wipes the transcript but not this: the record it

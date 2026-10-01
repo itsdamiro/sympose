@@ -28,6 +28,12 @@ from sympose.profile import resolve_default_persona
 class SymposeCLI(App):
     """Run with `python -m sympose.cli`."""
 
+    @property
+    def session_id(self) -> str | None:
+        """The current conversation's session id: what its generation resolved to, `None` before the
+        first reply and after a persona switch (which starts a new generation)."""
+        return self.session_by_generation.get(self.session_generation)
+
     CSS = """
     Screen {
         background: $surface;

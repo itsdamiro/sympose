@@ -1,15 +1,19 @@
 """`/memory` (docs/decisions/041): refresh a persona's context.md/profile.md now, or review a
 staged proposal. A real model call (`memory_refresh.refresh`), so it runs off the interface
-thread, on the loop's default pool (many workers) rather than the one chat turns use (`turns.py`)
-or a pool of one, so it never queues behind, or ahead of, an actual reply or another `/memory` wait."""
+thread, on a pool of its own: not the one chat turns use (`turns.py`), so it never queues behind, or
+ahead of, an actual reply, and not the loop's default pool, which `/quit` waits on (`turns.py`'s
+comment on `_ENGINE_EXECUTOR`) and a 60-second wait would hold up. Several workers, so one wait never
+queues behind another (#108)."""
 
-import asyncio
+import concurrent.futures
 
 from rich.text import Text
 
-from sympose.cli import picker, transcript as transcript_mod
+from sympose.cli import off_thread, picker, transcript as transcript_mod
 from sympose.cli.selection import SelectionOption
 from sympose.engine import memory, memory_refresh, memory_write
+
+_EXECUTOR = concurrent.futures.ThreadPoolExecutor(max_workers=4, thread_name_prefix="sympose-memory")
 
 PICKER_KIND = "memory"
 CONFIRM_KIND = "memory_confirm"
@@ -57,8 +61,8 @@ async def _run_refresh(app) -> None:
     # already running for `handle` (the automatic one from launch/persona-switch, say) instead of
     # racing a second, redundant model call against it.
     memory_refresh.refresh_in_background(handle, model)
-    finished = await asyncio.to_thread(memory_refresh.wait_for_refresh, handle, 60.0)
-    if app._exit:  # /quit fired while this was running
+    finished = await off_thread.run(_EXECUTOR, memory_refresh.wait_for_refresh, handle, 60.0)
+    if off_thread.quitting(app):
         return
     if not finished:
         line = "Still checking for a memory update -- try /memory again in a moment."

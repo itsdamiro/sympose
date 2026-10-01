@@ -7,6 +7,7 @@ Vault note writes: `overwrite_note` (the web app editor saving an
 
 import os
 import threading
+import weakref
 from contextlib import ExitStack, contextmanager
 from typing import Any, Iterator
 
@@ -16,13 +17,18 @@ from sympose.vault_write_concurrency import NOTE_CONFLICT, mtime_matches
 from sympose.vault_write_resolve import resolve_existing_note
 from sympose.vault_write_status import NOTE_DENIED, NOTE_NOT_FOUND, NOTE_NOT_TEXT
 
-_locks: dict[str, threading.Lock] = {}
+# Weak values: a path's lock lives only while some writer holds or waits on it, so the table
+# does not grow by one lock for every path ever touched (#114). A lock nobody references can
+# be forgotten safely: the next writer for that path simply creates a fresh one.
+_locks: weakref.WeakValueDictionary[str, threading.Lock] = weakref.WeakValueDictionary()
 _locks_guard = threading.Lock()
 
 
 def get_file_lock(path: str) -> threading.Lock:
     """One lock per absolute file path, so two writers racing on the same
-    note serialize instead of interleaving their writes."""
+    note serialize instead of interleaving their writes. Use it as
+    `with get_file_lock(p):` -- the `with` is what keeps the lock alive
+    while it is held."""
     with _locks_guard:
         lock = _locks.get(path)
         if lock is None:

@@ -1252,6 +1252,39 @@ def test_pending_turns_stays_counted_for_a_run_with_messages_waiting_for_quit_de
     run_async(scenario())
 
 
+def test_a_reply_landing_after_a_persona_switch_does_not_become_the_last_sent_record(profiles, monkeypatch):
+    """`/grounded` describes the persona now talking (#26, #106): the record of a reply that was in flight
+    for the previous one must not replace it, and the old conversation's session id stays reachable
+    by its generation for a message still queued behind it (ADR 008)."""
+    release = threading.Event()
+
+    def fake_run_turn(handle, user_message, session_id=None, model=None):
+        release.wait(timeout=2)
+        return engine.TurnResult(reply="reply", session_id="old-session", grounding=[], sent={"from": "samantha"})
+
+    monkeypatch.setattr(turns.engine, "run_turn", fake_run_turn)
+
+    async def scenario():
+        app = SymposeCLI()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            old_generation = app.session_generation
+            task = asyncio.create_task(turns.send_message(app, "hello"))
+            await asyncio.sleep(0.05)
+
+            aria = next(p for p in options.list_personas() if p.handle == "aria")
+            runtime.apply_picker_choice(app, "persona", aria.handle)
+            release.set()
+            await task
+            await pilot.pause()
+
+            assert app.last_sent is None
+            assert app.session_id is None
+            assert app.session_by_generation[old_generation] == "old-session"
+
+    run_async(scenario())
+
+
 def test_persona_switch_during_in_flight_call_is_not_overwritten(profiles, monkeypatch):
     """Regression test: `send_message` used to unconditionally write
     `app.session_id = result.session_id` after its engine call returned,
@@ -1868,6 +1901,31 @@ def test_memory_refresh_that_raised_is_reported_as_a_failure(profiles, monkeypat
 
 def test_memory_refresh_says_why_it_was_skipped(profiles, monkeypatch):
     _refresh_says(monkeypatch, "skipped", "no recaps to learn from")
+
+
+def test_a_memory_wait_runs_on_its_own_pool_not_the_default_one_quit_waits_on(profiles, monkeypatch):
+    """`/quit` waits for the loop's default pool to drain (see `turns._ENGINE_EXECUTOR`), so a 60-second
+    memory wait there would hold the app open that long."""
+    from sympose.cli import memory_command
+
+    seen: list[str] = []
+
+    def wait(handle, timeout=60.0):
+        seen.append(threading.current_thread().name)
+        return True
+
+    monkeypatch.setattr(memory_command.memory_refresh, "refresh_in_background", lambda handle, model=None: True)
+    monkeypatch.setattr(memory_command.memory_refresh, "wait_for_refresh", wait)
+
+    async def scenario():
+        app = SymposeCLI()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            await memory_command.choose(app, "refresh")
+            await wait_until(lambda: bool(seen))
+
+    run_async(scenario())
+    assert seen[0].startswith("sympose-memory")
 
 
 def test_two_memory_waits_do_not_queue_behind_each_other(profiles, monkeypatch):

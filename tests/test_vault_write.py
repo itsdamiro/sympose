@@ -6,8 +6,9 @@ meaningful edit)."""
 import os
 
 import pytest
+from helpers import rename_note
 
-from sympose import vault_write_delete, vault_write_rename
+from sympose import vault_write_delete
 from sympose.vault_write_status import NOTE_DENIED, NOTE_EXISTS, NOTE_NOT_FOUND
 
 
@@ -25,7 +26,7 @@ def profile():
 def test_rename_moves_the_file(vault, profile):
     with open(os.path.join(vault, "A.md"), "w") as f:
         f.write("hello")
-    result = vault_write_rename.rename_note(profile, "A", "B")
+    result = rename_note(profile, "A", "B")
     assert result == "Renamed to `B.md`"
     assert not os.path.exists(os.path.join(vault, "A.md"))
     assert os.path.exists(os.path.join(vault, "B.md"))
@@ -36,14 +37,14 @@ def test_rename_onto_an_existing_note_is_rejected(vault, profile):
         f.write("a")
     with open(os.path.join(vault, "B.md"), "w") as f:
         f.write("b")
-    assert vault_write_rename.rename_note(profile, "A", "B") == NOTE_EXISTS
+    assert rename_note(profile, "A", "B") == NOTE_EXISTS
     # Neither file was touched by the rejected rename.
     assert os.path.exists(os.path.join(vault, "A.md"))
     assert os.path.exists(os.path.join(vault, "B.md"))
 
 
 def test_rename_missing_note_not_found(vault, profile):
-    assert vault_write_rename.rename_note(profile, "Nope", "B") == NOTE_NOT_FOUND
+    assert rename_note(profile, "Nope", "B") == NOTE_NOT_FOUND
 
 
 def test_rename_survives_a_concurrent_delete_and_recreate_race(vault, profile):
@@ -66,7 +67,7 @@ def test_rename_survives_a_concurrent_delete_and_recreate_race(vault, profile):
             f.write("someone else's note")
         return []
 
-    result = vault_write_rename.rename_note(
+    result = rename_note(
         profile,
         "Draft",
         "Final",
@@ -107,3 +108,47 @@ def test_delete_folder_on_trash_itself_is_denied(vault, profile):
     os.makedirs(os.path.join(vault, ".trash"))
     assert vault_write_delete.delete_folder(profile, ".trash") == NOTE_DENIED
     assert os.path.isdir(os.path.join(vault, ".trash"))
+
+
+# -- the per-path lock table does not grow without bound (#114) --------------------
+
+
+def test_a_lock_nobody_holds_is_forgotten():
+    import gc
+
+    from sympose import vault_write
+
+    for i in range(50):
+        with vault_write.get_file_lock(f"/vault/note-{i}.md"):
+            pass
+    gc.collect()
+    assert not [p for p in vault_write._locks if p.startswith("/vault/note-")]
+
+
+def test_two_writers_on_one_path_still_share_one_lock_while_it_is_held():
+    from sympose import vault_write
+
+    with vault_write.get_file_lock("/vault/shared.md") as _:
+        again = vault_write.get_file_lock("/vault/shared.md")
+        assert again.locked()  # the very lock the first writer holds, not a fresh one
+
+
+def test_a_lock_held_across_a_collection_keeps_excluding_a_second_writer():
+    import gc
+    import threading
+
+    from sympose import vault_write
+
+    got_it = threading.Event()
+    with vault_write.get_file_lock("/vault/held.md"):
+        gc.collect()
+
+        def second():
+            with vault_write.get_file_lock("/vault/held.md"):
+                got_it.set()
+
+        t = threading.Thread(target=second)
+        t.start()
+        assert not got_it.wait(0.3)  # still blocked while the first holds it
+    t.join(2)
+    assert got_it.is_set()

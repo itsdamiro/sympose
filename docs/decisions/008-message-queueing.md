@@ -233,3 +233,7 @@ Queueing showed the user a mechanism ("· queued") and answered each waiting mes
 - **Stored as one user turn**, joined, because that is what the model was given; the transcript still shows each message as typed.
 - **Where:** the terminal and the web chat each do the joining (the engine still runs one turn at a time per persona, and the per-persona lock stays as the safety net, for two windows on one persona). The engine and its API are unchanged, so the queue-reporting API ADR 044 had planned is not needed.
 - **Unchanged:** a persona switch starts a new conversation (generation), so a message joins only the run of its own conversation; `/clear` and `/quit` still wait for or refuse while anything is pending.
+
+## Amendment (2026-10-01): the session id is read, not mirrored (#112)
+
+`app.session_id` had been a second copy of `session_by_generation[session_generation]`, written by each reply and reset by a persona switch, so the two could disagree. It is now a read-only property that looks the entry up. A persona switch only bumps the generation (the new one has no id yet); the old generation's entry stays for a message still queued behind it, which the reset used to overwrite. The CLI's `/quit` check and the thread-pool call are in one place (`cli/off_thread.py`) instead of three copies.
