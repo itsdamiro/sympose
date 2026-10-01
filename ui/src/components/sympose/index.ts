@@ -61,3 +61,4 @@ export {
   type VaultNode,
   type FlatVaultMatch,
 } from "./vault-tree"
+export { SearchResultRow, searchMatchDetail } from "./search-result-row"

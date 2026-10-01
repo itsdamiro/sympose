@@ -12,24 +12,25 @@ import {
   FolderAddIcon,
   Note01Icon,
   Search01Icon,
-  ViewOffIcon,
 } from "@hugeicons/core-free-icons"
 
 import { cn, stripMdExtension } from "@/lib/utils"
 import {
   getCookie,
   getCookieBool,
-  setCookie,
   setCookieBool,
   vaultScopedKey,
 } from "@/lib/cookies"
 import { useBreakpoint } from "@/lib/use-breakpoint"
-import { usePanels, type StagePanel } from "@/lib/use-panels"
+import { usePanels } from "@/lib/use-panels"
+import { useNebulaStage } from "@/lib/use-nebula-stage"
+import { useSectionHistory } from "@/lib/use-section-history"
+import { useVaultRefresh } from "@/lib/use-vault-refresh"
+import { useVaultTree } from "@/lib/use-vault-tree"
 import {
   useSlideSwap,
   slideEnterClassName,
   slideExitClassName,
-  type SlideDirection,
 } from "@/lib/use-slide-swap"
 import { useActivePersona } from "@/lib/use-active-persona"
 import { useEditorPreferences } from "@/lib/use-editor-preferences"
@@ -60,33 +61,23 @@ import {
   type LivePersona,
 } from "@/lib/personas"
 import { useChat } from "@/lib/use-chat"
-import { fetchVaultTree } from "@/lib/vault-tree-api"
 import { searchVault, type VaultSearchResult } from "@/lib/vault-search-api"
-import {
-  NO_HIDDEN,
-  fetchHidden,
-  hidePath,
-  setShowDefinitionNotes,
-  unhidePath,
-  type HiddenResult,
-  type HiddenState,
-} from "@/lib/vault-hidden-api"
-import { isHiddenByUser, pruneHidden } from "@/lib/prune-hidden"
+import { setShowDefinitionNotes } from "@/lib/vault-hidden-api"
 import {
   createVaultNote,
   createVaultFolder,
   moveVaultNote,
 } from "@/lib/vault-note-api"
 import { isNoteDrag, readNoteDrag } from "@/lib/vault-drag"
-import { findNoteByPath, findNoteByWikilink } from "@/lib/find-note-by-wikilink"
+import { useNoteOpening } from "@/lib/use-note-opening"
+import { useLinkSources } from "@/lib/use-link-sources"
 import { findNodeByPath } from "@/lib/find-node-by-path"
-import { matchWikilinkTargets } from "@/lib/vault-wikilink-completions"
-import { matchTagTargets } from "@/lib/vault-tag-completions"
-import { resolveEmbed } from "@/lib/resolve-embed"
 import { VAULT_FOLDERS } from "@/lib/vault-folders"
 import { fetchNoteTemplate, type NoteTemplate } from "@/lib/vault-definition-api"
 import {
   PersonaCard,
+  SearchResultRow,
+  searchMatchDetail,
   ChatActionGroup,
   CollapseAllButton,
   ContentPanel,
@@ -151,7 +142,6 @@ const SECTION_LABELS: Record<string, string> = {
 }
 
 const AUTO_COLLAPSE_COOKIE = "sympose:pref.autoCollapseMenu"
-const SECTION_COOKIE = "sympose:shell.section"
 const RAIL_COOKIE = "sympose:shell.rail"
 const NOTE_COOKIE = "sympose:shell.note"
 function readSelectedNote(raw: string | null): string | undefined {
@@ -176,109 +166,6 @@ const SEARCH_DEBOUNCE_MS = 250
 const EMPTY_SEARCH_RESULTS: VaultSearchResult[] = []
 
 /**
- * One row in the search results supplement (in-folder content matches, or
- * beyond-folder matches of any type) — shared so the two sections render
- * identically instead of drifting apart as separate copies. `label` is the
- * bare filename for an in-folder row, the full vault-relative path for a
- * beyond-folder one (folder context matters there, since the row isn't
- * nested under anything that already shows it).
- */
-function SearchResultRow({
-  label,
-  detail,
-  onSelect,
-  hidden = false,
-  onUnhide,
-  unhides,
-}: {
-  label: string
-  detail?: React.ReactNode
-  onSelect: () => void
-  /** The match sits in something the user hid from view (docs/decisions/037):
-   *  listed, but greyed and never opened — the way back is Unhide. */
-  hidden?: boolean
-  onUnhide?: () => void
-  /** What Unhide takes off the list — the note's own path and/or the folders
-   *  above it — shown as the button's tooltip. */
-  unhides?: string[]
-}) {
-  if (hidden) {
-    return (
-      <div className="flex w-full flex-col items-start gap-0.5 py-1 opacity-70">
-        <span className="flex w-full items-start gap-1.5 text-sm text-fg-muted">
-          <HugeiconsIcon
-            icon={ViewOffIcon}
-            className="mt-0.5 size-3.5 shrink-0"
-          />
-          <span className="line-clamp-2 min-w-0 flex-1">{label}</span>
-          <span className="shrink-0 rounded border border-border px-1 text-[10px] uppercase tracking-wide">
-            Hidden
-          </span>
-          {onUnhide && (
-            <button
-              type="button"
-              onClick={onUnhide}
-              aria-label={`Unhide ${label}`}
-              title={unhides ? `Unhides ${unhides.join(", ")}` : undefined}
-              className="shrink-0 rounded px-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
-            >
-              Unhide
-            </button>
-          )}
-        </span>
-        {detail && (
-          <span className="flex w-full min-w-0 items-center gap-1 pl-5 text-xs text-fg-muted">
-            {detail}
-          </span>
-        )}
-      </div>
-    )
-  }
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className="group/result flex w-full flex-col items-start gap-0.5 py-1 text-left focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
-    >
-      <span className="flex w-full items-start gap-1.5 text-sm text-entity/85 transition-colors group-hover/result:text-entity">
-        <HugeiconsIcon
-          icon={Note01Icon}
-          className="mt-0.5 size-3.5 shrink-0 text-fg-muted"
-        />
-        <span className="line-clamp-2 min-w-0 flex-1">{label}</span>
-      </span>
-      {detail && (
-        <span className="flex w-full min-w-0 items-center gap-1 pl-5 text-xs text-fg-muted">
-          {detail}
-        </span>
-      )}
-    </button>
-  )
-}
-
-/**
- * `SearchResultRow`'s `detail` line for one match — a content match's line
- * number and snippet, separated by a chevron; any other match type's
- * snippet alone (it's already self-descriptive: `#tag` for a tag match,
- * a title-line preview for a title match — no line number applies).
- * Shared by both search-result sections so they can't drift apart into
- * two slightly different renderings of the same data.
- */
-function searchMatchDetail(r: VaultSearchResult): React.ReactNode {
-  if (!r.snippet) return undefined
-  if (r.match_type !== "content") {
-    return <span className="truncate">{r.snippet}</span>
-  }
-  return (
-    <>
-      <span className="shrink-0">line {r.line_no}</span>
-      <HugeiconsIcon icon={ArrowRight01Icon} className="size-3 shrink-0" />
-      <span className="truncate">{r.snippet}</span>
-    </>
-  )
-}
-
-/**
  * `<MainMenu>` mounted as the real app shell — full viewport height, no demo
  * frame. The three stage panels (content, editor, chat) toggle independently;
  * tablet caps the stage at two (oldest-evicted, rightmost fills), phone at one.
@@ -297,61 +184,16 @@ export function AppShell() {
   const panels = usePanels(breakpoint)
   const isPhone = breakpoint === "phone"
 
-  // The highlighted folder / section — persisted, since the content panel is
-  // usually hidden on phone and should come back pointed where it was left.
-  // The menu is driven by the live vault, so a persisted folder id is only
-  // reconciled once the tree has loaded (see the effect below the fetch).
-  const [active, setActive] = React.useState<string>(
-    () => getCookie(SECTION_COOKIE) || ""
-  )
-  React.useEffect(() => {
-    setCookie(SECTION_COOKIE, active)
-  }, [active])
-
-  // Browser-style visit history over `active`, for the content panel's
-  // back/forward toolbar buttons. Stack and cursor live together in one
-  // state value so the buttons' disabled state is always current — no
-  // ref-plus-forced-rerender needed. `navigatingHistory` suppresses the
-  // effect's own push when `active` changes because a back/forward click
-  // set it.
-  const [history, setHistory] = React.useState(() => ({
-    stack: [active],
-    index: 0,
-  }))
-  const navigatingHistory = React.useRef(false)
-  React.useEffect(() => {
-    if (navigatingHistory.current) {
-      navigatingHistory.current = false
-      return
-    }
-    setHistory((prev) => {
-      if (prev.stack[prev.index] === active) return prev
-      const stack = [...prev.stack.slice(0, prev.index + 1), active]
-      return { stack, index: stack.length - 1 }
-    })
-  }, [active])
-  const canGoBack = history.index > 0
-  const canGoForward = history.index < history.stack.length - 1
-  // Which way the content panel's body should slide on the next `active`
-  // change — set right alongside whatever triggered it (a back/forward click,
-  // or any other pick, which reads as "forward": it's pushing a new
-  // destination, same as browser navigation).
-  const [contentDirection, setContentDirection] =
-    React.useState<SlideDirection>("forward")
-  const goBack = () => {
-    if (!canGoBack) return
-    navigatingHistory.current = true
-    setContentDirection("back")
-    setActive(history.stack[history.index - 1])
-    setHistory((prev) => ({ ...prev, index: prev.index - 1 }))
-  }
-  const goForward = () => {
-    if (!canGoForward) return
-    navigatingHistory.current = true
-    setContentDirection("forward")
-    setActive(history.stack[history.index + 1])
-    setHistory((prev) => ({ ...prev, index: prev.index + 1 }))
-  }
+  const {
+    active,
+    setActive,
+    canGoBack,
+    canGoForward,
+    goBack,
+    goForward,
+    contentDirection,
+    setContentDirection,
+  } = useSectionHistory()
 
   // Phone: the TopBar vault button toggles the navigation view — the menu rail
   // and the content panel move together. Its open/closed state is remembered.
@@ -409,7 +251,6 @@ export function AppShell() {
   const [activePersona, setActivePersona] = useActivePersona()
   // Chat state lives in its own hook (docs/decisions/044), keyed on the active persona.
   const chat = useChat(activePersona)
-  const [previewRequest, setPreviewRequest] = React.useState(0)
   const [editorPrefs, setEditorPref] = useEditorPreferences()
   const [toolbarItems, setToolbarItems] = useToolbarItems()
 
@@ -473,7 +314,7 @@ export function AppShell() {
   // Bumped after a note is created, or the active vault is switched, to
   // re-pull the tree, the nebula graph, and any live search so they follow
   // without a persona switch (a persona switch itself re-pulls them too).
-  const [vaultRefreshKey, setVaultRefreshKey] = React.useState(0)
+  const { vaultRefreshKey, refreshVault } = useVaultRefresh()
   // Lifted here (not called inside `<AmbientNebula>`) so the one fetch also
   // backs `tagSource` below — the ambient layer and the editor's `#tag`
   // autocomplete share the same master graph instead of each hitting
@@ -487,49 +328,7 @@ export function AppShell() {
   )
   const explore = nebulaPrefs.interaction === "explore"
 
-  // Explore auto-collapses the stage panels — content, editor —
-  // so the whole canvas is click-through to the nebula underneath; the trip
-  // back to Focus reopens exactly what was showing before, oldest-first,
-  // the same order `usePanels`
-  // itself keeps. A ref (not a `panels` dependency) reads the live panel
-  // handle so this effect only fires on an actual mode change, not on every
-  // panel-order write `usePanels` makes.
-  const panelsRef = React.useRef(panels)
-  React.useEffect(() => {
-    panelsRef.current = panels
-  })
-  const stashedPanels = React.useRef<StagePanel[] | null>(null)
-  const prevInteraction = React.useRef(nebulaPrefs.interaction)
-  React.useEffect(() => {
-    const was = prevInteraction.current
-    prevInteraction.current = nebulaPrefs.interaction
-    if (was === nebulaPrefs.interaction) return
-    if (nebulaPrefs.interaction === "explore") {
-      stashedPanels.current = panelsRef.current.visible
-      for (const p of panelsRef.current.visible) panelsRef.current.close(p)
-    } else {
-      const stash = stashedPanels.current
-      stashedPanels.current = null
-      stash?.forEach((p) => panelsRef.current.open(p))
-    }
-  }, [nebulaPrefs.interaction])
-
-  // The ambient Knowledge Nebula (Module A) sits behind the whole shell. Its
-  // renderer chunk is deferred until the browser is idle after first paint so
-  // `react-force-graph` never competes with the shell's TTFT.
-  const [nebulaReady, setNebulaReady] = React.useState(false)
-  React.useEffect(() => {
-    const hasIdle = typeof window.requestIdleCallback === "function"
-    const handle = hasIdle
-      ? window.requestIdleCallback(() => setNebulaReady(true), {
-          timeout: 2000,
-        })
-      : window.setTimeout(() => setNebulaReady(true), 400)
-    return () => {
-      if (hasIdle) window.cancelIdleCallback(handle as number)
-      else window.clearTimeout(handle as number)
-    }
-  }, [])
+  const { nebulaReady } = useNebulaStage(panels, nebulaPrefs.interaction)
   const [personas, setPersonas] = React.useState<LivePersona[]>([])
   React.useEffect(() => {
     let alive = true
@@ -555,25 +354,10 @@ export function AppShell() {
     setActivePersona(personas.find((p) => p.isDefault)?.handle ?? personas[0].handle)
   }, [personas, activePersona, setActivePersona])
 
-  // Vault browser — the persona-scoped directory tree (GET /api/vault/tree),
-  // re-fetched whenever the active persona changes so the sandbox follows the
-  // switcher. Every folder row opens the same panel: the whole scoped tree.
-  // `fullTree` keeps every node the server sent, each marked `hidden` where the
-  // user hid it (docs/decisions/037) — it says whether the remembered note may
-  // be opened. `vaultTree` is what the user sees and what everything else reads
-  // (menus, lists, `[[wikilink]]` and embed resolution): the same tree with
-  // everything marked left out.
-  const [fullTree, setVaultTree] = React.useState<VaultNode[]>([])
-  const vaultTree = React.useMemo(() => pruneHidden(fullTree), [fullTree])
-  // The hidden list (Settings > Hidden from view) and the definition-notes switch.
-  const [hiddenState, setHiddenState] = React.useState<HiddenState>(NO_HIDDEN)
-  // The vault root's display name (master vault directory basename) — the
-  // leading segment of the editor's read-mode breadcrumb. `null` until the
-  // first `/api/vault/tree` response lands, or permanently if the backend
-  // has no `VAULT_PATHS` configured.
-  const [vaultName, setVaultName] = React.useState<string | null>(null)
+  const { vaultTree, vaultName, hiddenState, isHidden, changeHidden, hideFromView, unhideFromView } =
+    useVaultTree({ activePersona, vaultRefreshKey, refreshVault })
   // Persisted across a refresh so the editor reopens on the same note instead
-  // of coming back empty — same cookie convention as `active` (SECTION_COOKIE).
+  // of coming back empty — same cookie convention as `active` (the section cookie).
   // Scoped per vault and reseeded on a vault switch via `useVaultScopedState`
   // (see its doc comment) — a note path is a reference into one vault's
   // content, meaningless in another, so each vault remembers its own
@@ -616,7 +400,7 @@ export function AppShell() {
   // `activeNoteId`) with no transformation needed at all.
   // A remembered note that has since been hidden does not reopen, and a note
   // hidden while open closes at once (docs/decisions/037).
-  const openableNote = isHiddenByUser(fullTree, selectedNote)
+  const openableNote = isHidden(selectedNote)
     ? undefined
     : selectedNote
   const activeNoteId = openableNote
@@ -668,76 +452,6 @@ export function AppShell() {
   // The vault panel shows the bin instead of the tree when the main-menu
   // Bin row is the active section.
   const trashView = active === MENU_TRASH_ID
-  const treeOfPersona = React.useRef(activePersona)
-  React.useEffect(() => {
-    let alive = true
-    fetchVaultTree(activePersona).then((result) => {
-      if (!alive) return
-      const samePersona = treeOfPersona.current === activePersona
-      if (!result) {
-        // A failed fetch is not an empty vault. A refresh keeps the tree that is shown; after a persona switch the
-        // old tree is another persona's, so it goes. Either way one notice, not a stack.
-        notify.error("Couldn't load the vault. Is the backend running?", { id: "vault-tree" })
-        if (!samePersona) {
-          setVaultTree([])
-          setVaultName(null)
-          treeOfPersona.current = activePersona
-        }
-        return
-      }
-      treeOfPersona.current = activePersona
-      setVaultTree(result.tree)
-      setVaultName(result.vaultName)
-    })
-    return () => {
-      alive = false
-    }
-  }, [activePersona, vaultRefreshKey])
-  React.useEffect(() => {
-    let alive = true
-    fetchHidden().then((state) => {
-      if (alive) setHiddenState(state)
-    })
-    return () => {
-      alive = false
-    }
-  }, [vaultRefreshKey])
-
-  // Hide / unhide / the definition-notes switch: each answers with the whole
-  // state; then the tree, the graph and any live search are re-pulled, since
-  // the server does the marking (docs/decisions/037).
-  const changeHidden = React.useCallback(
-    async (change: Promise<HiddenResult>, done?: string) => {
-      const res = await change
-      if (!res.ok) {
-        notify.error(res.error)
-        return
-      }
-      setHiddenState(res.state)
-      setVaultRefreshKey((k) => k + 1)
-      if (done) notify.success(done)
-    },
-    []
-  )
-  const hideFromView = React.useCallback(
-    (path: string) =>
-      changeHidden(hidePath(path), "Hidden from view — Settings brings it back"),
-    [changeHidden]
-  )
-  // One path, or every entry that hides a search hit (its own, and the folders
-  // above it): one after another, each reads and rewrites the list.
-  const unhideFromView = React.useCallback(
-    async (paths: string | string[]) => {
-      let last: HiddenResult | undefined
-      for (const path of Array.isArray(paths) ? paths : [paths]) {
-        last = await unhidePath(path)
-        if (!last.ok) break
-      }
-      if (last) await changeHidden(Promise.resolve(last))
-    },
-    [changeHidden]
-  )
-
   // Workspace switcher: persist the choice, then re-pull everything scoped
   // to "the active vault" via the same `vaultRefreshKey` bump a note create
   // already uses.
@@ -754,14 +468,14 @@ export function AppShell() {
         setSelectedNote(
           resolveSelectedNoteFor(res.state.active)
         )
-        setVaultRefreshKey((k) => k + 1)
+        refreshVault()
         const name = res.state.vaults.find((v) => v.path === path)?.name
         notify.success(name ? `Switched to ${name}` : "Vault switched")
       } else {
         notify.error(res.error)
       }
     },
-    [setVaultsState, setSelectedNote, setVaultRefreshKey]
+    [setVaultsState, setSelectedNote, refreshVault]
   )
   const handleSwitchVault = React.useCallback(
     async (path: string) => {
@@ -784,7 +498,7 @@ export function AppShell() {
         setSelectedNote(
           resolveSelectedNoteFor(res.state.active)
         )
-        setVaultRefreshKey((k) => k + 1)
+        refreshVault()
         const name = res.state.vaults.find((v) => v.path === res.state.active)?.name
         notify.success(name ? `Added ${name}` : "Vault added")
         return true
@@ -792,7 +506,7 @@ export function AppShell() {
       notify.error(res.error)
       return false
     },
-    [setVaultsState, setSelectedNote, setVaultRefreshKey]
+    [setVaultsState, setSelectedNote, refreshVault]
   )
   const handleAddVault = React.useCallback(
     async (path: string) => {
@@ -823,75 +537,16 @@ export function AppShell() {
     [vaultTree]
   )
 
-  // A `[[wikilink]]` clicked inside the open note — resolve it against the
-  // full (nested) tree by filename stem and jump the editor there. Silently
-  // does nothing for a target the sandboxed tree doesn't contain.
-  const openWikilink = (target: string) => {
-    // Resolved among the notes the user sees: a link to a hidden note finds
-    // nothing (or a visible note of the same name), so the click does nothing.
-    const match = findNoteByWikilink(vaultTree, target)
-    if (match) {
-      selectNote(match.path)
-      panels.open("editor")
-    }
-  }
-
-  // A note named under a chat reply (what it was based on): opened only if the user can see it, so a note
-  // hidden from view (ADR 037) or since deleted does nothing rather than opening in the editor.
-  const openGroundedNote = (path: string) => {
-    if (!findNoteByPath(vaultTree, path)) return
-    selectNote(path)
-    panels.open("editor")
-    setPreviewRequest((n) => n + 1) // a note from the chat opens in preview mode
-  }
-
-  // A `[[wikilink]]` in a chat reply: the same, resolved by name among the notes the user can see.
-  const openChatWikilink = (target: string) => {
-    const match = findNoteByWikilink(vaultTree, target)
-    if (match) openGroundedNote(match.path)
-  }
-
-  // stylo's `wikiLinkSource` (>=0.7.0) is read once, at mount — so the
-  // function identity handed to `<Stylo>` must stay stable across a tree
-  // refetch (new persona, new note create) rather than being rebuilt
-  // every render. A ref carries the live tree; the callback itself never
-  // changes.
-  const vaultTreeRef = React.useRef(vaultTree)
-  React.useEffect(() => {
-    vaultTreeRef.current = vaultTree
-  })
-  const wikiLinkSource = React.useCallback(
-    (query: string) => matchWikilinkTargets(vaultTreeRef.current, query),
-    []
-  )
-
-  // stylo's `tagSource` (>=0.12.0) is the same read-once-at-mount contract as
-  // `wikiLinkSource` above — a ref carries the live graph, the callback never
-  // changes. Candidates come from `buildMasterGraph`'s pre-indexed tag hubs
-  // (`nebula-graph.ts`), not a separate client-side vault scan.
-  const nebulaGraphRef = React.useRef(nebulaGraph)
-  React.useEffect(() => {
-    nebulaGraphRef.current = nebulaGraph
-  })
-  const tagSource = React.useCallback(
-    (query: string) => matchTagTargets(nebulaGraphRef.current, query),
-    []
-  )
-
-  // stylo's `embedSource` (>=0.13.x) resolves `![[ref]]` transclusion —
-  // reactive in `preview` but read once, at mount, on the in-place canvas
-  // (same contract as `wikiLinkSource`/`tagSource` above), so it needs the
-  // same ref-plus-stable-callback shape. `activePersona` gets its own ref
-  // here (unlike `tagSource`'s `nebulaGraphRef`) since a persona switch
-  // alone doesn't remount `<Stylo>` — see `resolve-embed.tsx` for what
-  // actually resolves image vs. note refs.
-  const activePersonaRef = React.useRef(activePersona)
-  React.useEffect(() => {
-    activePersonaRef.current = activePersona
-  })
-  const embedSource = React.useCallback(
-    (ref: string) => resolveEmbed(vaultTreeRef.current, activePersonaRef.current, ref),
-    []
+  const { previewRequest, openWikilink, openGroundedNote, openChatWikilink } =
+    useNoteOpening({
+      vaultTree,
+      selectNote,
+      openEditor: () => panels.open("editor"),
+    })
+  const { wikiLinkSource, tagSource, embedSource } = useLinkSources(
+    vaultTree,
+    nebulaGraph,
+    activePersona
   )
 
   // `active` holds the user's last explicit pick; a persisted folder id that no
@@ -1112,7 +767,7 @@ export function AppShell() {
       return
     }
     if (res.path === path) return
-    setVaultRefreshKey((k) => k + 1)
+    refreshVault()
     noteRenamed(path, res.path)
     notify.success(res.detail)
   }
@@ -1131,11 +786,11 @@ export function AppShell() {
     },
     persona: activePersona,
     onRenamed: (oldPath: string, newPath: string) => {
-      setVaultRefreshKey((k) => k + 1)
+      refreshVault()
       noteRenamed(oldPath, newPath)
     },
     onDeleted: (path: string) => {
-      setVaultRefreshKey((k) => k + 1)
+      refreshVault()
       // `path` is a note's own path for a note-row delete, or a folder's
       // path when a whole folder went to the bin — either way,
       // close the editor if it was showing something that just moved.
@@ -1144,7 +799,7 @@ export function AppShell() {
       }
     },
     onCreated: (path: string) => {
-      setVaultRefreshKey((k) => k + 1)
+      refreshVault()
       selectNote(path)
       panels.open("editor")
     },
@@ -1180,7 +835,7 @@ export function AppShell() {
       return
     }
     closeCreate()
-    setVaultRefreshKey((k) => k + 1)
+    refreshVault()
     if (kind === "note") {
       selectNote(`${target}.md`)
       panels.open("editor")
@@ -1491,7 +1146,7 @@ export function AppShell() {
           <TrashList
             persona={activePersona}
             refreshKey={vaultRefreshKey}
-            onRestored={() => setVaultRefreshKey((k) => k + 1)}
+            onRestored={() => refreshVault()}
           />
         ) : vaultTree.length === 0 ? (
           <p className="text-sm text-fg-muted">
@@ -1800,11 +1455,11 @@ export function AppShell() {
             onRenamed={(newPath) => {
               if (selectedNote) noteRenamed(selectedNote, newPath)
               else setSelectedNote(newPath)
-              setVaultRefreshKey((k) => k + 1)
+              refreshVault()
             }}
             onDeleted={() => {
               setSelectedNote(undefined)
-              setVaultRefreshKey((k) => k + 1)
+              refreshVault()
             }}
             isPinned={isPinned}
             onTogglePin={togglePin}
@@ -1821,7 +1476,7 @@ export function AppShell() {
             setup={folderSetup}
             persona={activePersona}
             onClose={() => setFolderSetup(null)}
-            onCreated={() => setVaultRefreshKey((k) => k + 1)}
+            onCreated={() => refreshVault()}
           />
 
           <React.Suspense fallback={null}>
