@@ -1,6 +1,6 @@
 # 044 — The web chat: its shape, and the order it is built in
 
-> **Status: Accepted (2026-09-30). Slice 1 built and pushed (see the amendment at the end); slices 2 and 3 are not.** It settles how #29 (chat in the web app) is put together and in which slices, before any code, after the full code review of 2026-09-30 found that the web app's shell is the one place in the project where modularity has slipped (#95).
+> **Status: Accepted (2026-09-30). All three slices are built and pushed (see the amendments: slice 1, the settings, the cloud notice and share control, the model picker, the context meter, the indexing notice, and messages sent mid-reply joined as in the terminal).** It settles how #29 (chat in the web app) is put together and in which slices, before any code, after the full code review of 2026-09-30 found that the web app's shell is the one place in the project where modularity has slipped (#95).
 
 ## Context
 

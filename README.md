@@ -9,17 +9,17 @@ multi-call orchestration.
 
 What works today:
 
-- **Terminal chat** (`sympose cli`): talk to a persona (Samantha by default) about your vault. Replies are grounded in real notes, found by meaning when a local embedding model is available and by keywords otherwise, and the CLI can show which notes grounded each one. It also has saved sessions, recaps of earlier conversations, a context meter, a settings screen, and a model picker (a local Ollama model by default; Gemini and OpenRouter are opt-in, and what a cloud model may receive is a setting you control, off until you switch it on).
-- **Web app** (`sympose web`): vault browsing, the markdown editor, note and folder create, rename and delete, trash recovery, full-text search, hiding folders and notes from view, folder definitions, and the Knowledge Nebula graph. It also has a chat panel wired to the same engine as the terminal, with the context meter, a model picker, the cloud-sharing control and the settings.
+- **Terminal chat** (`sympose cli`): talk to a persona (Samantha by default) about your vault. Replies are grounded in real notes, found by meaning when a local embedding model is available and by keywords otherwise, and the CLI can show which notes grounded each one. It also has saved sessions, recaps of earlier conversations, a context meter, a settings screen, a Stop line under the input for a reply you no longer want, and a model picker (a local Ollama model by default; Gemini and OpenRouter are opt-in, and what a cloud model may receive is a setting you control, off until you switch it on).
+- **Web app** (`sympose web`): vault browsing, the markdown editor, note and folder create, rename and delete, trash recovery, full-text search, hiding folders and notes from view, folder definitions, and the Knowledge Nebula graph. It also has a chat panel wired to the same engine as the terminal, with the context meter, a model picker, the cloud-sharing control and the settings, and a Stop button that throws away a reply you no longer want.
 - **Memory and note lookup:** a persona reads its own memory files (plain markdown you can open and edit) and can propose updates to them, which you review before anything changes (`/memory`). Two things are off until you switch them on: letting the persona save a line when you ask it to remember something (`/remember`), and letting the persona search and open notes itself while it answers instead of Sympose searching for it (`vault_lookup`).
 - **Housekeeping:** `sympose doctor [--fix]` checks the installation, and `sympose vault --health` and `--draft <folder>` look after the notes themselves.
 
-Not built yet: Slack, skills, writing to your notes from a persona, compaction of long conversations, and a multi-persona roster. See `docs/VISION.md` for what's next and why, and the GitHub issues for open work.
+Not built yet: Slack, skills, a persona that writes to your notes or tunes your installation, compaction of long conversations, archiving a conversation as a note, and searching past conversations. See `docs/VISION.md` for what's next and why, and the GitHub issues for open work.
 
 ## Project layout
 
 - `sympose/` — the Python package: the chat engine and terminal chat (`engine/`, `cli/`), and the FastAPI backend for the web app (vault browsing, note editing, trash recovery, full-text search, the Knowledge Nebula graph API, and the chat and settings routes).
-- `ui/` — the React/TypeScript web app (Vite): vault tree, markdown editor, the bin, Knowledge Nebula 2D/3D graph, and a chat panel that is a mock with no backend behind it yet. Its build is committed as `sympose/webui/`.
+- `ui/` — the React/TypeScript web app (Vite): vault tree, markdown editor, the bin, Knowledge Nebula 2D/3D graph, the chat panel, and the settings. Its build is committed as `sympose/webui/`.
 - `profiles/` — one directory per persona (`profiles/<handle>/persona.yaml`,
   plus that persona's soul, memory, and chat sessions). Only Samantha's
   `persona.yaml` and `soul.md` (the shipped default) are committed; any other
@@ -52,10 +52,10 @@ Checks: `pytest` and `ruff check .` from the repo root; `npm run test`, `npm run
 
 ## Standards and decisions
 
-- `docs/VISION.md` — what Sympose is building toward beyond the
-  web app: search, multi-vault, the chat engine and its channels
-  (Slack, CLI, web), persona design, and what's deliberately out
-  of scope.
+- `docs/VISION.md` — the product principles and what is not built
+  yet: Slack, a persona that acts on the vault, skills, compaction
+  and archiving of conversations, and what's deliberately out of
+  scope.
 - `docs/COLLABORATION_STANDARDS.md` — tone, pacing, and working practices.
 - `docs/CODE_QUALITY_STANDARDS.md` — the engineering process: tooling,
   review tiers, verification discipline, commit hygiene.
