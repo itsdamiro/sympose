@@ -1544,11 +1544,12 @@ def test_help_with_no_reference_notes_installed_only_lists_the_commands(profiles
     run_async(scenario())
 
 
-def test_the_mock_history_and_compact_commands_are_gone(profiles):
+def test_the_mock_history_command_is_gone_and_compact_is_a_real_one(profiles):
     from sympose.cli.commands import COMMANDS
 
     names = {c.name for c in COMMANDS}
-    assert "/history" not in names and "/compact" not in names
+    assert "/history" not in names
+    assert "/compact" in names  # was a mock until it was real (docs/decisions/055, #111)
 
 
 def test_unknown_command_shows_error(profiles):

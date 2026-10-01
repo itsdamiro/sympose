@@ -25,6 +25,7 @@ def init(app) -> None:
     # for the same persona/generation can continue it even after an unrelated persona switch.
     # `SymposeCLI.session_id` is this dict read at the current generation, never a second copy.
     app.session_by_generation: dict[int, str | None] = {}
+    app.condensed_by_generation: dict[int, int] = {}  # the turns the notes of a compaction stood for in a conversation's last reply
     # Exactly what the last completed reply's `TurnResult.sent` held (docs/decisions/025) — `None`
     # before any reply, and after `/clear`, which wipes the transcript but not this: the record it
     # describes is still true of the persona's last real reply, `/clear` or not. `/grounded` reads
