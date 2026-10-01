@@ -29,9 +29,7 @@ export interface NebulaFilterResult {
 const ATTACHMENT_RE = /\.(png|jpg|jpeg|gif|svg|pdf|mp4|webm)$/i
 
 /**
- * The nebula's filter derivation, lifted verbatim from the `/nebula` showcase
- * so the in-shell ambient layer and the showcase share one implementation.
- * Pure: same graph + options in, same sets out — no renderer reset, the
+ * The nebula's filter derivation. Pure: same graph + options in, same sets out — no renderer reset, the
  * renderers just fade / cull by these sets.
  */
 export function deriveNebulaFilter(

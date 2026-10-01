@@ -755,7 +755,7 @@ function MarkdownPanel({
   }, [])
 
   // Flush a save when leaving this note — switching to another one, or the
-  // panel unmounting entirely (a full route change away from `/shell`) — so
+  // panel unmounting entirely — so
   // an edit isn't lost just because autosave is off (its default) and the
   // save button never got hit. `path`/`vaultPath` are the only dependencies,
   // so the cleanup fires exactly on a note switch, a vault switch, or an
