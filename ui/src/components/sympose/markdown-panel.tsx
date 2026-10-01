@@ -54,6 +54,7 @@ import {
 } from "@/lib/use-slide-swap"
 import { fetchVaultNote, saveVaultNote } from "@/lib/vault-note-api"
 import { getUnsavedGuard, setUnsavedGuard } from "@/lib/unsaved-guard"
+import { useReadOnlyToggle } from "@/lib/use-read-only-toggle"
 import { extractWikilinks } from "@/lib/extract-wikilinks"
 import { openMarkdownLink } from "@/lib/open-markdown-link"
 import { extractInlineTags } from "@/lib/extract-inline-tags"
@@ -488,42 +489,14 @@ function MarkdownPanel({
   React.useEffect(() => {
     setCookieBool(NOTE_READ_ONLY_COOKIE, readOnly)
   }, [readOnly])
-  // Sequences the toolbar-row swap (stylo's bar <-> the breadcrumb) so the
-  // outgoing row finishes its own slide-out before `readOnly` actually
-  // flips — same "freeze, animate out, then commit" contract `useSlideSwap`
-  // uses for note switching, just hand-rolled here since the payload isn't
-  // opaque data to snapshot, it's stylo's own live `bar` (only available
-  // while `mode` hasn't changed yet). Non-null while that exit is playing;
-  // its value is the target `readOnly` the commit lands on.
-  const [pendingReadOnly, setPendingReadOnly] = React.useState<boolean | null>(
-    null
-  )
-  const readOnlyExiting = pendingReadOnly !== null
-  // Mirrors `useSlideSwap`'s own `entered`/`onEnterComplete` split, hand-
-  // rolled here for the same reason `pendingReadOnly` above is: true only
-  // for the entering half's own animation, then cleared the moment that
-  // finishes (`settleReadOnlyEnter`, fired the same chrome-only-`animationend`
-  // way as the commit below). Without this, `TOGGLE_CONTENT_ENTER`'s
-  // `.sy-note-chrome` classes would sit on `editorScrollRef` forever after
-  // settling — indistinguishable, to CSS, from a genuinely still-entering
-  // state — and fight the note-switch slide's own classes on the very same
-  // `.sy-note-chrome` element (equal-specificity rules setting the same
-  // `animation` property, one of them silently losing) the next time the
-  // user navigates while idle, which is what made that slide look broken
-  // mid-flight.
-  const [readOnlyEntering, setReadOnlyEntering] = React.useState(false)
-  const commitReadOnlyToggle = React.useCallback(() => {
-    setPendingReadOnly((pending) => {
-      if (pending !== null) {
-        setReadOnly(pending)
-        setReadOnlyEntering(true)
-      }
-      return null
-    })
-  }, [])
-  const settleReadOnlyEnter = React.useCallback(() => {
-    setReadOnlyEntering(false)
-  }, [])
+  // The toolbar-row swap (stylo's bar <-> the breadcrumb): the outgoing row finishes its slide-out before
+  // `readOnly` flips (see `useReadOnlyToggle`).
+  const {
+    exiting: readOnlyExiting,
+    entering: readOnlyEntering,
+    toggle: toggleReadOnly,
+    onAnimationEnd: onToggleAnimationEnd,
+  } = useReadOnlyToggle(readOnly, setReadOnly)
   const { surface, reveal, selectionUI, tableEditing, focusOutline, autosave } =
     preferences
 
@@ -828,9 +801,9 @@ function MarkdownPanel({
         aria-label={readOnly ? "Switch to edit mode" : "Switch to read mode"}
         aria-pressed={readOnly}
         // Starts the exit half of the swap rather than flipping `readOnly`
-        // directly — `commitReadOnlyToggle` (fired by the exiting row's own
-        // `onAnimationEnd`) is what actually changes it.
-        onClick={() => setPendingReadOnly(!readOnly)}
+        // directly — the exiting row's own `animationend` (`onToggleAnimationEnd`)
+        // is what actually changes it.
+        onClick={toggleReadOnly}
         disabled={readOnlyExiting}
         className={cn(
           "grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-60",
@@ -1023,22 +996,9 @@ function MarkdownPanel({
               ? TOGGLE_CONTENT_EXIT
               : readOnlyEntering && TOGGLE_CONTENT_ENTER
           )}
-          // Chrome is the sole trigger for both the commit and settling the
-          // enter phase (both now run on the same `duration-snappy` as
-          // content, see `TOGGLE_CONTENT_EXIT` above, but scoping to chrome
-          // stays the simplest correct listener rather than reintroducing a
-          // plain "any bubbled `animationend`" one).
-          onAnimationEnd={
-            readOnlyExiting || readOnlyEntering
-              ? (e) => {
-                  if (!(e.target as HTMLElement).closest(".sy-note-chrome")) {
-                    return
-                  }
-                  if (readOnlyExiting) commitReadOnlyToggle()
-                  else settleReadOnlyEnter()
-                }
-              : undefined
-          }
+          // Chrome is the sole trigger for both the commit and settling the enter phase (see
+          // `useReadOnlyToggle`).
+          onAnimationEnd={onToggleAnimationEnd}
         >
           {path && (
             // The frontmatter/read-edit/`⋯` buttons — a fixed overlay that
@@ -1066,7 +1026,7 @@ function MarkdownPanel({
             // this outer row, which carries no classes of its own driving an
             // animation — it's mounted for as long as this branch is
             // (through the whole read/edit exit sequence, since `readOnly`
-            // doesn't flip until `commitReadOnlyToggle` fires), so the line
+            // doesn't flip until the exit's `animationend` commits it), so the line
             // itself never slides or fades; only the `.sy-note-chrome`
             // breadcrumb inside does.
             <div className="flex min-h-9.25 shrink-0 items-center border-b border-border pr-24 pl-1.5">
