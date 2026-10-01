@@ -10,8 +10,9 @@ from typing import Any
 from fastapi import HTTPException
 
 from sympose.engine import context_estimate, model as model_mod, semantic_refresh, session, status_phrases, turn, turn_status
+from sympose.engine.turn_cancel import request as cancel_requested
 from sympose.server_handlers import require_profile
-from sympose.server_models import ChatSessionStart, ChatTurn
+from sympose.server_models import ChatCancel, ChatSessionStart, ChatTurn
 
 _LOCKS: dict[str, threading.Lock] = {}
 _LOCKS_GUARD = threading.Lock()
@@ -32,6 +33,8 @@ def send_turn(body: ChatTurn) -> dict[str, Any]:
             raise HTTPException(status_code=404, detail=str(e))
         except turn.EngineModelError as e:
             raise HTTPException(status_code=502, detail=str(e))
+        except turn.TurnCancelled:  # stopped by the user (docs/decisions/054): nothing was saved
+            return {"cancelled": True}
     return {
         "reply": result.reply,
         "session_id": result.session_id,
@@ -47,6 +50,13 @@ def send_turn(body: ChatTurn) -> dict[str, Any]:
         "withheld": result.withheld,
         "sent": result.sent,
     }
+
+
+def cancel_turn(body: ChatCancel) -> dict[str, Any]:
+    """Stop the persona's reply in flight (docs/decisions/054). `stopping` is whether one was running; the
+    turn's own request answers `{"cancelled": true}` when the engine reaches its next check, so this does
+    not wait for it."""
+    return {"stopping": cancel_requested(require_profile(body.persona)["handle"])}
 
 
 def get_status(persona: str | None) -> dict[str, Any]:

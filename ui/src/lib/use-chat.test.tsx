@@ -2,7 +2,7 @@
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-const api = vi.hoisted(() => ({ sendChatTurn: vi.fn(), fetchChatStatus: vi.fn(), fetchChatSession: vi.fn(), startChatSession: vi.fn() }))
+const api = vi.hoisted(() => ({ sendChatTurn: vi.fn(), cancelChatTurn: vi.fn(), fetchChatStatus: vi.fn(), fetchChatSession: vi.fn(), startChatSession: vi.fn() }))
 vi.mock("@/lib/chat-api", () => api)
 
 import { useChat } from "./use-chat"
@@ -46,8 +46,8 @@ describe("useChat", () => {
     const { result } = renderHook(() => useChat("samantha"))
     await say(result, "first")
     await say(result, "second")
-    expect(api.sendChatTurn.mock.calls[0]).toEqual(["first", "samantha", undefined])
-    expect(api.sendChatTurn.mock.calls[1]).toEqual(["second", "samantha", "s9"])
+    expect(api.sendChatTurn.mock.calls[0]).toEqual(["first", "samantha", undefined, expect.any(AbortSignal)])
+    expect(api.sendChatTurn.mock.calls[1]).toEqual(["second", "samantha", "s9", expect.any(AbortSignal)])
   })
 
   it("shows a refusal as a system error line, not as a persona reply", async () => {
@@ -129,7 +129,7 @@ describe("useChat", () => {
       await first
     })
     expect(api.sendChatTurn).toHaveBeenCalledTimes(2)
-    expect(api.sendChatTurn.mock.calls[1]).toEqual(["second\n\nthird", "samantha", "s1"])
+    expect(api.sendChatTurn.mock.calls[1]).toEqual(["second\n\nthird", "samantha", "s1", expect.any(AbortSignal)])
     expect(result.current.turns.map((t) => t.body)).toEqual(["first", "second", "third", "to the first", "both answered"])
     expect(result.current.sending).toBe(false)
   })
@@ -150,7 +150,7 @@ describe("useChat", () => {
       release({ ok: false, error: "model down" })
       await first
     })
-    expect(api.sendChatTurn.mock.calls[1]).toEqual(["second", "samantha", undefined])
+    expect(api.sendChatTurn.mock.calls[1]).toEqual(["second", "samantha", undefined, expect.any(AbortSignal)])
     expect(result.current.sending).toBe(false)
   })
 
@@ -233,7 +233,7 @@ describe("useChat resuming", () => {
     const { result } = renderHook(() => useChat("samantha"))
     await waitFor(() => expect(result.current.turns).toHaveLength(2))
     await say(result, "and then?")
-    expect(api.sendChatTurn.mock.calls[0]).toEqual(["and then?", "samantha", "s7"])
+    expect(api.sendChatTurn.mock.calls[0]).toEqual(["and then?", "samantha", "s7", expect.any(AbortSignal)])
   })
 
   it("asks for a persona's conversation once, however often it is shown", async () => {
@@ -290,7 +290,7 @@ describe("useChat resuming", () => {
     expect(result.current.turns).toEqual([])
     expect(result.current.hasMore).toBe(false)
     await say(result, "hello again")
-    expect(api.sendChatTurn.mock.calls[0]).toEqual(["hello again", "samantha", "s-blank"])
+    expect(api.sendChatTurn.mock.calls[0]).toEqual(["hello again", "samantha", "s-blank", expect.any(AbortSignal)])
     expect(api.fetchChatSession).toHaveBeenCalledTimes(1)
   })
 
@@ -305,7 +305,7 @@ describe("useChat resuming", () => {
     })
     expect(result.current.turns).toEqual([])
     await say(result, "hello again")
-    expect(api.sendChatTurn.mock.calls[0]).toEqual(["hello again", "samantha", undefined])
+    expect(api.sendChatTurn.mock.calls[0]).toEqual(["hello again", "samantha", undefined, expect.any(AbortSignal)])
   })
 
   it("keeps the conversation the user has started when the backend's blank one arrives late", async () => {
@@ -323,7 +323,7 @@ describe("useChat resuming", () => {
       await starting
     })
     await say(result, "second")
-    expect(api.sendChatTurn.mock.calls[1]).toEqual(["second", "samantha", "s-real"])
+    expect(api.sendChatTurn.mock.calls[1]).toEqual(["second", "samantha", "s-real", expect.any(AbortSignal)])
   })
 
   it("resumes a conversation that was left blank as blank, and continues it", async () => {
@@ -333,7 +333,7 @@ describe("useChat resuming", () => {
     await waitFor(() => expect(api.fetchChatSession).toHaveBeenCalled())
     expect(result.current.turns).toEqual([])
     await say(result, "hello")
-    expect(api.sendChatTurn.mock.calls[0]).toEqual(["hello", "samantha", "s-blank"])
+    expect(api.sendChatTurn.mock.calls[0]).toEqual(["hello", "samantha", "s-blank", expect.any(AbortSignal)])
   })
 
   it("does not start over while a reply is in flight", async () => {
@@ -396,5 +396,115 @@ describe("useChat resuming", () => {
     expect(result.current.turns[0].sent).toBeUndefined()
     await say(result, "again")
     expect(result.current.turns[result.current.turns.length - 1].sent).toEqual(sent)
+  })
+})
+
+describe("useChat: stopping a reply in flight (ADR 054)", () => {
+  /** A reply that never lands on its own: it settles when the test says so, or as cancelled when aborted. */
+  function pendingReply() {
+    const handle: { land: (r: unknown) => void } = { land: () => {} }
+    api.sendChatTurn.mockImplementationOnce(
+      (_m: string, _p: string, _s: string | undefined, signal: AbortSignal) =>
+        new Promise((resolve) => {
+          handle.land = resolve
+          signal.addEventListener("abort", () => resolve({ ok: false, cancelled: true }))
+        })
+    )
+    return handle
+  }
+  const start = (result: Parameters<typeof say>[0], text: string) => {
+    act(() => result.current.setDraft(text))
+    let sending!: Promise<void>
+    act(() => {
+      sending = result.current.send()
+    })
+    return sending
+  }
+
+  it("throws the reply away: the message leaves the transcript and returns to the box, with a line saying so", async () => {
+    pendingReply()
+    api.cancelChatTurn.mockResolvedValue(true)
+    const { result } = renderHook(() => useChat("samantha"))
+    const sending = start(result, "hi there")
+    await act(async () => {
+      await result.current.stop()
+      await sending
+    })
+    expect(api.cancelChatTurn).toHaveBeenCalledWith("samantha")
+    expect(result.current.turns.map((t) => [t.role, t.body])).toEqual([["system", "Stopped. @samantha did not reply."]])
+    expect(result.current.draft).toBe("hi there")
+    expect(result.current.sending).toBe(false)
+    expect(result.current.sessionId).toBeUndefined()
+  })
+
+  it("puts the stopped message in front of whatever has been typed since", async () => {
+    pendingReply()
+    api.cancelChatTurn.mockResolvedValue(true)
+    const { result } = renderHook(() => useChat("samantha"))
+    const sending = start(result, "first thought")
+    act(() => result.current.setDraft("and another"))
+    await act(async () => {
+      await result.current.stop()
+      await sending
+    })
+    expect(result.current.draft).toBe("first thought\n\nand another")
+  })
+
+  it("does not abort or throw anything away when the backend says nothing was left to stop: the reply arrives", async () => {
+    const reply = pendingReply()
+    api.cancelChatTurn.mockResolvedValue(false)
+    const { result } = renderHook(() => useChat("samantha"))
+    const sending = start(result, "hi")
+    await act(async () => {
+      await result.current.stop()
+      reply.land(ok("Hello!"))
+      await sending
+    })
+    expect(result.current.turns.map((t) => [t.role, t.body])).toEqual([["user", "hi"], ["persona", "Hello!"]])
+    expect(result.current.draft).toBe("")
+  })
+
+  it("treats a reply the backend itself answers as stopped the same way", async () => {
+    const reply = pendingReply()
+    const { result } = renderHook(() => useChat("samantha"))
+    const sending = start(result, "hi")
+    await act(async () => {
+      reply.land({ ok: false, cancelled: true })
+      await sending
+    })
+    expect(result.current.turns.map((t) => t.role)).toEqual(["system"])
+    expect(result.current.draft).toBe("hi")
+  })
+
+  it("still sends what waited while the reply was running, as its own turn, and keeps those messages", async () => {
+    pendingReply()
+    api.sendChatTurn.mockResolvedValueOnce(ok("About the second.", "s2"))
+    api.cancelChatTurn.mockResolvedValue(true)
+    const { result } = renderHook(() => useChat("samantha"))
+    const sending = start(result, "first")
+    act(() => result.current.setDraft("second"))
+    await act(async () => {
+      await result.current.send() // sent while the first reply is running: it waits
+    })
+    await act(async () => {
+      await result.current.stop()
+      await sending
+    })
+    expect(api.sendChatTurn.mock.calls[1].slice(0, 2)).toEqual(["second", "samantha"])
+    expect(result.current.turns.map((t) => [t.role, t.body])).toEqual([
+      ["user", "second"],
+      ["system", "Stopped. @samantha did not reply."],
+      ["persona", "About the second."],
+    ])
+    expect(result.current.draft).toBe("first")
+  })
+
+  it("does nothing when no reply is running, even after one has finished", async () => {
+    const { result } = renderHook(() => useChat("samantha"))
+    await act(async () => result.current.stop())
+    api.sendChatTurn.mockResolvedValue(ok("Hello!"))
+    await say(result, "hi")
+    await act(async () => result.current.stop())
+    expect(api.cancelChatTurn).not.toHaveBeenCalled()
   })
 })

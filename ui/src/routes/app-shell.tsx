@@ -586,6 +586,7 @@ export function AppShell() {
               draft={chat.draft}
               onDraftChange={chat.setDraft}
               onSubmit={chat.send}
+              onStop={chat.stop}
               model={activePersonaModel}
               modelSlot={models.state ? <ModelPicker state={models.state} onChoose={switchModel} noticeClosed={!cloudNotice.open} onShowNotice={cloudNotice.reopen} /> : undefined}
               personaName={activePersonaName}

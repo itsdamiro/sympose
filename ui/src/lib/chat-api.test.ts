@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { fetchChatStatus, fetchChatSession, fetchContextEstimate, sendChatTurn, startChatSession } from "./chat-api"
+import { cancelChatTurn, fetchChatStatus, fetchChatSession, fetchContextEstimate, sendChatTurn, startChatSession } from "./chat-api"
 
 const reply = { reply: "Hi", session_id: "s1", model: "ollama_chat/gemma2:9b", ttft_ms: 400, truncated: false, saved: true, cloud: [], withheld: [] }
 
@@ -46,6 +46,46 @@ describe("sendChatTurn", () => {
   it("keeps a plain status for an error that is not a gateway one", async () => {
     stub({ ok: false, status: 500, json: () => Promise.reject(new Error("not json")) })
     expect(await sendChatTurn("hello", "samantha")).toEqual({ ok: false, error: "HTTP 500" })
+  })
+
+  it("reads a reply the backend says was stopped as cancelled, not as a reply", async () => {
+    stub({ ok: true, status: 200, json: () => Promise.resolve({ cancelled: true }) })
+    expect(await sendChatTurn("hello", "samantha")).toEqual({ ok: false, cancelled: true })
+  })
+
+  it("passes the abort signal on, and reads an aborted wait as cancelled rather than as an unreachable backend", async () => {
+    const abort = new AbortController()
+    const fetchMock = vi.fn().mockImplementation((_url: string, init: RequestInit) => {
+      abort.abort()
+      return Promise.reject(Object.assign(new Error("aborted"), { name: "AbortError", signal: init.signal }))
+    })
+    vi.stubGlobal("fetch", fetchMock)
+    expect(await sendChatTurn("hello", "samantha", "s0", abort.signal)).toEqual({ ok: false, cancelled: true })
+    expect((fetchMock.mock.calls[0][1] as RequestInit).signal).toBe(abort.signal)
+  })
+
+  it("is not cancelled when the backend fails for another reason and nothing was aborted", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")))
+    const res = await sendChatTurn("hello", "samantha", undefined, new AbortController().signal)
+    expect(!res.ok && "cancelled" in res && res.cancelled).toBeFalsy()
+  })
+})
+
+describe("cancelChatTurn", () => {
+  it("asks the backend to stop that persona's reply and says whether it was accepted", async () => {
+    const fetchMock = stub({ ok: true, status: 200, json: () => Promise.resolve({ stopping: true }) })
+    expect(await cancelChatTurn("samantha")).toBe(true)
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect([url, init.method, JSON.parse(init.body as string)]).toEqual(["/api/chat/cancel", "POST", { persona: "samantha" }])
+  })
+
+  it("is false when there was nothing to stop, when the backend refuses, and when it cannot be reached", async () => {
+    stub({ ok: true, status: 200, json: () => Promise.resolve({ stopping: false }) })
+    expect(await cancelChatTurn("samantha")).toBe(false)
+    stub({ ok: false, status: 404, json: () => Promise.resolve({ stopping: true }) })
+    expect(await cancelChatTurn("samantha")).toBe(false)
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")))
+    expect(await cancelChatTurn("samantha")).toBe(false)
   })
 })
 

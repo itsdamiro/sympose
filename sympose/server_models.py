@@ -97,6 +97,12 @@ class FolderDefinition(BaseModel):
     persona: str | None = None
 
 
+class ChatCancel(BaseModel):
+    """Body of `POST /api/chat/cancel` — stop the persona's reply in flight (docs/decisions/054)."""
+
+    persona: str | None = None
+
+
 class ChatTurn(BaseModel):
     """Body of `POST /api/chat/turn` — one message to a persona. `session_id` continues a conversation;
     omitted, a new one starts and its id comes back in the reply."""

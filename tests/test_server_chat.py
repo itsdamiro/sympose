@@ -330,3 +330,43 @@ def test_a_real_estimate_from_a_saved_conversation(client, monkeypatch):
     first = client.post("/api/chat/turn", json={"message": "hello there", "persona": "samantha"}).json()
     body = client.get("/api/chat/context", params={"persona": "samantha", "session_id": first["session_id"]}).json()
     assert body["used"] and body["limit"] and 0 < body["used"] < body["limit"]
+
+
+def test_stopping_a_reply_in_flight_answers_cancelled_and_saves_nothing(client, monkeypatch):
+    """The turn is running when the stop arrives (`/api/chat/cancel`); its own request then answers
+    `{"cancelled": true}` instead of a reply, and the conversation file does not exist (docs/decisions/054)."""
+    from sympose.engine import turn_cancel
+
+    running = threading.Event()
+
+    def call_model(messages, model=None, **_):
+        running.set()
+        for _ in range(200):  # the model's chunks, each a chance for the stop to be heard
+            time.sleep(0.01)
+            turn_cancel.check()
+        return ModelReply("too late", 1)
+
+    monkeypatch.setattr(turn.model_mod, "call_model", call_model)
+    answers: list = []
+    t = threading.Thread(
+        target=lambda: answers.append(
+            client.post("/api/chat/turn", json={"message": "hi", "persona": "samantha", "session_id": "stopme"})
+        )
+    )
+    t.start()
+    assert running.wait(5)
+    assert client.post("/api/chat/cancel", json={"persona": "samantha"}).json() == {"stopping": True}
+    t.join(5)
+    assert not t.is_alive()
+    assert answers[0].status_code == 200 and answers[0].json() == {"cancelled": True}
+    assert session.load_session("samantha", "stopme") is None
+
+
+def test_stopping_when_nothing_is_running_says_so_and_does_not_affect_the_next_reply(client, monkeypatch):
+    assert client.post("/api/chat/cancel", json={"persona": "samantha"}).json() == {"stopping": False}
+    model_says(monkeypatch)
+    assert client.post("/api/chat/turn", json={"message": "hi", "persona": "samantha"}).json()["reply"] == "Hello from her."
+
+
+def test_stopping_an_unknown_persona_is_404(client):
+    assert client.post("/api/chat/cancel", json={"persona": "nobody"}).status_code == 404

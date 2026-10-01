@@ -12,14 +12,15 @@ from typing import Any
 from sympose import profile as profile_mod, vault_map as vault_map_mod
 from sympose.engine import (
     budget, connections, followup, grounding, grounding_properties, lookup, memory, memory_tools, persona_tools,
-    prompt, recap, recap_refresh, reference, session, sharing, tool_support, turn_status,
+    prompt, recap, recap_refresh, reference, session, sharing, tool_support, turn_cancel, turn_status,
 )
 from sympose.engine import model as model_mod
 from sympose.engine.model import EngineModelError
+from sympose.engine.turn_cancel import TurnCancelled
 from sympose.engine.turn_record import sent_record
 from sympose.engine.turn_result import TurnResult
 
-__all__ = ["TurnResult", "run_turn", "EngineModelError", "PersonaNotFoundError"]
+__all__ = ["TurnResult", "run_turn", "EngineModelError", "PersonaNotFoundError", "TurnCancelled"]
 
 
 class PersonaNotFoundError(Exception):
@@ -72,6 +73,7 @@ def run_turn(
     # showing a phase forever for a turn that's already over. `_run` narrows this further (searching,
     # reading) around its own steps; this is just the default for everything else in between.
     turn_status.set_phase(handle, turn_status.ASKING)
+    turn_cancel.begin(handle)  # from here a stop request is heard (docs/decisions/054); cleared in `finally`
     try:
         try:
             result = _run(persona, handle, user_message, sid, existing, history, target_model, modes)
@@ -92,6 +94,7 @@ def run_turn(
         return result
     finally:
         turn_status.set_phase(handle, None)
+        turn_cancel.finish(handle)
 
 
 def _run(
@@ -220,6 +223,8 @@ def _run(
             max_tokens=limits.reply_cap if limits else None,
         )
         reply_ttft = reply.ttft_ms
+
+    turn_cancel.commit()  # a stop after this is refused; before it, nothing below (marker, record, session) happens
 
     # A model that can't call tools gets `remember` through a marker instead (docs/decisions/041),
     # stripped before the reply is shown; each one found is recorded like a tool call above.

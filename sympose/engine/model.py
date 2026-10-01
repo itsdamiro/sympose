@@ -13,7 +13,7 @@ import httpx
 import litellm
 
 from sympose import settings_store
-from sympose.engine import model_tools, reply_text
+from sympose.engine import model_tools, reply_text, turn_cancel
 from sympose.engine.model_tools import ToolCall
 
 log = logging.getLogger(__name__)
@@ -113,14 +113,17 @@ def call_model(
     finished = False
     truncated = False
     started = time.perf_counter()
+    stream = None
     try:
-        for chunk in litellm.completion(
+        stream = litellm.completion(
             model=target_model,
             messages=messages,
             stream=True,
             timeout=httpx.Timeout(_REQUEST_TIMEOUT_SECONDS, connect=_CONNECT_TIMEOUT_SECONDS),
             **{name: value for name, value in limits.items() if value is not None},
-        ):
+        )
+        for chunk in stream:
+            turn_cancel.check()  # a stop (docs/decisions/054) ends the loop and, below, closes the stream
             text, finish_reason = _read(chunk)
             model_tools.collect(chunk, slots)
             if text:
@@ -130,11 +133,20 @@ def call_model(
             if finish_reason:
                 finished = True
                 truncated = finish_reason == "length"
+    except turn_cancel.TurnCancelled:
+        raise
     except Exception as e:
         log.warning("Model call to %s failed: %s", target_model, e)
         raise EngineModelError(
             f"Couldn't reach model '{target_model}': {e}"
         ) from e
+    finally:
+        close = getattr(stream, "close", None)  # stops the provider generating for a reply nobody will read
+        if callable(close):
+            try:
+                close()
+            except Exception as e:  # a failed close must not replace the real outcome
+                log.debug("Closing the model stream failed: %s", e)
     content = reply_text.tidy("".join(parts))
     calls = model_tools.finish(slots)
     if calls and finished:

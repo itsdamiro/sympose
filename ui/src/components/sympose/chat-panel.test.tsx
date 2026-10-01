@@ -33,6 +33,20 @@ describe("ChatPanel", () => {
     expect(onSubmit).toHaveBeenCalledTimes(1)
   })
 
+  it("shows a Stop button only while a reply is in flight, and it stops that reply", () => {
+    const onStop = vi.fn()
+    const view = render(<ChatPanel turns={[]} draft="" onDraftChange={() => {}} onSubmit={() => {}} onStop={onStop} />)
+    expect(screen.queryByLabelText("Stop the reply")).toBeNull()
+    view.rerender(<ChatPanel turns={[]} draft="" onDraftChange={() => {}} onSubmit={() => {}} onStop={onStop} sending />)
+    fireEvent.click(screen.getByLabelText("Stop the reply"))
+    expect(onStop).toHaveBeenCalledTimes(1)
+  })
+
+  it("has no Stop button when nothing can stop the reply", () => {
+    setup({ sending: true })
+    expect(screen.queryByLabelText("Stop the reply")).toBeNull()
+  })
+
   it("says what the reply in flight is doing, in the terminal's own words", () => {
     setup({ sending: true, phase: "searching" })
     expect(screen.getByText("Searching your notes…")).toBeTruthy()

@@ -32,7 +32,7 @@ from sympose import server_search_handlers as sh
 from sympose import server_trash_handlers as th
 from sympose import server_vault_handlers as vh
 from sympose import vault_paths
-from sympose.server_models import ChatSessionStart, ChatTurn, DefinitionsSwitch, FolderDefinition, HiddenPath, ModelChoice, SettingChange, SharingChange, TrashEmpty, TrashRestore, VaultActivate
+from sympose.server_models import ChatCancel, ChatSessionStart, ChatTurn, DefinitionsSwitch, FolderDefinition, HiddenPath, ModelChoice, SettingChange, SharingChange, TrashEmpty, TrashRestore, VaultActivate
 
 
 def create_app() -> FastAPI:
@@ -70,6 +70,10 @@ def create_app() -> FastAPI:
     @app.post("/api/chat/turn")
     def chat_turn(body: ChatTurn) -> dict[str, Any]:
         return ch.send_turn(body)
+
+    @app.post("/api/chat/cancel")
+    def chat_cancel(body: ChatCancel) -> dict[str, Any]:
+        return ch.cancel_turn(body)
 
     @app.get("/api/chat/status")
     def chat_status(persona: str | None = Query(None)) -> dict[str, Any]:

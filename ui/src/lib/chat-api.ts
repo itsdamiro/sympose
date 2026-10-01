@@ -27,33 +27,60 @@ const BACKEND_DOWN = "the Sympose backend is not reachable. Is it running (`symp
 
 export type SendChatTurnResult =
   | { ok: true; reply: ChatReply }
-  | { ok: false; error: string }
+  | { ok: false; error: string; cancelled?: false }
+  /** The reply was stopped (ADR 054): nothing was saved. */
+  | { ok: false; cancelled: true; error?: undefined }
 
 /**
  * Client for `POST /api/chat/turn` — one message to a persona, answered whole. `sessionId` continues a
  * conversation; omitted, a new one starts and its id comes back. Returns a discriminated result rather than
  * throwing so the chat can show the reason as a system line (a model that is not running, a cloud model the
- * web chat does not use yet).
+ * web chat does not use yet). A reply that was stopped (`cancelChatTurn`, or `signal` aborted once the stop
+ * was accepted) comes back as `{ ok: false, cancelled: true }`.
  */
 export async function sendChatTurn(
   message: string,
   persona: string,
-  sessionId?: string
+  sessionId?: string,
+  signal?: AbortSignal
 ): Promise<SendChatTurnResult> {
   try {
     const res = await fetch("/api/chat/turn", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message, persona, session_id: sessionId }),
+      signal,
     })
-    if (res.ok) return { ok: true, reply: (await res.json()) as ChatReply }
+    if (res.ok) {
+      const body = (await res.json()) as ChatReply & { cancelled?: boolean }
+      return body.cancelled ? { ok: false, cancelled: true } : { ok: true, reply: body }
+    }
     const detail = await detailOf(res)
     if (detail) return { ok: false, error: detail }
     // A gateway error with no reason of ours in it is the dev server's proxy saying nothing is behind it.
     if ([502, 503, 504].includes(res.status)) return { ok: false, error: BACKEND_DOWN }
     return { ok: false, error: `HTTP ${res.status}` }
   } catch (err) {
+    if (signal?.aborted) return { ok: false, cancelled: true }
     return { ok: false, error: `${BACKEND_DOWN} (${err})` }
+  }
+}
+
+/**
+ * Client for `POST /api/chat/cancel` (ADR 054): ask the engine to stop the persona's reply in flight. `true`
+ * means the stop was accepted and nothing of that turn will be saved; `false` means there was nothing to stop
+ * (no reply running, or it is already complete and will arrive), or the backend could not be reached.
+ */
+export async function cancelChatTurn(persona: string): Promise<boolean> {
+  try {
+    const res = await fetch("/api/chat/cancel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ persona }),
+    })
+    return res.ok && ((await res.json()) as { stopping?: boolean }).stopping === true
+  } catch {
+    return false
   }
 }
 

@@ -1,6 +1,6 @@
 import * as React from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { PlusSignIcon } from "@hugeicons/core-free-icons"
+import { PlusSignIcon, StopIcon } from "@hugeicons/core-free-icons"
 
 import { cn } from "@/lib/utils"
 import type { ChatPhase } from "@/lib/chat-api"
@@ -45,6 +45,8 @@ interface ChatPanelProps extends React.ComponentProps<"div"> {
   draft: string
   onDraftChange: (value: string) => void
   onSubmit: () => void
+  /** Stop the reply in flight (ADR 054); the Stop button shows only while `sending`, and only when this is given. */
+  onStop?: () => void
   /** Model label shown in the composer footer chip. */
   model?: string
   /** Replaces the chip with the model picker, once the backend has said which models there are. */
@@ -94,6 +96,7 @@ function ChatPanel({
   draft,
   onDraftChange,
   onSubmit,
+  onStop,
   model,
   modelSlot,
   personaName = "Samantha",
@@ -102,6 +105,7 @@ function ChatPanel({
   style,
   ...props
 }: ChatPanelProps) {
+  const showStop = sending && !!onStop
   const submit = () => {
     if (!draft.trim()) return
     onSubmit()
@@ -286,7 +290,7 @@ function ChatPanel({
       <div className="shrink-0">
         <div className="mx-auto w-full max-w-[42rem] px-6 pb-6 sm:px-8">
           {notice}
-          <div className="rounded-lg border border-border bg-background transition-colors focus-within:border-brand">
+          <div className="relative rounded-lg border border-border bg-background transition-colors focus-within:border-brand">
             <textarea
               ref={inputRef}
               rows={1}
@@ -304,8 +308,22 @@ function ChatPanel({
               }}
               placeholder={`Ask ${personaName}.`}
               aria-label="Message"
-              className="block w-full resize-none bg-transparent px-3.5 py-3 text-sm outline-none placeholder:text-muted-foreground"
+              className={cn(
+                "block w-full resize-none bg-transparent px-3.5 py-3 text-sm outline-none placeholder:text-muted-foreground",
+                showStop && "pr-12"
+              )}
             />
+            {showStop && (
+              <button
+                type="button"
+                onClick={onStop}
+                title="Stop the reply"
+                aria-label="Stop the reply"
+                className="absolute right-2 bottom-2 grid size-7 place-items-center rounded-full bg-foreground text-background transition-opacity hover:opacity-80"
+              >
+                <HugeiconsIcon icon={StopIcon} className="size-3.5" />
+              </button>
+            )}
           </div>
           <div className="mt-2 flex items-center justify-between px-1">
             <button

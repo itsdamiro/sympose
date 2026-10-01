@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from sympose import settings_store
-from sympose.engine import budget, lookup_tools, model as model_mod, model_tools, turn_status
+from sympose.engine import budget, lookup_tools, model as model_mod, model_tools, turn_cancel, turn_status
 
 log = logging.getLogger(__name__)
 
@@ -160,6 +160,7 @@ def converse(
         work.append(asked)
         added += _tokens(json.dumps(asked["tool_calls"]) + (reply.text or ""), model)  # replayed with every later call
         for tool_call in reply.tool_calls:
+            turn_cancel.check()  # a stop (docs/decisions/054) lands between tool calls too
             turn_status.set_phase(handle, _TOOL_PHASE.get(tool_call.name, turn_status.ASKING))
             result = run_tool(persona, model, tool_call.name, tool_call.arguments)
             room = (_UNKNOWN_WINDOW_TOKENS if limits is None else limits.prompt_tokens - used_tokens) - added
