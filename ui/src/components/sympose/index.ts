@@ -62,3 +62,7 @@ export {
   type FlatVaultMatch,
 } from "./vault-tree"
 export { SearchResultRow, searchMatchDetail } from "./search-result-row"
+export { ContentToolbar } from "./content-toolbar"
+export { SettingsView } from "./settings-view"
+export { VaultFolderView } from "./vault-folder-view"
+export { ContentSlot } from "./content-slot"

@@ -16,14 +16,27 @@ Every concern becomes its own module, and `AppShell` is left to compose them and
 - **Not a file per function.** The unit is a concern: the history stack, its `goBack` and `goForward` and the slide direction live together, because splitting them would only spread one idea across files.
 - **Order of declaration is kept** where it can matter (effects run in the order hooks are declared), and the one state that many concerns write, the refresh counter that makes the tree, graph and search re-fetch, becomes one small hook (`useVaultRefresh`) with a stable `refresh`, instead of `setVaultRefreshKey((k) => k + 1)` repeated in a dozen places.
 - **About 250 lines per file as a guide** (the Python cap is 200; a few lines over is fine where cutting would not be practical).
-- **The slices**, each its own change with every gate green: the search result row; link and open-note handling (`use-link-sources`, `use-note-opening`); the nebula stage; the section history and the shell navigation (phone menu, `selectSection`); the menu's collapse state; the tree and the hidden list; the vault list and switching, and the open note; search; creating notes and folders; the tree's actions and the folder view's derived lists; the persona roster and the chat bundle; the content toolbar and the content body as components; last, the shell itself.
+- **The slices** (all built; the list is what was done), each its own change with every gate green: the search result row; link and open-note handling (`use-link-sources`, `use-note-opening`); the nebula stage; the section history and the shell navigation (phone menu, `selectSection`); the menu's collapse state; the tree and the hidden list; the vault list and switching, and the open note; search; creating notes and folders; the tree's actions and the folder view's derived lists; the persona roster and the chat bundle; the content toolbar and the content body as components; last, the shell itself.
 - **How each slice is checked.** A click-through in headless Chrome on a scratch vault, run before the first slice and after every one, compared snapshot by snapshot (headings, visible buttons with their pressed and disabled state, the panels' positions, the `sympose:shell`, `vault` and `pref` cookies, notices), on a desktop and a phone viewport; the click-through is deterministic, so any difference is a change. A hook that holds real logic (the history stack, the search derivation, the open-note rules, the pinned and recent lists) also gets its own test, mutation-checked. jsdom alone is not trusted for layout and animation.
+
+## What was built
+
+`app-shell.tsx` went from 1860 to about 600 lines. Hooks (all in `ui/src/lib/`): `use-link-sources`, `use-note-opening`, `use-nebula-stage`, `use-section-history`, `use-vault-refresh`, `use-vault-tree`, `use-menu-collapse`, `use-menu-items` (with `shell-sections`), `use-shell-navigation`, `use-selected-note`, `use-vaults` (the list and the switching), `use-vault-search`, `use-create-flow` (the field and the submit, two hooks because navigation closes the field and the submit needs the folder navigation decides), `use-folder-view`, `use-note-changes`, `use-persona-roster`, `use-chat-session`. Components (in `ui/src/components/sympose/`): `search-result-row`, `content-toolbar`, `settings-view`, `vault-folder-view`, `content-slot`. Every file is under 250 lines.
+
+What the shell still holds is the composition: about 25 hooks called in the order their results are needed, and the layout of the panels. It is longer than the 300 lines first hoped for because that wiring is real; the remaining candidates are listed under Consequences, none of them needed to make a concern independent.
+
+## Checked how
+
+A before-and-after click-through in headless Chrome on a scratch vault: 41 snapshots on a desktop and a phone, a second flow switching between two vaults, and a third that pins, renames (with the note open) and deletes from the tree's rows, each compared with the original build; the first two after every slice, the third at the end. All identical (notices aside, whose timing varies). 636 UI tests (387 before), each hook's tests mutation-checked: the survivors were equivalent (an `alive` guard on an unmounted setState, a redundant reset, a key that is the same for a root entry) or were given a test.
 
 ## Consequences
 
-- `app-shell.tsx` ends near 300 lines; the pieces can be read, tested and changed on their own.
+- `app-shell.tsx` ends near 600 lines, down from 1860; the pieces can be read, tested and changed on their own.
 - The shell has no tests of its own today; the extracted hooks gain them. The click-through lives outside the repo (as the other browser recipes do), so a later change to the shell is checked by the hooks' tests and a manual click-through, not by CI.
 - Reading the code, one more file to open per concern; in exchange none of them is longer than a screen or two.
+- Two findings the split made visible, both present before it and both only pinned, not changed: the menu's collapse state does not keep a menu the user collapsed on desktop across a trip through a smaller window, against what its comment says (#123); renaming the open note shows a stray "not found" notice (#122). The history stack's `navigatingHistory` flag has no effect today (React applies the cursor and the section in one batch, so the entry is never pushed twice); it was kept.
+- One behaviour changed, on purpose and for the better: the highlight of the folder heading while a note is dragged over it now lives in the folder view, so leaving the section mid-drag no longer leaves it highlighted when you come back.
+- Candidates not done: grouping the cookie-backed preferences the shell reads (#119 covers the hooks themselves), and the layout block, which would only move the same props into another file.
 
 ## Alternatives rejected
 
