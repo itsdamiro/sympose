@@ -2,6 +2,9 @@
 import { act, renderHook } from "@testing-library/react"
 import { beforeEach, describe, expect, it } from "vitest"
 
+import { readList } from "./cookie-list"
+import { getCookie, vaultScopedKey } from "./cookies"
+
 import { useRecentNotes } from "./use-recent-notes"
 
 function clearCookies() {
@@ -155,5 +158,40 @@ describe("useRecentNotes", () => {
     // the pre-vault write lived on the bare, unscoped key — a real vault's
     // scoped key starts fresh, it does not inherit it.
     expect(result.current.recentPaths).toEqual([])
+  })
+
+  it("keeps a name with a comma as one entry across a reload", () => {
+    const first = renderHook(() => useRecentNotes("/vault-a"))
+    act(() => first.result.current.recordVisit("Notes, 2026.md"))
+    first.unmount()
+
+    const second = renderHook(() => useRecentNotes("/vault-a"))
+    expect(second.result.current.recentPaths).toEqual(["Notes, 2026.md"])
+  })
+
+  it("reads a history cookie written in the older comma form", () => {
+    document.cookie = `${vaultScopedKey("sympose:vault.recents", "/vault-a")}=${encodeURIComponent("a.md,b.md")}; path=/`
+    const { result } = renderHook(() => useRecentNotes("/vault-a"))
+    expect(result.current.recentPaths).toEqual(["a.md", "b.md"])
+  })
+
+  it("follows a renamed or moved note, in the same place", () => {
+    const { result } = renderHook(() => useRecentNotes("/vault-a"))
+    act(() => result.current.recordVisit("a.md"))
+    act(() => result.current.recordVisit("b.md"))
+
+    act(() => result.current.remapRecent("a.md", "Daily/a.md"))
+    expect(result.current.recentPaths).toEqual(["b.md", "Daily/a.md"])
+  })
+
+  it("keeps the saved cookie storable with very long paths, dropping the oldest visits", () => {
+    const { result } = renderHook(() => useRecentNotes("/vault-a"))
+    const long = (i: number) => `${"deep-folder/".repeat(30)}note-${i}.md`
+    for (let i = 0; i < 20; i++) act(() => result.current.recordVisit(long(i)))
+    const saved = readList(
+      getCookie(vaultScopedKey("sympose:vault.recents", "/vault-a"))
+    )
+    expect(saved.length).toBeLessThan(20)
+    expect(saved[0]).toBe(long(19))
   })
 })

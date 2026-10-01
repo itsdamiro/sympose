@@ -1,15 +1,16 @@
 import * as React from "react"
 
+import { readList, remapPath, writeList } from "@/lib/cookie-list"
 import { useVaultScopedState } from "@/lib/use-vault-scoped-state"
 
 const COOKIE = "sympose:vault.pinned"
 
 function readPinned(raw: string | null): Set<string> {
-  return new Set(raw ? raw.split(",").filter(Boolean) : [])
+  return new Set(readList(raw))
 }
 
 function serializePinned(pinned: Set<string>): string {
-  return [...pinned].join(",")
+  return writeList([...pinned])
 }
 
 /**
@@ -27,6 +28,8 @@ export function usePinnedNotes(vaultPath: string | null): {
   isPinned: (path: string) => boolean
   togglePin: (path: string) => void
   unpinMany: (paths: string[]) => void
+  /** A renamed or moved note keeps its pin, in the same place. */
+  remapPin: (oldPath: string, newPath: string) => void
   /** Every currently pinned path, insertion order — resolved by the caller
    *  against the full vault tree for the vault-wide "Pinned" group. */
   pinnedPaths: string[]
@@ -63,8 +66,19 @@ export function usePinnedNotes(vaultPath: string | null): {
     [setPinned]
   )
 
+  const remapPin = React.useCallback(
+    (oldPath: string, newPath: string) => {
+      setPinned((prev) =>
+        prev.has(oldPath)
+          ? new Set(remapPath([...prev], oldPath, newPath))
+          : prev
+      )
+    },
+    [setPinned]
+  )
+
   const isPinned = React.useCallback((path: string) => pinned.has(path), [pinned])
   const pinnedPaths = React.useMemo(() => [...pinned], [pinned])
 
-  return { isPinned, togglePin, unpinMany, pinnedPaths }
+  return { isPinned, togglePin, unpinMany, remapPin, pinnedPaths }
 }

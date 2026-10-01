@@ -1,5 +1,6 @@
 import * as React from "react"
 
+import { readList, remapPath, writeList } from "@/lib/cookie-list"
 import { getCookie, setCookie } from "@/lib/cookies"
 import { useVaultScopedState } from "@/lib/use-vault-scoped-state"
 
@@ -14,11 +15,11 @@ const MAX_STORED = 20
 const DEFAULT_SHOWN = 5
 
 function readHistory(raw: string | null): string[] {
-  return raw ? raw.split(",").filter(Boolean) : []
+  return readList(raw)
 }
 
 function serializeHistory(history: string[]): string {
-  return history.join(",")
+  return writeList(history, true)
 }
 
 function readShownCount(): number {
@@ -62,6 +63,8 @@ export function useRecentNotes(vaultPath: string | null): {
   /** Drop one path out of the history — the "Recent" group's own per-row
    *  "Remove from recents" menu item. */
   removeFromRecents: (path: string) => void
+  /** A renamed or moved note keeps its place in the history. */
+  remapRecent: (oldPath: string, newPath: string) => void
   /** Empty the whole history — the "Recent" group caption's "Clear recents". */
   clearRecents: () => void
 } {
@@ -87,6 +90,13 @@ export function useRecentNotes(vaultPath: string | null): {
   const removeFromRecents = React.useCallback(
     (path: string) => {
       setHistory((prev) => prev.filter((p) => p !== path))
+    },
+    [setHistory]
+  )
+
+  const remapRecent = React.useCallback(
+    (oldPath: string, newPath: string) => {
+      setHistory((prev) => remapPath(prev, oldPath, newPath))
     },
     [setHistory]
   )
@@ -118,6 +128,7 @@ export function useRecentNotes(vaultPath: string | null): {
     setEnabled,
     recordVisit,
     removeFromRecents,
+    remapRecent,
     clearRecents,
   }
 }

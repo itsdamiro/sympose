@@ -435,7 +435,7 @@ export function AppShell() {
   }, [])
   const [brandMarkLabel, setBrandMarkLabel] = useBrandMarkLabel()
 
-  const { isPinned, togglePin, unpinMany, pinnedPaths } = usePinnedNotes(
+  const { isPinned, togglePin, unpinMany, remapPin, pinnedPaths } = usePinnedNotes(
     vaultsState.active
   )
   const {
@@ -446,6 +446,7 @@ export function AppShell() {
     setEnabled: setRecentsEnabled,
     recordVisit,
     removeFromRecents,
+    remapRecent,
     clearRecents,
   } = useRecentNotes(vaultsState.active)
   const [notifyPrefs, setNotifyPref] = useNotificationPreferences()
@@ -593,6 +594,16 @@ export function AppShell() {
       recordVisit(path)
     },
     [recordVisit, setSelectedNote]
+  )
+  // A renamed or moved note keeps its pin, its place in the recents and, when
+  // open, the editor (docs/decisions/051).
+  const noteRenamed = React.useCallback(
+    (oldPath: string, newPath: string) => {
+      remapPin(oldPath, newPath)
+      remapRecent(oldPath, newPath)
+      if (selectedNote === oldPath) setSelectedNote(newPath)
+    },
+    [remapPin, remapRecent, selectedNote, setSelectedNote]
   )
   // Nebula node ids are the note's full vault-relative path, matching
   // `selectedNote` exactly — `vault_manifest_build._node()` deliberately
@@ -1102,7 +1113,7 @@ export function AppShell() {
     }
     if (res.path === path) return
     setVaultRefreshKey((k) => k + 1)
-    if (selectedNote === path) setSelectedNote(res.path)
+    noteRenamed(path, res.path)
     notify.success(res.detail)
   }
 
@@ -1121,7 +1132,7 @@ export function AppShell() {
     persona: activePersona,
     onRenamed: (oldPath: string, newPath: string) => {
       setVaultRefreshKey((k) => k + 1)
-      if (selectedNote === oldPath) setSelectedNote(newPath)
+      noteRenamed(oldPath, newPath)
     },
     onDeleted: (path: string) => {
       setVaultRefreshKey((k) => k + 1)
@@ -1507,8 +1518,9 @@ export function AppShell() {
                 // Remounts between browsing and searching so a search's
                 // matching folders start expanded (`defaultExpanded`, a
                 // one-time seed) without disturbing the persisted
-                // expanded-folders cookie used the rest of the time.
-                key={vaultSearchQuery ? "search" : "browse"}
+                // expanded-folders cookie used the rest of the time. Also
+                // remounts on a vault switch, which has its own cookie.
+                key={`${vaultsState.active}:${vaultSearchQuery ? "search" : "browse"}`}
                 nodes={searchedPanelNodes}
                 pinnedNodes={pinnedNodes}
                 pinnedShowPath={pinnedShowPath}
@@ -1519,7 +1531,12 @@ export function AppShell() {
                     : []
                 }
                 storageKey={
-                  vaultSearchQuery ? undefined : "sympose:vault.expanded"
+                  vaultSearchQuery
+                    ? undefined
+                    : vaultScopedKey(
+                        "sympose:vault.expanded",
+                        vaultsState.active
+                      )
                 }
                 {...vaultTreeActions}
               />
@@ -1775,7 +1792,8 @@ export function AppShell() {
             embedSource={embedSource}
             previewRequest={previewRequest}
             onRenamed={(newPath) => {
-              setSelectedNote(newPath)
+              if (selectedNote) noteRenamed(selectedNote, newPath)
+              else setSelectedNote(newPath)
               setVaultRefreshKey((k) => k + 1)
             }}
             onDeleted={() => {

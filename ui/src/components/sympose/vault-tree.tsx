@@ -15,6 +15,7 @@ import {
 } from "@hugeicons/core-free-icons"
 
 import { cn, stripMdExtension } from "@/lib/utils"
+import { readList, writeList } from "@/lib/cookie-list"
 import { getCookie, setCookie } from "@/lib/cookies"
 import { startNoteDrag, isNoteDrag, readNoteDrag } from "@/lib/vault-drag"
 import { useAnimatedNodeList } from "@/lib/use-animated-node-list"
@@ -421,14 +422,13 @@ function VaultTree({
   const [expanded, setExpanded] = React.useState<Set<string>>(() => {
     const seed = new Set(defaultExpanded)
     if (storageKey) {
-      const saved = getCookie(storageKey)
-      if (saved) for (const p of saved.split(",")) if (p) seed.add(p)
+      for (const p of readList(getCookie(storageKey))) seed.add(p)
     }
     return seed
   })
 
   React.useEffect(() => {
-    if (storageKey) setCookie(storageKey, [...expanded].join(","))
+    if (storageKey) setCookie(storageKey, writeList([...expanded]))
   }, [storageKey, expanded])
 
   const toggle = React.useCallback((path: string) => {
