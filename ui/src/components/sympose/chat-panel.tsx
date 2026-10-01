@@ -42,6 +42,10 @@ interface ChatPanelProps extends React.ComponentProps<"div"> {
   notice?: React.ReactNode
   /** Starts a fresh conversation; the control shows once there is something to leave behind. */
   onNewConversation?: () => void
+  /** Condenses the earlier part of the conversation into notes (ADR 055); shown beside "New conversation"
+   *  once there is a conversation, and says it is working while the notes are written. */
+  onCompact?: () => void
+  compacting?: boolean
   draft: string
   onDraftChange: (value: string) => void
   onSubmit: () => void
@@ -88,6 +92,8 @@ function ChatPanel({
   onOpenNote,
   onWikiLinkClick,
   onNewConversation,
+  onCompact,
+  compacting = false,
   showGrounding = true,
   contextFigure = null,
   statusPhrases = [],
@@ -337,6 +343,17 @@ function ChatPanel({
             </button>
             <div className="flex items-center gap-2">
               <ContextMeter figure={contextFigure} />
+              {onCompact && turns.length > 0 && !sending && (
+                <button
+                  type="button"
+                  onClick={onCompact}
+                  disabled={compacting}
+                  title="Write short notes in place of the earlier turns, so a long conversation takes less room"
+                  className="rounded px-1.5 py-0.5 text-xs text-fg-muted transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-60"
+                >
+                  {compacting ? "Condensing…" : "Condense"}
+                </button>
+              )}
               {onNewConversation && turns.length > 0 && !sending && (
                 <button
                   type="button"

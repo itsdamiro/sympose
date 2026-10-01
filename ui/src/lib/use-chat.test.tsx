@@ -2,7 +2,7 @@
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-const api = vi.hoisted(() => ({ sendChatTurn: vi.fn(), cancelChatTurn: vi.fn(), fetchChatStatus: vi.fn(), fetchChatSession: vi.fn(), startChatSession: vi.fn() }))
+const api = vi.hoisted(() => ({ sendChatTurn: vi.fn(), cancelChatTurn: vi.fn(), compactChatSession: vi.fn(), fetchChatStatus: vi.fn(), fetchChatSession: vi.fn(), startChatSession: vi.fn() }))
 vi.mock("@/lib/chat-api", () => api)
 
 import { useChat } from "./use-chat"
@@ -506,5 +506,173 @@ describe("useChat: stopping a reply in flight (ADR 054)", () => {
     await say(result, "hi")
     await act(async () => result.current.stop())
     expect(api.cancelChatTurn).not.toHaveBeenCalled()
+  })
+})
+
+const notes = (extra: Record<string, unknown> = {}) => ({
+  ok: true,
+  result: { status: "done", covered: 11, text: "The user is building Pantry.", before: 600, after: 120, ...extra },
+})
+
+describe("useChat condensing (ADR 055)", () => {
+  const withReplies = async () => {
+    api.sendChatTurn.mockResolvedValue({ ok: true, reply: { ...ok("Hi", "s1").reply, model: "m", context_used: 3000, context_limit: 4000 } })
+    const hook = renderHook(() => useChat("samantha"))
+    await say(hook.result, "hi")
+    return hook
+  }
+
+  it("says once, on the reply that first used the notes, how many turns they stand for", async () => {
+    const { result } = renderHook(() => useChat("samantha"))
+    api.sendChatTurn.mockResolvedValue({ ok: true, reply: { ...ok("a").reply, condensed: 0 } })
+    await say(result, "one")
+    api.sendChatTurn.mockResolvedValue({ ok: true, reply: { ...ok("b").reply, condensed: 9 } })
+    await say(result, "two")
+    api.sendChatTurn.mockResolvedValue({ ok: true, reply: { ...ok("c").reply, condensed: 9 } })
+    await say(result, "three")
+    api.sendChatTurn.mockResolvedValue({ ok: true, reply: { ...ok("d").reply, condensed: 12 } })
+    await say(result, "four")
+    const said = result.current.turns.filter((t) => t.role === "system").map((t) => t.body)
+    expect(said).toEqual(["9 earlier turns are now condensed into notes.", "12 earlier turns are now condensed into notes."])
+  })
+
+  it("puts the notes of a resumed conversation where they take over from the turns above, and keeps the count", async () => {
+    api.fetchChatSession.mockResolvedValue({ ...pageOf([saved(4), saved(5)], 4, true, "s7"), compaction: { through: 5, text: "The user likes SQLite." } })
+    const { result } = renderHook(() => useChat("samantha"))
+    await waitFor(() => expect(result.current.turns).toHaveLength(5))
+    expect(result.current.turns.map((t) => [t.role, t.kind, t.body])).toEqual([
+      ["user", undefined, "question 4"],
+      ["persona", undefined, "answer 4"],
+      ["system", "output", "The turns above are condensed into these notes: The user likes SQLite."],
+      ["user", undefined, "question 5"],
+      ["persona", undefined, "answer 5"],
+    ])
+    expect(result.current.condensed).toBe(5)
+  })
+
+  it("does not announce notes the resumed conversation already had", async () => {
+    api.fetchChatSession.mockResolvedValue({ ...pageOf([saved(5)], 5, true, "s7"), compaction: { through: 5, text: "notes" } })
+    api.sendChatTurn.mockResolvedValue({ ok: true, reply: { ...ok("next", "s7").reply, condensed: 5 } })
+    const { result } = renderHook(() => useChat("samantha"))
+    await waitFor(() => expect(result.current.turns).toHaveLength(3)) // the notes' own line, and the turn
+    await say(result, "and then?")
+    expect(result.current.turns.filter((t) => t.body.includes("now condensed"))).toEqual([])
+  })
+
+  it("condenses the conversation, shows the notes as a line of their own and drops the stale meter figure", async () => {
+    const { result } = await withReplies()
+    expect(result.current.context).toEqual({ used: 3000, limit: 4000, model: "m" })
+    api.compactChatSession.mockResolvedValue(notes())
+    await act(async () => {
+      await result.current.compact()
+    })
+    expect(api.compactChatSession).toHaveBeenCalledWith("samantha", "s1")
+    const lines = result.current.turns.filter((t) => t.role === "system")
+    expect(lines.map((t) => [t.kind, t.body])).toEqual([
+      ["confirmation", "Condensed the first 11 turns into notes (600 to 120 tokens):"],
+      ["output", "The user is building Pantry."],
+    ])
+    expect(result.current.context).toBeUndefined()
+    expect(result.current.compacting).toBe(false)
+  })
+
+  it("does not announce the notes again on the next reply that carries the same count", async () => {
+    const { result } = await withReplies()
+    api.compactChatSession.mockResolvedValue(notes())
+    await act(async () => {
+      await result.current.compact()
+    })
+    api.sendChatTurn.mockResolvedValue({ ok: true, reply: { ...ok("more", "s1").reply, condensed: 11 } })
+    await say(result, "next")
+    expect(result.current.turns.filter((t) => t.body.includes("now condensed"))).toEqual([])
+  })
+
+  it("says why nothing was written, and shows the notes already in force", async () => {
+    const { result } = await withReplies()
+    api.compactChatSession.mockResolvedValue(notes({ status: "nothing", text: "Earlier notes." }))
+    await act(async () => {
+      await result.current.compact()
+    })
+    const lines = result.current.turns.filter((t) => t.role === "system").map((t) => [t.kind, t.body])
+    expect(lines).toEqual([
+      ["notice", "Nothing to condense yet: the newest turns always stay as they are."],
+      ["output", "The notes now: Earlier notes."],
+    ])
+    expect(result.current.context).toEqual({ used: 3000, limit: 4000, model: "m" }) // nothing changed
+  })
+
+  it.each([
+    ["too_small", "notice", "Nothing to gain yet"],
+    ["failed", "error", "The notes could not be written"],
+    ["busy", "notice", "Already condensing"],
+  ])("says %s in its own words", async (status, kind, words) => {
+    const { result } = await withReplies()
+    api.compactChatSession.mockResolvedValue(notes({ status, text: "" }))
+    await act(async () => {
+      await result.current.compact()
+    })
+    const last = result.current.turns[result.current.turns.length - 1]
+    expect(last.kind).toBe(kind)
+    expect(last.body).toContain(words)
+  })
+
+  it("shows the backend's refusal as an error line", async () => {
+    const { result } = await withReplies()
+    api.compactChatSession.mockResolvedValue({ ok: false, error: "No session `s1` for `samantha`." })
+    await act(async () => {
+      await result.current.compact()
+    })
+    expect(result.current.turns[result.current.turns.length - 1]).toMatchObject({
+      kind: "error",
+      body: "Couldn't condense the conversation: No session `s1` for `samantha`.",
+    })
+  })
+
+  it("has nothing to condense before the conversation has started, and asks nothing", async () => {
+    const { result } = renderHook(() => useChat("samantha"))
+    await act(async () => {
+      await result.current.compact()
+    })
+    expect(api.compactChatSession).not.toHaveBeenCalled()
+    expect(result.current.turns.map((t) => t.body)).toEqual(["Nothing to condense: this conversation has not started yet."])
+  })
+
+  it("is not started a second time while the notes are being written", async () => {
+    const { result } = await withReplies()
+    let finish: (v: unknown) => void = () => {}
+    api.compactChatSession.mockReturnValue(new Promise((resolve) => (finish = resolve)))
+    let first: Promise<void> = Promise.resolve()
+    act(() => {
+      first = result.current.compact()
+    })
+    expect(result.current.compacting).toBe(true)
+    await act(async () => {
+      await result.current.compact()
+    })
+    expect(api.compactChatSession).toHaveBeenCalledTimes(1)
+    await act(async () => {
+      finish(notes())
+      await first
+    })
+    expect(result.current.compacting).toBe(false)
+  })
+
+  it("drops notes that arrive for a conversation that was started over meanwhile", async () => {
+    const { result } = await withReplies()
+    let finish: (v: unknown) => void = () => {}
+    api.compactChatSession.mockReturnValue(new Promise((resolve) => (finish = resolve)))
+    let pending: Promise<void> = Promise.resolve()
+    act(() => {
+      pending = result.current.compact()
+    })
+    await act(async () => {
+      await result.current.newConversation()
+    })
+    await act(async () => {
+      finish(notes())
+      await pending
+    })
+    expect(result.current.turns).toEqual([])
+    expect(result.current.compacting).toBe(false)
   })
 })

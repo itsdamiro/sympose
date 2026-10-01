@@ -30,6 +30,7 @@ export function useChatSession(activePersona: string) {
     model: modelInUse,
     real: chat.context,
     hasReplies,
+    condensed: chat.condensed,
   })
   const switchModel = useModelSwitch({
     state: models.state,

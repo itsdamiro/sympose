@@ -8,7 +8,9 @@ import type { ContextFigure } from "@/lib/context-meter"
  * the model now in use, otherwise, once the conversation has replies, an estimate for that model from the
  * backend (a refresh that resumed a conversation, a model switch). Nothing for an empty conversation or when
  * no figure can be had. A figure belongs to the model that measured it, so a switch drops the real one; an
- * answer that arrives after the persona, the conversation or the model changed is never shown.
+ * answer that arrives after the persona, the conversation or the model changed is never shown. `condensed`
+ * (the turns a compaction's notes stand for, ADR 055) is part of what the estimate belongs to: condensing a
+ * conversation makes the earlier figure wrong, so it is asked for again.
  */
 export function useContextMeter({
   persona,
@@ -16,6 +18,7 @@ export function useContextMeter({
   model,
   real,
   hasReplies,
+  condensed = 0,
 }: {
   persona: string | null | undefined
   sessionId: string | undefined
@@ -24,9 +27,10 @@ export function useContextMeter({
   /** The last reply's count and the model that made it. */
   real: { used: number; limit: number; model: string } | undefined
   hasReplies: boolean
+  condensed?: number
 }): ContextFigure | null {
   const usable = real && model && real.model === model ? real : undefined
-  const key = !usable && persona && sessionId && model && hasReplies ? `${persona}|${sessionId}|${model}` : null
+  const key = !usable && persona && sessionId && model && hasReplies ? `${persona}|${sessionId}|${model}|${condensed}` : null
   const [estimate, setEstimate] = React.useState<{ key: string; used: number; limit: number } | null>(null)
 
   React.useEffect(() => {

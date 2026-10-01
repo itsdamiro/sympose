@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { cancelChatTurn, fetchChatStatus, fetchChatSession, fetchContextEstimate, sendChatTurn, startChatSession } from "./chat-api"
+import { cancelChatTurn, compactChatSession, fetchChatStatus, fetchChatSession, fetchContextEstimate, sendChatTurn, startChatSession } from "./chat-api"
 
 const reply = { reply: "Hi", session_id: "s1", model: "ollama_chat/gemma2:9b", ttft_ms: 400, truncated: false, saved: true, cloud: [], withheld: [] }
 
@@ -176,5 +176,33 @@ describe("startChatSession", () => {
     expect(await startChatSession("samantha")).toBeNull()
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")))
     expect(await startChatSession("samantha")).toBeNull()
+  })
+})
+
+describe("compactChatSession", () => {
+  const done = { status: "done", covered: 11, text: "The user is building Pantry.", before: 600, after: 120 }
+
+  it("posts the persona and the conversation and returns what happened", async () => {
+    const fetchMock = stub({ ok: true, status: 200, json: () => Promise.resolve(done) })
+    const res = await compactChatSession("samantha", "s1")
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe("/api/chat/compact")
+    expect(init.method).toBe("POST")
+    expect(JSON.parse(init.body as string)).toEqual({ persona: "samantha", session_id: "s1" })
+    expect(res).toEqual({ ok: true, result: done })
+  })
+
+  it("returns the backend's own reason when it refuses", async () => {
+    stub({ ok: false, status: 404, json: () => Promise.resolve({ detail: "No session `s1` for `samantha`." }) })
+    expect(await compactChatSession("samantha", "s1")).toEqual({ ok: false, error: "No session `s1` for `samantha`." })
+  })
+
+  it("says the backend is not reachable instead of throwing, and tells a dev proxy's bare 502 apart", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")))
+    const down = await compactChatSession("samantha", "s1")
+    expect(!down.ok && down.error).toContain("not reachable")
+    stub({ ok: false, status: 502, json: () => Promise.reject(new Error("not json")) })
+    const bare = await compactChatSession("samantha", "s1")
+    expect(!bare.ok && bare.error).toContain("not reachable")
   })
 })

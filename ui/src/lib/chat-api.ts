@@ -21,6 +21,8 @@ export interface ChatReply {
    *  018); `null` when the model's window is unknown. */
   context_used: number | null
   context_limit: number | null
+  /** The turns the notes of a compaction stood for in this reply's prompt (ADR 055); 0 when there were none. */
+  condensed?: number
 }
 
 const BACKEND_DOWN = "the Sympose backend is not reachable. Is it running (`sympose web`, or `python -m sympose.main` beside `npm run dev`)?"
@@ -141,6 +143,8 @@ export interface SessionTurn {
 export interface SessionPage {
   /** `null` when the persona has no conversation yet. */
   session_id: string | null
+  /** The notes that stand for the first `through` turns of the conversation (ADR 055), or `null`. */
+  compaction?: { through: number; text: string } | null
   turns: SessionTurn[]
   /** The number of the first turn on this page, and how many turns the conversation has in all. */
   start: number
@@ -187,5 +191,44 @@ export async function startChatSession(persona: string): Promise<string | null> 
     return ((await res.json()) as { session_id: string }).session_id
   } catch {
     return null
+  }
+}
+
+/** What happened when the earlier part of a conversation was condensed into notes (ADR 055). */
+export type CompactStatus = "done" | "nothing" | "too_small" | "failed" | "busy"
+
+export interface CompactResult {
+  status: CompactStatus
+  /** The turns the notes now stand for. */
+  covered: number
+  /** The notes in force afterwards (the new ones on `done`), or an empty string when there are none. */
+  text: string
+  /** Tokens the notes replaced and tokens the notes take, on `done`. */
+  before: number
+  after: number
+}
+
+/**
+ * Client for `POST /api/chat/compact` — condense the earlier part of a conversation into notes now, with the
+ * persona's model, and wait for it (ADR 055). A model that could not write the notes is `status: "failed"`, not
+ * an error; `ok: false` is for the backend refusing (no such conversation) or not being reachable.
+ */
+export async function compactChatSession(
+  persona: string,
+  sessionId: string
+): Promise<{ ok: true; result: CompactResult } | { ok: false; error: string }> {
+  try {
+    const res = await fetch("/api/chat/compact", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ persona, session_id: sessionId }),
+    })
+    if (res.ok) return { ok: true, result: (await res.json()) as CompactResult }
+    const detail = await detailOf(res)
+    if (detail) return { ok: false, error: detail }
+    if ([502, 503, 504].includes(res.status)) return { ok: false, error: BACKEND_DOWN }
+    return { ok: false, error: `HTTP ${res.status}` }
+  } catch (err) {
+    return { ok: false, error: `${BACKEND_DOWN} (${err})` }
   }
 }

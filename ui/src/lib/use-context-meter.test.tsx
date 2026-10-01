@@ -46,6 +46,16 @@ describe("useContextMeter", () => {
     await waitFor(() => expect(result.current).toEqual({ used: 200, limit: 2000, estimated: true }))
   })
 
+  it("asks again when the conversation is condensed, and shows nothing of the longer one's estimate meanwhile", async () => {
+    api.fetchContextEstimate.mockResolvedValueOnce({ used: 300, limit: 1000 }).mockResolvedValueOnce({ used: 120, limit: 1000 })
+    const { result, rerender } = run()
+    await waitFor(() => expect(result.current?.used).toBe(300))
+    rerender({ ...base, condensed: 11 })
+    expect(result.current).toBeNull()
+    await waitFor(() => expect(result.current).toEqual({ used: 120, limit: 1000, estimated: true }))
+    expect(api.fetchContextEstimate).toHaveBeenCalledTimes(2)
+  })
+
   it("replaces an estimate with the real count when a reply lands", async () => {
     api.fetchContextEstimate.mockResolvedValue({ used: 300, limit: 1000 })
     const { result, rerender } = run()

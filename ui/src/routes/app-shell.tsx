@@ -578,6 +578,8 @@ export function AppShell() {
               onOpenNote={openGroundedNote}
               onWikiLinkClick={openChatWikilink}
               onNewConversation={chat.newConversation}
+              onCompact={chat.compact}
+              compacting={chat.compacting}
               showGrounding={chatDisplayPrefs.showGrounding}
               statusPhrases={statusPhrases}
               contextFigure={chatDisplayPrefs.showMeter ? contextFigure : null}

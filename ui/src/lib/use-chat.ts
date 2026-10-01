@@ -2,6 +2,7 @@ import * as React from "react"
 
 import {
   cancelChatTurn,
+  compactChatSession,
   fetchChatStatus,
   fetchChatSession,
   sendChatTurn,
@@ -38,6 +39,9 @@ interface Conversation {
   oldest: number
   hasMore: boolean
   loadingOlder: boolean
+  /** The turns the notes of a compaction stand for in this conversation (ADR 055), and whether notes are being written. */
+  condensed: number
+  compacting: boolean
 }
 
 const EMPTY: Conversation = {
@@ -50,13 +54,22 @@ const EMPTY: Conversation = {
   oldest: 0,
   hasMore: false,
   loadingOlder: false,
+  condensed: 0,
+  compacting: false,
 }
 
 /** The saved turns of a page as transcript items: each turn is the user's message and the persona's reply. */
 function turnsFromPage(handle: string, page: SessionPage): ChatTurn[] {
+  const notes = page.compaction
   return page.turns.flatMap((saved) => {
     const at = saved.timestamp ? time(new Date(saved.timestamp)) : undefined
+    // Where the notes of a compaction (ADR 055) take over from the turns above, so they can be read there.
+    const marker: ChatTurn[] =
+      notes && saved.index === notes.through
+        ? [{ id: `saved-${page.session_id}-notes`, role: "system", kind: "output", body: `The turns above are condensed into these notes: ${notes.text}` }]
+        : []
     return [
+      ...marker,
       { id: `saved-${page.session_id}-${saved.index}-user`, role: "user" as const, body: saved.user, timestamp: at },
       {
         id: `saved-${page.session_id}-${saved.index}-reply`,
@@ -125,6 +138,7 @@ export function useChat(persona: string) {
           turns: turnsFromPage(persona, page),
           oldest: page.start,
           hasMore: page.has_more,
+          condensed: page.compaction?.through ?? 0,
         }
       })
     })
@@ -190,11 +204,16 @@ export function useChat(persona: string) {
           return addTo(done, { role: "system", kind: "error", body: `@${persona} couldn't reply: ${result.error}` })
         }
         const { reply, session_id, ttft_ms, sent, model, context_used, context_limit } = result.reply
+        const condensed = result.reply.condensed ?? 0
         const context = model && context_used != null && context_limit != null ? { used: context_used, limit: context_limit, model } : undefined
-        return addTo(
-          { ...done, sessionId: session_id, context },
+        const answered = addTo(
+          { ...done, sessionId: session_id, context, condensed },
           { role: "persona", handle: persona, body: reply, timestamp: time(new Date()), latency: latency(ttft_ms), sent }
         )
+        // The notes of a compaction (ADR 055) are said once, when they first reach a prompt or grow: not on every reply.
+        return condensed > c.condensed
+          ? addTo(answered, { role: "system", kind: "notice", body: `${condensed} earlier ${condensed === 1 ? "turn is" : "turns are"} now condensed into notes.` })
+          : answered
       })
       if (!more) return
       batch = next
@@ -230,6 +249,38 @@ export function useChat(persona: string) {
     })
   }, [convo.hasMore, convo.loadingOlder, convo.sessionId, convo.oldest, persona, update])
 
+  /** Condense the earlier part of this conversation into notes now (ADR 055), and say what happened. The notes
+   *  are shown as a line of their own so they can be read; the meter's figure was of the longer conversation,
+   *  so it is dropped and the backend's estimate takes its place. */
+  const compact = React.useCallback(async () => {
+    const sessionId = convo.sessionId
+    if (convo.compacting) return
+    if (!sessionId) {
+      update(persona, (c) => addTo(c, { role: "system", kind: "notice", body: "Nothing to condense: this conversation has not started yet." }))
+      return
+    }
+    update(persona, (c) => ({ ...c, compacting: true }))
+    const out = await compactChatSession(persona, sessionId)
+    update(persona, (c) => {
+      const done = { ...c, compacting: false }
+      if (c.sessionId !== sessionId) return done // a conversation started over while the notes were being written
+      if (!out.ok) return addTo(done, { role: "system", kind: "error", body: `Couldn't condense the conversation: ${out.error}` })
+      const { status, covered, text, before, after } = out.result
+      if (status === "done") {
+        const said = addTo(done, { role: "system", kind: "confirmation", body: `Condensed the first ${covered} turns into notes (${before} to ${after} tokens):` })
+        return { ...addTo(said, { role: "system", kind: "output", body: text }), condensed: covered, context: undefined }
+      }
+      const reason = {
+        nothing: "Nothing to condense yet: the newest turns always stay as they are.",
+        too_small: "Nothing to gain yet: notes would be no shorter than the turns they replace.",
+        failed: "The notes could not be written: the model could not be reached or gave nothing.",
+        busy: "Already condensing this conversation: try again in a moment.",
+      }[status]
+      const said = addTo(done, { role: "system", kind: status === "failed" ? "error" : "notice", body: reason })
+      return status === "nothing" && text ? addTo(said, { role: "system", kind: "output", body: `The notes now: ${text}` }) : said
+    })
+  }, [convo.sessionId, convo.compacting, persona, update, addTo])
+
   const newConversation = React.useCallback(async () => {
     if (inFlight.current.has(persona)) return
     update(persona, () => ({ ...EMPTY, resumed: true })) // blank at once; the backend is told just after
@@ -260,5 +311,8 @@ export function useChat(persona: string) {
     loadingOlder: convo.loadingOlder,
     loadOlder,
     newConversation,
+    compact,
+    compacting: convo.compacting,
+    condensed: convo.condensed,
   }
 }

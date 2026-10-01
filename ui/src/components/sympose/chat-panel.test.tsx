@@ -180,6 +180,32 @@ describe("ChatPanel", () => {
     expect(screen.queryByText("New conversation")).toBeNull()
   })
 
+  it("offers to condense the conversation once there is one, and not while a reply is in flight", () => {
+    const onCompact = vi.fn()
+    const turns: ChatTurn[] = [{ id: "1", role: "user", body: "hi" }]
+    setup({ turns, onCompact })
+    fireEvent.click(screen.getByRole("button", { name: "Condense" }))
+    expect(onCompact).toHaveBeenCalledTimes(1)
+    cleanup()
+    setup({ turns, onCompact, sending: true })
+    expect(screen.queryByRole("button", { name: "Condense" })).toBeNull()
+    cleanup()
+    setup({ turns: [], onCompact })
+    expect(screen.queryByRole("button", { name: "Condense" })).toBeNull()
+    cleanup()
+    setup({ turns })
+    expect(screen.queryByRole("button", { name: "Condense" })).toBeNull()
+  })
+
+  it("says it is condensing, and cannot be pressed again, while the notes are written", () => {
+    const onCompact = vi.fn()
+    setup({ turns: [{ id: "1", role: "user", body: "hi" }], onCompact, compacting: true })
+    const button = screen.getByRole("button", { name: "Condensing…" })
+    expect(button).toHaveProperty("disabled", true)
+    fireEvent.click(button)
+    expect(onCompact).not.toHaveBeenCalled()
+  })
+
   it("shows what a persona reply was based on under that reply, and opens the note it names", () => {
     const onOpenNote = vi.fn()
     const turns: ChatTurn[] = [
