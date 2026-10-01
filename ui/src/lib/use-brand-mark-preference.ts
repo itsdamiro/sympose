@@ -1,13 +1,14 @@
 import * as React from "react"
 
-import { getCookie, setCookie } from "@/lib/cookies"
+import { type PrefSpec, useCookiePreferences } from "@/lib/cookie-preferences"
 
 /** `"sympose"` — the fixed product wordmark (default). `"vault"` — the
  *  active vault's name, truncated when it's long. */
 export type BrandMarkLabel = "sympose" | "vault"
 
-const COOKIE = "sympose:brand_mark_label"
-const DEFAULT: BrandMarkLabel = "sympose"
+const SPEC: PrefSpec<{ label: BrandMarkLabel }> = {
+  label: { cookie: "sympose:brand_mark_label", kind: "enum", default: "sympose", values: ["sympose", "vault"] },
+}
 
 /**
  * What the brand-mark wordmark shows, next to the workspace-switcher trigger
@@ -19,14 +20,7 @@ export function useBrandMarkLabel(): readonly [
   BrandMarkLabel,
   (value: BrandMarkLabel) => void,
 ] {
-  const [label, setLabelState] = React.useState<BrandMarkLabel>(() =>
-    getCookie(COOKIE) === "vault" ? "vault" : DEFAULT
-  )
-
-  const setLabel = React.useCallback((value: BrandMarkLabel) => {
-    setLabelState(value)
-    setCookie(COOKIE, value)
-  }, [])
-
-  return [label, setLabel] as const
+  const [prefs, set] = useCookiePreferences(SPEC)
+  const setLabel = React.useCallback((value: BrandMarkLabel) => set("label", value), [set])
+  return [prefs.label, setLabel] as const
 }

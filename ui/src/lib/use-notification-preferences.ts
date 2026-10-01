@@ -1,6 +1,6 @@
 import * as React from "react"
 
-import { getCookie, setCookie } from "@/lib/cookies"
+import { type PrefSpec, readPreferences, writePreference } from "@/lib/cookie-preferences"
 
 export type NotifyEnabled = "on" | "off"
 /** How a *recoverable* destructive action (move-to-Bin) asks first. */
@@ -35,35 +35,17 @@ export const TOAST_POSITIONS: ToastPosition[] = [
   "bottom-right",
 ]
 
-const COOKIES = {
-  enabled: "sympose:notify.enabled",
-  confirm: "sympose:notify.confirm",
-  position: "sympose:notify.position",
-} as const
-
-const DEFAULTS: NotificationPreferences = {
-  enabled: "on",
-  confirm: "dialog",
-  position: "bottom-right",
-}
-
-function read(): NotificationPreferences {
-  const confirm = getCookie(COOKIES.confirm)
-  const position = getCookie(COOKIES.position)
-  return {
-    enabled: getCookie(COOKIES.enabled) === "off" ? "off" : "on",
-    confirm: confirm === "inline" || confirm === "none" ? confirm : "dialog",
-    position: TOAST_POSITIONS.includes(position as ToastPosition)
-      ? (position as ToastPosition)
-      : DEFAULTS.position,
-  }
+const SPEC: PrefSpec<NotificationPreferences> = {
+  enabled: { cookie: "sympose:notify.enabled", kind: "enum", default: "on", values: ["on", "off"] },
+  confirm: { cookie: "sympose:notify.confirm", kind: "enum", default: "dialog", values: ["dialog", "inline", "none"] },
+  position: { cookie: "sympose:notify.position", kind: "enum", default: "bottom-right", values: TOAST_POSITIONS },
 }
 
 // A module-level store, not `useState` seeded per hook: the imperative `notify`
 // and `confirm` helpers (`lib/notify`, `lib/confirm`) read the current prefs
 // without a React context, and every `useNotificationPreferences()` caller
 // stays in sync through `useSyncExternalStore`.
-let store: NotificationPreferences = read()
+let store: NotificationPreferences = readPreferences(SPEC)
 const listeners = new Set<() => void>()
 
 export function getNotificationPreferences(): NotificationPreferences {
@@ -73,7 +55,7 @@ export function getNotificationPreferences(): NotificationPreferences {
 export function setNotificationPreference<
   K extends keyof NotificationPreferences,
 >(key: K, value: NotificationPreferences[K]): void {
-  setCookie(COOKIES[key], value)
+  writePreference(SPEC, key, value)
   store = { ...store, [key]: value }
   for (const l of listeners) l()
 }

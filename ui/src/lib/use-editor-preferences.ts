@@ -1,7 +1,4 @@
-import * as React from "react"
-
-import { getCookie, setCookie } from "@/lib/cookies"
-import { isOneOf } from "@/lib/utils"
+import { type PrefSpec, useCookiePreferences } from "@/lib/cookie-preferences"
 
 export type EditorSurface = "in-place" | "source"
 export type EditorReveal = "caret" | "never"
@@ -32,36 +29,14 @@ export interface EditorPreferences {
   hideExtension: EditorHideExtension
 }
 
-const COOKIES = {
-  surface: "sympose:editor.surface",
-  reveal: "sympose:editor.reveal",
-  selectionUI: "sympose:editor.selection_ui",
-  tableEditing: "sympose:editor.table_editing",
-  focusOutline: "sympose:editor.focus_outline",
-  autosave: "sympose:editor.autosave",
-  hideExtension: "sympose:editor.hide_extension",
-} as const
-
-const DEFAULTS: EditorPreferences = {
-  surface: "in-place",
-  reveal: "caret",
-  selectionUI: "menu",
-  tableEditing: "source",
-  focusOutline: "off",
-  autosave: "off",
-  hideExtension: "on",
-}
-
-/** Reads a cookie-backed enum preference, falling back to `fallback` for a
- *  missing cookie *and* for a well-formed-but-invalid one (a renamed enum
- *  value left over from an older build) — unlike a bare `|| fallback`, which
- *  only catches the missing case. */
-function decodeEnum<T extends string>(
-  raw: string | null,
-  allowed: readonly T[],
-  fallback: T
-): T {
-  return raw != null && isOneOf(raw, allowed) ? raw : fallback
+const SPEC: PrefSpec<EditorPreferences> = {
+  surface: { cookie: "sympose:editor.surface", kind: "enum", default: "in-place", values: ["in-place", "source"] },
+  reveal: { cookie: "sympose:editor.reveal", kind: "enum", default: "caret", values: ["caret", "never"] },
+  selectionUI: { cookie: "sympose:editor.selection_ui", kind: "enum", default: "menu", values: ["menu", "bar"] },
+  tableEditing: { cookie: "sympose:editor.table_editing", kind: "enum", default: "source", values: ["source", "cells"] },
+  focusOutline: { cookie: "sympose:editor.focus_outline", kind: "enum", default: "off", values: ["on", "off"] },
+  autosave: { cookie: "sympose:editor.autosave", kind: "enum", default: "off", values: ["on", "off"] },
+  hideExtension: { cookie: "sympose:editor.hide_extension", kind: "enum", default: "on", values: ["on", "off"] },
 }
 
 /**
@@ -69,55 +44,6 @@ function decodeEnum<T extends string>(
  * and not a backend/persona-configuration knob: these are per-browser
  * editing behavior only.
  */
-export function useEditorPreferences(): readonly [
-  EditorPreferences,
-  <K extends keyof EditorPreferences>(key: K, value: EditorPreferences[K]) => void,
-] {
-  const [prefs, setPrefs] = React.useState<EditorPreferences>(() => ({
-    surface: decodeEnum(
-      getCookie(COOKIES.surface),
-      ["in-place", "source"],
-      DEFAULTS.surface
-    ),
-    reveal: decodeEnum(
-      getCookie(COOKIES.reveal),
-      ["caret", "never"],
-      DEFAULTS.reveal
-    ),
-    selectionUI: decodeEnum(
-      getCookie(COOKIES.selectionUI),
-      ["menu", "bar"],
-      DEFAULTS.selectionUI
-    ),
-    tableEditing: decodeEnum(
-      getCookie(COOKIES.tableEditing),
-      ["source", "cells"],
-      DEFAULTS.tableEditing
-    ),
-    focusOutline: decodeEnum(
-      getCookie(COOKIES.focusOutline),
-      ["on", "off"],
-      DEFAULTS.focusOutline
-    ),
-    autosave: decodeEnum(
-      getCookie(COOKIES.autosave),
-      ["on", "off"],
-      DEFAULTS.autosave
-    ),
-    hideExtension: decodeEnum(
-      getCookie(COOKIES.hideExtension),
-      ["on", "off"],
-      DEFAULTS.hideExtension
-    ),
-  }))
-
-  const set = React.useCallback(
-    <K extends keyof EditorPreferences>(key: K, value: EditorPreferences[K]) => {
-      setCookie(COOKIES[key], value)
-      setPrefs((prev) => ({ ...prev, [key]: value }))
-    },
-    []
-  )
-
-  return [prefs, set] as const
+export function useEditorPreferences() {
+  return useCookiePreferences(SPEC)
 }

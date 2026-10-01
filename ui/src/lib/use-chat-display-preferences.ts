@@ -1,6 +1,4 @@
-import * as React from "react"
-
-import { getCookieBool, setCookieBool } from "@/lib/cookies"
+import { type PrefSpec, useCookiePreferences } from "@/lib/cookie-preferences"
 
 /**
  * How the web chat draws things (docs/decisions/044). These are the web's own display knobs, kept in cookies
@@ -18,26 +16,12 @@ export interface ChatDisplayPreferences {
   showMeter: boolean
 }
 
-const COOKIES = { showGrounding: "sympose:chat.showGrounding", typeStatus: "sympose:chat.typeStatus", showMeter: "sympose:chat.showMeter" } as const
-const DEFAULTS: ChatDisplayPreferences = { showGrounding: true, typeStatus: true, showMeter: true }
+const SPEC: PrefSpec<ChatDisplayPreferences> = {
+  showGrounding: { cookie: "sympose:chat.showGrounding", kind: "bool", default: true },
+  typeStatus: { cookie: "sympose:chat.typeStatus", kind: "bool", default: true },
+  showMeter: { cookie: "sympose:chat.showMeter", kind: "bool", default: true },
+}
 
-const read = (): ChatDisplayPreferences => ({
-  showGrounding: getCookieBool(COOKIES.showGrounding, DEFAULTS.showGrounding),
-  typeStatus: getCookieBool(COOKIES.typeStatus, DEFAULTS.typeStatus),
-  showMeter: getCookieBool(COOKIES.showMeter, DEFAULTS.showMeter),
-})
-
-export function useChatDisplayPreferences(): readonly [
-  ChatDisplayPreferences,
-  <K extends keyof ChatDisplayPreferences>(key: K, value: ChatDisplayPreferences[K]) => void,
-] {
-  const [prefs, setPrefs] = React.useState<ChatDisplayPreferences>(read)
-  const setPref = React.useCallback(
-    <K extends keyof ChatDisplayPreferences>(key: K, value: ChatDisplayPreferences[K]) => {
-      setCookieBool(COOKIES[key], value)
-      setPrefs((prev) => ({ ...prev, [key]: value }))
-    },
-    []
-  )
-  return [prefs, setPref] as const
+export function useChatDisplayPreferences() {
+  return useCookiePreferences(SPEC)
 }

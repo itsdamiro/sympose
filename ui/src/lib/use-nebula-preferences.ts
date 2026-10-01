@@ -1,7 +1,4 @@
-import * as React from "react"
-
-import { getCookie, setCookie } from "@/lib/cookies"
-import { isOneOf } from "@/lib/utils"
+import { defaultsOf, type PrefSpec, useCookiePreferences } from "@/lib/cookie-preferences"
 import type { NebulaMode } from "@/components/sympose/knowledge-nebula-shared"
 
 /**
@@ -61,36 +58,24 @@ export interface NebulaPreferences {
   linkDistance: number
 }
 
-type Kind = "enum" | "bool" | "num"
-
 /**
- * One declaration per knob — cookie name, kind, default — so the read and write
+ * One declaration per knob (see `cookie-preferences`), so the read and write
  * paths derive from a single source rather than two hand-kept lists. Every
- * knob is persisted now; which ones the control dock actually exposes is a
+ * knob is persisted; which ones the control dock actually exposes is a
  * separate, smaller list in `nebula-controls.tsx`.
  */
-const SPEC: {
-  [K in keyof NebulaPreferences]: {
-    cookie: string
-    kind: Kind
-    default: NebulaPreferences[K]
-    /** Closed set an "enum"-kind cookie value is validated against before
-     *  it's trusted; a stale or hand-edited value outside it falls back to
-     *  `default` instead of being cast blind. */
-    enumValues?: readonly string[]
-  }
-} = {
+const SPEC: PrefSpec<NebulaPreferences> = {
   interaction: {
     cookie: "sympose:nebula.interaction",
     kind: "enum",
     default: "focus",
-    enumValues: ["explore", "focus"],
+    values: ["explore", "focus"],
   },
   mode: {
     cookie: "sympose:nebula.mode",
     kind: "enum",
     default: "2d",
-    enumValues: ["2d", "3d"],
+    values: ["2d", "3d"],
   },
   legend: { cookie: "sympose:nebula.legend", kind: "bool", default: true },
   dock: { cookie: "sympose:nebula.dock", kind: "bool", default: true },
@@ -115,31 +100,7 @@ const SPEC: {
   linkDistance: { cookie: "sympose:nebula.link_distance", kind: "num", default: 492 },
 }
 
-const KEYS = Object.keys(SPEC) as (keyof NebulaPreferences)[]
-
-export const NEBULA_DEFAULTS = Object.fromEntries(
-  KEYS.map((k) => [k, SPEC[k].default])
-) as unknown as NebulaPreferences
-
-function decode<K extends keyof NebulaPreferences>(
-  key: K,
-  raw: string | null
-): NebulaPreferences[K] {
-  const spec = SPEC[key]
-  if (raw == null) return spec.default
-  if (spec.kind === "bool") return (raw === "1") as NebulaPreferences[K]
-  if (spec.kind === "num") {
-    const n = Number(raw)
-    return (Number.isFinite(n) ? n : spec.default) as NebulaPreferences[K]
-  }
-  if (spec.enumValues && !isOneOf(raw, spec.enumValues)) return spec.default
-  return raw as NebulaPreferences[K]
-}
-
-function encode(kind: Kind, value: unknown): string {
-  if (kind === "bool") return value ? "1" : "0"
-  return String(value)
-}
+export const NEBULA_DEFAULTS = defaultsOf(SPEC)
 
 /**
  * Every Knowledge Nebula knob, cookie-backed per the UI-preference convention
@@ -147,26 +108,6 @@ function encode(kind: Kind, value: unknown): string {
  * one call in the app shell the same way the editor and notification
  * preferences are, so a second hook instance can't hold a divergent copy.
  */
-export function useNebulaPreferences(): readonly [
-  NebulaPreferences,
-  <K extends keyof NebulaPreferences>(key: K, value: NebulaPreferences[K]) => void,
-] {
-  const [prefs, setPrefs] = React.useState<NebulaPreferences>(() => {
-    const seed = { ...NEBULA_DEFAULTS }
-    for (const k of KEYS) {
-      // @ts-expect-error — index write across the union is safe, decode is keyed
-      seed[k] = decode(k, getCookie(SPEC[k].cookie))
-    }
-    return seed
-  })
-
-  const set = React.useCallback(
-    <K extends keyof NebulaPreferences>(key: K, value: NebulaPreferences[K]) => {
-      setCookie(SPEC[key].cookie, encode(SPEC[key].kind, value))
-      setPrefs((prev) => ({ ...prev, [key]: value }))
-    },
-    []
-  )
-
-  return [prefs, set] as const
+export function useNebulaPreferences() {
+  return useCookiePreferences(SPEC)
 }
