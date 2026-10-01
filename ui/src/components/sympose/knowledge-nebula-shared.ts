@@ -37,8 +37,6 @@ export interface ForceGraphNode extends NebulaNode {
   z?: number
   /** Set once per clone in each renderer; read by `nebulaNodeColor`/`stepHighlightT`. */
   __highlightT?: number
-  /** `false` until `animateBirth`'s reveal sequence reaches this node. */
-  __birthed?: boolean
 }
 
 /**
@@ -59,8 +57,6 @@ export function linkEndId(
 export interface KnowledgeNebulaHandle {
   /** Frame the whole graph. */
   zoomToFit: (duration?: number, padding?: number) => void
-  /** Staggered "birth" reveal — notes pop in one by one, `noteDelayMs` apart. */
-  animateBirth: (noteDelayMs?: number) => void
   /** Fly to a node and frame it with its 1-hop neighbours. */
   focusNode: (
     nodeOrId: NebulaNode | string,

@@ -23,7 +23,7 @@ import {
 
 /** This renderer's concrete node/link shapes — the vault's `NebulaNode`
  *  fields plus whatever `react-force-graph-2d` writes onto each object at
- *  runtime (`x`/`y`, and this module's own `__highlightT`/`__birthed`/`__scale`
+ *  runtime (`x`/`y`, and this module's own `__highlightT`/`__scale`
  *  via the library's open index signature). */
 type NebulaNodeObject = NodeObject<NebulaNode>
 type NebulaLinkObject = LinkObject<NebulaNode>
@@ -43,17 +43,6 @@ const MAX_ZOOM = 12
 /** `globalScale` (zoom) at which node labels start / finish fading in. */
 const LABEL_FADE_START = 1.6
 const LABEL_FADE_END = 3.4
-/**
- * Minimum gap between `d3ReheatSimulation()` calls during `animateBirth`.
- * Reheating resets `alpha` to 1 (full force, zero decay) — calling it on
- * every single note reveal (as often as every few ms on a large vault) never
- * lets alpha decay between resets, so the whole graph shakes continuously
- * for the entire reveal instead of settling. Throttling to this cadence
- * still keeps the tick countdown (`cooldownTicks`) from expiring mid-reveal
- * on a long birth sequence, while leaving room for visible deceleration
- * between reheats.
- */
-const BIRTH_REHEAT_INTERVAL_MS = 300
 /** Flat colour a dimmed (non-highlighted) node eases toward/from — `t=0` endpoint of `lerpNodeColor`. */
 const DIMMED_RGB_LIGHT = [148, 163, 184] as const
 const DIMMED_RGB_DARK = [100, 116, 139] as const
@@ -92,8 +81,6 @@ const KnowledgeNebula2D = React.forwardRef<
   ) => {
     const containerRef = React.useRef<HTMLDivElement>(null)
     const fgRef = React.useRef<ForceGraphMethods<NebulaNode> | undefined>(undefined)
-    const timerRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
-    const lastReheatRef = React.useRef(0)
     const didInitialFitRef = React.useRef(false)
     const pendingPanZoomTimeoutRef = React.useRef<number | null>(null)
     const { w, h } = useElementSize(containerRef)
@@ -251,60 +238,7 @@ const KnowledgeNebula2D = React.forwardRef<
         if (!matching) return
         fg.zoomToFit(duration, padding, (n) => idSet.has(n.id))
       },
-      animateBirth: (noteDelayMs = 25) => {
-        const fg = fgRef.current
-        if (!fg) return
-
-        if (timerRef.current) {
-          clearInterval(timerRef.current)
-          timerRef.current = null
-        }
-
-        const totalNodes = data.nodes.length
-        if (totalNodes === 0) return
-
-        // Scatter every node and hide it, then reveal one by one.
-        data.nodes.forEach((n) => {
-          n.x = (Math.random() - 0.5) * 900
-          n.y = (Math.random() - 0.5) * 900
-          n.vx = (Math.random() - 0.5) * 8
-          n.vy = (Math.random() - 0.5) * 8
-          n.__birthed = false
-        })
-        fg.d3ReheatSimulation()
-        lastReheatRef.current = Date.now()
-
-        let currentIdx = 0
-        timerRef.current = setInterval(() => {
-          if (currentIdx < totalNodes) {
-            data.nodes[currentIdx].__birthed = true
-            currentIdx++
-            const now = Date.now()
-            if (now - lastReheatRef.current >= BIRTH_REHEAT_INTERVAL_MS) {
-              fg.d3ReheatSimulation()
-              lastReheatRef.current = now
-            }
-          } else {
-            if (timerRef.current) clearInterval(timerRef.current)
-            timerRef.current = null
-            data.nodes.forEach((n) => {
-              n.__birthed = true
-            })
-            fg.d3ReheatSimulation()
-          }
-        }, Math.max(5, noteDelayMs))
-      },
     }))
-
-    // Clear an in-flight birth animation on unmount.
-    React.useEffect(() => {
-      return () => {
-        if (timerRef.current) {
-          clearInterval(timerRef.current)
-          timerRef.current = null
-        }
-      }
-    }, [])
 
     // ForceGraph2D only mounts once the container has a measured size (see the
     // `w > 0 && h > 0` gate below), which happens a render or two after this
@@ -377,7 +311,6 @@ const KnowledgeNebula2D = React.forwardRef<
       globalScale: number
     ) => {
       if (!showLabels) return
-      if (node.__birthed === false) return
       if (isDimmed(node.id)) return
       const alpha = clamp(
         (globalScale - LABEL_FADE_START) / (LABEL_FADE_END - LABEL_FADE_START),
@@ -446,8 +379,7 @@ const KnowledgeNebula2D = React.forwardRef<
             nodeVal={(n: NebulaNodeObject) => nodeRenderVal(n, highlightedNodeIds)}
             nodeLabel={tooltipFn}
             nodeVisibility={(n: NebulaNodeObject) => {
-              if (hiddenNodeIds?.has(n.id)) return false
-              return n.__birthed !== false
+              return !hiddenNodeIds?.has(n.id)
             }}
             nodeColor={(n: NebulaNodeObject) => {
               const t = n.__highlightT ?? 1
@@ -462,12 +394,7 @@ const KnowledgeNebula2D = React.forwardRef<
             nodeCanvasObject={paintNodeLabel}
             linkVisibility={(l: NebulaLinkObject) => {
               const { srcId, tgtId } = linkEndsHidden(l)
-              if (hiddenNodeIds?.has(srcId) || hiddenNodeIds?.has(tgtId)) return false
-              const srcBirthed =
-                typeof l.source === "object" ? l.source.__birthed !== false : true
-              const tgtBirthed =
-                typeof l.target === "object" ? l.target.__birthed !== false : true
-              return srcBirthed && tgtBirthed
+              return !(hiddenNodeIds?.has(srcId) || hiddenNodeIds?.has(tgtId))
             }}
             linkColor={(l: NebulaLinkObject) => {
               const { srcId, tgtId } = linkEndsHidden(l)

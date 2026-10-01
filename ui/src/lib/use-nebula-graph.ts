@@ -28,9 +28,6 @@ const EMPTY_LIVE = buildMasterGraph({ nodes: [], links: [] })
  * restricted persona must not leave the previous persona's wider graph on
  * screen, including when the new fetch fails (see the reset effect below).
  *
- * Shared by the in-shell ambient layer and the standalone `/nebula` showcase
- * so both read exactly one implementation of the fetch + fold.
- *
  * `refreshKey` (opaque; compared by `===` in the effect's dependency array)
  * is the refetch trigger for everything that isn't `persona` — the app shell
  * bumps it after switching the active vault (ADR 003) *and* after creating a

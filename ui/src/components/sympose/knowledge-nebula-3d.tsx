@@ -27,7 +27,7 @@ import {
 
 /** This renderer's concrete node/link shapes — the vault's `NebulaNode`
  *  fields plus whatever `react-force-graph-3d` writes onto each object at
- *  runtime (`x`/`y`/`z`, and this module's own `__highlightT`/`__birthed`/
+ *  runtime (`x`/`y`/`z`, and this module's own `__highlightT`/
  *  `__scale`/`__threeObj` via the library's open index signature). */
 type NebulaNodeObject = NodeObject<NebulaNode>
 type NebulaLinkObject = LinkObject<NebulaNode>
@@ -58,14 +58,6 @@ interface OrbitControlsLike {
  */
 const LABEL_FADE_NEAR = 110
 const LABEL_FADE_FAR = 260
-/**
- * Minimum gap between `d3ReheatSimulation()` calls during `animateBirth` —
- * see the identical constant in `knowledge-nebula-2d.tsx` for why: reheating
- * resets `alpha` to 1 every time, so calling it on every single note reveal
- * never lets alpha decay and the whole graph shakes for the entire sequence
- * instead of settling.
- */
-const BIRTH_REHEAT_INTERVAL_MS = 300
 /** Matches the `nodeOpacity` prop passed to `<ForceGraph3D>` below — kept as
  *  one constant since the per-frame colour loop has to reproduce
  *  the same `nodeOpacity * colorAlpha(color)` multiply the library itself
@@ -154,9 +146,6 @@ const KnowledgeNebula3D = React.forwardRef<
       })
       return cloned
     }, [graph])
-
-    const timerRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
-    const lastReheatRef = React.useRef(0)
 
     // --- In-scene node labels ----------------------------------------------
     // One SpriteText per node, kept in a map so a rAF loop can fade them by
@@ -295,7 +284,6 @@ const KnowledgeNebula3D = React.forwardRef<
           if (
             !on ||
             !node ||
-            node.__birthed === false ||
             hidden?.has(id) ||
             (hi && !hi.has(id))
           ) {
@@ -697,74 +685,11 @@ const KnowledgeNebula3D = React.forwardRef<
         const matching = data.nodes.filter((n) => idSet.has(n.id))
         frameAndFly(matching, padding, duration, CLICK_SPIN_DEG)
       },
-      animateBirth: (noteDelayMs = 25) => {
-        const fg = fgRef.current
-        if (!fg) return
-
-        if (timerRef.current) {
-          clearInterval(timerRef.current)
-          timerRef.current = null
-        }
-        if (animFrameRef.current) {
-          cancelAnimationFrame(animFrameRef.current)
-          animFrameRef.current = null
-        }
-
-        const totalNodes = data.nodes.length
-        if (totalNodes === 0) return
-
-        // 1. Hide all nodes initially and randomize entry points
-        data.nodes.forEach((n) => {
-          n.x = (Math.random() - 0.5) * 450
-          n.y = (Math.random() - 0.5) * 450
-          n.z = (Math.random() - 0.5) * 450
-          n.vx = (Math.random() - 0.5) * 6
-          n.vy = (Math.random() - 0.5) * 6
-          n.vz = (Math.random() - 0.5) * 6
-          n.__scale = 0.0001
-          n.__birthed = false
-        })
-
-        fg.d3ReheatSimulation()
-        lastReheatRef.current = Date.now()
-
-        let currentIdx = 0
-
-        // 2. Spawn notes ONE BY ONE with interval noteDelayMs
-        timerRef.current = setInterval(() => {
-          if (currentIdx < totalNodes) {
-            const node = data.nodes[currentIdx]
-            node.__birthed = true
-            currentIdx++
-            fg.refresh?.()
-            const now = Date.now()
-            if (now - lastReheatRef.current >= BIRTH_REHEAT_INTERVAL_MS) {
-              fg.d3ReheatSimulation()
-              lastReheatRef.current = now
-            }
-          } else {
-            if (timerRef.current) {
-              clearInterval(timerRef.current)
-              timerRef.current = null
-            }
-            data.nodes.forEach((n) => {
-              n.__birthed = true
-            })
-            fg.refresh?.()
-            fg.d3ReheatSimulation()
-          }
-        }, Math.max(5, noteDelayMs))
-      },
     }))
 
-    // Tear down any in-flight birth animation when the component unmounts —
-    // otherwise the setInterval keeps firing against a disposed renderer.
+    // Tear down in-flight animation frames when the component unmounts.
     React.useEffect(() => {
       return () => {
-        if (timerRef.current) {
-          clearInterval(timerRef.current)
-          timerRef.current = null
-        }
         if (animFrameRef.current) {
           cancelAnimationFrame(animFrameRef.current)
           animFrameRef.current = null
@@ -894,16 +819,12 @@ const KnowledgeNebula3D = React.forwardRef<
     // during the highlight fade. Keeping these stable means the *only*
     // trigger for a rebuild is that explicit refresh.
     const nodeVisibilityFn = React.useCallback((node: NebulaNodeObject) => {
-      if (hiddenIdsRef.current?.has(node.id)) return false
-      return node.__birthed !== false
+      return !hiddenIdsRef.current?.has(node.id)
     }, [])
     const linkVisibilityFn = React.useCallback((l: NebulaLinkObject) => {
       const srcId = linkEndId(l.source)
       const tgtId = linkEndId(l.target)
-      if (hiddenIdsRef.current?.has(srcId) || hiddenIdsRef.current?.has(tgtId)) return false
-      const srcBirthed = typeof l.source === "object" ? l.source.__birthed !== false : true
-      const tgtBirthed = typeof l.target === "object" ? l.target.__birthed !== false : true
-      return srcBirthed && tgtBirthed
+      return !(hiddenIdsRef.current?.has(srcId) || hiddenIdsRef.current?.has(tgtId))
     }, [])
     const nodeValFn = React.useCallback(
       (n: NebulaNodeObject) => nodeRenderVal(n, highlightedIdsRef.current),
