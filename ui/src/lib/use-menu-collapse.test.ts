@@ -2,7 +2,7 @@
 import { act, renderHook } from "@testing-library/react"
 import { beforeEach, describe, expect, it } from "vitest"
 
-import { setCookieBool } from "./cookies"
+import { getCookie, setCookie, setCookieBool } from "./cookies"
 import type { Breakpoint } from "./use-breakpoint"
 import { useMenuCollapse } from "./use-menu-collapse"
 
@@ -18,12 +18,12 @@ describe("useMenuCollapse", () => {
     })
   })
 
-  it("leaves the menu to its own saved width until the breakpoint changes", () => {
+  it("leaves the menu to its own saved width until the window size changes", () => {
     expect(setup("phone").result.current.collapsed).toBeUndefined()
     expect(setup("desktop").result.current.collapsed).toBeUndefined()
   })
 
-  it("snaps to the rail when the window gets smaller, and back to the full menu on desktop", () => {
+  it("defaults to the rail on a smaller window and to the full menu on desktop", () => {
     const { result, rerender } = setup("desktop")
     rerender({ bp: "tablet" })
     expect(result.current.collapsed).toBe(true)
@@ -33,36 +33,78 @@ describe("useMenuCollapse", () => {
     expect(result.current.collapsed).toBe(false)
   })
 
-  it("opens the menu again on a return to desktop even if the user had collapsed it there before (as the code stands)", () => {
+  it("keeps a menu the user collapsed on desktop collapsed across a trip through a smaller window (#123)", () => {
     const { result, rerender } = setup("desktop")
     act(() => result.current.onCollapsedChange(true))
-    expect(result.current.collapsed).toBe(true)
-    rerender({ bp: "tablet" }) // the breakpoint's rail takes over: from here it counts as forced
+    rerender({ bp: "tablet" })
     rerender({ bp: "desktop" })
-    expect(result.current.collapsed).toBe(false)
+    expect(result.current.collapsed).toBe(true)
   })
 
-  it("keeps the user's open menu on a small window if they opened it by hand after the snap", () => {
+  it("keeps a menu the user opened on a small window open when that size comes back", () => {
     const { result, rerender } = setup("desktop")
     rerender({ bp: "tablet" })
     act(() => result.current.onCollapsedChange(false))
-    expect(result.current.collapsed).toBe(false)
     rerender({ bp: "desktop" })
+    expect(result.current.collapsed).toBe(false)
+    rerender({ bp: "tablet" })
     expect(result.current.collapsed).toBe(false)
   })
 
-  it("does not snap to the rail when the auto-collapse preference is off", () => {
+  it("remembers each window size on its own", () => {
+    const { result, rerender } = setup("desktop")
+    act(() => result.current.onCollapsedChange(true)) // desktop: folded
+    rerender({ bp: "tablet" })
+    act(() => result.current.onCollapsedChange(false)) // tablet: opened
+    rerender({ bp: "phone" })
+    expect(result.current.collapsed).toBe(true) // phone never chosen: the default
+    rerender({ bp: "desktop" })
+    expect(result.current.collapsed).toBe(true)
+    rerender({ bp: "tablet" })
+    expect(result.current.collapsed).toBe(false)
+  })
+
+  it("saves the choice for the size it was made on, as 1 or 0", () => {
+    const { result, rerender } = setup("desktop")
+    act(() => result.current.onCollapsedChange(true))
+    rerender({ bp: "tablet" })
+    act(() => result.current.onCollapsedChange(false))
+    expect([getCookie("sympose:pref.menuCollapsed.desktop"), getCookie("sympose:pref.menuCollapsed.tablet")]).toEqual(["1", "0"])
+  })
+
+  it("does not save a default as if it were a choice (the menu reports its own snap too)", () => {
+    const { result, rerender } = setup("desktop")
+    rerender({ bp: "tablet" })
+    act(() => result.current.onCollapsedChange(true)) // the menu following the snap
+    rerender({ bp: "desktop" })
+    act(() => result.current.onCollapsedChange(false))
+    expect(getCookie("sympose:pref.menuCollapsed.tablet")).toBeNull()
+    expect(getCookie("sympose:pref.menuCollapsed.desktop")).toBeNull()
+  })
+
+  it("uses a choice saved in an earlier visit when the size comes round", () => {
+    setCookieBool("sympose:pref.menuCollapsed.tablet", false)
+    const { result, rerender } = setup("desktop")
+    rerender({ bp: "tablet" })
+    expect(result.current.collapsed).toBe(false)
+  })
+
+  it("ignores a saved value that is not a 1 or a 0", () => {
+    setCookie("sympose:pref.menuCollapsed.tablet", "maybe")
+    const { result, rerender } = setup("desktop")
+    rerender({ bp: "tablet" })
+    expect(result.current.collapsed).toBe(true)
+  })
+
+  it("forces nothing when the auto-collapse preference is off (a size never chosen for leaves the menu as it is), but still keeps a choice", () => {
     setCookieBool("sympose:pref.autoCollapseMenu", false)
     const { result, rerender } = setup("desktop")
     rerender({ bp: "tablet" })
     expect(result.current.collapsed).toBeUndefined()
-  })
-
-  it("remembers that the rail was forced, across a user drag that did not collapse it", () => {
-    const { result, rerender } = setup("desktop")
-    rerender({ bp: "tablet" }) // forced rail
-    act(() => result.current.onCollapsedChange(true)) // the user "collapses" an already-forced rail
+    act(() => result.current.onCollapsedChange(true))
     rerender({ bp: "desktop" })
-    expect(result.current.collapsed).toBe(false) // still the breakpoint's doing, so it expands again
+    expect(result.current.collapsed).toBe(true) // desktop was never chosen for: the menu is left as it is
+    rerender({ bp: "tablet" })
+    expect(result.current.collapsed).toBe(true)
   })
 })
