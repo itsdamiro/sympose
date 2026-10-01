@@ -404,6 +404,11 @@ REF_CASES: list[RefCase] = [
     RefCase("topic-change", "ok let's talk about something else", none=True),
     # Two words of a note's title in ordinary chat are one signal, not two.
     RefCase("title-words-in-chat", "I'm getting started on my taxes", none=True),
+    # What a local model cannot do, and the long-chat settings (docs/decisions/040, 055)
+    RefCase("local-model-no-tools", "why can't my local model open my notes by itself?", find=("call tools",), first="Choosing a model.md"),
+    RefCase("fifth-note-in-folder", "why can't she open the 5th note in my movies folder?", find=("5th note",)),
+    RefCase("compact-command", "how do I shorten a long conversation?", find=("/compact",)),
+    RefCase("auto-compact-setting", "what does the auto_compact setting do?", find=("condenses a long conversation",), first="Settings.md"),
 ]
 
 # Every message the vault eval already uses must attach nothing from the

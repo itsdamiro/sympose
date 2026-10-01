@@ -8,7 +8,7 @@ No. In the chat Samantha only reads your notes. She cannot write, create, edit, 
 
 ## Can Samantha do things for me?
 
-No. The only tools she has read your notes, and only when `vault_lookup` is `"ask"`. She cannot create a persona, change your settings, run commands or browse the web. Creating a persona and editing `settings.json` are done by hand.
+No. The only tools she has read your notes, and only when `vault_lookup` is `"ask"`, plus one for adding a line to her decisions file when you ask her to remember something. She cannot create a persona, change your settings, run commands or browse the web. Creating a persona and editing `settings.json` are done by hand.
 
 ## Can Sympose fix the problems it finds in my notes?
 
@@ -20,7 +20,7 @@ Not yet. Slack is planned as the first remote way to reach your vault, and Teleg
 
 ## Does Samantha remember me between conversations?
 
-Only in a small way. She does not learn facts about you. At the start of a conversation she is given short recaps of your last conversations, written from what you said, so she can pick up where you left off. Nothing else is kept between conversations, and past conversations cannot be browsed yet.
+In two ways. At the start of a conversation she is given short recaps of your last conversations, written from what you said, so she can pick up where you left off. And each persona has memory files, profile.md, context.md and decisions.md, which she reads every time. She cannot browse past conversations yet.
 
 ## Does Samantha review my session logs or read past conversations?
 
@@ -28,4 +28,4 @@ No, not the logs. Every conversation is saved as a session log in `profiles/<han
 
 ## What else is missing?
 
-The rarely used settings are still edited in `settings.json`, and the web app has no settings screen. Long conversations are not condensed automatically; the oldest turns are left out when the room runs out. Skills, playbooks a persona could follow, are not built. Notes are found by meaning when the small search model is installed, and by keywords otherwise.
+The rarely used settings are still edited in `settings.json`. Past conversations cannot be listed or reopened in the web app yet. Skills, playbooks a persona could follow, are not built. Notes are found by meaning when the small search model is installed, and by keywords otherwise.

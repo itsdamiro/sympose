@@ -12,9 +12,17 @@ Once per reply, not while you type. It leans a little high on purpose, turns war
 
 Type /context. It gives the tokens in full, says what is counted, and says when the figure is only an estimate after a model switch.
 
+## What happens when a conversation gets too long?
+
+By default Sympose condenses it: the oldest turns are replaced by short notes of what you said, written by the model in use, and the newest three turns stay as they were. The header then says "5 earlier turns condensed". Nothing is lost from your conversation file. Type /compact to do it yourself, or turn it off with `auto_compact`.
+
+## How do I shorten a long conversation?
+
+Type /compact, or press Condense in the web chat, to replace the earlier part of it with short notes now. Starting a new conversation also gives you an empty one. A condensed chat sends much less to the model, so its first reply comes back faster, on a local model most of all.
+
 ## What does older turns out of context mean?
 
-When the conversation no longer fits, the oldest exchanges are left out of what the model reads and the reply header says so, for example "3 older turns out of context". The model no longer sees them, but they stay saved in your conversation file.
+When condensing is off or fails and the conversation no longer fits, the oldest exchanges are left out of what the model reads and the reply header says so, for example "3 older turns out of context". The model no longer sees them, but they stay saved in your conversation file.
 
 ## What else gets left out?
 

@@ -6,7 +6,7 @@ Settings are stored in `settings.json`, in the folder where Sympose runs. `SYMPO
 
 Type /settings for a list of the common ones, each with its value. Choose a row to change it: a true or false one flips, one with a few values moves to the next, and for a number the chat box asks for it. Enter saves, an empty line puts the default back and Esc leaves it as it was. A number that cannot be used is refused.
 
-The list has `show_grounding`, `show_trim_notice`, `show_context_meter`, `show_background_status`, `status_typing`, `reply_reveal`, `context_window`, `reply_limit`, `grounding_followups`, `session_recaps`, `grounding_search`, `embedding_min_similarity`, `embedding_margin`, `vault_lookup` and `vault_lookup_rounds`.
+The list has `show_grounding`, `show_trim_notice`, `show_context_meter`, `show_background_status`, `status_typing`, `reply_reveal`, `context_window`, `reply_limit`, `grounding_followups`, `session_recaps`, `grounding_search`, `embedding_min_similarity`, `embedding_margin`, `vault_lookup`, `vault_lookup_rounds`, `auto_compact`, `compact_at` and `compact_to`.
 
 `memory_remember`, `memory_rewrite` and `memory_auto_refresh` are the memory settings. The model, the persona and what a cloud model may receive have /model, /persona and /share.
 
@@ -77,6 +77,14 @@ The `vault_lookup` setting is who looks in your notes. `"auto"` (the default) is
 ## vault_lookup_rounds
 
 The `vault_lookup_rounds` setting is how many lookups Samantha may make for one message when `vault_lookup` is `"ask"`: a whole number from 1 to 8, 3 by default.
+
+## auto_compact
+
+The `auto_compact` setting, on by default, condenses a long conversation by itself: after a reply that leaves the prompt nearly full, the oldest turns are replaced by short notes written by the model in use from your own messages. Without it the oldest turns are dropped silently. /compact works either way. A cloud model is asked to write the notes, which costs one small call.
+
+## compact_at and compact_to
+
+The `compact_at` setting is how full the prompt is, in percent of its budget, when `auto_compact` starts, 80 by default. The `compact_to` setting is how full it is left, 40 by default, always below `compact_at`. Both are whole numbers from 10 to 95. Condensing in one big step keeps the start of the prompt the same for several turns, so a local model replies faster.
 
 ## grounding_search
 

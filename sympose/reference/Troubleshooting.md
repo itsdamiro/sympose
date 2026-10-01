@@ -10,7 +10,7 @@ Ollama loads the model into memory on the first message, and again after it has 
 
 ## How do I make a long conversation start faster?
 
-A smaller `context_window` in `settings.json` shortens the wait, at the price of remembering less.
+Condensing helps most: type /compact, or leave `auto_compact` on, and the earlier part is sent as short notes. A smaller `context_window` in `settings.json` also shortens the wait, at the price of remembering less.
 
 ## She says she cannot find something that is in my vault
 

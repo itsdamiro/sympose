@@ -1,6 +1,6 @@
 # Chat commands
 
-The chat commands are /help, /model, /persona, /default, /grounding, /grounded, /context, /remember, /memory, /share, /settings, /clear and /quit. Type / in the chat to see them; Tab, or the Down and Up arrows, cycle through them.
+The chat commands are /help, /model, /persona, /default, /grounding, /grounded, /context, /remember, /memory, /compact, /share, /settings, /clear and /quit. Type / in the chat to see them; Tab, or the Down and Up arrows, cycle through them.
 
 ## /help
 
@@ -29,6 +29,10 @@ The chat commands are /help, /model, /persona, /default, /grounding, /grounded, 
 ## /context
 
 /context explains the number in the meter under the chat box: the tokens in use and the space available in full, what is counted, and whether the figure is an estimate after a model switch. It says so plainly when there is no figure yet.
+
+## /compact
+
+/compact condenses the earlier part of a long conversation into short notes now, keeping the newest three turns as they were. It shows how many tokens that saved and what the notes say. The conversation file keeps every turn word for word. The web chat has a Condense button for the same thing.
 
 ## /remember
 

@@ -28,6 +28,22 @@ Your messages and the conversation are sent to that provider. Your notes, their 
 
 Yes. Name it in `chat_model` or a persona's `model`, for example `openrouter/mistralai/mistral-large-2512`.
 
+## Why do some features not work with my local model?
+
+Some features need a model that can call tools, which means asking Sympose to do something mid-answer, such as opening a note. The default local model, gemma2:9b, cannot. Sympose then keeps its automatic search and Samantha works as before. Everything else works on any model.
+
+## Which features need a model that can call tools?
+
+Only `vault_lookup` set to `"ask"`: Samantha searches your notes, opens one by name or lists the notes in a folder herself, so you can ask for "the 5th note in my Movies folder". Remembering, recaps, condensing a long chat and searching by meaning work on every model.
+
+## Which models can call tools?
+
+Gemini Flash can, and most cloud models can. Of local models, Sympose asks Ollama: qwen3:8b and gemma4 can, gemma2:9b cannot. Those that can are often thinking models, which are slow on a laptop, so a cloud model is the smoother choice for `"ask"`.
+
+## What can a local model not do as well as a cloud one?
+
+A local model has a smaller window, so it holds less of a long chat and fewer notes at once, and it follows long lists and instructions less reliably. Sympose works around this: a map of your vault is always given, long chats are condensed, and notes are found for it.
+
 ## Why is a thinking model so slow?
 
 A local reasoning model such as qwen3:8b spends a long time thinking before it answers. The extra search for follow-up questions is skipped for a model that cannot do it in time.

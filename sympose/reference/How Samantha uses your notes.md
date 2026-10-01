@@ -6,7 +6,15 @@ Every message you send is looked up in your vault first. The best matching passa
 
 ## Can Samantha look in my notes herself instead of searching every message?
 
-Yes, with a model that can call tools: set `vault_lookup` to `"ask"`. Samantha then decides when to look, with a tool that searches your notes and one that opens a note. Each lookup is one more model call. Other models keep the default, `"auto"`, and /grounded shows what she looked up.
+Yes, with a model that can call tools: set `vault_lookup` to `"ask"`. Samantha then decides when to look, with a tool that searches your notes, one that opens a note and one that lists the notes in a folder. Each lookup is one more model call. Other models keep the default, `"auto"`, and /grounded shows what she looked up.
+
+## Why can't Samantha open the 5th note in my folder?
+
+Only with `vault_lookup` set to `"ask"` and a model that can call tools: she then lists the folder's notes herself, alphabetically by file name, and opens the 5th. With `"auto"`, or a model without tools such as gemma2:9b, she cannot list a folder: she only gets what a search finds for your words.
+
+## Does Samantha know the names of all my notes?
+
+No. She is always given a map of the vault: its folders, how many notes each holds, and the most common tags. The full list of names does not fit a local model's window, and a cloud model would be charged for it on every message. She finds the rest by searching, or with the tools.
 
 ## What does searching by meaning mean?
 
