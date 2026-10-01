@@ -17,7 +17,8 @@ from typing import Any
 from sympose.atomic_write import write_atomic_text
 from sympose.engine import reply_text
 from sympose.engine.prompt_text import CUT_OFF_NOTE
-from sympose.engine.session_records import has_its_text, make_title, meta_from_turns, unreadable
+from sympose.engine import session_compaction
+from sympose.engine.session_records import append_text as _append, has_its_text, make_title, meta_from_turns, unreadable
 from sympose.engine.session_paths import (
     new_session_id,
     recaps_dir,
@@ -28,6 +29,7 @@ from sympose.engine.session_paths import (
 
 # The path helpers live in `session_paths`; callers keep reaching them here.
 __all__ = [
+    "HISTORY_TURNS",
     "append_turn",
     "history_as_messages",
     "load_session",
@@ -40,6 +42,9 @@ __all__ = [
 
 log = logging.getLogger(__name__)
 
+# The most turns of a conversation that are sent word for word, whatever their size (a count, not a size).
+HISTORY_TURNS = 20
+
 def load_session(handle: str, session_id: str) -> dict[str, Any] | None:
     """`{"meta": {...}, "turns": [...]}`, or `None` when the session has no
     file yet (never used) or nothing in it can be read. A file whose meta line
@@ -49,6 +54,7 @@ def load_session(handle: str, session_id: str) -> dict[str, Any] | None:
     if not os.path.exists(path):
         return None
     meta: dict[str, Any] | None = None
+    compaction: dict[str, Any] | None = None
     turns: list[dict[str, Any]] = []
     try:
         with open(path, "r", encoding="utf-8") as f:
@@ -72,6 +78,8 @@ def load_session(handle: str, session_id: str) -> dict[str, Any] | None:
             continue  # valid JSON but not an object — same treatment
         if obj.get("type") == "meta":
             meta = obj
+        elif obj.get("type") == session_compaction.TYPE:  # a later one covers an earlier one's turns and more
+            compaction = session_compaction.parse(obj) or compaction
         elif obj.get("type") == "turn":
             if has_its_text(obj):
                 turns.append(obj)
@@ -85,14 +93,15 @@ def load_session(handle: str, session_id: str) -> dict[str, Any] | None:
         meta["turns_count"] = len(turns)
         if turns and turns[-1].get("timestamp"):
             meta["updated_at"] = turns[-1]["timestamp"]
-    return {"meta": meta, "turns": turns} if meta is not None else None
+    return {"meta": meta, "turns": turns, "compaction": compaction} if meta is not None else None
 
 
-def history_as_messages(session: dict[str, Any] | None, max_turns: int = 20) -> list[dict[str, str]]:
+def history_as_messages(session: dict[str, Any] | None, max_turns: int = HISTORY_TURNS) -> list[dict[str, str]]:
+    """The turns the notes of a compaction do not stand for (docs/decisions/055), at most `max_turns` of them."""
     if not session or max_turns <= 0:
         return []
     messages: list[dict[str, str]] = []
-    for turn in session["turns"][-max_turns:]:
+    for turn in session["turns"][session_compaction.covered(session):][-max_turns:]:
         messages.append({"role": "user", "content": turn["user"]})
         reply = reply_text.tidy(turn["assistant"])
         if turn.get("truncated") is True:  # cut at the reply limit: say so, it is not a finished answer
@@ -193,14 +202,3 @@ def append_turn(
         if len(lines) > 1:
             session["meta"]["title"] = lines[0]["title"]
     return True
-
-
-def _append(path: str, text: str) -> None:
-    """Adds `text` to the end of `path` (creating it), after a line break if the file does not end with one, so a
-    write that was cut short cannot run into it (docs/decisions/049). Nothing already in the file is touched."""
-    with open(path, "ab+") as f:
-        if f.seek(0, os.SEEK_END) > 0:
-            f.seek(-1, os.SEEK_END)
-            if f.read(1) != b"\n":
-                f.write(b"\n")
-        f.write(text.encode("utf-8"))

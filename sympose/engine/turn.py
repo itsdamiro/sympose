@@ -11,8 +11,8 @@ from typing import Any
 
 from sympose import profile as profile_mod, vault_map as vault_map_mod
 from sympose.engine import (
-    budget, connections, followup, grounding, grounding_properties, lookup, memory, memory_tools, persona_tools,
-    prompt, recap, recap_refresh, reference, session, sharing, tool_support, turn_cancel, turn_status,
+    budget, compaction, connections, followup, grounding, grounding_properties, lookup, memory, memory_tools, persona_tools,
+    prompt, recap, recap_refresh, reference, session, session_compaction, sharing, tool_support, turn_cancel, turn_status,
 )
 from sympose.engine import model as model_mod
 from sympose.engine.model import EngineModelError
@@ -159,6 +159,10 @@ def _run(
     if mem.withheld:
         withheld[sharing.MEMORY] = 1
 
+    # The notes that stand for the start of a long conversation (docs/decisions/055): fixed for every
+    # attempt of the fitting loop below, since they are all that is left of the turns they replace.
+    notes = session_compaction.notes(existing)
+
     reference_found = sum(1 for h in grounding_results if h.get("source") == reference.SOURCE)
     vault_found = len(grounding_results) - reference_found
 
@@ -189,6 +193,7 @@ def _run(
             memory_context=mem.context,
             memory_decisions=decisions,
             remember=remember,
+            compaction=notes,
         )
 
     prompt_tokens = 0
@@ -256,6 +261,9 @@ def _run(
         sent=sent,
         truncated=reply.truncated,
     )
+    context_used = prompt_tokens + _reply_tokens(reply_text, target_model) if limits else None
+    if saved:  # a long conversation is condensed in the background, for the turns after this one (docs/decisions/055)
+        compaction.start_if_wanted(handle, sid, target_model, existing, context_used, limits.prompt_tokens if limits else None)
     return TurnResult(
         reply=reply_text,
         session_id=sid,
@@ -264,7 +272,7 @@ def _run(
         model=target_model,
         history_dropped=dropped,
         searched=searched_used,
-        context_used=prompt_tokens + _reply_tokens(reply_text, target_model) if limits else None,
+        context_used=context_used,
         context_limit=limits.prompt_tokens if limits else None,
         truncated=reply.truncated,
         saved=saved,
@@ -272,4 +280,5 @@ def _run(
         withheld=cloud[1] if cloud else [],
         sent=sent,
         lookups=lookups,
+        condensed=session_compaction.covered(existing) if notes else 0,
     )

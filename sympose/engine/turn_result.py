@@ -42,3 +42,6 @@ class TurnResult:
     # The tools the persona used this turn when it looked up notes itself (docs/decisions/040): one
     # entry per call, a count and never text. Empty in `auto`, and in `ask` when nothing was looked up.
     lookups: list[dict[str, Any]] = field(default_factory=list)
+    # The turns the notes of a compaction stood for in this turn's prompt (docs/decisions/055); 0 when
+    # the conversation had none.
+    condensed: int = 0

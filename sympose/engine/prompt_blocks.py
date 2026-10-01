@@ -11,6 +11,7 @@ from sympose.engine.prompt_text import (
     REFERENCE_LABEL, VAULT_MAP_LABEL, WITHHELD_CONNECTIONS, WITHHELD_MEMORY, WITHHELD_NOTES, WITHHELD_PROPERTIES,
     WITHHELD_RECAPS, WITHHELD_VAULT_MAP,
 )
+from sympose.engine.compaction_text import NOTES_LABEL
 from sympose.engine.sharing import CONNECTIONS, NOTES, PROPERTIES
 
 
@@ -62,6 +63,11 @@ def vault_map_block(text: str | None, withheld: bool = False) -> str | None:
     if text:
         return f"{VAULT_MAP_LABEL}\n{text}"
     return WITHHELD_VAULT_MAP if withheld else None
+
+
+def compaction_block(text: str | None) -> str | None:
+    """The notes that stand for the first part of this conversation (docs/decisions/055), or nothing."""
+    return f"{NOTES_LABEL}\n{text}" if text else None
 
 
 def recaps_block(recaps: list[dict[str, Any]], omitted: int = 0, withheld: int = 0) -> str | None:

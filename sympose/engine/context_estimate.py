@@ -7,7 +7,7 @@ recaps, and the persona's own memory (docs/decisions/041), which a real turn inc
 where the real figure leans high. Nothing here calls a model."""
 
 from sympose import profile as profile_mod, vault_map as vault_map_mod
-from sympose.engine import budget, prompt, session, sharing
+from sympose.engine import budget, prompt, session, session_compaction, sharing
 
 
 def estimate(handle: str, session_id: str | None, model: str) -> tuple[int, int] | None:
@@ -19,12 +19,13 @@ def estimate(handle: str, session_id: str | None, model: str) -> tuple[int, int]
     limits = budget.budget_for(model)
     if persona is None or limits is None:
         return None
-    history = session.history_as_messages(session.load_session(handle, session_id))
+    saved = session.load_session(handle, session_id)
+    history = session.history_as_messages(saved)
     if not history:
         return None
     map_text = vault_map_mod.build(persona)
     map_allowed = sharing.VAULT_MAP in sharing.allowed(model)
-    system = prompt.build_system_prompt(persona)
+    system = prompt.build_system_prompt(persona, compaction=session_compaction.notes(saved))
     # The next message's turn opens with the map (docs/decisions/039), so it counts here too.
     map_block = prompt.vault_map_block(map_text if map_allowed else None, bool(map_text) and not map_allowed)
     tail = [{"role": "user", "content": map_block}] if map_block else []

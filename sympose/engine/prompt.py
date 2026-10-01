@@ -18,7 +18,9 @@ prompt she denied knowing the vault's size with the answer in front of her
 from typing import Any
 
 from sympose.engine import reference as reference_mod
-from sympose.engine.prompt_blocks import memory_block, notes_block, recaps_block, reference_block, vault_map_block
+from sympose.engine.prompt_blocks import (
+    compaction_block, memory_block, notes_block, recaps_block, reference_block, vault_map_block,
+)
 from sympose.engine.prompt_text import (
     ANSWER_FROM_NOTES, ANSWER_FROM_RECAPS, ANSWER_FROM_REFERENCE, CONNECTED_TO, DEFAULT_SOUL, GROUNDING_RULE,
     HOW_YOU_WORK, HOW_YOU_WORK_ASK, GROUNDING_RULE_ASK, MEMORY_CONTEXT_LABEL, MEMORY_CONTEXT_MARK,
@@ -57,6 +59,7 @@ def build_system_prompt(
     memory_decisions: list[str] | None = None,
     memory_withheld: bool = False,
     remember: str | None = None,
+    compaction: str | None = None,
 ) -> str:
     # `handle` is always lowercase (`profile.get_profile` lowercases it
     # before building a file path) -- title-cased here so a fallback
@@ -92,6 +95,11 @@ def build_system_prompt(
     recaps_text = recaps_block(recaps or [], recaps_omitted, recaps_withheld)
     if recaps_text:
         parts.append(recaps_text)
+    # The notes of a compaction (docs/decisions/055) come last: they stand for the start of this very
+    # conversation, so they sit closest to the history that follows. Fixed, like the memory above.
+    notes_text = compaction_block(compaction)
+    if notes_text:
+        parts.append(notes_text)
     return "\n\n".join(parts)
 
 
@@ -151,6 +159,7 @@ def build_messages(
     memory_context: str | None = None,
     memory_decisions: list[str] | None = None,
     remember: str | None = None,
+    compaction: str | None = None,
 ) -> list[dict[str, str]]:
     """The system prompt (with the recaps of earlier conversations, docs/decisions/023 and 026, and the
     persona's own memory, docs/decisions/041), the history as it was said (the notes of earlier turns
@@ -166,7 +175,7 @@ def build_messages(
         "role": "system",
         "content": build_system_prompt(
             profile, recaps, recaps_omitted, withheld.get(RECAPS, 0), lookup,
-            memory_profile, memory_context, memory_decisions, bool(withheld.get(MEMORY, 0)), remember,
+            memory_profile, memory_context, memory_decisions, bool(withheld.get(MEMORY, 0)), remember, compaction,
         ),
     }
     has_library = bool(profile.get("sympose_reference"))

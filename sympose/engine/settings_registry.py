@@ -6,7 +6,7 @@ channel's own (the terminal's are in `cli/display_settings.py`)."""
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from sympose.engine import budget, embeddings, followup, lookup, memory, memory_refresh, recap
+from sympose.engine import budget, compaction, embeddings, followup, lookup, memory, memory_refresh, recap
 
 TOGGLE, CHOICE, NUMBER = "toggle", "choice", "number"
 ON, OFF = "on", "off"
@@ -49,6 +49,15 @@ SETTINGS: list[Setting] = [
         lambda: ON if followup.enabled() else OFF, lambda: ON, choices=(ON, OFF), group=CONTEXT,
     ),
     toggle(recap.SETTING, "recaps of your earlier conversations", recap.enabled, group=CONTEXT),
+    toggle(compaction.SETTING, "condensing a long conversation on its own", compaction.enabled, group=CONTEXT),
+    Setting(
+        compaction.AT_SETTING, NUMBER, "percent full when it is condensed", compaction.at_percent,
+        lambda: compaction.DEFAULT_AT, hint="percent of the prompt budget, 10 to 95", whole=True, group=CONTEXT,
+    ),
+    Setting(
+        compaction.TO_SETTING, NUMBER, "percent full after it is condensed", compaction.to_percent,
+        lambda: compaction.DEFAULT_TO, hint="percent, 10 to 95, below the one above", whole=True, group=CONTEXT,
+    ),
     Setting(
         embeddings.MODE_SETTING, CHOICE, "how notes are found", embeddings.mode,
         lambda: embeddings.DEFAULT_MODE, group=SEARCH,

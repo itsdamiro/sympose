@@ -41,3 +41,14 @@ def unreadable(path: str) -> bool:
         return False
     except OSError:
         return True
+
+
+def append_text(path: str, text: str) -> None:
+    """Adds `text` to the end of `path` (creating it), after a line break if the file does not end with one, so a
+    write that was cut short cannot run into it (docs/decisions/049). Nothing already in the file is touched."""
+    with open(path, "ab+") as f:
+        if f.seek(0, os.SEEK_END) > 0:
+            f.seek(-1, os.SEEK_END)
+            if f.read(1) != b"\n":
+                f.write(b"\n")
+        f.write(text.encode("utf-8"))

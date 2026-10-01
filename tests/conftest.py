@@ -6,7 +6,7 @@ never read). A test of meaning-based search sets its mode itself; a test of the 
 
 import pytest
 
-from sympose.engine import embeddings
+from sympose.engine import compaction, embeddings
 
 
 def pytest_configure(config):
@@ -18,6 +18,9 @@ def _keyword_search_by_default(request, tmp_path_factory, monkeypatch):
     monkeypatch.setenv("SYMPOSE_SETTINGS_PATH", str(tmp_path_factory.mktemp("settings") / "settings.json"))
     if request.node.get_closest_marker("shipped_defaults") is None:
         monkeypatch.setattr(embeddings, "DEFAULT_MODE", embeddings.KEYWORDS)
+        # Automatic compaction (docs/decisions/055) is on by default and runs a model call on a background
+        # thread after a long reply: a test of it turns it on itself, and no other test is left to race it.
+        monkeypatch.setattr(compaction, "DEFAULT_ON", False)
 
 
 @pytest.fixture(autouse=True)
