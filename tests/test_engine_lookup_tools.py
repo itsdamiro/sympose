@@ -199,11 +199,11 @@ def test_unreadable_arguments_are_a_result_the_model_can_answer_never_an_excepti
 def test_an_unknown_tool_is_a_result_too(scratch):
     result = lookup_tools.run(ALL, LOCAL, "delete_note", '{"path": "Atlas"}')
 
-    assert "no tool called delete_note" in result.text and "search_notes" in result.text and "open_note" in result.text
+    assert "no tool called delete_note" in result.text and "search_notes" in result.text and "open_note" in result.text and "list_notes" in result.text
 
 
 def test_the_tools_are_read_only_and_named_as_the_engine_runs_them():
     names = [tool["function"]["name"] for tool in lookup_tools.TOOLS]
 
-    assert names == ["search_notes", "open_note"]
+    assert names == ["search_notes", "open_note", "list_notes"]
     assert all(tool["function"]["parameters"]["required"] for tool in lookup_tools.TOOLS)

@@ -91,6 +91,21 @@ A second, independent `/code-review` of the built feature, run after the first p
 
 Both fixed without an ADR of their own (bug fixes to code this ADR already owns, not new decisions); 2109 tests pass (2 more than before, the two new regression tests), 1 skipped, 6 xfailed, ruff clean.
 
+## Amendment (2026-10-02): a third tool, `list_notes`, so a request by position can be met (damiro)
+
+**What was found.** A user on `auto` asked the persona for "the 5th note in my movies folder". She could not, and said so correctly: the automatic search takes the words of a message, and nothing in those words names a note. Switching to `ask` would not have changed that. The two tools find a note by a query or open one by a name already known; neither lists a folder, so a request by position, or "what is in this folder", still had nothing to work from (the vault map she always has carries a folder's note count, not its notes).
+
+**The tool.** `list_notes(folder)`: the notes directly in one folder of the persona's scope, and the folders directly in it. Read-only, and inside the same scope and snapshot as the other two (a folder outside the scope, or one that does not exist, is "not found", and the two cannot be told apart). An empty folder name, or `/`, is the top of the vault.
+
+- **The order is stated, never assumed.** Notes are listed alphabetically by file name, ignoring case, numbered from 1, and the result says that this is the order. A user's "5th" can mean the order they see in their own file explorer or the order they wrote the notes in; the persona is told to say which order it used and not to present the fifth as the user's fifth.
+- **Long folders are cut openly.** At most 100 names are listed, then "and N more". The persona can search or open by name for the rest.
+- **Names are note content.** What it returns is gated as `notes` (ADR 031), like a passage or a title in a search result: a cloud model that may not receive notes gets the withheld line and no names, and the turn record keeps the count of names, never the names.
+- **Recorded as the others are** (ADR 025): `{tool: "list_notes", folder, found}`.
+
+It is part of `ask` and does not need a new setting: whoever chose `ask` has the vault tools, three now. It is not offered in `auto`, where the persona has no tools. The `HOW_YOU_WORK` text for `ask` lists it; the note about reading a note she has not opened or found this turn still applies, so listing a folder is not reading its notes.
+
+**Measured (2026-10-02, `gemini/gemini-flash-latest`, `ask`, 3 runs each, a scratch vault of seven invented films with mixed-case names, a copy of the shipped persona, a temporary settings file).** "Pull out the 5th note in my Films folder": 3 of 3 listed the folder, opened the right note (the fifth alphabetically, the lower-case names sorted among the others) and said it was alphabetical, once adding that the user's own order might differ. "Open the first note": 3 of 3 the same way. "What is in my Films folder?": 3 of 3 one `list_notes` call and all seven names, no note opened. Two model calls for a position request, one for a listing. **Not measured:** a folder of more than 100 notes, a model other than Gemini Flash, the no-note cases (small talk, general knowledge) with the third tool present, and the whole 34-case set; the bar above for offering `ask` more widely is unchanged by this.
+
 ## Not built
 
 - A per-persona `vault_lookup` (a persona whose job is to chat may want `ask` and one that works in the vault `auto`).

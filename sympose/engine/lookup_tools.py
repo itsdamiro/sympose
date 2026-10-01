@@ -8,11 +8,11 @@ a note, finds nothing and cannot be told apart from a note that does not exist. 
 returned as passages, gated by `sharing` like the automatic search's, before any of it reaches a model."""
 
 import json
-from dataclasses import dataclass, field
 from typing import Any
 
 from sympose import vault_paths
-from sympose.engine import connections, grounding, grounding_properties, sharing
+from sympose.engine import connections, grounding, grounding_properties, lookup_list, sharing
+from sympose.engine.lookup_result import Result
 from sympose.engine.prompt_blocks import passage_text
 from sympose.engine.prompt_text import WITHHELD_CONNECTIONS, WITHHELD_NOTES, WITHHELD_PROPERTIES
 from sympose.vault_snapshot import get_vault_snapshot
@@ -57,24 +57,13 @@ TOOLS: list[dict[str, Any]] = [
             },
         },
     },
+    lookup_list.TOOL,
 ]
 
 _UNKNOWN_TOOL = "There is no tool called {name}. The tools are {names}."
 _BAD_ARGUMENTS = "The arguments of {name} could not be read: give {argument} as text."
 _NOT_FOUND = "No note called {path} was found in the vault."
 _NOTHING = "The search for {query} found no notes."
-
-
-@dataclass(frozen=True)
-class Result:
-    """What one tool call gives back: `text` for the model, `hits` (the passages it was sent, as the
-    turn record keeps them), `withheld` (what a cloud model was not sent, by category) and `lookup`,
-    the entry the turn record keeps for the call (a count, never text)."""
-
-    text: str
-    hits: list[dict[str, Any]] = field(default_factory=list)
-    withheld: dict[str, int] = field(default_factory=dict)
-    lookup: dict[str, Any] = field(default_factory=dict)
 
 
 def _arguments(raw: str | dict[str, Any] | None, name: str, argument: str) -> tuple[str | None, str | None]:
@@ -87,6 +76,18 @@ def _arguments(raw: str | dict[str, Any] | None, name: str, argument: str) -> tu
     if isinstance(value, str) and value.strip():
         return value.strip(), None
     return None, _BAD_ARGUMENTS.format(name=name, argument=argument)
+
+
+def _no_folder_named(raw: str | dict[str, Any] | None) -> bool:
+    """Whether `raw` is readable arguments that name no folder (nothing, or an empty text)."""
+    try:
+        parsed = json.loads(raw) if isinstance(raw, str) and raw.strip() else (raw or {})
+    except json.JSONDecodeError:
+        return False
+    if not isinstance(parsed, dict):
+        return False
+    folder = parsed.get("folder")
+    return folder is None or (isinstance(folder, str) and not folder.strip())
 
 
 def _with_extras(profile: dict[str, Any], hits: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -171,10 +172,15 @@ def open_note(profile: dict[str, Any], model: str, path: str) -> Result:
 def run(profile: dict[str, Any], model: str, name: str, raw_arguments: str | dict[str, Any] | None) -> Result:
     """Run the tool `name` and give back what the model is told. An unknown tool, or arguments that are
     not readable, is a result like any other (the model can try again), never an exception that ends the turn."""
-    tool = {SEARCH: ("query", search_notes), OPEN: ("path", open_note)}.get(name)
+    tool = {
+        SEARCH: ("query", search_notes), OPEN: ("path", open_note), lookup_list.LIST: ("folder", lookup_list.list_notes),
+    }.get(name)
     if tool is None:
-        return Result(_UNKNOWN_TOOL.format(name=name, names=" and ".join((SEARCH, OPEN))), lookup={"tool": name, "found": 0})
+        names = ", ".join((SEARCH, OPEN, lookup_list.LIST))
+        return Result(_UNKNOWN_TOOL.format(name=name, names=names), lookup={"tool": name, "found": 0})
     argument, problem = _arguments(raw_arguments, name, tool[0])
+    if argument is None and name == lookup_list.LIST and _no_folder_named(raw_arguments):
+        argument, problem = "", None  # no folder, or an empty one, is the top of the vault
     if argument is None:
         return Result(problem or "", lookup={"tool": name, "found": 0})
     result = tool[1](profile, model, argument)

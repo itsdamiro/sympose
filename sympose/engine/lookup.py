@@ -1,6 +1,6 @@
 """The persona looks up notes itself (docs/decisions/040). `vault_lookup` decides who searches the
 user's vault for a message: `auto` (the default) is Sympose, before the reply is written, exactly as it has
-always been; `ask` gives the persona two tools, `search_notes` and `open_note` (`lookup_tools`), and it decides.
+always been; `ask` gives the persona three tools, `search_notes`, `open_note` and `list_notes` (`lookup_tools`, `lookup_list`), and it decides.
 
 `converse` is the loop of a tool-calling turn: the model is called with the tools; when it asks for one, the
 tool is run and the model is called again with its result, until it writes a reply or has used its
@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from sympose import settings_store
-from sympose.engine import budget, lookup_tools, model as model_mod, model_tools, turn_cancel, turn_status
+from sympose.engine import budget, lookup_list, lookup_tools, model as model_mod, model_tools, turn_cancel, turn_status
 
 log = logging.getLogger(__name__)
 
@@ -29,7 +29,10 @@ MAX_ROUNDS = 8
 # actually running -- only the two vault ones get their own real phase; anything else this loop
 # is ever handed (e.g. `remember`, docs/decisions/041) stays the generic "asking" default, which
 # is accurate enough for a tool that's neither searching nor reading a note.
-_TOOL_PHASE = {lookup_tools.SEARCH: turn_status.SEARCHING, lookup_tools.OPEN: turn_status.READING}
+_TOOL_PHASE = {
+    lookup_tools.SEARCH: turn_status.SEARCHING, lookup_tools.OPEN: turn_status.READING,
+    lookup_list.LIST: turn_status.SEARCHING,
+}
 _NO_ROOM = "There was no room left in the context window for this result."
 # Added, for the last call only and never saved, once the lookups are used up: a model was seen to answer
 # with another tool call and no text even with `tool_choice: none`, which ended the turn in an error.
