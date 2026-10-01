@@ -1,11 +1,9 @@
 """`/memory` (docs/decisions/041): refresh a persona's context.md/profile.md now, or review a
 staged proposal. A real model call (`memory_refresh.refresh`), so it runs off the interface
-thread the same way `meter_estimate.py`'s own estimate does -- its own small executor, not the
-one chat turns use (`turns.py`), so it never queues behind, or ahead of, an actual reply."""
+thread, on the loop's default pool (many workers) rather than the one chat turns use (`turns.py`)
+or a pool of one, so it never queues behind, or ahead of, an actual reply or another `/memory` wait."""
 
 import asyncio
-import concurrent.futures
-import logging
 
 from rich.text import Text
 
@@ -13,13 +11,15 @@ from sympose.cli import picker, transcript as transcript_mod
 from sympose.cli.selection import SelectionOption
 from sympose.engine import memory, memory_refresh, memory_write
 
-log = logging.getLogger(__name__)
-
 PICKER_KIND = "memory"
 CONFIRM_KIND = "memory_confirm"
 _STAGED_LINE = 'A memory update is ready to review: /memory, then "Review pending change".'
 
-_EXECUTOR = concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix="sympose-memory")
+_SAID = {
+    memory_refresh.UNCHANGED: "Nothing to update.",
+    memory_refresh.SKIPPED: "Nothing to update from yet: no recaps to learn from, or the model in use is not approved for memory and recaps (/share).",
+    memory_refresh.FAILED: "The memory update did not work: the model could not be reached or the files could not be written (see the log).",
+}
 
 
 def announce_pending(app) -> None:
@@ -57,13 +57,7 @@ async def _run_refresh(app) -> None:
     # already running for `handle` (the automatic one from launch/persona-switch, say) instead of
     # racing a second, redundant model call against it.
     memory_refresh.refresh_in_background(handle, model)
-    try:
-        finished = await asyncio.get_running_loop().run_in_executor(
-            _EXECUTOR, memory_refresh.wait_for_refresh, handle, 60.0
-        )
-    except Exception as e:  # a courtesy feature must not crash the app over a model or file error
-        log.warning("Memory refresh for %s failed: %s", handle, e)
-        finished = False
+    finished = await asyncio.to_thread(memory_refresh.wait_for_refresh, handle, 60.0)
     if app._exit:  # /quit fired while this was running
         return
     if not finished:
@@ -73,7 +67,8 @@ async def _run_refresh(app) -> None:
     elif memory.context(handle) != context_before:
         line = "context.md updated."
     else:
-        line = "Nothing to update."
+        # No recorded outcome means the refresh raised before it could record one: a failure.
+        line = _SAID.get(memory_refresh.last_outcome(handle) or memory_refresh.FAILED, _SAID[memory_refresh.UNCHANGED])
     transcript_mod.mount_line(app, line, "system")
     app.transcript.scroll_end(animate=False)
 

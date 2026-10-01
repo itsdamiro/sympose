@@ -90,27 +90,47 @@ def _parse(text: str) -> tuple[str | None, str | None]:
     return _section(profile_part), _section(context_part)
 
 
+# How a `refresh` ended, kept per persona so `/memory` can say what happened instead of reporting every
+# non-update as "nothing to update": UPDATED (something staged or written), UNCHANGED (the model saw
+# nothing to change), SKIPPED (nothing could be asked: no recaps yet, cloud sharing not approved, a model
+# already known unable) or FAILED (the call or the write went wrong). One short string per persona.
+UPDATED, UNCHANGED, SKIPPED, FAILED = "updated", "unchanged", "skipped", "failed"
+_OUTCOMES: dict[str, str] = {}
+
+
+def last_outcome(handle: str) -> str | None:
+    """How `handle`'s latest `refresh` ended, `None` when none has finished since it began (one that
+    raised before recording counts as that, never as UNCHANGED)."""
+    return _OUTCOMES.get(handle)
+
+
 def propose(handle: str, model: str | None = None) -> tuple[str | None, str | None]:
+    """`_ask` without the reason it may have had for asking nothing."""
+    profile_text, context_text, _ = _ask(handle, model)
+    return profile_text, context_text
+
+
+def _ask(handle: str, model: str | None = None) -> tuple[str | None, str | None, str | None]:
     """Ask `model` (else the persona's own) to propose an update to `context.md`/`profile.md`
-    from their current content and `handle`'s recent recaps. `(profile_text, context_text)`,
-    each `None` when the model judged no change needed; `(None, None)` also when nothing could
+    from their current content and `handle`'s recent recaps. `(profile_text, context_text, reason)`,
+    each text `None` when the model judged no change needed (`reason` `None`); `(None, None)` also when nothing could
     be asked at all -- no persona, no recaps yet, cloud sharing not allowed for `memory` or (the
     recaps sent as input have their own category) `recaps`, or a model already known to fail this
     request -- the same "nothing happens, quietly" posture `recap_refresh.refresh` already has
     for its own missing/unusable cases."""
     persona = profile_mod.resolve_profile(handle)
     if persona is None:
-        return None, None
+        return None, None, SKIPPED
     model = model or model_mod.resolve_model(persona.get("model"))
     if model in _CANNOT_REWRITE:
-        return None, None
+        return None, None, SKIPPED
     if sharing.MEMORY not in sharing.allowed(model):
-        return None, None  # the current files would go to a cloud model not approved for memory (ADR 031)
+        return None, None, SKIPPED  # the current files would go to a cloud model not approved for memory (ADR 031)
     if sharing.RECAPS not in sharing.allowed(model):
-        return None, None  # the recaps that would be sent as input need their own approval too, same as a turn's own gate
+        return None, None, SKIPPED  # the recaps that would be sent as input need their own approval too, same as a turn's own gate
     recaps = recap.latest(handle, count=_READ_RECAPS)
     if not recaps:
-        return None, None  # nothing yet to synthesize a rewrite from
+        return None, None, SKIPPED  # nothing yet to synthesize a rewrite from
     limits = budget.budget_for(model)
     profile_now, context_now = memory.profile(handle), memory.context(handle)
     request = _request(profile_now, context_now, recaps)
@@ -122,10 +142,10 @@ def propose(handle: str, model: str | None = None) -> tuple[str | None, str | No
     except model_mod.ReplyLimitError as e:
         log.warning("'%s' cannot propose a memory rewrite in its reply limit; not asking again: %s", model, e)
         _CANNOT_REWRITE.add(model)
-        return None, None
+        return None, None, FAILED
     except model_mod.EngineModelError as e:
         log.warning("Memory rewrite for %s failed: %s", handle, e)
-        return None, None
+        return None, None, FAILED
     profile_text, context_text = _parse(reply.text)
     # A model observed (live, against gemma2:9b) to echo a file's content back verbatim instead
     # of using the NO_CHANGE sentinel, even when nothing about it actually changed: caught here,
@@ -135,15 +155,17 @@ def propose(handle: str, model: str | None = None) -> tuple[str | None, str | No
         profile_text = None
     if context_text is not None and context_text.strip() == (context_now or "").strip():
         context_text = None
-    return profile_text, context_text
+    return profile_text, context_text, None
 
 
 def refresh(handle: str, model: str | None = None) -> bool:
     """Propose an update and, for whichever file it touched, either stage it for `/memory
     review` or (`context.md`, `memory_rewrite` `auto` only) write it directly. `False` when
-    nothing was proposed, or a stage/write failed; never raises."""
-    profile_text, context_text = propose(handle, model)
+    nothing was proposed, or a stage/write failed; records how it ended (`last_outcome`)."""
+    _OUTCOMES.pop(handle, None)
+    profile_text, context_text, reason = _ask(handle, model)
     if profile_text is None and context_text is None:
+        _OUTCOMES[handle] = reason or UNCHANGED
         return False
     ok = True
     if profile_text is not None:
@@ -151,6 +173,7 @@ def refresh(handle: str, model: str | None = None) -> bool:
     if context_text is not None:
         writer = memory_write.apply_context if mode() == AUTO else memory_write.stage_context
         ok = writer(handle, context_text) and ok
+    _OUTCOMES[handle] = UPDATED if ok else FAILED
     return ok
 
 

@@ -1828,10 +1828,17 @@ def test_memory_picker_also_offers_review_when_something_is_pending(profiles):
     run_async(scenario())
 
 
-def test_memory_refresh_reports_nothing_to_update(profiles, monkeypatch):
+def _refresh_says(monkeypatch, outcome, expected):
+    """Run `/memory` -> Refresh now with a refresh that ends as `outcome` and wait for `expected`."""
     from sympose.cli import memory_command
 
-    monkeypatch.setattr(memory_command.memory_refresh, "refresh", lambda handle, model=None: False)
+    def fake_refresh(handle, model=None):
+        memory_command.memory_refresh._OUTCOMES.pop(handle, None)  # as the real `refresh` does first
+        if outcome is not None:
+            memory_command.memory_refresh._OUTCOMES[handle] = outcome
+        return False
+
+    monkeypatch.setattr(memory_command.memory_refresh, "refresh", fake_refresh)
 
     async def scenario():
         app = SymposeCLI()
@@ -1841,7 +1848,51 @@ def test_memory_refresh_reports_nothing_to_update(profiles, monkeypatch):
             await pilot.press(*"/memory", "enter")
             await pilot.pause()
             await pilot.press("1")  # Refresh now
-            await wait_until(lambda: any("Nothing to update." in plain_text(c) for c in app.transcript.children))
+            await wait_until(lambda: any(expected in plain_text(c) for c in app.transcript.children))
+            assert not any("Nothing to update." in plain_text(c) for c in app.transcript.children if expected != "Nothing to update.")
+
+    run_async(scenario())
+
+
+def test_memory_refresh_reports_nothing_to_update(profiles, monkeypatch):
+    _refresh_says(monkeypatch, "unchanged", "Nothing to update.")
+
+
+def test_memory_refresh_reports_a_failure_instead_of_nothing_to_update(profiles, monkeypatch):
+    _refresh_says(monkeypatch, "failed", "did not work")
+
+
+def test_memory_refresh_that_raised_is_reported_as_a_failure(profiles, monkeypatch):
+    _refresh_says(monkeypatch, None, "did not work")
+
+
+def test_memory_refresh_says_why_it_was_skipped(profiles, monkeypatch):
+    _refresh_says(monkeypatch, "skipped", "no recaps to learn from")
+
+
+def test_two_memory_waits_do_not_queue_behind_each_other(profiles, monkeypatch):
+    """Regression (#108): the waits shared a one-worker pool, so a second one sat behind the first."""
+    from sympose.cli import memory_command
+
+    both_through = threading.Event()
+    both_waiting = threading.Barrier(2, timeout=3)  # passes only if two waits run at the same time
+
+    def wait(handle, timeout=60.0):
+        both_waiting.wait()
+        both_through.set()
+        return True
+
+    monkeypatch.setattr(memory_command.memory_refresh, "refresh_in_background", lambda handle, model=None: True)
+    monkeypatch.setattr(memory_command.memory_refresh, "wait_for_refresh", wait)
+
+    async def scenario():
+        app = SymposeCLI()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            await memory_command.choose(app, "refresh")
+            await memory_command.choose(app, "refresh")
+            await wait_until(lambda: both_through.is_set() or both_waiting.broken, timeout=6)
+            assert both_through.is_set()
 
     run_async(scenario())
 

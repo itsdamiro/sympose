@@ -90,6 +90,12 @@ A scratch persona under a temporary `SYMPOSE_PROFILES_DIR` (`VAULT_PATHS` emptie
 
 Not measured: a cloud model on this mechanism (only `memory`+`recaps` cloud-share approval was unit-tested, not live-called).
 
+## Amendment: what `/memory` says when a refresh does not update (#108)
+
+A review found that "Refresh now" could only tell the user "Nothing to update", whether the model saw nothing to change, could not be asked at all, or failed outright: `propose` returned the same `(None, None)` for all three and the background runner swallows any exception. `memory_refresh.refresh` now records how it ended per persona (`last_outcome`: updated, unchanged, skipped, failed) and `/memory` says which. "Skipped" (no recaps yet, cloud sharing not approved for `memory` or `recaps`, a model already known unable) is worded as a reason, not as a result. A refresh that raised before recording reads as a failure, never as "nothing to update". The waits also no longer share a one-worker pool: a second `/memory` wait used to sit behind the first for up to another 60 seconds.
+
+Rejected: only separating failure from everything else (a blocked cloud share would still read as "nothing to update"); raising from `refresh` (it is documented never to, and its callers are background threads).
+
 ## Alternatives rejected
 
 - **One single memory file, quietly rewritten in full each time** — the user's own first framing. Rejected on Samantha's own follow-up in the same conversation: a doc that only reflects current state loses *why* a past approach was abandoned, which is precisely the failure the decision log exists to prevent.

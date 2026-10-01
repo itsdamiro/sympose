@@ -224,6 +224,66 @@ def test_refresh_with_nothing_proposed_returns_false_and_changes_nothing(asked):
     assert memory_write.has_pending("samantha") is False
 
 
+# -- last_outcome(): how a refresh ended, so /memory can say what happened (#108) ----------
+
+
+def test_an_update_is_recorded_as_updated(asked):
+    _one_recap()
+    memory_refresh.refresh("samantha")
+    assert memory_refresh.last_outcome("samantha") == memory_refresh.UPDATED
+
+
+def test_a_model_that_saw_nothing_to_change_is_recorded_as_unchanged(asked):
+    _one_recap()
+    asked.replies = [ModelReply(f"{prompt.MEMORY_PROFILE_MARK}\n{prompt.MEMORY_NO_CHANGE}\n"
+                                f"{prompt.MEMORY_CONTEXT_MARK}\n{prompt.MEMORY_NO_CHANGE}", 5)]
+    memory_refresh.refresh("samantha")
+    assert memory_refresh.last_outcome("samantha") == memory_refresh.UNCHANGED
+
+
+def test_a_failed_model_call_is_recorded_as_failed_not_unchanged(asked):
+    _one_recap()
+    asked.replies = [EngineModelError("down")]
+    memory_refresh.refresh("samantha")
+    assert memory_refresh.last_outcome("samantha") == memory_refresh.FAILED
+
+
+def test_a_reply_limit_failure_is_recorded_as_failed(asked):
+    _one_recap()
+    asked.replies = [ReplyLimitError("spent it all thinking")]
+    memory_refresh.refresh("samantha")
+    assert memory_refresh.last_outcome("samantha") == memory_refresh.FAILED
+
+
+def test_no_recaps_yet_is_recorded_as_skipped(asked):
+    memory_refresh.refresh("samantha")
+    assert memory_refresh.last_outcome("samantha") == memory_refresh.SKIPPED
+    assert asked == []
+
+
+def test_a_cloud_model_not_approved_for_memory_is_recorded_as_skipped(asked):
+    _one_recap()
+    memory_refresh.refresh("samantha", model="anthropic/claude-sonnet-5")
+    assert memory_refresh.last_outcome("samantha") == memory_refresh.SKIPPED
+
+
+def test_a_failed_write_is_recorded_as_failed(asked, monkeypatch):
+    _one_recap()
+    monkeypatch.setattr(memory_write, "stage_profile", lambda handle, text: False)
+    memory_refresh.refresh("samantha")
+    assert memory_refresh.last_outcome("samantha") == memory_refresh.FAILED
+
+
+def test_a_new_refresh_clears_the_last_outcome_before_it_runs(asked, monkeypatch):
+    """A refresh that raises part-way must not leave the previous run's outcome to be read as its own."""
+    _one_recap()
+    memory_refresh.refresh("samantha")
+    monkeypatch.setattr(memory_refresh, "_ask", lambda handle, model=None: 1 / 0)
+    with pytest.raises(ZeroDivisionError):
+        memory_refresh.refresh("samantha")
+    assert memory_refresh.last_outcome("samantha") is None
+
+
 # -- refresh_in_background() --------------------------------------------------------
 
 
