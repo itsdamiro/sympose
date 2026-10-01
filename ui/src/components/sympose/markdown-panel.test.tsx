@@ -25,6 +25,7 @@ vi.mock("@/components/sympose/note-actions-menu", () => ({
 }))
 
 import type { EditorPreferences } from "@/lib/use-editor-preferences"
+import { getUnsavedGuard } from "@/lib/unsaved-guard"
 import { MarkdownPanel } from "./markdown-panel"
 
 const PREFERENCES: EditorPreferences = {
@@ -61,6 +62,25 @@ describe("MarkdownPanel leaving a note with unsaved edits", () => {
     expect(api.saveVaultNote).toHaveBeenCalledTimes(1)
     expect(api.saveVaultNote.mock.calls[0][0]).toBe("Renamed.md")
     expect(api.saveVaultNote.mock.calls[0][1]).toBe("edited")
+  })
+
+  it("saves the edits to the new path when the note is renamed from outside (a tree row, a drop), and never to the old one", async () => {
+    const { view } = await openAndEdit()
+    await act(async () => getUnsavedGuard()!.retarget("Old.md", "Renamed.md"))
+    expect(api.saveVaultNote).toHaveBeenCalledTimes(1)
+    expect(api.saveVaultNote.mock.calls[0][0]).toBe("Renamed.md")
+    expect(api.saveVaultNote.mock.calls[0][1]).toBe("edited")
+    // The shell then changes the path; the leave-note flush finds nothing left to save.
+    api.fetchVaultNote.mockResolvedValue({ path: "Renamed.md", content: "edited", mtime: 200 })
+    view.rerender(<MarkdownPanel path="Renamed.md" preferences={PREFERENCES} toolbarItems={[]} />)
+    await screen.findByLabelText("editor")
+    expect(api.saveVaultNote.mock.calls.map((c) => c[0])).toEqual(["Renamed.md"])
+  })
+
+  it("ignores a rename of some other note", async () => {
+    await openAndEdit()
+    await act(async () => getUnsavedGuard()!.retarget("Other.md", "Else.md"))
+    expect(api.saveVaultNote).not.toHaveBeenCalled()
   })
 
   it("does not save a deleted note's edits anywhere", async () => {

@@ -53,7 +53,7 @@ import {
   slideExitClassName,
 } from "@/lib/use-slide-swap"
 import { fetchVaultNote, saveVaultNote } from "@/lib/vault-note-api"
-import { setUnsavedGuard } from "@/lib/unsaved-guard"
+import { getUnsavedGuard, setUnsavedGuard } from "@/lib/unsaved-guard"
 import { extractWikilinks } from "@/lib/extract-wikilinks"
 import { openMarkdownLink } from "@/lib/open-markdown-link"
 import { extractInlineTags } from "@/lib/extract-inline-tags"
@@ -750,6 +750,11 @@ function MarkdownPanel({
       name: () => (loadedPathRef.current ?? "").split("/").pop()?.replace(/\.md$/, "") ?? "",
       isDirty: () => isDirtyRef.current(),
       save: () => saveNoteRef.current({ silent: true, syncTags: true }),
+      retarget: async (oldPath, newPath) => {
+        if (loadedPathRef.current !== oldPath) return
+        loadedPathRef.current = newPath
+        await saveNoteRef.current({ silent: true, syncTags: false })
+      },
     })
     return () => setUnsavedGuard(null)
   }, [])
@@ -843,8 +848,7 @@ function MarkdownPanel({
         onRenamed={async (next) => {
           // The file has moved: save this note's unsaved edits to its new path now, while the buffer still
           // belongs to it, instead of letting the leave-note flush PUT to the old path (404, edits lost).
-          loadedPathRef.current = next
-          await saveNoteRef.current({ silent: true, syncTags: false })
+          if (path) await getUnsavedGuard()?.retarget(path, next)
           onRenamed?.(next)
         }}
         onDeleted={() => {

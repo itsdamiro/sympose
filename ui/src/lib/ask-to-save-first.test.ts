@@ -11,7 +11,7 @@ afterEach(() => {
   confirmed.requests.length = 0
 })
 
-const guard = (dirty: boolean, saved = true) => ({ name: () => "Plan", isDirty: () => dirty, save: vi.fn().mockResolvedValue(saved) })
+const guard = (dirty: boolean, saved = true) => ({ name: () => "Plan", isDirty: () => dirty, save: vi.fn().mockResolvedValue(saved), retarget: vi.fn() })
 
 describe("askToSaveFirst", () => {
   it("asks nothing when no note is open or the open note has no unsaved changes", () => {

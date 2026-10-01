@@ -1,5 +1,6 @@
 import { notify } from "@/lib/notify"
 import type { VaultNode } from "@/components/sympose"
+import { getUnsavedGuard } from "@/lib/unsaved-guard"
 import { moveVaultNote } from "@/lib/vault-note-api"
 
 /**
@@ -14,6 +15,8 @@ import { moveVaultNote } from "@/lib/vault-note-api"
  *   it the same `(path, destFolder)` pair; the no-op case (dropped back on its own
  *   folder) resolves without a fetch inside `moveVaultNote` itself, so nothing here
  *   guards it.
+ * - A rename or move of the open note first lets the editor save its unsaved edits to the new path
+ *   (`followMove`), so nothing is written to the old one.
  * - `vaultTreeActions` is the row callbacks shared by both `<VaultTree>` instances
  *   (the folder in view, and the "beyond" tier): identical behaviour either way,
  *   spread onto each with its own `nodes` and `key`. Picking a note always brings
@@ -55,6 +58,14 @@ export function useNoteChanges({
   clearRecents: () => void
   hideExtension: boolean
 }) {
+  // The file is already at its new path: let the open editor save its unsaved edits there before its path
+  // changes (otherwise its leave-note flush writes to the old path and fails).
+  const followMove = async (oldPath: string, newPath: string) => {
+    await getUnsavedGuard()?.retarget(oldPath, newPath)
+    refreshVault()
+    noteRenamed(oldPath, newPath)
+  }
+
   const moveNote = async (path: string, destFolder: string) => {
     const res = await moveVaultNote(path, destFolder, activePersona)
     if (!res.ok) {
@@ -62,8 +73,7 @@ export function useNoteChanges({
       return
     }
     if (res.path === path) return
-    refreshVault()
-    noteRenamed(path, res.path)
+    await followMove(path, res.path)
     notify.success(res.detail)
   }
 
@@ -75,10 +85,7 @@ export function useNoteChanges({
       openEditor()
     },
     persona: activePersona,
-    onRenamed: (oldPath: string, newPath: string) => {
-      refreshVault()
-      noteRenamed(oldPath, newPath)
-    },
+    onRenamed: followMove,
     onDeleted: (path: string) => {
       refreshVault()
       // `path` is a note's own path for a note-row delete, or a folder's path when

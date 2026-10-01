@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import type { VaultNode } from "@/components/sympose"
 import { useNoteChanges } from "./use-note-changes"
+import { setUnsavedGuard } from "./unsaved-guard"
 
 const moveVaultNote = vi.fn()
 const notify = { error: vi.fn(), success: vi.fn() }
@@ -69,6 +70,53 @@ describe("useNoteChanges: moving a note", () => {
   })
 })
 
+describe("useNoteChanges: the open editor's unsaved edits across a rename or move", () => {
+  // The editor's leave-note flush writes to the path it loaded; if the shell changes the path first, that
+  // write goes to a file that no longer exists (404) and the edits are lost. So `retarget` must finish first.
+  function guardLog() {
+    const log: string[] = []
+    let finish!: () => void
+    setUnsavedGuard({
+      name: () => "a",
+      isDirty: () => true,
+      save: async () => true,
+      retarget: (o, n) => {
+        log.push(`retarget ${o} ${n}`)
+        return new Promise<void>((r) => (finish = () => (log.push("saved"), r())))
+      },
+    })
+    return { log, finish: () => finish() }
+  }
+
+  it("lets the editor save to the new path before a tree rename changes anything", async () => {
+    const g = guardLog()
+    const s = setup({ selectedNote: "a.md" })
+    s.noteRenamed.mockImplementation(() => g.log.push("renamed"))
+    const done = s.result.current.vaultTreeActions.onRenamed("a.md", "b.md")
+    await Promise.resolve()
+    expect(s.noteRenamed).not.toHaveBeenCalled()
+    expect(s.refreshVault).not.toHaveBeenCalled()
+    g.finish()
+    await done
+    expect(g.log).toEqual(["retarget a.md b.md", "saved", "renamed"])
+    setUnsavedGuard(null)
+  })
+
+  it("does the same for a note dropped on another folder", async () => {
+    moveVaultNote.mockResolvedValue({ ok: true, path: "Daily/a.md", detail: "Moved" })
+    const g = guardLog()
+    const s = setup({ selectedNote: "Notes/a.md" })
+    s.noteRenamed.mockImplementation(() => g.log.push("renamed"))
+    const done = s.result.current.moveNote("Notes/a.md", "Daily")
+    await vi.waitFor(() => expect(g.log).toHaveLength(1))
+    expect(s.noteRenamed).not.toHaveBeenCalled()
+    g.finish()
+    await done
+    expect(g.log).toEqual(["retarget Notes/a.md Daily/a.md", "saved", "renamed"])
+    setUnsavedGuard(null)
+  })
+})
+
 describe("useNoteChanges: the tree's rows", () => {
   it("opens a picked note in the editor", () => {
     const s = setup()
@@ -85,9 +133,9 @@ describe("useNoteChanges: the tree's rows", () => {
     expect(s.openEditor).toHaveBeenCalledTimes(1)
   })
 
-  it("follows a rename, and refreshes", () => {
+  it("follows a rename, and refreshes", async () => {
     const s = setup()
-    s.result.current.vaultTreeActions.onRenamed("a.md", "b.md")
+    await s.result.current.vaultTreeActions.onRenamed("a.md", "b.md")
     expect(s.refreshVault).toHaveBeenCalledTimes(1)
     expect(s.noteRenamed).toHaveBeenCalledWith("a.md", "b.md")
   })

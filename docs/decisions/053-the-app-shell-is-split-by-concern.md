@@ -34,7 +34,7 @@ A before-and-after click-through in headless Chrome on a scratch vault: 41 snaps
 - `app-shell.tsx` ends near 600 lines, down from 1860; the pieces can be read, tested and changed on their own.
 - The shell has no tests of its own today; the extracted hooks gain them. The click-through lives outside the repo (as the other browser recipes do), so a later change to the shell is checked by the hooks' tests and a manual click-through, not by CI.
 - Reading the code, one more file to open per concern; in exchange none of them is longer than a screen or two.
-- Two findings the split made visible, both present before it and both only pinned, not changed: the menu's collapse state does not keep a menu the user collapsed on desktop across a trip through a smaller window, against what its comment says (#123); renaming the open note shows a stray "not found" notice (#122). The history stack's `navigatingHistory` flag has no effect today (React applies the cursor and the section in one batch, so the entry is never pushed twice); it was kept.
+- Two findings the split made visible, both present before it and both only pinned, not changed: the menu's collapse state does not keep a menu the user collapsed on desktop across a trip through a smaller window, against what its comment says (#123); renaming the open note shows a stray "not found" notice (#122, fixed afterwards: see Amendment). The history stack's `navigatingHistory` flag has no effect today (React applies the cursor and the section in one batch, so the entry is never pushed twice); it was kept.
 - One behaviour changed, on purpose and for the better: the highlight of the folder heading while a note is dragged over it now lives in the folder view, so leaving the section mid-drag no longer leaves it highlighted when you come back.
 - Candidates not done: grouping the cookie-backed preferences the shell reads (#119 covers the hooks themselves), and the layout block, which would only move the same props into another file.
 
@@ -44,3 +44,12 @@ A before-and-after click-through in headless Chrome on a scratch vault: 41 snaps
 - **One file per function.** More files than ideas; the history stack alone would take four.
 - **Leave the shell and close #95.** Rejected by damiro: the file keeps growing and cannot be tested.
 - **Rewrite the chunks while moving them.** A move that also changes behaviour cannot be checked by a snapshot diff; behaviour changes (cancelling a reply in flight, the cookie-preference hook, `markdown-panel`'s own animation state) are separate issues.
+
+## Amendment: renaming the open note from a tree row (#122)
+
+The "not found" notice was only the visible part. When the note open in the editor has unsaved edits and is renamed from a tree row (or moved by dragging it onto a folder), the shell changed the editor's path first; the editor's leave-note flush then saved to the path it had loaded, which no longer existed (a 404 and the notice), and the edits were lost. The editor's own menu already avoided this by retargeting its buffer to the new path and saving there before telling the shell. Reproduced in headless Chrome by typing into the open note and renaming it from its row; the file on disk then held no edit.
+
+Fix: the unsaved-guard slot (ADR 004 amendment) gains `retarget(oldPath, newPath)`. The editor implements it once (if the buffer is the old path, point it at the new one and save there); its own menu now goes through it, and the shell's `followMove` in `use-note-changes` awaits it before refreshing the vault and changing the open path, for both a tree rename and a drop. Same click-through after the fix: one `PUT` to the new path, no notice, the edit on disk. Five mutations killed, three in new tests of the shell's order of calls and two of the editor.
+
+Not covered, and not touched here: renaming a *folder* that contains the open note. `noteRenamed` only follows an exact path match, so the open path is not remapped at all in that case (to check and file separately).
+
