@@ -10,8 +10,8 @@ from typing import Any
 from fastapi import HTTPException
 
 from sympose.engine import (
-    compaction, context_estimate, model as model_mod, semantic_refresh, session, session_compaction, status_phrases,
-    turn, turn_status,
+    compaction, context_estimate, model as model_mod, recap_refresh, semantic_refresh, session, session_compaction,
+    status_phrases, turn, turn_status,
 )
 from sympose.engine.turn_cancel import request as cancel_requested
 from sympose.server_handlers import require_profile
@@ -128,6 +128,7 @@ def start_session(body: ChatSessionStart) -> dict[str, Any]:
     bringing the previous one back. When the latest is already blank it is reused, so pressing the button
     twice does not leave empty files behind."""
     handle = require_profile(body.persona)["handle"]
+    recap_refresh.refresh_in_background(handle)  # the conversations before this one, as the terminal does at launch (ADR 023)
     latest = _latest_session(handle)
     if latest and not latest[1]["turns"]:
         return {"session_id": latest[0]}
@@ -142,8 +143,12 @@ def get_session(persona: str | None, session_id: str | None, before: int | None,
     last `limit` turns, or the `limit` turns before turn number `before`. `session_id` fixes which
     conversation the pages come from (the first page names it), so older pages stay in the same one even if
     another starts meanwhile; left out, it is the latest. Each turn carries its number, the running
-    index into the whole conversation."""
+    index into the whole conversation. The first page is the chat being opened, so it also starts the recaps
+    of the conversations held since the last one (ADR 023); the terminal does that at launch, and a web chat
+    has no launch. Nothing is asked of the model when none is missing."""
     handle = require_profile(persona)["handle"]
+    if before is None:
+        recap_refresh.refresh_in_background(handle)
     if session_id:
         try:
             loaded = session.load_session(handle, session_id)

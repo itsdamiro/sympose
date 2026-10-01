@@ -3,16 +3,19 @@ one turn at a time per persona, and the live phase of the reply in flight."""
 
 import threading
 import time
+from datetime import timedelta
 
 import pytest
 from fastapi.testclient import TestClient
 from helpers import write_persona
 
 from sympose import server_chat_handlers as ch
-from sympose.engine import grounding, session, turn, turn_status
+from sympose.engine import grounding, recap, recap_refresh, session, turn, turn_status
 from sympose.engine.model import EngineModelError, ModelReply
 from sympose.server import create_app
 from sympose.server_models import ChatTurn
+
+REAL_REFRESH = recap_refresh.refresh_in_background  # before `recaps_started` replaces it
 
 
 @pytest.fixture(autouse=True)
@@ -28,6 +31,15 @@ def scratch(tmp_path, monkeypatch):
     monkeypatch.setattr(grounding, "ground", lambda profile, msg, max_results=5: [])
     monkeypatch.setattr(turn.budget, "_native_max", lambda model: None)
     monkeypatch.setattr(ch, "_LOCKS", {})
+
+
+@pytest.fixture(autouse=True)
+def recaps_started(monkeypatch):
+    """Opening a chat or starting a conversation asks for the earlier ones' recaps (ADR 023); here that is only
+    recorded, so no test starts a model call. The tests of that behaviour read this list."""
+    started = []
+    monkeypatch.setattr(ch.recap_refresh, "refresh_in_background", lambda handle, model=None: started.append(handle) or True)
+    return started
 
 
 @pytest.fixture
@@ -370,3 +382,47 @@ def test_stopping_when_nothing_is_running_says_so_and_does_not_affect_the_next_r
 
 def test_stopping_an_unknown_persona_is_404(client):
     assert client.post("/api/chat/cancel", json={"persona": "nobody"}).status_code == 404
+
+
+OLD, NEW = "20260930T100000-aaaaaaaa", "20260930T110000-bbbbbbbb"
+
+
+# -- recaps of the earlier conversations (ADR 023): the web has no launch, so opening a chat starts them ----
+
+
+def test_opening_a_chat_starts_the_recaps_of_the_earlier_conversations(client, recaps_started):
+    page(client)
+    assert recaps_started == ["samantha"]
+
+
+def test_a_page_of_older_turns_does_not_start_them_again(client, recaps_started):
+    seed(NEW, 5)
+    page(client, session_id=NEW, before=3)
+    assert recaps_started == []
+
+
+def test_starting_a_new_conversation_starts_them(client, recaps_started):
+    client.post("/api/chat/session", json={"persona": "samantha"})
+    assert recaps_started == ["samantha"]
+
+
+def test_an_unknown_persona_starts_no_recaps(client, recaps_started):
+    client.get("/api/chat/session", params={"persona": "nobody"})
+    client.post("/api/chat/session", json={"persona": "nobody"})
+    assert recaps_started == []
+
+
+def test_a_conversation_held_in_the_web_chat_has_its_recap_the_next_time_the_chat_opens(client, monkeypatch):
+    """The whole path with the real refresh: only the model is replaced."""
+    monkeypatch.setattr(ch.recap_refresh, "refresh_in_background", REAL_REFRESH)
+    monkeypatch.setattr(recap_refresh, "_QUIET", timedelta(0))
+    monkeypatch.setattr(
+        recap_refresh.model_mod, "call_model", lambda messages, **_: ModelReply("Talked about a film project.", 5)
+    )
+    seed(OLD, 3)
+    assert recap.load("samantha", OLD) is None
+
+    page(client)
+    assert recap_refresh.wait_for_refresh("samantha", 10)
+
+    assert recap.load("samantha", OLD) == (3, "Talked about a film project.")

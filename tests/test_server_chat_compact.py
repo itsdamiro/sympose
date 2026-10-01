@@ -5,6 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 from helpers import write_persona
 
+from sympose import server_chat_handlers as ch
 from sympose.engine import compaction, grounding, session, session_compaction, turn
 from sympose.engine.model import EngineModelError, ModelReply
 from sympose.server import create_app
@@ -22,6 +23,12 @@ def scratch(tmp_path, monkeypatch):
     monkeypatch.setenv("VAULT_PATHS", str(tmp_path))
     monkeypatch.setattr(grounding, "ground", lambda profile, msg, max_results=5: [])
     monkeypatch.setattr(turn.budget, "_native_max", lambda model: None)
+
+
+@pytest.fixture(autouse=True)
+def no_recaps(monkeypatch):
+    """Opening a chat asks for recaps (ADR 023); a test here must not start a model call for them."""
+    monkeypatch.setattr(ch.recap_refresh, "refresh_in_background", lambda handle, model=None: True)
 
 
 @pytest.fixture
