@@ -51,5 +51,4 @@ The "not found" notice was only the visible part. When the note open in the edit
 
 Fix: the unsaved-guard slot (ADR 004 amendment) gains `retarget(oldPath, newPath)`. The editor implements it once (if the buffer is the old path, point it at the new one and save there); its own menu now goes through it, and the shell's `followMove` in `use-note-changes` awaits it before refreshing the vault and changing the open path, for both a tree rename and a drop. Same click-through after the fix: one `PUT` to the new path, no notice, the edit on disk. Five mutations killed, three in new tests of the shell's order of calls and two of the editor.
 
-Not covered, and not touched here: renaming a *folder* that contains the open note. `noteRenamed` only follows an exact path match, so the open path is not remapped at all in that case (to check and file separately).
-
+Checked and not a gap: renaming or moving a *folder* holding the open note. The web app has no folder rename or move (a folder row offers New note here, Hide and Delete; the only rename endpoint is for notes), and deleting a folder already closes the editor by path prefix. A folder renamed outside Sympose (in Obsidian) is the general case of the vault changing underneath the app, not part of this fix.
