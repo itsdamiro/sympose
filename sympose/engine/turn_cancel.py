@@ -39,6 +39,12 @@ def finish(handle: str, session_id: str | None = None) -> None:
     _HERE.key = None
 
 
+def running(handle: str, session_id: str | None = None) -> bool:
+    """Whether a reply is in flight for the persona (or for that conversation of it)."""
+    with _LOCK:
+        return any(key[0] == handle and (session_id is None or key[1] == session_id) for key in _ACTIVE)
+
+
 def request(handle: str, session_id: str | None = None) -> bool:
     """Ask the persona's running turn to stop (with `session_id`, the one of that conversation; without,
     every turn the persona is running). `False` when none is running or all are already past `commit`: the

@@ -29,10 +29,11 @@ from sympose import server_persona_handlers as ph
 from sympose import server_settings_handlers as seh
 from sympose import server_sharing_handlers as sph
 from sympose import server_search_handlers as sh
+from sympose import server_session_handlers as sess
 from sympose import server_trash_handlers as th
 from sympose import server_vault_handlers as vh
 from sympose import vault_paths
-from sympose.server_models import ChatCancel, ChatCompact, ChatSessionStart, ChatTurn, DefinitionsSwitch, FolderDefinition, HiddenPath, ModelChoice, SettingChange, SharingChange, TrashEmpty, TrashRestore, VaultActivate
+from sympose.server_models import ChatCancel, ChatCompact, ChatSessionStart, ChatSessionUpdate, ChatTurn, DefinitionsSwitch, FolderDefinition, HiddenPath, ModelChoice, SettingChange, SharingChange, TrashEmpty, TrashRestore, VaultActivate
 
 
 def create_app() -> FastAPI:
@@ -99,6 +100,18 @@ def create_app() -> FastAPI:
         limit: int = Query(20, ge=1, le=100),
     ) -> dict[str, Any]:
         return ch.get_session(persona, session_id, before, limit)
+
+    @app.get("/api/chat/sessions")
+    def chat_sessions(persona: str | None = Query(None)) -> dict[str, Any]:
+        return sess.list_sessions(persona)
+
+    @app.patch("/api/chat/session/{session_id}")
+    def chat_session_update(session_id: str, body: ChatSessionUpdate) -> dict[str, Any]:
+        return sess.update_session(session_id, body)
+
+    @app.delete("/api/chat/session/{session_id}")
+    def chat_session_delete(session_id: str, persona: str | None = Query(None)) -> dict[str, Any]:
+        return sess.delete_session(session_id, persona)
 
     @app.post("/api/chat/session")
     def chat_session_start(body: ChatSessionStart) -> dict[str, Any]:

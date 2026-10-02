@@ -126,6 +126,15 @@ class ChatSessionStart(BaseModel):
     persona: str | None = None
 
 
+class ChatSessionUpdate(BaseModel):
+    """Body of `PATCH /api/chat/session/<id>` — a new title and/or whether the conversation is pinned
+    (docs/decisions/057). What is left out is left as it is."""
+
+    persona: str | None = None
+    title: str | None = None
+    pinned: bool | None = None
+
+
 class SettingChange(BaseModel):
     """Body of `PUT /api/settings/{key}` — the value wanted, or `null` for the setting's default."""
 
