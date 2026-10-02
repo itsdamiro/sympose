@@ -63,6 +63,16 @@ Compaction replaces the oldest part of the history with a short model-written su
 - A compaction followed by a model switch (the notes were written by one model and sent to another), and the first-reply wait through the real `run_turn` with automatic compaction on, which was measured above only for the prompt sizes, not end to end.
 - The 120 s call limit (#124) is untouched, so a very long chat on a slow machine can still fail before it is condensed.
 
+## Update: `history_tokens`, an optional cap on the earlier turns (2026-10-02, with #125)
+
+**Context.** Compaction holds a conversation between `compact_at` and `compact_to` of the prompt budget, so the earlier turns can still take most of the window. The wait for a reply grows with the prompt (ADR 059): about 97 s cold at 4.8k tokens on `gemma2:9b`. A user on a slow machine, or paying per token, may want a short history whatever the window allows, and a user who does not want notes at all has no way to say so.
+
+**Decision.** `history_tokens` (whole tokens, 500 or more; empty or unusable means no cap, which is today's behaviour) is the most the earlier turns of the conversation may take in a prompt, word for word. Before the prompt is fitted, the oldest turns are dropped until what is left is within the cap; the newest turn always stays, even when it is over. The turns dropped are counted with the ones the window's own fitting drops, so the "older turns out of context" notice (`show_trim_notice`) says so. Notes already written (the compaction's record) are not part of the cap: they are the short stand-in for the turns they replace, and a user who wants none sets `auto_compact` off. The cap is in the shared settings registry, Context group, in both channels.
+
+**Consequences.** A capped conversation drops turns instead of condensing them: with a low cap the prompt never nears `compact_at`, so the automatic compaction does not start and the early part is forgotten, which is what a cap asks for and what #19 was written to avoid when a user has not asked. `/compact` still works and writes notes the cap does not touch. The default is no cap, so nothing changes for anyone who does not set it.
+
+**Alternatives rejected.** A cap as a share of the window: that is `compact_at`, which keeps the gist as notes. Making the cap the default: it forgets silently.
+
 ## Alternatives rejected
 
 - **Summarise both sides, her statements marked as hers.** Measured and rejected: it recorded her invented claim as the user's fact 5 of 5 times. A separate call for her side, labelled by code, was worse.

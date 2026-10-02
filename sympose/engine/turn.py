@@ -11,7 +11,8 @@ from typing import Any
 
 from sympose import profile as profile_mod, vault_map as vault_map_mod
 from sympose.engine import (
-    budget, compaction, connections, followup, grounding, grounding_properties, lookup, memory, memory_tools, persona_tools,
+    budget, compaction, connections, followup, grounding, grounding_properties, history_cap, lookup, memory, memory_tools,
+    persona_tools,
     prompt, recap, recap_refresh, reference, session, session_compaction, sharing, tool_support, turn_cancel, turn_status,
 )
 from sympose.engine import model as model_mod
@@ -64,6 +65,7 @@ def run_turn(
     # rest of the order (persona's model > setting > default), so this
     # and every display of "which model runs" share one definition.
     target_model = model or model_mod.resolve_model(persona.get("model"))
+    history, capped = history_cap.apply(history, target_model)  # the user's own limit on earlier turns (docs/decisions/055)
     # `ask` (docs/decisions/040) and `remember` (docs/decisions/041) are independent settings, each
     # checked against what this model can actually do and, for `ask`, whether the persona has a
     # vault to look up at all -- see `persona_tools.resolve`.
@@ -77,7 +79,7 @@ def run_turn(
     turn_cancel.begin(handle, sid)  # from here a stop request is heard (docs/decisions/054); cleared in `finally`
     try:
         try:
-            result = _run(persona, handle, user_message, sid, existing, history, target_model, modes)
+            result = _run(persona, handle, user_message, sid, existing, history, target_model, modes, capped)
         except lookup.ToolsRefused:
             # The model failed with the tools: the turn is run with none, and a model that does that twice in a
             # row while working without them is not given tools again (docs/decisions/040). `remember` falls
@@ -86,7 +88,7 @@ def run_turn(
             retry_remember = memory.MARKER if memory.remember_enabled() else None
             result = _run(
                 persona, handle, user_message, sid, existing, history, target_model,
-                persona_tools.Modes(False, modes.chose_ask, retry_remember),
+                persona_tools.Modes(False, modes.chose_ask, retry_remember), capped,
             )
             tool_support.note_refusal(target_model)
             return result
@@ -108,6 +110,7 @@ def _run(
     history: list[dict[str, str]],
     target_model: str,
     modes: "persona_tools.Modes",
+    capped: int = 0,
 ) -> TurnResult:
     ask, chose_ask, remember = modes.ask, modes.chose_ask, modes.remember
     # The prompt is sized to this model's window, not left to the runtime's
@@ -210,6 +213,7 @@ def _run(
         messages, grounding_results, dropped = fitted.messages, fitted.grounding, fitted.history_dropped
         recaps_sent, prompt_tokens = fitted.recaps, fitted.tokens
         decisions_sent = fitted.decisions
+    dropped += capped  # the turns `history_tokens` left out count with the ones the window's own fitting dropped
     lookups: list[dict[str, Any]] = []
     tools = persona_tools.for_turn(ask, remember == memory.TOOL)
     if tools:
