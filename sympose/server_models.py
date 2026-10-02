@@ -99,10 +99,12 @@ class FolderDefinition(BaseModel):
 
 class ChatCancel(BaseModel):
     """Body of `POST /api/chat/cancel` — stop a reply in flight (docs/decisions/054): the conversation
-    `session_id` names, or every reply the persona is writing when it is left out (docs/decisions/057)."""
+    `session_id` names, or every reply the persona is writing when it is left out, or with `unnamed` only a first message's, which has no id
+    yet (docs/decisions/057)."""
 
     persona: str | None = None
     session_id: str | None = None
+    unnamed: bool = False  # only a reply whose first message named no conversation: the web's, before its id is known
 
 
 class ChatTurn(BaseModel):

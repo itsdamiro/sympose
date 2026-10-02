@@ -71,7 +71,7 @@ export async function sendChatTurn(
 
 /**
  * Client for `POST /api/chat/cancel` (ADR 054, 057): ask the engine to stop the reply in flight of the conversation
- * `sessionId` (every reply the persona is writing when it is left out), or a message still waiting for its turn. `true`
+ * `sessionId` (a first message has none yet: then only the replies that began without one), or a message still waiting for its turn. `true`
  * means the stop was accepted and nothing of that turn will be saved; `false` means there was nothing to stop
  * (no reply running, or it is already complete and will arrive), or the backend could not be reached.
  */
@@ -80,7 +80,8 @@ export async function cancelChatTurn(persona: string, sessionId?: string): Promi
     const res = await fetch("/api/chat/cancel", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ persona, session_id: sessionId }),
+      // A first message has no conversation id yet; without `unnamed` the stop would end every reply of the persona.
+      body: JSON.stringify({ persona, session_id: sessionId, unnamed: sessionId === undefined }),
     })
     return res.ok && ((await res.json()) as { stopping?: boolean }).stopping === true
   } catch {

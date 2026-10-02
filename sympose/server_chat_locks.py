@@ -47,9 +47,13 @@ def is_waiting(handle: str, session_id: str | None) -> bool:
         )
 
 
-def stop_waiting(handle: str, session_id: str | None) -> bool:
+def stop_waiting(handle: str, session_id: str | None, unnamed: bool = False) -> bool:
+    """Stop the persona's waiting messages (a conversation's, or with `unnamed` only those that named none)."""
     with _LOCKS_GUARD:
-        events = [e for (h, s), found in _WAITING.items() if h == handle and (session_id is None or s == session_id) for e in found]
+        events = [
+            e for (h, s), found in _WAITING.items()
+            if h == handle and (s is None if unnamed else session_id is None or s == session_id) for e in found
+        ]
     for event in events:
         event.set()
     return bool(events)

@@ -208,3 +208,23 @@ def test_a_stop_that_arrives_as_the_lock_is_freed_still_wins():
     lock = FreedByTheStop()
     assert chat_locks.acquire(lock, "local", "a") is False
     assert lock.held is False  # and the lock was given back
+
+
+def test_a_stop_for_a_first_reply_with_no_conversation_id_leaves_the_other_conversations_alone():
+    """The web chat names no conversation for a first message; its stop must not end the replies of its others."""
+    from sympose.engine import turn_cancel
+
+    turn_cancel.begin("local", A)  # a conversation the browser named
+    turn_cancel.begin("local", B, named=False)  # a first message: the engine made up its id
+    assert ch.cancel_turn(ChatCancel(persona="local", unnamed=True)) == {"stopping": True}
+    with pytest.raises(turn_cancel.TurnCancelled):
+        turn_cancel.check()  # this thread runs B
+    turn_cancel.begin("local", A)
+    turn_cancel.check()  # A went on
+
+
+def test_stopping_the_unnamed_waiting_message_leaves_a_named_one_waiting(monkeypatch):
+    unnamed, named = threading.Event(), threading.Event()
+    monkeypatch.setattr(chat_locks, "_WAITING", {("local", None): [unnamed], ("local", A): [named]})
+    assert chat_locks.stop_waiting("local", None, unnamed=True) is True
+    assert unnamed.is_set() and not named.is_set()

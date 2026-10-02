@@ -56,12 +56,12 @@ def send_turn(body: ChatTurn) -> dict[str, Any]:
 
 def cancel_turn(body: ChatCancel) -> dict[str, Any]:
     """Stop a reply in flight (docs/decisions/054): the conversation `session_id` names, or every reply the
-    persona is writing when it is left out. A message still waiting for its turn (docs/decisions/057) is stopped
-    too and is not run. `stopping` is whether anything was stopped; the turn's own request answers
+    persona is writing when it is left out, or with `unnamed` only the reply of a first message that named no
+    conversation. A message still waiting for its turn (docs/decisions/057) is stopped too and is not run. `stopping` is whether anything was stopped; the turn's own request answers
     `{"cancelled": true}` when the engine reaches its next check, so this does not wait for it."""
     handle = require_profile(body.persona)["handle"]
-    running = cancel_requested(handle, body.session_id)
-    return {"stopping": locks.stop_waiting(handle, body.session_id) or running}
+    running = cancel_requested(handle, body.session_id, unnamed=body.unnamed)
+    return {"stopping": locks.stop_waiting(handle, body.session_id, unnamed=body.unnamed) or running}
 
 
 def compact_session(body: ChatCompact) -> dict[str, Any]:

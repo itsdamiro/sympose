@@ -19,14 +19,17 @@ _Key = tuple[str, str | None]
 _ACTIVE: set[_Key] = set()
 _REQUESTED: set[_Key] = set()
 _COMMITTED: set[_Key] = set()
+_UNNAMED: set[_Key] = set()  # turns whose first message named no conversation: the engine made up their id
 _LOCK = threading.Lock()
 _HERE = threading.local()
 
 
-def begin(handle: str, session_id: str | None = None) -> None:
+def begin(handle: str, session_id: str | None = None, named: bool = True) -> None:
     key = (handle, session_id)
     with _LOCK:
         _ACTIVE.add(key)
+        if not named:
+            _UNNAMED.add(key)
     _HERE.key = key
 
 
@@ -36,6 +39,7 @@ def finish(handle: str, session_id: str | None = None) -> None:
         _ACTIVE.discard(key)
         _REQUESTED.discard(key)
         _COMMITTED.discard(key)
+        _UNNAMED.discard(key)
     _HERE.key = None
 
 
@@ -45,14 +49,16 @@ def running(handle: str, session_id: str | None = None) -> bool:
         return any(key[0] == handle and (session_id is None or key[1] == session_id) for key in _ACTIVE)
 
 
-def request(handle: str, session_id: str | None = None) -> bool:
+def request(handle: str, session_id: str | None = None, unnamed: bool = False) -> bool:
     """Ask the persona's running turn to stop (with `session_id`, the one of that conversation; without,
-    every turn the persona is running). `False` when none is running or all are already past `commit`: the
+    every turn the persona is running; with `unnamed`, only a turn whose first message named no conversation,
+    which a client cannot name yet). `False` when none is running or all are already past `commit`: the
     reply will be saved and shown."""
     with _LOCK:
         keys = [
             key for key in _ACTIVE
             if key[0] == handle and (session_id is None or key[1] == session_id) and key not in _COMMITTED
+            and (not unnamed or key in _UNNAMED)
         ]
         _REQUESTED.update(keys)
         return bool(keys)

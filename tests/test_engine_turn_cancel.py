@@ -40,6 +40,16 @@ class TestRegistry:
         turn_cancel.request("samantha")
         turn_cancel.check()  # aria's turn is unaffected
 
+    def test_an_unnamed_request_stops_only_a_turn_that_began_without_a_conversation_id(self):
+        turn_cancel.begin("samantha", "a")  # a conversation the client named
+        assert turn_cancel.request("samantha", unnamed=True) is False  # nothing began unnamed
+        turn_cancel.begin("samantha", "b", named=False)  # a first message: the engine made up its id
+        assert turn_cancel.request("samantha", unnamed=True) is True
+        with pytest.raises(turn_cancel.TurnCancelled):
+            turn_cancel.check()  # this thread runs "b"
+        turn_cancel.begin("samantha", "a")  # back to the named conversation: it was not stopped
+        turn_cancel.check()
+
     def test_finishing_a_turn_clears_its_request(self):
         turn_cancel.begin("samantha")
         turn_cancel.request("samantha")

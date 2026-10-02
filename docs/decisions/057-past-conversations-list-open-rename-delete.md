@@ -63,6 +63,10 @@ The model is a chat tool with threads: the user moves between conversations and 
 - **Measured.** In a real browser against a scratch install with `gemma2:9b`: a reply was in flight, the user opened a new conversation (blank at once, no Stop button, the first row showing `replying…`), the reply landed in the first conversation with a dot, opening it cleared the dot; a message sent in a second conversation while the first replied showed `queued`, and Stop returned its text to the message box while the first reply carried on and landed; a conversation was deleted from the list, found under Conversations in the Bin, and restored into the list.
 - **Not done.** `parallel_replies` is read only by the web app: the terminal runs a reply per conversation generation as before. A conversation the browser holds is not read again from the backend when another window continues it.
 
+## Amendment (2026-10-03, found in the pre-#21 review): stopping a first message
+
+A first message in the web chat has no conversation id until its reply lands (the engine makes one up), so its Stop sent no `session_id`, and a stop with none ends every reply the persona is writing, including the other conversations' when `parallel_replies` is on. The stop request now carries `unnamed` when the web has no id: it ends only the replies (and waiting messages) that began without one, which the registry marks (`turn_cancel.begin(..., named=False)`). Persona-wide stop for a caller that wants it is unchanged. Rejected: opening the conversation before the first message, as "New conversation" does (the route reuses the latest blank conversation, which another open conversation in the browser may already hold, and it would put a second path into the logic that reconciles the blank conversation the backend answers with); a client-made id (it would copy the engine's id format).
+
 ## Not built
 
 - A model-written title (the first message stays the default title).

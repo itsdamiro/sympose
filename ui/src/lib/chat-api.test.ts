@@ -72,11 +72,18 @@ describe("sendChatTurn", () => {
 })
 
 describe("cancelChatTurn", () => {
-  it("asks the backend to stop that persona's reply and says whether it was accepted", async () => {
+  it("asks the backend to stop a first message's reply, which has no conversation id yet, and says whether it was accepted", async () => {
     const fetchMock = stub({ ok: true, status: 200, json: () => Promise.resolve({ stopping: true }) })
     expect(await cancelChatTurn("samantha")).toBe(true)
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
-    expect([url, init.method, JSON.parse(init.body as string)]).toEqual(["/api/chat/cancel", "POST", { persona: "samantha" }])
+    expect([url, init.method, JSON.parse(init.body as string)]).toEqual(["/api/chat/cancel", "POST", { persona: "samantha", unnamed: true }])
+  })
+
+  it("names the conversation when it has an id, so only that one is stopped", async () => {
+    const fetchMock = stub({ ok: true, status: 200, json: () => Promise.resolve({ stopping: true }) })
+    await cancelChatTurn("samantha", "s1")
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(JSON.parse(init.body as string)).toEqual({ persona: "samantha", session_id: "s1", unnamed: false })
   })
 
   it("is false when there was nothing to stop, when the backend refuses, and when it cannot be reached", async () => {

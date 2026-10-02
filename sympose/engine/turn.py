@@ -75,7 +75,7 @@ def run_turn(
     # reading) around its own steps; this is just the default for everything else in between.
     turn_status.bind(handle, sid)  # this turn's phase and stop are its conversation's own (docs/decisions/057)
     turn_status.set_phase(handle, turn_status.ASKING)
-    turn_cancel.begin(handle, sid)  # from here a stop request is heard (docs/decisions/054); cleared in `finally`
+    turn_cancel.begin(handle, sid, named=session_id is not None)  # from here a stop request is heard (docs/decisions/054); cleared in `finally`
     try:
         try:
             result = _run(persona, handle, user_message, sid, existing, history, target_model, modes, capped)
