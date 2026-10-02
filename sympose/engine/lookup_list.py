@@ -8,11 +8,9 @@ returns are note names, so a cloud model gets them only when the user allows `no
 
 from typing import Any
 
-from sympose import vault_paths
-from sympose.engine import sharing
+from sympose.engine import lookup_scope, sharing
 from sympose.engine.lookup_result import Result
 from sympose.engine.prompt_text import WITHHELD_NOTES
-from sympose.vault_snapshot import get_vault_snapshot
 
 LIST = "list_notes"
 MAX_NAMES = 100
@@ -39,16 +37,24 @@ _NOT_FOUND = "No folder called {folder} was found in the vault."
 _EMPTY = "The folder {folder} has no notes in it."
 
 
-def _title(note: dict[str, Any]) -> str:
-    meta = note.get("meta") or {}
-    return str(meta.get("title") or meta.get("name") or note["file_name"][:-3])
+MAX_PROPERTIES = 12
+
+
+def property_names(notes: list[dict[str, Any]]) -> str:
+    """The property names the notes use, most used first, with how many notes have each: what tells the persona
+    that a filter on one exists, so it does not open the notes one by one to find out (docs/decisions/058)."""
+    counts: dict[str, int] = {}
+    for note in notes:
+        for key in note.get("meta") or {}:
+            counts[str(key)] = counts.get(str(key), 0) + 1
+    ranked = sorted(counts.items(), key=lambda item: (-item[1], item[0].casefold()))[:MAX_PROPERTIES]
+    return ", ".join(f"{key} ({count})" for key, count in ranked)
 
 
 def list_notes(profile: dict[str, Any], model: str, folder: str) -> Result:
-    scope = vault_paths.resolve_sandbox(profile)
     wanted = folder.strip().strip("/")
     shown = repr(folder) if wanted else "the top of the vault"
-    notes = get_vault_snapshot(*scope) if scope is not None else []
+    notes = lookup_scope.in_scope(profile)
     prefix = wanted.lower() + "/" if wanted else ""
     inside = [note for note in notes if note["rel_path"].lower().startswith(prefix)]
     if not inside:
@@ -68,9 +74,12 @@ def list_notes(profile: dict[str, Any], model: str, folder: str) -> Result:
         return Result(WITHHELD_NOTES, withheld={sharing.NOTES: count}, lookup={"folder": wanted, "found": 0})
     lines = [f"Notes in {shown}, {len(here)} in alphabetical order by file name:"] if here else [_EMPTY.format(folder=shown)]
     for number, note in enumerate(here[:MAX_NAMES], 1):
-        lines.append(f"{number}. {_title(note)} ({note['rel_path']})")
+        lines.append(f"{number}. {lookup_scope.title(note)} ({note['rel_path']})")
     if len(here) > MAX_NAMES:
         lines.append(f"...and {len(here) - MAX_NAMES} more; search or open one by name to reach them.")
+    keys = property_names(here) if sharing.PROPERTIES in sharing.allowed(model) else ""
+    if keys:
+        lines.append(f"Properties these notes have: {keys}. find_notes can filter on them in one call.")
     if folders:
         lines.append("Folders inside it: " + ", ".join(f"{name} ({n} notes)" for name, n in sorted(folders.items(), key=lambda kv: kv[0].casefold())))
     return Result("\n".join(lines), lookup={"folder": wanted, "found": count})

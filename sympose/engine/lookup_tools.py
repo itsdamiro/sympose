@@ -10,12 +10,10 @@ returned as passages, gated by `sharing` like the automatic search's, before any
 import json
 from typing import Any
 
-from sympose import vault_paths
-from sympose.engine import connections, grounding, grounding_properties, lookup_list, sharing
+from sympose.engine import connections, grounding, grounding_properties, lookup_find, lookup_list, lookup_scope, sharing
 from sympose.engine.lookup_result import Result
 from sympose.engine.prompt_blocks import passage_text
 from sympose.engine.prompt_text import WITHHELD_CONNECTIONS, WITHHELD_NOTES, WITHHELD_PROPERTIES
-from sympose.vault_snapshot import get_vault_snapshot
 
 SEARCH, OPEN = "search_notes", "open_note"
 # A note's body is cut here, with a marker: the prompt budget then fits what is left (docs/decisions/015).
@@ -58,6 +56,7 @@ TOOLS: list[dict[str, Any]] = [
         },
     },
     lookup_list.TOOL,
+    lookup_find.TOOL,
 ]
 
 _UNKNOWN_TOOL = "There is no tool called {name}. The tools are {names}."
@@ -134,31 +133,8 @@ def _cut(text: str) -> str:
     return text if len(text) <= MAX_NOTE_CHARS else text[:MAX_NOTE_CHARS].rstrip() + _CUT
 
 
-def _find(profile: dict[str, Any], path: str) -> dict[str, Any] | None:
-    """The note in the persona's scope that `path` names: its path relative to the vault (with or without
-    `.md`, in any case), else its title or file name when only one note has it."""
-    scope = vault_paths.resolve_sandbox(profile)
-    if scope is None:
-        return None
-    notes = get_vault_snapshot(*scope)
-    wanted = path.strip().strip("/").lower()
-    bare = wanted[:-3] if wanted.endswith(".md") else wanted
-    for note in notes:
-        rel = note["rel_path"].lower()
-        if rel == wanted or rel[:-3] == bare:
-            return note
-    named = [
-        note for note in notes
-        if bare in {
-            note["file_name"][:-3].lower(),
-            str((note.get("meta") or {}).get("title") or (note.get("meta") or {}).get("name") or "").lower(),
-        }
-    ]
-    return named[0] if len(named) == 1 else None
-
-
 def open_note(profile: dict[str, Any], model: str, path: str) -> Result:
-    note = _find(profile, path)
+    note = lookup_scope.find(profile, path)
     if note is None:
         return Result(_NOT_FOUND.format(path=repr(path)), lookup={"found": 0})
     meta = note.get("meta") or {}
@@ -172,11 +148,17 @@ def open_note(profile: dict[str, Any], model: str, path: str) -> Result:
 def run(profile: dict[str, Any], model: str, name: str, raw_arguments: str | dict[str, Any] | None) -> Result:
     """Run the tool `name` and give back what the model is told. An unknown tool, or arguments that are
     not readable, is a result like any other (the model can try again), never an exception that ends the turn."""
+    if name == lookup_find.FIND:
+        filters, problem = lookup_find.parse(raw_arguments)
+        if filters is None:
+            return Result(problem or "", lookup={"tool": name, "found": 0})
+        result = lookup_find.find_notes(profile, model, filters)
+        return Result(result.text, result.hits, result.withheld, {"tool": name, **result.lookup})
     tool = {
         SEARCH: ("query", search_notes), OPEN: ("path", open_note), lookup_list.LIST: ("folder", lookup_list.list_notes),
     }.get(name)
     if tool is None:
-        names = ", ".join((SEARCH, OPEN, lookup_list.LIST))
+        names = ", ".join((SEARCH, OPEN, lookup_list.LIST, lookup_find.FIND))
         return Result(_UNKNOWN_TOOL.format(name=name, names=names), lookup={"tool": name, "found": 0})
     argument, problem = _arguments(raw_arguments, name, tool[0])
     if argument is None and name == lookup_list.LIST and _no_folder_named(raw_arguments):

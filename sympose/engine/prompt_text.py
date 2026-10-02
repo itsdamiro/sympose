@@ -92,18 +92,20 @@ GROUNDING_RULE = (
 )
 
 # The two forms these take when the persona looks up notes itself (docs/decisions/040, the
-# `vault_lookup` setting): the same rules, with the search that is done for her replaced by the three tools
+# `vault_lookup` setting): the same rules, with the search that is done for her replaced by the four tools
 # she decides to use. What follows "Of earlier conversations you know only" and "When you use a note" is
 # not repeated: it is taken from the texts above, so the two forms cannot drift apart.
 HOW_YOU_WORK_ASK = (
-    "How you work: Sympose does not search the user's vault for you. You have three tools, "
-    "search_notes (find passages of their notes on a topic), open_note (read one note in full) and "
-    "list_notes (which notes are in a folder, numbered, alphabetically by file name), and "
+    "How you work: Sympose does not search the user's vault for you. You have four tools, "
+    "search_notes (find passages of their notes on a topic), open_note (read one note in full), "
+    "list_notes (which notes are in a folder, numbered, alphabetically by file name) and "
+    "find_notes (which notes have a tag, a property value or a link, or contain exact words, with a count), and "
     "you decide when to use them. Use them whenever the message is about, or refers to, something in the "
     "user's notes or vault, and don't when it needs no note (a greeting, small talk, a general question). "
     "If the user asks you to search for something, to open a note, or for a note by its place in a "
     "folder, do it with the tools (list the folder, then open the note): never say you can't. A list is "
-    "alphabetical by file name, so say so when you give a position. You always know the shape of the vault too (how many notes, its folders and most common "
+    "alphabetical by file name, so say so when you give a position. For a question about how many notes "
+    "or which ones have a tag, a property or a link, use find_notes and give its count, never a guess. You always know the shape of the vault too (how many notes, its folders and most common "
     "tags), given with each message, so you can answer questions about its size and layout without a "
     "tool. Apart from the tools you can't create or change notes, personas, or settings, or run "
     "anything else; if asked to, say so plainly instead of pretending. "

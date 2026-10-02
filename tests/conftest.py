@@ -6,7 +6,7 @@ never read). A test of meaning-based search sets its mode itself; a test of the 
 
 import pytest
 
-from sympose.engine import compaction, embeddings
+from sympose.engine import compaction, embeddings, lookup
 
 
 def pytest_configure(config):
@@ -21,6 +21,9 @@ def _keyword_search_by_default(request, tmp_path_factory, monkeypatch):
         # Automatic compaction (docs/decisions/055) is on by default and runs a model call on a background
         # thread after a long reply: a test of it turns it on itself, and no other test is left to race it.
         monkeypatch.setattr(compaction, "DEFAULT_ON", False)
+        # `by_model` (docs/decisions/058) lets a measured model look in the notes itself, which turns a turn into a tool
+        # loop: a test of that turns it on itself (`vault_lookup`), and no other test is made to run one.
+        monkeypatch.setattr(lookup, "MEASURED", ())
 
 
 @pytest.fixture(autouse=True)

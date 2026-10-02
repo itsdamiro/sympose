@@ -1,6 +1,6 @@
 """The persona looks up notes itself (docs/decisions/040). `vault_lookup` decides who searches the
 user's vault for a message: `auto` (the default) is Sympose, before the reply is written, exactly as it has
-always been; `ask` gives the persona three tools, `search_notes`, `open_note` and `list_notes` (`lookup_tools`, `lookup_list`), and it decides.
+always been; `ask` gives the persona four tools, `search_notes`, `open_note`, `list_notes` and `find_notes` (`lookup_tools`, `lookup_list`, `lookup_find`), and it decides.
 
 `converse` is the loop of a tool-calling turn: the model is called with the tools; when it asks for one, the
 tool is run and the model is called again with its result, until it writes a reply or has used its
@@ -16,12 +16,16 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from sympose import settings_store
-from sympose.engine import budget, lookup_list, lookup_tools, model as model_mod, model_tools, turn_cancel, turn_status
+from sympose.engine import budget, lookup_find, lookup_list, lookup_tools, model as model_mod, model_tools, turn_cancel, turn_status
 
 log = logging.getLogger(__name__)
 
 SETTING = "vault_lookup"
-AUTO, ASK = "auto", "ask"
+AUTO, ASK, BY_MODEL = "auto", "ask", "by_model"
+# The models `by_model` (the default) lets look in the notes themselves: those that can call tools and were measured
+# against ADR 040's bar (no vault fact stated without a lookup that turn, no more failures than `auto`). A model joins
+# by measurement, with a line in ADR 040; a user's explicit `ask` works on any model that can call tools (docs/decisions/058).
+MEASURED = ("gemini/gemini-flash-latest",)
 ROUNDS_SETTING = "vault_lookup_rounds"
 DEFAULT_ROUNDS = 3
 MAX_ROUNDS = 8
@@ -31,7 +35,7 @@ MAX_ROUNDS = 8
 # is accurate enough for a tool that's neither searching nor reading a note.
 _TOOL_PHASE = {
     lookup_tools.SEARCH: turn_status.SEARCHING, lookup_tools.OPEN: turn_status.READING,
-    lookup_list.LIST: turn_status.SEARCHING,
+    lookup_list.LIST: turn_status.SEARCHING, lookup_find.FIND: turn_status.SEARCHING,
 }
 _NO_ROOM = "There was no room left in the context window for this result."
 # Added, for the last call only and never saved, once the lookups are used up: a model was seen to answer
@@ -67,9 +71,17 @@ class Conversed:
 
 
 def mode() -> str:
-    """The setting as the user chose it: only an explicit `ask` asks; anything else, malformed values
-    included, is `auto`."""
-    return ASK if settings_store.get(SETTING) == ASK else AUTO
+    """The setting as the user chose it: an explicit `ask` or `auto`; anything else, unset or malformed, is the
+    default, `by_model`."""
+    chosen = settings_store.get(SETTING)
+    return chosen if chosen in (ASK, AUTO) else BY_MODEL
+
+
+def chooses_ask(model: str) -> bool:
+    """Whether `model` is to look in the notes itself: when the user chose `ask`, or `by_model` is in force and
+    the model is one that was measured. Whether it can call tools at all is `tool_support`'s question."""
+    chosen = mode()
+    return chosen == ASK or (chosen == BY_MODEL and model in MEASURED)
 
 
 def rounds() -> int:

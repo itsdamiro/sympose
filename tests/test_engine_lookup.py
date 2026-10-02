@@ -49,13 +49,30 @@ def says(text, ttft=100):
 BASE = [{"role": "system", "content": "soul"}, {"role": "user", "content": "what did we decide about Atlas?"}]
 
 
-@pytest.mark.parametrize("value, expected", [("ask", "ask"), ("auto", "auto"), (None, "auto"), ("ASK", "auto"),
-                                              ("", "auto"), (True, "auto"), (["ask"], "auto"), ("model-searches", "auto")])
-def test_only_an_explicit_ask_asks(value, expected):
+@pytest.mark.parametrize("value, expected", [("ask", "ask"), ("auto", "auto"), (None, "by_model"), ("ASK", "by_model"),
+                                              ("", "by_model"), (True, "by_model"), (["ask"], "by_model"),
+                                              ("model-searches", "by_model"), ("by_model", "by_model")])
+def test_only_an_explicit_ask_or_auto_is_taken_as_it_is_and_anything_else_is_the_default(value, expected):
     if value is not None:
         settings_store.set("vault_lookup", value)
 
     assert lookup.mode() == expected
+
+
+MEASURED_MODEL, OTHER_MODEL = "gemini/gemini-flash-latest", "ollama_chat/qwen3:8b"
+
+
+@pytest.mark.parametrize("value, model, asks", [
+    (None, MEASURED_MODEL, True), ("by_model", MEASURED_MODEL, True), (None, OTHER_MODEL, False),
+    ("by_model", OTHER_MODEL, False), ("auto", MEASURED_MODEL, False), ("ask", MEASURED_MODEL, True),
+    ("ask", OTHER_MODEL, True), ("garbage", MEASURED_MODEL, True), ("garbage", OTHER_MODEL, False),
+])
+def test_by_model_asks_only_on_a_measured_model_and_an_explicit_choice_always_wins(monkeypatch, value, model, asks):
+    monkeypatch.setattr(lookup, "MEASURED", (MEASURED_MODEL,))  # the tests start with none (tests/conftest.py)
+    if value is not None:
+        settings_store.set("vault_lookup", value)
+
+    assert lookup.chooses_ask(model) is asks
 
 
 @pytest.mark.parametrize("value, expected", [(None, 3), (1, 1), (5, 5), (0, 3), (-2, 3), ("4", 3), (True, 3), (2.5, 3), (99, 8)])

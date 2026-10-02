@@ -50,6 +50,11 @@ def _links(profile: dict[str, Any]) -> tuple[dict[str, set[str]], dict[str, set[
     return out, into
 
 
+def link_graph(profile: dict[str, Any]) -> tuple[dict[str, set[str]], dict[str, set[str]]]:
+    """`(outgoing, incoming)` links between the persona's notes, by path (docs/decisions/058)."""
+    return _links(profile)
+
+
 def _index_of(profile: dict[str, Any], notes: list[dict[str, Any]]) -> dict[str, Any]:
     """Per-note titles, folders and own tags/aliases, a shared-tag/alias index, and the link graph
     (`_links`), built once from `notes`."""

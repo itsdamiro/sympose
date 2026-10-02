@@ -134,3 +134,27 @@ def test_a_folder_that_is_not_text_is_a_result_the_model_can_correct(scratch):
     result = lookup_tools.run(ALL, LOCAL, "list_notes", '{"folder": 5}')
 
     assert "could not be read" in result.text
+
+
+def test_a_listing_names_the_properties_its_notes_have_so_a_filter_is_known_to_exist(scratch):
+    put(scratch, "Films/Dune.md", "---\nwatched: no\nyear: 2021\n---\nbody")
+    put(scratch, "Films/Heat.md", "---\nwatched: yes\n---\nbody")
+
+    text = lookup_list.list_notes(ALL, LOCAL, "Films").text
+
+    assert "Properties these notes have: watched (2), year (1)." in text and "find_notes" in text
+
+
+def test_a_listing_names_no_properties_when_the_notes_have_none(scratch):
+    put(scratch, "Films/Dune.md")
+
+    assert "Properties these notes have" not in lookup_list.list_notes(ALL, LOCAL, "Films").text
+
+
+def test_a_cloud_model_that_may_receive_notes_but_not_properties_is_not_told_their_names(scratch):
+    put(scratch, "Films/Dune.md", "---\nwatched: no\n---\nbody")
+    settings_store.set("cloud_share", ["notes"])
+
+    text = lookup_list.list_notes(ALL, CLOUD, "Films").text
+
+    assert "1. Dune" in text and "watched" not in text

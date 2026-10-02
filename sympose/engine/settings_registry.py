@@ -72,8 +72,8 @@ SETTINGS: list[Setting] = [
         lambda: embeddings.DEFAULT_MARGIN, hint="a number from 0 to 1", group=SEARCH,
     ),
     Setting(
-        lookup.SETTING, CHOICE, "who looks in your notes: Sympose or the persona",
-        lookup.mode, lambda: lookup.AUTO, choices=(lookup.AUTO, lookup.ASK), group=LOOKUP,
+        lookup.SETTING, CHOICE, "who looks in your notes",
+        lookup.mode, lambda: lookup.BY_MODEL, choices=(lookup.BY_MODEL, lookup.AUTO, lookup.ASK), group=LOOKUP,
     ),
     Setting(
         lookup.ROUNDS_SETTING, NUMBER, "lookups the persona may make (ask)",
