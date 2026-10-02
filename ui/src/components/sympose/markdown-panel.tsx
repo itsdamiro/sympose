@@ -509,6 +509,9 @@ function MarkdownPanel({
   const savedTextRef = React.useRef<string>("")
   const savingRef = React.useRef(false)
   const loadedPathRef = React.useRef<string | undefined>(undefined)
+  // Counts the notes loaded into the buffer. A save that finishes after another note was loaded must not write its
+  // text or mtime over what that note's own load set (a rename keeps the same note, so it does not count).
+  const loadCountRef = React.useRef(0)
   // The on-disk mtime this buffer was loaded from or last saved as; a save presents it so a change made
   // elsewhere (Obsidian, sync, the persona) is refused instead of overwritten. `reloadKey` refetches.
   const mtimeRef = React.useRef<number | undefined>(undefined)
@@ -611,6 +614,7 @@ function MarkdownPanel({
       frontmatterEditedRef.current = false
       savedTextRef.current = joinNote(fm, bd, prefix, false)
       loadedPathRef.current = path
+      loadCountRef.current += 1
       mtimeRef.current = result.mtime
       loadedVaultPathRef.current = currentVaultPathRef.current
       setFetch({ status: "ready", content: result.content })
@@ -676,8 +680,10 @@ function MarkdownPanel({
       if (text === savedTextRef.current) return true
 
       savingRef.current = true
+      const loadedAtStart = loadCountRef.current
       const result = await saveVaultNote(targetPath, text, persona, mtimeRef.current)
       savingRef.current = false
+      if (result.ok && loadCountRef.current !== loadedAtStart) return true // written; the buffer is another note's by now
       if (result.ok) {
         savedTextRef.current = text
         mtimeRef.current = result.mtime

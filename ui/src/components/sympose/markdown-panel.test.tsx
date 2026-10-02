@@ -109,6 +109,20 @@ describe("MarkdownPanel leaving a note with unsaved edits", () => {
     expect(api.fetchVaultNote.mock.calls.length).toBe(fetches + 1)
   })
 
+  it("does not let a save of the note just left overwrite what it knows of the note opened next", async () => {
+    const { view } = await openAndEdit()
+    let landOld!: (r: unknown) => void
+    api.saveVaultNote.mockImplementationOnce(() => new Promise((resolve) => (landOld = resolve)))
+    api.fetchVaultNote.mockResolvedValueOnce({ path: "New.md", content: "newer", mtime: 300 })
+    // Leaving Old.md flushes its edit; the next note loads before that save is answered.
+    view.rerender(<MarkdownPanel path="New.md" preferences={PREFERENCES} toolbarItems={[]} onRenamed={vi.fn()} onDeleted={vi.fn()} />)
+    await waitFor(() => expect(getUnsavedGuard()!.name()).toBe("New"))
+    expect(getUnsavedGuard()!.isDirty()).toBe(false)
+    await act(async () => landOld({ ok: true, mtime: 200 }))
+    // The old note's text and mtime are not the new note's: it must still read as exactly what was loaded.
+    expect(getUnsavedGuard()!.isDirty()).toBe(false)
+  })
+
   it("shows a note opened from the chat in preview mode, and only when asked to", async () => {
     const props = { path: "Old.md", preferences: PREFERENCES, toolbarItems: [] }
     const view = render(<MarkdownPanel {...props} previewRequest={0} />)
