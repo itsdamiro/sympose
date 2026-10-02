@@ -22,9 +22,18 @@ export interface SentNote {
   similarity?: number
 }
 
+/** One exchange of an earlier conversation that reached the model word for word (ADR 056): which, never its text. */
+export interface SentChat {
+  session: string
+  turn: number
+  how: string
+}
+
 /** What reached the model besides the messages, for one reply: only what the grounded view reads. */
 export interface SentRecord {
   notes: SentNote[]
+  /** Exchanges of earlier conversations, when `past_chats` attached or looked up any. */
+  chats?: SentChat[]
   /** The query a follow-up was rewritten into, when that is what found the notes. */
   searched?: string | null
   /** A cloud model's turn only (ADR 031): the categories of the vault that were sent, and those held back. */

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import type { SentNote } from "@/lib/chat-types"
-import { groundedNotes, groundedSummary, isReference, noteDetail, noteTitle } from "./grounded"
+import { groundedChats, groundedChatsLine, groundedNotes, groundedSummary, isReference, noteDetail, noteTitle } from "./grounded"
 
 const note = (extra: Partial<SentNote> = {}): SentNote => ({ path: "Projects/Atlas.md", heading: "", source: "vault", ...extra })
 
@@ -46,5 +46,21 @@ describe("grounded notes", () => {
 
   it("shows a similarity of 0 rather than dropping it", () => {
     expect(noteDetail(note({ via: "embedding", similarity: 0 }))).toBe("by meaning · similarity 0.00")
+  })
+
+  it("counts the earlier-conversation exchanges that reached the model, and says so in the terminal's words", () => {
+    const chat = { session: "s1", turn: 3, how: "auto" }
+    expect(groundedChats(null)).toBe(0)
+    expect(groundedChats({ notes: [] })).toBe(0)
+    expect(groundedChats({ notes: [], chats: [chat, { ...chat, turn: 4 }] })).toBe(2)
+    expect(groundedChatsLine(1)).toBe("1 exchange from earlier conversations, word for word")
+    expect(groundedChatsLine(2)).toBe("2 exchanges from earlier conversations, word for word")
+  })
+
+  it("names the exchanges in the summary, alone or beside notes", () => {
+    expect(groundedSummary([], 2)).toBe("Based on 2 earlier exchanges")
+    expect(groundedSummary([], 1)).toBe("Based on 1 earlier exchange")
+    expect(groundedSummary([note()], 2)).toBe("Based on Atlas and 2 earlier exchanges")
+    expect(groundedSummary([note(), note({ path: "Projects/Beta.md" })], 1)).toBe("Based on 2 notes and 1 earlier exchange")
   })
 })

@@ -16,7 +16,16 @@ const two: SentRecord = {
   searched: "atlas database",
 }
 
+const chatsOnly: SentRecord = { notes: [], chats: [{ session: "s1", turn: 2, how: "auto" }, { session: "s2", turn: 5, how: "auto" }] }
+
 describe("GroundedNotes", () => {
+  it("shows a reply built only from earlier conversations, and says how many exchanges, word for word", () => {
+    render(<GroundedNotes sent={chatsOnly} />)
+    const toggle = screen.getByRole("button", { name: /Based on 2 earlier exchanges/ })
+    fireEvent.click(toggle)
+    expect(screen.getByText("2 exchanges from earlier conversations, word for word")).toBeTruthy()
+  })
+
   it("shows nothing when no note grounded the reply", () => {
     const { container } = render(<GroundedNotes sent={{ notes: [] }} />)
     expect(container.firstChild).toBeNull()

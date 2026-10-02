@@ -103,6 +103,8 @@ Same four conversations and questions, `gemini/gemini-3.8-flash`, 2 runs of all 
 
 - **The matcher's misses, answered with the settings row (2026-10-03).** `auto` missed 4 of 20 questions on wording. A further matcher rule was not added: the second slice showed two cheaper rules attaching 10 of 20 and 8 of 15 wrong, and a rule tuned on 20 invented questions would be tuned to them. Instead the row's own summary in the terminal's `/settings` and the web settings now says "(auto: local, ask: cloud)", as much as an 80-column terminal row holds, the pointer this ADR already promised, and the reference notes say it in full with the measured reason. The summary carries it because a hint on a choice row is shown by neither screen.
 
+- **The web chat shows them too (2026-10-03, found in the pre-#21 review).** `chats` was in the record but the web chat's "Based on" line read only the notes, so a reply built from earlier conversations looked ungrounded there while the terminal's `/grounded` listed them. The line now counts the exchanges ("Based on Atlas and 2 earlier exchanges") and the expanded list says "2 exchanges from earlier conversations, word for word", the terminal's words. Not shown on the web yet, and also missing from the web record: the lookups of an `ask` turn, the recaps and the persona's memory files; the terminal lists those.
+
 ## Not built
 
 - Searching a conversation by meaning (embeddings, ADR 027) rather than by the notes' word matching.

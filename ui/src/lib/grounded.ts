@@ -25,14 +25,23 @@ export function noteTitle(path: string): string {
   return file.replace(/\.md$/i, "")
 }
 
-/** The collapsed line: the note's name when one note grounded the reply, else how many. Notes count once
- *  each however many passages of them were used. */
-export function groundedSummary(notes: SentNote[]): string {
+/** How many exchanges of earlier conversations reached the model, word for word (ADR 056). */
+export function groundedChats(sent: SentRecord | null | undefined): number {
+  return sent?.chats?.length ?? 0
+}
+
+export const groundedChatsLine = (count: number) =>
+  `${count} ${count === 1 ? "exchange" : "exchanges"} from earlier conversations, word for word`
+
+/** The collapsed line: the note's name when one note grounded the reply, else how many; earlier exchanges follow.
+ *  Notes count once each however many passages of them were used. */
+export function groundedSummary(notes: SentNote[], chats = 0): string {
   const files = [...new Set(notes.map((n) => n.path))]
-  if (files.length === 1) {
-    return `Based on ${isReference(notes[0]) ? "the Sympose reference library" : noteTitle(files[0])}`
-  }
-  return `Based on ${files.length} notes`
+  const parts: string[] = []
+  if (files.length === 1) parts.push(isReference(notes[0]) ? "the Sympose reference library" : noteTitle(files[0]))
+  else if (files.length > 1) parts.push(`${files.length} notes`)
+  if (chats > 0) parts.push(`${chats} earlier ${chats === 1 ? "exchange" : "exchanges"}`)
+  return `Based on ${parts.join(" and ")}`
 }
 
 /** Small print after a note in the expanded list: how it was found, where it is from, how close it was. */
