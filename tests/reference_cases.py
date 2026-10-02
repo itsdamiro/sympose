@@ -409,6 +409,10 @@ REF_CASES: list[RefCase] = [
     RefCase("fifth-note-in-folder", "why can't she open the 5th note in my movies folder?", find=("5th note",)),
     RefCase("compact-command", "how do I shorten a long conversation?", find=("/compact",)),
     RefCase("auto-compact-setting", "what does the auto_compact setting do?", find=("condenses a long conversation",), first="Settings.md"),
+    RefCase("deleted-conversation-bin", "how do I get back a conversation I deleted?", find=("Conversations part",), first="The web app.md"),
+    RefCase("switch-while-replying", "can I open another conversation while she is still writing a reply?", find=("lands in the conversation it was sent from",)),
+    RefCase("parallel-replies-setting", "what does the parallel_replies setting do?", find=("different conversations of one persona",), first="Settings.md"),
+    RefCase("sessions-bin-command", "how do I restore a deleted conversation in the terminal?", find=("/sessions restore",)),
 ]
 
 # Every message the vault eval already uses must attach nothing from the

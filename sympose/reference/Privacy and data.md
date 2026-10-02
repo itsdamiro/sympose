@@ -18,7 +18,7 @@ A recap written by a cloud model sends your messages from that conversation, so 
 
 ## Where are my conversations stored?
 
-Conversations are stored on your computer, saved as they happen, one file per conversation, in the persona's `sessions` folder: `profiles/<handle>/sessions/`. The files are plain text (JSON lines), and deleting one deletes that conversation.
+Conversations are stored on your computer, saved as they happen, one file per conversation, in the persona's `sessions` folder: `profiles/<handle>/sessions/`. The files are plain text (JSON lines), and deleting the file deletes that conversation. Deleting one in the chat first moves it to the Bin, so it can be restored until you delete it there.
 
 ## Where are the recaps of my conversations kept?
 

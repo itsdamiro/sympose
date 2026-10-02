@@ -12,7 +12,11 @@ The web app updates the wikilinks (the double-bracket kind) in every other note 
 
 ## How do I get back a note I deleted?
 
-A deleted note or folder goes to the Bin, which is the vault's trash (the `.trash` folder), so it is not gone for good. Open the Bin to restore a note, or delete it permanently.
+A deleted note or folder goes to the Bin, which is the vault's trash (the `.trash` folder), so it is not gone for good. Open the Bin and choose Notes to restore a note, or delete it permanently.
+
+## How do I get back a conversation I deleted?
+
+A deleted conversation goes to the Bin too, in its own Conversations part, apart from the notes. Choose Conversations there and restore it: it returns to the persona's list, pinned as it was. Deleting it from that part is for good, and it asks first.
 
 ## How do I hide a note or folder from view?
 
@@ -21,6 +25,12 @@ Right-click it, or long-press on a touch screen, and choose "Hide from view". It
 ## How do I show a hidden note again?
 
 Choose Unhide beside it in the search results, or in the "Hidden from view" part of Settings, which lists everything you hid. That part also decides whether the folder definition notes, left out of the tree by default, are listed.
+
+## Can I go back to an older conversation while a persona is replying?
+
+Yes. The persona's profile, opened from its name at the bottom of the menu, lists its conversations with the pinned ones first. Click one to open it, whatever the persona is doing. A reply always lands in the conversation it was sent from, which shows replying until it arrives and a dot after it, until you read it.
+
+The row's ⋯ menu, or a right-click, pins, renames or deletes a conversation, and New starts a fresh one.
 
 ## What is the Knowledge Nebula?
 

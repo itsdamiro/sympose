@@ -122,3 +122,7 @@ Two things explain the table. (1) The best threshold rises with the size and den
 **Consequences.** The cost stays: four values to keep tested and to explain. If a fifth is ever proposed it needs a measurement that the four cannot do what it does.
 
 **Alternatives rejected.** Documenting only `auto` and `keywords` and leaving the other two undocumented: a setting that works but is not written down is a trap for the person who finds it, and the reference notes are what the persona answers from. Removing `embeddings` and `hybrid`: a documented setting removed, with the library path rewritten, for a saving of some tests.
+
+## Update: the web chat starts the refresh too (2026-10-02)
+
+The build of the vectors was started when the terminal chat launched and when its persona changed, and nowhere in the web app: a person who used only the web app, with the search by meaning on, found new and edited notes by keyword only until the terminal was opened once. The web app now starts it as it starts the recaps (ADR 023): when a chat is opened and when a new conversation is started (`server_chat_handlers._start_background_builds`), never when an older page of a conversation is read. It is the same call, in the background, a no-op on `keywords`, and a cloud embedder gets neither the notes nor the messages as before (ADR 031). Observed on a scratch install: with `hybrid` on, a note added to the vault was in the vector cache after the chat was opened and before any message was sent.

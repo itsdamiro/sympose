@@ -28,4 +28,4 @@ No, not the logs. Every conversation is saved as a session log in `profiles/<han
 
 ## What else is missing?
 
-The rarely used settings are still edited in `settings.json`. Past conversations can be listed and reopened with /sessions in the terminal, not yet in the web app. Skills, playbooks a persona could follow, are not built. Notes are found by meaning when the small search model is installed, and by keywords otherwise.
+The rarely used settings are still edited in `settings.json`. Skills, playbooks a persona could follow, are not built. Notes are found by meaning when the small search model is installed, and by keywords otherwise.

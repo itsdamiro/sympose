@@ -38,6 +38,8 @@ The chat commands are /help, /model, /persona, /default, /grounding, /grounded, 
 
 /sessions, also typed as /history, lists your conversations with this persona, numbered, with the pinned ones first. /sessions open 2 continues number 2 and shows where it stopped; rename 2 New title, pin 2, unpin 2 and delete 2 work the same way. Delete moves the files to a trash folder, `sessions/.trash`, nothing is destroyed.
 
+/sessions bin lists the deleted conversations, the Bin of the web app. /sessions restore 2 puts number 2 of that list back, and /sessions purge 2 deletes it for good.
+
 ## /remember
 
 /remember, followed by whatever you type, saves it as a dated line in your persona's decisions.md, in your own words. No model is involved and no setting gates it — typing it always works, even with `memory_remember` off.

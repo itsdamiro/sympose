@@ -6,7 +6,7 @@ Settings are stored in `settings.json`, in the folder where Sympose runs. `SYMPO
 
 Type /settings for a list of the common ones, each with its value. Choose a row to change it: a true or false one flips, one with a few values moves to the next, and for a number the chat box asks for it. Enter saves, an empty line puts the default back and Esc leaves it as it was. A number that cannot be used is refused.
 
-The list has `show_grounding`, `show_trim_notice`, `show_context_meter`, `show_background_status`, `status_typing`, `reply_reveal`, `context_window`, `reply_limit`, `grounding_followups`, `session_recaps`, `grounding_search`, `embedding_min_similarity`, `embedding_margin`, `vault_lookup`, `vault_lookup_rounds`, `auto_compact`, `compact_at` and `compact_to`.
+The list has `show_grounding`, `show_trim_notice`, `show_context_meter`, `show_background_status`, `status_typing`, `reply_reveal`, `context_window`, `reply_limit`, `grounding_followups`, `session_recaps`, `grounding_search`, `embedding_min_similarity`, `embedding_margin`, `vault_lookup`, `vault_lookup_rounds`, `auto_compact`, `compact_at`, `compact_to` and `parallel_replies`.
 
 `memory_remember`, `memory_rewrite` and `memory_auto_refresh` are the memory settings. The model, the persona and what a cloud model may receive have /model, /persona and /share.
 
@@ -125,6 +125,12 @@ Setting `show_background_status` to `false` hides the animated line directly abo
 This line shows what is happening while you wait: a recap refresh, a memory update, or the search index build running in the background, or, while a reply is being written, whether Samantha is searching your notes, reading one, or thinking through your message.
 
 The words are typed out one letter at a time; the `status_typing` setting is how fast, in characters per second. The default is 40, and 0 shows each phrase at once.
+
+## parallel_replies
+
+The `parallel_replies` setting decides whether replies in different conversations of one persona are written at the same time. `auto`, the default, does it on a cloud model, where it costs no speed, and one after the other on a local model, whose graphics chip and memory they would share. `on` always runs them together (Ollama must allow it) and `off` always one at a time.
+
+A message waiting for its turn says so, and Stop cancels it. Two messages in the same conversation always run in order.
 
 ## memory_remember
 

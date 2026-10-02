@@ -210,4 +210,4 @@ The first slice blocked sending while a reply was in flight, waiting for a way t
 - **The message box never blocks.** A message sent while the persona's reply is in flight appears in the conversation at once, unmarked, and waits in the browser (`use-chat`), per persona.
 - **When the reply lands**, what waited is sent as one turn, the messages joined by blank lines, continuing the session the reply returned; one waiting message goes alone. The persona answers them together and the conversation file holds them as one user turn, as in the terminal. A reply that failed shows its error line and the waiting messages are still sent.
 - **Nothing in the engine or the API changes**; no route reports a queue. Waiting messages live only in the open tab: closing it before the reply lands drops them, as an unsent draft would (they were never sent).
-- "New conversation" is still unavailable while a reply is in flight.
+- "New conversation" is still unavailable while a reply is in flight. (Amended 2026-10-02 by ADR 057: the state is now one per conversation, so it is available, and a reply lands in the conversation it was sent from.)
