@@ -6,13 +6,20 @@ export interface VaultNote {
 }
 
 /** Pulls the backend's `{detail}` message out of a non-ok fetch Response, or
- *  `undefined` if the body isn't JSON / has no `detail` field. Shared by
- *  every vault-*-api.ts client so a caller can show a real error message
- *  instead of just an HTTP status. */
+ *  `undefined` if the body isn't JSON / has no usable `detail`. A validation
+ *  refusal (HTTP 422) carries a list of problems instead of text; their
+ *  messages are joined. Shared by every vault-*-api.ts client so a caller can
+ *  show a real error message instead of just an HTTP status. */
 export async function detailOf(res: Response): Promise<string | undefined> {
   return res
     .json()
-    .then((b) => (b as { detail?: string }).detail)
+    .then((b) => {
+      const detail = (b as { detail?: unknown }).detail
+      if (typeof detail === "string") return detail
+      if (!Array.isArray(detail)) return undefined
+      const messages = detail.map((d) => (d as { msg?: unknown })?.msg).filter((m): m is string => typeof m === "string")
+      return messages.length > 0 ? messages.join("; ") : undefined
+    })
     .catch(() => undefined)
 }
 

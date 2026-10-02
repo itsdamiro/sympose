@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { moveVaultNote, saveVaultNote } from "./vault-note-api"
+import { detailOf, moveVaultNote, saveVaultNote } from "./vault-note-api"
 
 function stubRename(reply: { path: string; detail: string }) {
   const fetchMock = vi.fn().mockResolvedValue({
@@ -80,5 +80,24 @@ describe("saveVaultNote", () => {
       error: "changed on disk",
       conflict: true,
     })
+  })
+})
+
+describe("detailOf", () => {
+  const res = (body: unknown) => ({ json: () => Promise.resolve(body) }) as Response
+
+  it("reads the backend's message when `detail` is text", async () => {
+    expect(await detailOf(res({ detail: "Note changed on disk" }))).toBe("Note changed on disk")
+  })
+
+  it("reads a validation refusal, whose `detail` is a list of problems, as their messages and not [object Object]", async () => {
+    const body = { detail: [{ type: "string_too_short", loc: ["body", "message"], msg: "String should have at least 1 character" }, { msg: "Field required" }] }
+    expect(await detailOf(res(body))).toBe("String should have at least 1 character; Field required")
+  })
+
+  it("is undefined when there is no usable detail, or the body is not JSON", async () => {
+    expect(await detailOf(res({}))).toBeUndefined()
+    expect(await detailOf(res({ detail: [] }))).toBeUndefined()
+    expect(await detailOf({ json: () => Promise.reject(new Error("no")) } as Response)).toBeUndefined()
   })
 })
