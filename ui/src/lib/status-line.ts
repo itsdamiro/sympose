@@ -12,6 +12,7 @@ export const PHASE_TEXT: Record<ChatPhase, string> = {
   searching: "Searching your notes…",
   reading: "Reading a note…",
   asking: "Thinking about your message…",
+  queued: "Waiting for the other conversation’s reply…",
 }
 
 export const ROTATE_AFTER_SECONDS = 3

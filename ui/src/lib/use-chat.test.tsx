@@ -336,22 +336,6 @@ describe("useChat resuming", () => {
     expect(api.sendChatTurn.mock.calls[0]).toEqual(["hello", "samantha", "s-blank", expect.any(AbortSignal)])
   })
 
-  it("does not start over while a reply is in flight", async () => {
-    let release: (v: unknown) => void = () => {}
-    api.sendChatTurn.mockReturnValue(new Promise((r) => (release = r)))
-    const { result } = renderHook(() => useChat("samantha"))
-    act(() => result.current.setDraft("hi"))
-    act(() => {
-      void result.current.send()
-    })
-    await act(async () => {
-      await result.current.newConversation()
-    })
-    expect(api.startChatSession).not.toHaveBeenCalled()
-    expect(result.current.turns.map((t) => t.body)).toEqual(["hi"])
-    await act(async () => release(ok("done")))
-  })
-
   it("does not put a saved conversation in front of one the user has already started", async () => {
     let arrive: (v: unknown) => void = () => {}
     api.fetchChatSession.mockReturnValue(new Promise((r) => (arrive = r)))
@@ -430,7 +414,7 @@ describe("useChat: stopping a reply in flight (ADR 054)", () => {
       await result.current.stop()
       await sending
     })
-    expect(api.cancelChatTurn).toHaveBeenCalledWith("samantha")
+    expect(api.cancelChatTurn).toHaveBeenCalledWith("samantha", undefined)
     expect(result.current.turns.map((t) => [t.role, t.body])).toEqual([["system", "Stopped. @samantha did not reply."]])
     expect(result.current.draft).toBe("hi there")
     expect(result.current.sending).toBe(false)
@@ -674,5 +658,188 @@ describe("useChat condensing (ADR 055)", () => {
     })
     expect(result.current.turns).toEqual([])
     expect(result.current.compacting).toBe(false)
+  })
+})
+
+
+// ADR 057: several conversations of one persona, one state each.
+describe("useChat: switching conversations while a reply is being written", () => {
+  const held = () => {
+    const handle: { land: (r: unknown) => void } = { land: () => {} }
+    api.sendChatTurn.mockImplementationOnce(() => new Promise((resolve) => (handle.land = resolve)))
+    return handle
+  }
+  const begin = (result: Parameters<typeof say>[0], text: string) => {
+    act(() => result.current.setDraft(text))
+    act(() => {
+      void result.current.send()
+    })
+  }
+
+  it("starts a new conversation while the reply is still being written, and the reply lands in the first", async () => {
+    api.fetchChatSession.mockResolvedValue(pageOf([saved(0)], 0, false, "s-old"))
+    api.startChatSession.mockResolvedValue("s-new")
+    const first = held()
+    const { result } = renderHook(() => useChat("samantha"))
+    await waitFor(() => expect(result.current.sessionId).toBe("s-old"))
+    begin(result, "about the movies")
+    expect(result.current.sending).toBe(true)
+
+    await act(async () => {
+      await result.current.newConversation()
+    })
+    expect(api.startChatSession).toHaveBeenCalledTimes(1)
+    expect(result.current.turns).toEqual([])
+    expect(result.current.sending).toBe(false) // this conversation is not the one replying
+    expect(result.current.sessionId).toBe("s-new")
+
+    await act(async () => first.land(ok("a film reply", "s-old")))
+    expect(result.current.turns).toEqual([]) // nothing leaked into the new conversation
+    expect(result.current.marks["s-old"]).toEqual({ replying: false, unread: true })
+
+    await act(async () => {
+      await result.current.openConversation("s-old")
+    })
+    expect(result.current.turns.map((t) => t.body)).toEqual(["question 0", "answer 0", "about the movies", "a film reply"])
+    expect(result.current.marks["s-old"].unread).toBe(false) // opening it reads it
+  })
+
+  it("keeps each conversation's draft and shows the one that is replying as replying when it is opened again", async () => {
+    api.fetchChatSession.mockResolvedValue(pageOf([saved(0)], 0, false, "s-old"))
+    api.startChatSession.mockResolvedValue("s-new")
+    held()
+    const { result } = renderHook(() => useChat("samantha"))
+    await waitFor(() => expect(result.current.sessionId).toBe("s-old"))
+    begin(result, "first")
+    await act(async () => {
+      await result.current.newConversation()
+    })
+    act(() => result.current.setDraft("half a thought"))
+    await act(async () => {
+      await result.current.openConversation("s-old")
+    })
+    expect(result.current.sending).toBe(true)
+    expect(result.current.draft).toBe("")
+    expect(result.current.marks["s-old"].replying).toBe(true)
+    await act(async () => {
+      await result.current.openConversation("s-new")
+    })
+    expect(result.current.draft).toBe("half a thought")
+  })
+
+  it("a message in the other conversation is sent at once, with that conversation's id", async () => {
+    api.fetchChatSession.mockResolvedValue(pageOf([saved(0)], 0, false, "s-old"))
+    api.startChatSession.mockResolvedValue("s-new")
+    held()
+    api.sendChatTurn.mockResolvedValueOnce(ok("second answer", "s-new"))
+    const { result } = renderHook(() => useChat("samantha"))
+    await waitFor(() => expect(result.current.sessionId).toBe("s-old"))
+    begin(result, "first")
+    await act(async () => {
+      await result.current.newConversation()
+    })
+    await say(result, "second")
+    expect(api.sendChatTurn.mock.calls.map((c) => [c[0], c[2]])).toEqual([["first", "s-old"], ["second", "s-new"]])
+    expect(result.current.turns.map((t) => t.body)).toEqual(["second", "second answer"])
+  })
+
+  it("asks for the status, and stops, only the conversation on screen", async () => {
+    api.fetchChatSession.mockResolvedValue(pageOf([saved(0)], 0, false, "s-old"))
+    api.cancelChatTurn.mockResolvedValue(true)
+    api.sendChatTurn.mockImplementationOnce(
+      (_m: string, _p: string, _s: string | undefined, signal: AbortSignal) =>
+        new Promise((resolve) => signal.addEventListener("abort", () => resolve({ ok: false, cancelled: true })))
+    )
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const { result } = renderHook(() => useChat("samantha"))
+    await vi.waitFor(() => expect(result.current.sessionId).toBe("s-old"))
+    begin(result, "hi")
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(600)
+    })
+    expect(api.fetchChatStatus).toHaveBeenCalledWith("samantha", "s-old")
+    await act(async () => {
+      await result.current.stop()
+    })
+    expect(api.cancelChatTurn).toHaveBeenCalledWith("samantha", "s-old")
+  })
+
+  it("does nothing when the conversation on screen is already blank", async () => {
+    const { result } = renderHook(() => useChat("samantha"))
+    await act(async () => {
+      await result.current.newConversation()
+    })
+    expect(api.startChatSession).not.toHaveBeenCalled()
+  })
+
+  it("shows the blank conversation it already holds when the backend answers with that one", async () => {
+    api.fetchChatSession.mockImplementation((_p: string, o: { sessionId?: string } = {}) =>
+      Promise.resolve(o.sessionId === "s-old" ? pageOf([saved(0)], 0, false, "s-old") : pageOf([], 0, false, "s-blank"))
+    )
+    api.startChatSession.mockResolvedValue("s-blank")
+    const { result } = renderHook(() => useChat("samantha"))
+    await waitFor(() => expect(result.current.sessionId).toBe("s-blank"))
+    act(() => result.current.setDraft("kept in the blank one"))
+    await act(async () => {
+      await result.current.openConversation("s-old")
+    })
+    await act(async () => {
+      await result.current.newConversation() // the backend reuses its latest blank one, which this browser holds
+    })
+    expect(result.current.sessionId).toBe("s-blank")
+    expect(result.current.draft).toBe("kept in the blank one") // the same conversation, not a second one for that id
+    expect(result.current.turns).toEqual([])
+    await act(async () => {
+      await result.current.openConversation("s-old")
+    })
+    expect(result.current.turns.map((t) => t.body)).toEqual(["question 0", "answer 0"])
+  })
+
+  it("opens an earlier conversation from its saved turns, and says so when it cannot be read", async () => {
+    api.fetchChatSession.mockImplementation((_p: string, o: { sessionId?: string } = {}) =>
+      Promise.resolve(o.sessionId === "s-2" ? pageOf([saved(0), saved(1)], 0, false, "s-2") : null)
+    )
+    const { result } = renderHook(() => useChat("samantha"))
+    await act(async () => {
+      expect(await result.current.openConversation("s-2")).toBe(true)
+    })
+    expect(result.current.sessionId).toBe("s-2")
+    expect(result.current.turns).toHaveLength(4)
+    await act(async () => {
+      expect(await result.current.openConversation("gone")).toBe(false)
+    })
+    expect(result.current.sessionId).toBe("s-2")
+  })
+
+  it("puts a fresh conversation in the place of the one on screen when that one is deleted", async () => {
+    api.fetchChatSession.mockResolvedValue(pageOf([saved(0)], 0, false, "s-old"))
+    api.startChatSession.mockResolvedValue("s-new")
+    const { result } = renderHook(() => useChat("samantha"))
+    await waitFor(() => expect(result.current.sessionId).toBe("s-old"))
+    await act(async () => {
+      await result.current.forgetConversation("s-old")
+    })
+    expect(result.current.turns).toEqual([])
+    expect(result.current.sessionId).toBe("s-new")
+    expect(result.current.marks["s-old"]).toBeUndefined()
+  })
+
+  it("leaves the conversation on screen alone when a different one is deleted", async () => {
+    api.fetchChatSession.mockResolvedValue(pageOf([saved(0)], 0, false, "s-old"))
+    const { result } = renderHook(() => useChat("samantha"))
+    await waitFor(() => expect(result.current.sessionId).toBe("s-old"))
+    await act(async () => {
+      await result.current.forgetConversation("some-other")
+    })
+    expect(result.current.sessionId).toBe("s-old")
+    expect(api.startChatSession).not.toHaveBeenCalled()
+  })
+
+  it("tells the list when something it shows may have changed", async () => {
+    api.sendChatTurn.mockResolvedValue(ok("hi", "s1"))
+    const { result } = renderHook(() => useChat("samantha"))
+    const before = result.current.listVersion
+    await say(result, "hello")
+    expect(result.current.listVersion).toBeGreaterThan(before)
   })
 })

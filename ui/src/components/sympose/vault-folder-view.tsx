@@ -6,7 +6,7 @@ import { isNoteDrag, readNoteDrag } from "@/lib/vault-drag"
 import type { VaultSearchResult } from "@/lib/vault-search-api"
 import {
   SearchResultRow,
-  TrashList,
+  BinView,
   VaultTree,
   collectFolderPaths,
   searchMatchDetail,
@@ -28,6 +28,8 @@ import {
  */
 export function VaultFolderView({
   trashView,
+  conversationBinKey,
+  onConversationRestored,
   activeLabel,
   activeRootFolder,
   moveNote,
@@ -50,6 +52,10 @@ export function VaultFolderView({
   openEditor,
 }: {
   trashView: boolean
+  /** Bumped when a conversation was deleted from the list, so the Bin's conversations are read again (ADR 057). */
+  conversationBinKey: number
+  /** A conversation was put back from the Bin: the persona's list is read again. */
+  onConversationRestored: () => void
   activeLabel: string
   activeRootFolder: VaultNode | undefined
   moveNote: (path: string, destFolder: string) => unknown
@@ -121,10 +127,12 @@ export function VaultFolderView({
           {trashView ? "Bin" : activeLabel || "Vault"}
         </h2>
         {trashView ? (
-          <TrashList
+          <BinView
             persona={activePersona}
             refreshKey={vaultRefreshKey}
-            onRestored={() => refreshVault()}
+            conversationsKey={conversationBinKey}
+            onNoteRestored={() => refreshVault()}
+            onConversationRestored={onConversationRestored}
           />
         ) : vaultTreeEmpty ? (
           <p className="text-sm text-fg-muted">

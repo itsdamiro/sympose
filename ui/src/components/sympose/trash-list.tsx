@@ -2,6 +2,7 @@ import * as React from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { ArrowRight01Icon, Delete02Icon, DeletePutBackIcon, Folder01Icon } from "@hugeicons/core-free-icons"
 import { cn } from "@/lib/utils"
+import { ago } from "@/lib/ago"
 import {
   Empty,
   EmptyDescription,
@@ -21,17 +22,6 @@ import {
   type TrashedFolder,
   type TrashedNote,
 } from "@/lib/vault-trash-api"
-
-/** "3d ago" / "2h ago" / "just now" from an epoch-seconds timestamp. */
-function ago(epochSeconds: number): string {
-  const secs = Math.max(0, Math.round(Date.now() / 1000 - epochSeconds))
-  if (secs < 60) return "just now"
-  const mins = Math.floor(secs / 60)
-  if (mins < 60) return `${mins}m ago`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
-  return `${Math.floor(hrs / 24)}d ago`
-}
 
 function splitPath(rel: string): { dir: string; name: string } {
   const i = rel.lastIndexOf("/")
@@ -174,7 +164,7 @@ function TrashList({
           <EmptyMedia variant="icon">
             <HugeiconsIcon icon={Delete02Icon} />
           </EmptyMedia>
-          <EmptyTitle>Bin is empty</EmptyTitle>
+          <EmptyTitle>No deleted notes</EmptyTitle>
           <EmptyDescription>
             Deleted notes and files land here and can be restored to where they were.
           </EmptyDescription>

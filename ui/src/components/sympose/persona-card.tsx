@@ -19,14 +19,16 @@ interface PersonaCardProps {
    * desktop `p-8`, so the accent band's bleed margins change to match.
    */
   phone?: boolean
+  /** The persona's conversations (ADR 057), shown under the model row. */
+  conversations?: React.ReactNode
   className?: string
 }
 
 /**
  * The Persona panel — identity of the active persona plus a switcher. Soul
  * and Memory open the persona's markdown; both are disabled until their
- * endpoints land (`GET /api/personas/{handle}/soul|memory`). PINNED / RECENT
- * are a later pass. The header band is tinted with the persona's own accent,
+ * endpoints land (`GET /api/personas/{handle}/soul|memory`). The persona's
+ * conversations are listed under the model row (ADR 057). The header band is tinted with the persona's own accent,
  * the same `--persona-accent` custom property `<PersonaPill>` uses, so
  * runtime-created personas that are not in the static roster still get a
  * stable colour.
@@ -36,6 +38,7 @@ function PersonaCard({
   active,
   onSwitch,
   phone = false,
+  conversations,
   className,
 }: PersonaCardProps) {
   const current = personas.find((p) => p.handle === active) ?? personas[0]
@@ -118,6 +121,13 @@ function PersonaCard({
           </Button>
         </div>
       </div>
+
+      {conversations && (
+        <>
+          <hr className="border-border" />
+          {conversations}
+        </>
+      )}
 
       {others.length > 0 && (
         <>

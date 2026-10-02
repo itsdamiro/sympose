@@ -24,6 +24,7 @@ const latency = (ttftMs: number | null | undefined) =>
   ttftMs != null ? `${(ttftMs / 1000).toFixed(2)}s` : undefined
 
 interface Conversation {
+  persona: string
   turns: ChatTurn[]
   draft: string
   sending: boolean
@@ -42,9 +43,12 @@ interface Conversation {
   /** The turns the notes of a compaction stand for in this conversation (ADR 055), and whether notes are being written. */
   condensed: number
   compacting: boolean
+  /** A reply landed in it while the user was in another conversation, and it has not been opened since (ADR 057). */
+  unread: boolean
 }
 
-const EMPTY: Conversation = {
+const blank = (persona: string): Conversation => ({
+  persona,
   turns: [],
   draft: "",
   sending: false,
@@ -56,7 +60,13 @@ const EMPTY: Conversation = {
   loadingOlder: false,
   condensed: 0,
   compacting: false,
-}
+  unread: false,
+})
+
+/** A conversation's key in the browser: its persona and a number. The key is not the session's id, which a new
+ *  conversation has only once the backend has been told (and which two keys never share). */
+const personaOf = (key: string) => key.slice(0, key.lastIndexOf("#"))
+const firstKey = (persona: string) => `${persona}#0`
 
 /** The saved turns of a page as transcript items: each turn is the user's message and the persona's reply. */
 function turnsFromPage(handle: string, page: SessionPage): ChatTurn[] {
@@ -85,28 +95,44 @@ function turnsFromPage(handle: string, page: SessionPage): ChatTurn[] {
 }
 
 /**
- * The web chat's own state, kept out of the app shell (ADR 044): the conversation, the draft, whether a reply
- * is in flight and what it is doing. Each persona has its own conversation, so switching persona shows that
- * persona's and a reply that lands after a switch goes to the persona it was for. A persona's latest saved
- * conversation is picked up the first time it is shown (a refresh resumes it), the last turns first and
- * older ones on `loadOlder`; `newConversation` starts a fresh one, saved as an empty conversation so a refresh shows it blank. A message sent while that persona's reply
- * is in flight shows at once and waits; when the reply lands, everything that waited is sent as one turn.
- * `stop` stops the reply in flight (ADR 054): nothing of it is saved, the message that asked for it goes back
- * into the message box (in front of whatever is typed there), and what waited is still sent.
+ * The web chat's own state, kept out of the app shell (ADR 044, 057): the conversations, their drafts, whether a
+ * reply is in flight and what it is doing. The state is one per conversation, not one per persona: the user can
+ * leave a conversation while its reply is being written (a new one, or an older one from the persona's list) and
+ * come back to it, and a reply that lands goes to the conversation it was sent from, marked unread when the user is
+ * elsewhere. Each persona shows the conversation it was last on; its latest saved one is picked up the first time
+ * it is shown (a refresh resumes it), the last turns first and older ones on `loadOlder`. `newConversation`
+ * starts a fresh one (saved as an empty conversation so a refresh shows it blank), `openConversation` shows an
+ * earlier one. A message sent while that conversation's reply is in flight shows at once and waits; when the reply
+ * lands, everything that waited is sent as one turn. A message in another conversation of the same persona goes
+ * at once: the backend runs it side by side or after the first, as `parallel_replies` says, and the status line
+ * says `queued` while it waits. `stop` stops the active conversation's reply (ADR 054): nothing of it is saved,
+ * the message that asked for it goes back into the message box (in front of whatever is typed there), and what
+ * waited is still sent.
  */
 export function useChat(persona: string) {
   const [all, setAll] = React.useState<Record<string, Conversation>>({})
+  const [activeKeys, setActiveKeys] = React.useState<Record<string, string>>({})
+  /** Bumped when something the backend lists about the persona's conversations may have changed. */
+  const [listVersion, setListVersion] = React.useState(0)
+  const allRef = React.useRef(all)
+  const activeRef = React.useRef(activeKeys)
+  React.useEffect(() => {
+    allRef.current = all
+    activeRef.current = activeKeys
+  })
   const inFlight = React.useRef(new Set<string>())
-  /** Messages sent while a persona's reply is in flight; they go out together as one turn when it lands. */
+  /** Messages sent while a conversation's reply is in flight; they go out together as one turn when it lands. */
   const waiting = React.useRef(new Map<string, { id: string; text: string }[]>())
-  /** The wait of each persona's reply in flight, which `stop` aborts once the backend accepted the stop. */
+  /** The wait of each conversation's reply in flight, which `stop` aborts once the backend accepted the stop. */
   const aborts = React.useRef(new Map<string, AbortController>())
   const resuming = React.useRef(new Set<string>())
   const nextId = React.useRef(0)
-  const convo = all[persona] ?? EMPTY
+  const nextKey = React.useRef(1)
+  const activeKey = activeKeys[persona] ?? firstKey(persona)
+  const convo = all[activeKey] ?? blank(persona)
 
-  const update = React.useCallback((handle: string, change: (c: Conversation) => Conversation) => {
-    setAll((prev) => ({ ...prev, [handle]: change(prev[handle] ?? EMPTY) }))
+  const update = React.useCallback((key: string, change: (c: Conversation) => Conversation) => {
+    setAll((prev) => ({ ...prev, [key]: change(prev[key] ?? blank(personaOf(key))) }))
   }, [])
 
   const newId = React.useCallback(() => `chat-${nextId.current++}`, [])
@@ -118,9 +144,22 @@ export function useChat(persona: string) {
     [newId]
   )
 
+  /** Show the conversation `key` for its persona; opening a conversation clears its unread mark. */
+  const show = React.useCallback((handle: string, key: string) => {
+    activeRef.current = { ...activeRef.current, [handle]: key }
+    setActiveKeys((prev) => ({ ...prev, [handle]: key }))
+    setAll((prev) => (prev[key]?.unread ? { ...prev, [key]: { ...prev[key], unread: false } } : prev))
+  }, [])
+
+  const keyOfSession = React.useCallback(
+    (handle: string, sessionId: string) =>
+      Object.keys(allRef.current).find((k) => allRef.current[k].persona === handle && allRef.current[k].sessionId === sessionId),
+    []
+  )
+
   const setDraft = React.useCallback(
-    (draft: string) => update(persona, (c) => ({ ...c, draft })),
-    [persona, update]
+    (draft: string) => update(activeKey, (c) => ({ ...c, draft })),
+    [activeKey, update]
   )
 
   // Pick up the persona's latest saved conversation, once. If the user has already said something by the
@@ -129,7 +168,7 @@ export function useChat(persona: string) {
     if (resuming.current.has(persona)) return
     resuming.current.add(persona)
     void fetchChatSession(persona, { limit: PAGE_TURNS }).then((page) => {
-      update(persona, (c) => {
+      update(firstKey(persona), (c) => {
         if (c.resumed || c.turns.length > 0 || !page || !page.session_id) return { ...c, resumed: true }
         return {
           ...c,
@@ -148,45 +187,47 @@ export function useChat(persona: string) {
     if (!convo.sending) return
     let alive = true
     const id = window.setInterval(() => {
-      void fetchChatStatus(persona).then(({ phase, indexing }) => {
-        if (alive) update(persona, (c) => ({ ...c, phase, indexing }))
+      void fetchChatStatus(persona, convo.sessionId).then(({ phase, indexing }) => {
+        if (alive) update(activeKey, (c) => ({ ...c, phase, indexing }))
       })
     }, PHASE_POLL_MS)
     return () => {
       alive = false
       window.clearInterval(id)
     }
-  }, [convo.sending, persona, update])
+  }, [convo.sending, convo.sessionId, activeKey, persona, update])
 
   const send = React.useCallback(async () => {
     const message = convo.draft.trim()
     if (!message) return
+    const key = activeKey
     const shown = { role: "user" as const, body: message, timestamp: time(new Date()) }
     const shownId = newId()
-    // A message sent while this persona's reply is in flight shows at once and waits; everything that waited
+    // A message sent while this conversation's reply is in flight shows at once and waits; everything that waited
     // goes out as one turn when the reply lands (ADR 008, 044: amendments of 2026-10-01).
-    if (inFlight.current.has(persona)) {
-      waiting.current.set(persona, [...(waiting.current.get(persona) ?? []), { id: shownId, text: message }])
-      update(persona, (c) => ({ ...addTo(c, shown, shownId), draft: "" }))
+    if (inFlight.current.has(key)) {
+      waiting.current.set(key, [...(waiting.current.get(key) ?? []), { id: shownId, text: message }])
+      update(key, (c) => ({ ...addTo(c, shown, shownId), draft: "" }))
       return
     }
-    inFlight.current.add(persona)
-    update(persona, (c) => ({ ...addTo(c, shown, shownId), draft: "", sending: true, phase: null, indexing: null }))
+    inFlight.current.add(key)
+    update(key, (c) => ({ ...addTo(c, shown, shownId), draft: "", sending: true, phase: null, indexing: null }))
     let batch = [{ id: shownId, text: message }]
     let sessionId = convo.sessionId
     for (;;) {
       const text = batch.map((b) => b.text).join("\n\n")
       const controller = new AbortController()
-      aborts.current.set(persona, controller)
+      aborts.current.set(key, controller)
       const result = await sendChatTurn(text, persona, sessionId, controller.signal)
-      aborts.current.delete(persona)
-      const next = waiting.current.get(persona) ?? []
-      waiting.current.delete(persona)
+      aborts.current.delete(key)
+      const next = waiting.current.get(key) ?? []
+      waiting.current.delete(key)
       const more = next.length > 0 // decided with no await before `inFlight` is released below
-      if (!more) inFlight.current.delete(persona)
+      if (!more) inFlight.current.delete(key)
       if (result.ok) sessionId = result.reply.session_id
       const asked = new Set(batch.map((b) => b.id)) // read now: `batch` moves on below, before React runs the update
-      update(persona, (c) => {
+      const elsewhere = activeRef.current[persona] !== undefined ? activeRef.current[persona] !== key : key !== firstKey(persona)
+      update(key, (c) => {
         const done = { ...c, sending: more, phase: null, indexing: null }
         if (!result.ok && result.cancelled) {
           // Stopped (ADR 054): the message that asked is not part of the conversation, so it leaves the
@@ -201,13 +242,13 @@ export function useChat(persona: string) {
           )
         }
         if (!result.ok) {
-          return addTo(done, { role: "system", kind: "error", body: `@${persona} couldn't reply: ${result.error}` })
+          return addTo({ ...done, unread: elsewhere || done.unread }, { role: "system", kind: "error", body: `@${persona} couldn't reply: ${result.error}` })
         }
         const { reply, session_id, ttft_ms, sent, model, context_used, context_limit } = result.reply
         const condensed = result.reply.condensed ?? 0
         const context = model && context_used != null && context_limit != null ? { used: context_used, limit: context_limit, model } : undefined
         const answered = addTo(
-          { ...done, sessionId: session_id, context, condensed },
+          { ...done, sessionId: session_id, context, condensed, unread: elsewhere || done.unread },
           { role: "persona", handle: persona, body: reply, timestamp: time(new Date()), latency: latency(ttft_ms), sent }
         )
         // The notes of a compaction (ADR 055) are said once, when they first reach a prompt or grow: not on every reply.
@@ -215,28 +256,30 @@ export function useChat(persona: string) {
           ? addTo(answered, { role: "system", kind: "notice", body: `${condensed} earlier ${condensed === 1 ? "turn is" : "turns are"} now condensed into notes.` })
           : answered
       })
+      setListVersion((v) => v + 1) // its turn count, time and (first reply) title changed
       if (!more) return
       batch = next
     }
-  }, [convo.draft, convo.sessionId, persona, update, addTo, newId])
+  }, [convo.draft, convo.sessionId, activeKey, persona, update, addTo, newId])
 
-  /** Stop this persona's reply in flight. The wait is freed only once the backend accepted the stop: a reply
-   *  that is already complete is not thrown away, it arrives. */
+  /** Stop the active conversation's reply in flight. The wait is freed only once the backend accepted the stop: a
+   *  reply that is already complete is not thrown away, it arrives. */
   const stop = React.useCallback(async () => {
-    const controller = aborts.current.get(persona)
+    const controller = aborts.current.get(activeKey)
     if (!controller) return
-    if (await cancelChatTurn(persona)) controller.abort()
-  }, [persona])
+    if (await cancelChatTurn(persona, convo.sessionId)) controller.abort()
+  }, [activeKey, persona, convo.sessionId])
 
   const loadOlder = React.useCallback(async () => {
     if (!convo.hasMore || convo.loadingOlder || !convo.sessionId) return
-    update(persona, (c) => ({ ...c, loadingOlder: true }))
+    const key = activeKey
+    update(key, (c) => ({ ...c, loadingOlder: true }))
     const page = await fetchChatSession(persona, {
       sessionId: convo.sessionId,
       before: convo.oldest,
       limit: PAGE_TURNS,
     })
-    update(persona, (c) => {
+    update(key, (c) => {
       // A conversation started over while this was loading is not the one these turns belong to.
       if (!page || c.sessionId !== page.session_id) return { ...c, loadingOlder: false }
       return {
@@ -247,21 +290,22 @@ export function useChat(persona: string) {
         loadingOlder: false,
       }
     })
-  }, [convo.hasMore, convo.loadingOlder, convo.sessionId, convo.oldest, persona, update])
+  }, [convo.hasMore, convo.loadingOlder, convo.sessionId, convo.oldest, activeKey, persona, update])
 
   /** Condense the earlier part of this conversation into notes now (ADR 055), and say what happened. The notes
    *  are shown as a line of their own so they can be read; the meter's figure was of the longer conversation,
    *  so it is dropped and the backend's estimate takes its place. */
   const compact = React.useCallback(async () => {
     const sessionId = convo.sessionId
+    const key = activeKey
     if (convo.compacting) return
     if (!sessionId) {
-      update(persona, (c) => addTo(c, { role: "system", kind: "notice", body: "Nothing to condense: this conversation has not started yet." }))
+      update(key, (c) => addTo(c, { role: "system", kind: "notice", body: "Nothing to condense: this conversation has not started yet." }))
       return
     }
-    update(persona, (c) => ({ ...c, compacting: true }))
+    update(key, (c) => ({ ...c, compacting: true }))
     const out = await compactChatSession(persona, sessionId)
-    update(persona, (c) => {
+    update(key, (c) => {
       const done = { ...c, compacting: false }
       if (c.sessionId !== sessionId) return done // a conversation started over while the notes were being written
       if (!out.ok) return addTo(done, { role: "system", kind: "error", body: `Couldn't condense the conversation: ${out.error}` })
@@ -279,21 +323,92 @@ export function useChat(persona: string) {
       const said = addTo(done, { role: "system", kind: status === "failed" ? "error" : "notice", body: reason })
       return status === "nothing" && text ? addTo(said, { role: "system", kind: "output", body: `The notes now: ${text}` }) : said
     })
-  }, [convo.sessionId, convo.compacting, persona, update, addTo])
+  }, [convo.sessionId, convo.compacting, activeKey, persona, update, addTo])
+
+  /** A fresh conversation, blank at once and shown; the backend is told just after. Its reply, if one is still
+   *  being written in the conversation left, lands there. When the user is already on a blank one it does nothing,
+   *  and when the backend answers with the blank conversation this browser already holds, that one is shown. */
+  const startBlank = React.useCallback(async () => {
+    const key = `${persona}#${nextKey.current++}`
+    update(key, () => ({ ...blank(persona), resumed: true }))
+    show(persona, key)
+    const sessionId = await startChatSession(persona)
+    if (!sessionId) return
+    const held = keyOfSession(persona, sessionId)
+    if (held && held !== key && activeRef.current[persona] === key && (allRef.current[key]?.turns.length ?? 0) === 0) {
+      setAll((prev) => Object.fromEntries(Object.entries(prev).filter(([k]) => k !== key)))
+      show(persona, held)
+      return
+    }
+    // If the user has already said something, that conversation is the one now; this one is not used.
+    update(key, (c) => (!c.sessionId && c.turns.length === 0 ? { ...c, sessionId } : c))
+    setListVersion((v) => v + 1)
+  }, [persona, update, show, keyOfSession])
 
   const newConversation = React.useCallback(async () => {
-    if (inFlight.current.has(persona)) return
-    update(persona, () => ({ ...EMPTY, resumed: true })) // blank at once; the backend is told just after
-    const sessionId = await startChatSession(persona)
-    // If the user has already said something, that conversation is the one now; this one is not used.
-    update(persona, (c) => (sessionId && !c.sessionId && c.turns.length === 0 ? { ...c, sessionId } : c))
-  }, [persona, update])
+    if (convo.turns.length === 0 && !convo.sending) return
+    await startBlank()
+  }, [convo.turns.length, convo.sending, startBlank])
 
-  /** A system line in this persona's conversation (a confirmation of something the user did outside it). */
-  const notice = React.useCallback(
-    (kind: SystemKind, body: string) => update(persona, (c) => addTo(c, { role: "system", kind, body })),
-    [persona, update, addTo]
+  /** Show the persona's earlier conversation `sessionId`: the one this browser already holds (with its draft,
+   *  waiting messages and reply in flight) or, if not held, its saved turns. `false` when it cannot be read. */
+  const openConversation = React.useCallback(
+    async (sessionId: string): Promise<boolean> => {
+      const held = keyOfSession(persona, sessionId)
+      if (held) {
+        show(persona, held)
+        return true
+      }
+      const page = await fetchChatSession(persona, { sessionId, limit: PAGE_TURNS })
+      if (!page || page.session_id !== sessionId) return false
+      const meanwhile = keyOfSession(persona, sessionId)
+      if (meanwhile) {
+        show(persona, meanwhile)
+        return true
+      }
+      const key = `${persona}#${nextKey.current++}`
+      update(key, () => ({
+        ...blank(persona),
+        resumed: true,
+        sessionId,
+        turns: turnsFromPage(persona, page),
+        oldest: page.start,
+        hasMore: page.has_more,
+        condensed: page.compaction?.through ?? 0,
+      }))
+      show(persona, key)
+      return true
+    },
+    [persona, show, update, keyOfSession]
   )
+
+  /** The conversation `sessionId` was deleted or must otherwise leave this browser's state. When it is the one
+   *  on screen, a fresh one takes its place. */
+  const forgetConversation = React.useCallback(
+    async (sessionId: string) => {
+      const key = keyOfSession(persona, sessionId)
+      if (!key) return
+      const wasShown = (activeRef.current[persona] ?? firstKey(persona)) === key
+      setAll((prev) => Object.fromEntries(Object.entries(prev).filter(([k]) => k !== key)))
+      if (wasShown) await startBlank()
+    },
+    [persona, keyOfSession, startBlank]
+  )
+
+  /** A system line in the conversation on screen (a confirmation of something the user did outside it). */
+  const notice = React.useCallback(
+    (kind: SystemKind, body: string) => update(activeKey, (c) => addTo(c, { role: "system", kind, body })),
+    [activeKey, update, addTo]
+  )
+
+  /** Which of this persona's conversations (by session id) are being replied to or have an unread reply. */
+  const marks = React.useMemo(() => {
+    const out: Record<string, { replying: boolean; unread: boolean }> = {}
+    for (const c of Object.values(all)) {
+      if (c.persona === persona && c.sessionId) out[c.sessionId] = { replying: c.sending, unread: c.unread }
+    }
+    return out
+  }, [all, persona])
 
   return {
     notice,
@@ -311,6 +426,10 @@ export function useChat(persona: string) {
     loadingOlder: convo.loadingOlder,
     loadOlder,
     newConversation,
+    openConversation,
+    forgetConversation,
+    marks,
+    listVersion,
     compact,
     compacting: convo.compacting,
     condensed: convo.condensed,

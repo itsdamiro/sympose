@@ -1,8 +1,9 @@
 import type { SentRecord } from "@/lib/chat-types"
 import { detailOf } from "@/lib/vault-note-api"
 
-/** What the persona's reply in flight is doing right now (the engine's own phases, ADR 043). */
-export type ChatPhase = "searching" | "reading" | "asking"
+/** What a reply in flight is doing right now (the engine's own phases, ADR 043), or `queued`: its message waits for
+ *  another conversation's reply to finish (ADR 057). */
+export type ChatPhase = "searching" | "reading" | "asking" | "queued"
 
 /** The parts of `POST /api/chat/turn`'s answer the web chat uses. */
 export interface ChatReply {
@@ -69,16 +70,17 @@ export async function sendChatTurn(
 }
 
 /**
- * Client for `POST /api/chat/cancel` (ADR 054): ask the engine to stop the persona's reply in flight. `true`
+ * Client for `POST /api/chat/cancel` (ADR 054, 057): ask the engine to stop the reply in flight of the conversation
+ * `sessionId` (every reply the persona is writing when it is left out), or a message still waiting for its turn. `true`
  * means the stop was accepted and nothing of that turn will be saved; `false` means there was nothing to stop
  * (no reply running, or it is already complete and will arrive), or the backend could not be reached.
  */
-export async function cancelChatTurn(persona: string): Promise<boolean> {
+export async function cancelChatTurn(persona: string, sessionId?: string): Promise<boolean> {
   try {
     const res = await fetch("/api/chat/cancel", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ persona }),
+      body: JSON.stringify({ persona, session_id: sessionId }),
     })
     return res.ok && ((await res.json()) as { stopping?: boolean }).stopping === true
   } catch {
@@ -92,11 +94,13 @@ export interface ChatStatus {
   indexing: number | null
 }
 
-/** Client for `GET /api/chat/status` — the phase of the persona's reply in flight and any index build. */
-export async function fetchChatStatus(persona: string): Promise<ChatStatus> {
+/** Client for `GET /api/chat/status` — the phase of the reply in flight (the conversation `sessionId`'s, else the
+ *  persona's oldest) and any index build. */
+export async function fetchChatStatus(persona: string, sessionId?: string): Promise<ChatStatus> {
   const none = { phase: null, indexing: null }
   try {
-    const res = await fetch(`/api/chat/status?persona=${encodeURIComponent(persona)}`)
+    const which = sessionId ? `&session_id=${encodeURIComponent(sessionId)}` : ""
+    const res = await fetch(`/api/chat/status?persona=${encodeURIComponent(persona)}${which}`)
     if (!res.ok) return none
     const body = (await res.json()) as Partial<ChatStatus>
     return { phase: body.phase ?? null, indexing: typeof body.indexing === "number" ? body.indexing : null }

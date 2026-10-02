@@ -354,7 +354,7 @@ function ChatPanel({
                   {compacting ? "Condensing…" : "Condense"}
                 </button>
               )}
-              {onNewConversation && turns.length > 0 && !sending && (
+              {onNewConversation && turns.length > 0 && (
                 <button
                   type="button"
                   onClick={onNewConversation}

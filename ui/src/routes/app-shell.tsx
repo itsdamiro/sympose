@@ -14,6 +14,7 @@ import { useSectionHistory } from "@/lib/use-section-history"
 import { useVaultRefresh } from "@/lib/use-vault-refresh"
 import { useCreateField, useCreateSubmit } from "@/lib/use-create-flow"
 import { useChatSession } from "@/lib/use-chat-session"
+import { useSessionList } from "@/lib/use-session-list"
 import { usePersonaRoster } from "@/lib/use-persona-roster"
 import { useNoteChanges } from "@/lib/use-note-changes"
 import { useFolderView } from "@/lib/use-folder-view"
@@ -32,6 +33,7 @@ import { useBrandMarkLabel } from "@/lib/use-brand-mark-preference"
 import { useNoteOpening } from "@/lib/use-note-opening"
 import { useLinkSources } from "@/lib/use-link-sources"
 import {
+  ConversationList,
   PersonaCard,
   ChatActionGroup,
   ContentPanel,
@@ -128,6 +130,7 @@ export function AppShell() {
     setShared,
     cloudNotice,
   } = useChatSession(activePersona)
+  const sessionList = useSessionList(activePersona, chat)
   const [editorPrefs, setEditorPref] = useEditorPreferences()
   const [toolbarItems, setToolbarItems] = useToolbarItems()
 
@@ -329,6 +332,16 @@ export function AppShell() {
         active={activePersona}
         onSwitch={setActivePersona}
         phone={isPhone}
+        conversations={
+          <ConversationList
+            sessions={sessionList.sessions}
+            onOpen={(id) => void sessionList.open(id)}
+            onNew={() => void sessionList.startNew()}
+            onRename={sessionList.rename}
+            onPin={(id, pinned) => void sessionList.pin(id, pinned)}
+            onDelete={sessionList.remove}
+          />
+        }
       />
     ) : active === MENU_SETTINGS_ID ? (
       <SettingsView
@@ -359,6 +372,8 @@ export function AppShell() {
     ) : (
       <VaultFolderView
         trashView={trashView}
+        conversationBinKey={sessionList.binVersion}
+        onConversationRestored={() => void sessionList.refresh()}
         activeLabel={activeLabel}
         activeRootFolder={activeRootFolder}
         moveNote={moveNote}

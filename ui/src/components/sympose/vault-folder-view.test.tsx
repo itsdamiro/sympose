@@ -60,6 +60,8 @@ function setup(over: Partial<React.ComponentProps<typeof VaultFolderView>> = {})
   }
   const props: React.ComponentProps<typeof VaultFolderView> = {
     trashView: false,
+    conversationBinKey: 0,
+    onConversationRestored: vi.fn(),
     activeLabel: "Notes",
     activeRootFolder: folder("Notes", [note("Notes/a.md")]),
     activePersona: "samantha",

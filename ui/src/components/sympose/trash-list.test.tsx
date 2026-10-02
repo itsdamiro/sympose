@@ -121,7 +121,7 @@ describe("TrashList", () => {
       api.fetchTrash.mockResolvedValueOnce(null).mockResolvedValue(bin([row("a.md")]))
       render(<TrashList persona="samantha" />)
       expect(await screen.findByText(/Couldn.t load the bin/)).toBeTruthy()
-      expect(screen.queryByText(/Bin is empty/)).toBeNull()
+      expect(screen.queryByText(/No deleted notes/)).toBeNull()
       fireEvent.click(screen.getByRole("button", { name: "Try again" }))
       expect(await screen.findByText("1 item")).toBeTruthy()
     })

@@ -166,7 +166,7 @@ describe("ChatPanel", () => {
     expect(scrollIntoView).toHaveBeenCalled()
   })
 
-  it("offers a new conversation once there is one to leave, and not while a reply is in flight", () => {
+  it("offers a new conversation once there is one to leave, also while a reply is in flight (ADR 057)", () => {
     const onNewConversation = vi.fn()
     const turns: ChatTurn[] = [{ id: "1", role: "user", body: "hi" }]
     setup({ turns, onNewConversation })
@@ -174,7 +174,7 @@ describe("ChatPanel", () => {
     expect(onNewConversation).toHaveBeenCalledTimes(1)
     cleanup()
     setup({ turns, onNewConversation, sending: true })
-    expect(screen.queryByText("New conversation")).toBeNull()
+    expect(screen.getByText("New conversation")).toBeTruthy() // the reply finishes into the conversation it was sent from
     cleanup()
     setup({ turns: [], onNewConversation })
     expect(screen.queryByText("New conversation")).toBeNull()
