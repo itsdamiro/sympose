@@ -13,6 +13,7 @@ is the persona itself, sent with every turn regardless, not the user's own data.
 
 import logging
 import os
+import time
 
 from sympose import profile as profile_mod
 from sympose.atomic_write import write_atomic_text
@@ -26,6 +27,10 @@ log = logging.getLogger(__name__)
 FILENAME = "status_phrases.md"
 _COUNT = 12
 _MAX_REPLY_TOKENS = 250
+# The web chat asks again after every reply while a persona has no phrases of its own, so a model that cannot make
+# them (an error, or a reply with nothing usable) is left alone this long instead of being called once per reply.
+RETRY_AFTER_SECONDS = 600
+_FAILED_AT: dict[str, float] = {}
 
 # Shown before a persona has its own set yet -- generating for the first time, or failed -- the
 # same generic, no-persona-voice posture the rest of Sympose's own system lines already use.
@@ -88,9 +93,11 @@ def generate(handle: str, model: str | None = None) -> bool:
         )
     except model_mod.EngineModelError as e:
         log.warning("Status phrases for %s failed: %s", handle, e)
+        _FAILED_AT[handle] = time.monotonic()
         return False
     lines = [line.strip(" -*\"") for line in reply.text.splitlines() if line.strip()][:_COUNT]
     if not lines:
+        _FAILED_AT[handle] = time.monotonic()
         return False
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -104,10 +111,15 @@ def generate(handle: str, model: str | None = None) -> bool:
 _RUNNER = background_job.Runner("phrases", "Status phrases")
 
 
+def _failed_recently(handle: str) -> bool:
+    failed = _FAILED_AT.get(handle)
+    return failed is not None and time.monotonic() - failed < RETRY_AFTER_SECONDS
+
+
 def generate_in_background(handle: str, model: str | None = None) -> bool:
     """Start `generate` in the background and return at once. `False` when `handle` already has
-    its own phrases, or a generation is already running for it."""
-    if has_own(handle):
+    its own phrases, a generation is already running for it, or one failed less than `RETRY_AFTER_SECONDS` ago."""
+    if has_own(handle) or _failed_recently(handle):
         return False
     return _RUNNER.start(handle, lambda: generate(handle, model))
 

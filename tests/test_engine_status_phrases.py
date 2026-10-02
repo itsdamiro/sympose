@@ -16,6 +16,7 @@ def profiles(tmp_path, monkeypatch):
     directory = write_persona(base, "samantha", "name: Samantha\n")
     monkeypatch.setenv("SYMPOSE_PROFILES_DIR", str(base))
     monkeypatch.setattr(status_phrases, "_RUNNER", background_job.Runner("phrases", "Status phrases"))
+    monkeypatch.setattr(status_phrases, "_FAILED_AT", {})
     return directory
 
 
@@ -189,3 +190,39 @@ def test_a_cloud_models_reply_limit_is_not_the_small_local_one(asked, tmp_path, 
     monkeypatch.setenv("SYMPOSE_SETTINGS_PATH", str(tmp_path / "settings.json"))
     status_phrases.generate("samantha", model="gemini/gemini-flash-latest")
     assert asked[0]["max_tokens"] > status_phrases._MAX_REPLY_TOKENS
+
+
+# -- a failed generation waits before the next attempt ---------------------------
+
+
+def _join_background():
+    for thread in threading.enumerate():
+        if thread.name.startswith("phrases-"):
+            thread.join(5)
+
+
+def test_a_failed_generation_is_not_started_again_at_once(asked):
+    """The web chat asks again after every reply while the persona has no phrases of its own; a model that cannot
+    produce them (an error, or a reply with nothing usable) must not cost a model call per reply."""
+    asked.replies = [EngineModelError("down")]
+    assert status_phrases.generate("samantha") is False
+    assert status_phrases.generate_in_background("samantha") is False
+    assert len(asked) == 1
+
+
+def test_an_empty_reply_counts_as_a_failure_too(asked):
+    asked.replies = [ModelReply("   \n", 5)]
+    assert status_phrases.generate("samantha") is False
+    assert status_phrases.generate_in_background("samantha") is False
+    assert len(asked) == 1
+
+
+def test_it_tries_again_once_the_wait_is_over(asked, monkeypatch):
+    clock = [1000.0]
+    monkeypatch.setattr(status_phrases.time, "monotonic", lambda: clock[0])
+    asked.replies = [EngineModelError("down"), ModelReply("Thinking it through…\nOne sec…", 5)]
+    assert status_phrases.generate("samantha") is False
+    clock[0] += status_phrases.RETRY_AFTER_SECONDS + 1
+    assert status_phrases.generate_in_background("samantha") is True
+    _join_background()
+    assert status_phrases.has_own("samantha") is True
