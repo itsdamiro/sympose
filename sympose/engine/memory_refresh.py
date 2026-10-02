@@ -26,7 +26,7 @@ AUTO, ASK = "auto", "ask"
 # reply (live-observed, 2026-09-29). `/memory refresh` always stays available on demand regardless.
 AUTO_REFRESH_SETTING = "memory_auto_refresh"
 
-# More of the arc than a turn's own prompt reads (`recap.READ_COUNT`, 2): a rewrite is meant to
+# More of the arc than a turn's own prompt reads (`recap.read_count`, 2 unless the user changed it): a rewrite is meant to
 # notice a pattern across sessions, not just carry the last one forward.
 _READ_RECAPS = 6
 _MAX_REPLY_TOKENS = 500

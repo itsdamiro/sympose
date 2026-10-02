@@ -6,7 +6,9 @@ Settings are stored in `settings.json`, in the folder where Sympose runs. `SYMPO
 
 Type /settings for a list of the common ones, each with its value. Choose a row to change it: a true or false one flips, one with a few values moves to the next, and for a number the chat box asks for it. Enter saves, an empty line puts the default back and Esc leaves it as it was. A number that cannot be used is refused.
 
-The list has `show_grounding`, `show_trim_notice`, `show_context_meter`, `show_background_status`, `status_typing`, `reply_reveal`, `context_window`, `reply_limit`, `grounding_followups`, `session_recaps`, `grounding_search`, `embedding_min_similarity`, `embedding_margin`, `vault_lookup`, `vault_lookup_rounds`, `auto_compact`, `compact_at`, `compact_to` and `parallel_replies`.
+The list has `show_grounding`, `show_trim_notice`, `show_context_meter`, `show_background_status`, `status_typing`, `reply_reveal`, `context_window`, `reply_limit`, `history_tokens`, `model_timeout`, `grounding_followups`, `session_recaps`, `recap_count` and `recap_chars`.
+
+It also has `grounding_search`, `embedding_min_similarity`, `embedding_margin`, `vault_lookup`, `vault_lookup_rounds`, `auto_compact`, `compact_at`, `compact_to` and `parallel_replies`.
 
 `memory_remember`, `memory_rewrite` and `memory_auto_refresh` are the memory settings. The model, the persona and what a cloud model may receive have /model, /persona and /share.
 
@@ -38,6 +40,14 @@ The `context_window` setting is the size in tokens of the conversation a local m
 
 The `reply_limit` setting is the tokens kept back for the reply. By default a quarter of the window, up to 4096.
 
+## history_tokens
+
+The `history_tokens` setting is the most tokens of the earlier conversation sent with each message, word for word, at least 500; empty means no cap. The oldest turns are left out until the rest fits, and the newest always stays. It makes replies start sooner on a slow computer and costs less on a cloud model, but what is left out is forgotten, not condensed, so `auto_compact` rarely starts.
+
+## model_timeout
+
+The `model_timeout` setting is the most seconds a model may take to answer before Sympose gives up, 30 to 3600. Empty means automatic: 120 seconds plus one for every 40 tokens of the prompt. A cold start of a local model can take over a minute, so raise it if you see "No answer from" on a slow machine.
+
 ## reply_reveal
 
 The `reply_reveal` setting is how fast a reply is written out in the chat, in words per second. The default is 50, and 0 shows the whole reply at once.
@@ -65,6 +75,10 @@ Setting `show_context_meter` to `false` hides the meter under the chat box.
 ## session_recaps
 
 Setting `session_recaps` to `false` stops Samantha writing and reading recaps of your earlier conversations. Each recap is written by the model from your own messages, so with a cloud model those messages are sent to the provider, and only when `cloud_share` allows `"recaps"`.
+
+## recap_count and recap_chars
+
+The `recap_count` setting is how many recaps of earlier conversations she reads, 1 to 10, 2 by default. The `recap_chars` setting is how much of each she reads, 200 to 2000 characters, 800 by default. More of either gives her a longer memory of past chats and takes room in every prompt, so a small local model may need less.
 
 ## grounding_followups
 

@@ -6,7 +6,7 @@ channel's own (the terminal's are in `cli/display_settings.py`)."""
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from sympose.engine import budget, compaction, embeddings, followup, lookup, memory, memory_refresh, parallel, recap
+from sympose.engine import budget, compaction, embeddings, followup, history_cap, lookup, memory, memory_refresh, model_wait, parallel, recap
 
 TOGGLE, CHOICE, NUMBER = "toggle", "choice", "number"
 ON, OFF = "on", "off"
@@ -45,10 +45,26 @@ SETTINGS: list[Setting] = [
         hint="tokens, 64 or more; empty for automatic", whole=True, group=CONTEXT,
     ),
     Setting(
+        history_cap.SETTING, NUMBER, "most tokens of earlier turns sent", history_cap.chosen,
+        hint=f"tokens, {history_cap.MIN_TOKENS} or more; empty for no cap", whole=True, group=CONTEXT,
+    ),
+    Setting(
+        model_wait.SETTING, NUMBER, "how long a model may take to answer", model_wait.chosen,
+        hint=f"seconds, {model_wait.MIN_SECONDS} to {model_wait.MAX_SECONDS}; empty for automatic", whole=True, group=CONTEXT,
+    ),
+    Setting(
         followup.SETTING, CHOICE, "the extra search for follow-ups",
         lambda: ON if followup.enabled() else OFF, lambda: ON, choices=(ON, OFF), group=CONTEXT,
     ),
     toggle(recap.SETTING, "recaps of your earlier conversations", recap.enabled, group=CONTEXT),
+    Setting(
+        recap.COUNT_SETTING, NUMBER, "how many recaps she reads", recap.read_count,
+        lambda: recap.DEFAULT_COUNT, hint=f"a whole number, {recap.COUNT_RANGE[0]} to {recap.COUNT_RANGE[1]}", whole=True, group=CONTEXT,
+    ),
+    Setting(
+        recap.CHARS_SETTING, NUMBER, "how much of each recap she reads", recap.read_chars,
+        lambda: recap.DEFAULT_CHARS, hint=f"characters, {recap.CHARS_RANGE[0]} to {recap.CHARS_RANGE[1]}", whole=True, group=CONTEXT,
+    ),
     toggle(compaction.SETTING, "condensing a long conversation on its own", compaction.enabled, group=CONTEXT),
     Setting(
         compaction.AT_SETTING, NUMBER, "percent full when it is condensed", compaction.at_percent,

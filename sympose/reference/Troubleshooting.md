@@ -8,9 +8,13 @@ Make sure Ollama is running (open the Ollama app, or run `ollama serve`) and tha
 
 Ollama loads the model into memory on the first message, and again after it has sat idle for a while, so the first reply takes longer than the rest. A long or resumed conversation is also slow to start, because the whole conversation is read again.
 
+## It says there was no answer from the model
+
+The model took longer than Sympose waits. The wait is 120 seconds plus one for every 40 tokens of the prompt, and a cold start of a local model on a slow computer can pass it. Try again, since the model is then loaded, or raise `model_timeout`. Condensing a long conversation shortens the wait too.
+
 ## How do I make a long conversation start faster?
 
-Condensing helps most: type /compact, or leave `auto_compact` on, and the earlier part is sent as short notes. A smaller `context_window` in `settings.json` also shortens the wait, at the price of remembering less.
+Condensing helps most: type /compact, or leave `auto_compact` on, and the earlier part is sent as short notes. A smaller `context_window`, or `history_tokens` which caps the earlier turns, also shortens the wait, at the price of remembering less.
 
 ## She says she cannot find something that is in my vault
 

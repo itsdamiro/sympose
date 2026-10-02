@@ -1,6 +1,6 @@
 # 056 — What the persona may reach from earlier conversations, and how: recap knobs and a `past_chats` setting
 
-> **Status: Accepted (design), not built.** Nothing here is built. Builds on ADR 023 (recaps), ADR 031 (what a cloud model may receive), ADR 040 (the persona looks up notes itself) and ADR 025 (what is recorded). It is the design for #18's "search across past sessions"; the durable-facts half of #18 is ADR 041.
+> **Status: Accepted (design); the first slice, the recap settings, is built.** The rest is not. Builds on ADR 023 (recaps), ADR 031 (what a cloud model may receive), ADR 040 (the persona looks up notes itself) and ADR 025 (what is recorded). It is the design for #18's "search across past sessions"; the durable-facts half of #18 is ADR 041.
 
 ## Context
 
@@ -51,9 +51,13 @@ It is a new path for the user's words to leave the machine (cloud models), it co
 - `past_chats` is `off` by default. The setting's summary and the settings screens say that `auto` is the one to try first and that `ask` needs a model that can call tools (the default local model cannot), so a user is not left choosing `ask` and wondering why nothing changes.
 - A past conversation is shown with both sides, her own replies marked as hers. If the measurement above shows she reports those replies as the user's facts even with the label, the fallback is the user's side only, which is what recaps do.
 
+## As built (2026-10-02, first slice: the recap settings)
+
+`recap_count` (whole number 1 to 10, default 2) and `recap_chars` (200 to 2000, default 800) are in the shared settings registry, Context group, so the terminal's `/settings` and the web settings list them together. They are read by `recap.read_count()` and `recap.read_chars()`; a value out of range or not a whole number is the default. A caller that names its own count (the memory rewrite reads six) is not changed by `recap_count`; the size cut applies to both. Measured with `gemma2:9b` on a scratch install of three recapped conversations: asked which earlier conversations she remembered, she named the two newest with `recap_count` 2 and all three with 3. The reference notes describe both settings.
+
 ## Not built
 
-- All of the above. This ADR is the design only.
+- `past_chats`, the `/share` category `chats`, the two tools and the reader of the session logs. The recap settings above are built; the rest of this ADR is the design only.
 - Searching a conversation by meaning (embeddings, ADR 027) rather than by the notes' matcher.
 - Reaching the folded turns of the conversation in progress.
 - Tools that change anything (#21), and `ask` for a persona-by-persona choice (ADR 040 left that too).

@@ -517,6 +517,53 @@ def test_a_recap_is_cut_to_a_size_the_prompt_can_carry():
     assert len(recap.latest("samantha")[0]["text"]) == 800
 
 
+def _four():
+    for sid in (OLDEST, OLDER, OLD, NEW):
+        talk(sid)
+    for sid, text in ((OLDEST, "fourth"), (OLDER, "third"), (OLD, "second"), (NEW, "first")):
+        put(sid, text)
+
+
+def test_recap_count_sets_how_many_recaps_a_turn_reads(monkeypatch):
+    _four()
+    settings_store.set("recap_count", 3)
+    assert [r["text"] for r in recap.latest("samantha")] == ["first", "second", "third"]
+    settings_store.set("recap_count", 1)
+    assert [r["text"] for r in recap.latest("samantha")] == ["first"]
+
+
+def test_a_caller_that_names_its_own_count_is_not_changed_by_the_setting():
+    _four()
+    settings_store.set("recap_count", 1)
+    assert len(recap.latest("samantha", count=4)) == 4  # the memory rewrite reads more than a turn does
+
+
+def test_recap_chars_sets_how_much_of_each_recap_is_read():
+    put(NEW, "x" * 5000)
+    settings_store.set("recap_chars", 300)
+    assert len(recap.latest("samantha")[0]["text"]) == 300
+    settings_store.set("recap_chars", 2000)
+    assert len(recap.latest("samantha")[0]["text"]) == 2000
+
+
+@pytest.mark.parametrize("value", [0, 11, -1, 2.5, "3", True, None, [3]])
+def test_an_unusable_recap_count_is_the_default_two(value):
+    settings_store.set("recap_count", value)
+    assert recap.read_count() == 2
+
+
+@pytest.mark.parametrize("value", [199, 2001, 0, 800.5, "500", False, None])
+def test_an_unusable_recap_size_is_the_default_800(value):
+    settings_store.set("recap_chars", value)
+    assert recap.read_chars() == 800
+
+
+def test_the_ends_of_the_ranges_are_accepted():
+    for key, value, read in (("recap_count", 1, recap.read_count), ("recap_count", 10, recap.read_count), ("recap_chars", 200, recap.read_chars), ("recap_chars", 2000, recap.read_chars)):
+        settings_store.set(key, value)
+        assert read() == value
+
+
 def test_without_a_recaps_folder_or_with_other_files_there_is_nothing_to_read():
     assert recap.latest("samantha") == []
     os.makedirs(session.recaps_dir("samantha"))
