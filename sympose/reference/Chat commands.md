@@ -1,6 +1,6 @@
 # Chat commands
 
-The chat commands are /help, /model, /persona, /default, /grounding, /grounded, /context, /remember, /memory, /compact, /share, /settings, /clear and /quit. Type / in the chat to see them; Tab, or the Down and Up arrows, cycle through them.
+The chat commands are /help, /model, /persona, /default, /grounding, /grounded, /context, /remember, /memory, /compact, /sessions, /history, /share, /settings, /clear and /quit. Type / in the chat to see them; Tab, or the Down and Up arrows, cycle through them.
 
 ## /help
 
@@ -33,6 +33,10 @@ The chat commands are /help, /model, /persona, /default, /grounding, /grounded, 
 ## /compact
 
 /compact condenses the earlier part of a long conversation into short notes now, keeping the newest three turns as they were. It shows how many tokens that saved and what the notes say. The conversation file keeps every turn word for word. The web chat has a Condense button for the same thing.
+
+## /sessions
+
+/sessions, also typed as /history, lists your conversations with this persona, numbered, with the pinned ones first. /sessions open 2 continues number 2 and shows where it stopped; rename 2 New title, pin 2, unpin 2 and delete 2 work the same way. Delete moves the files to a trash folder, `sessions/.trash`, nothing is destroyed.
 
 ## /remember
 

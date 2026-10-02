@@ -43,6 +43,13 @@ The model is a chat tool with threads: the user moves between conversations and 
 
 **New API, all local, no model call:** `GET /api/chat/sessions?persona=`, `PATCH /api/chat/session/<id>` (the title, and whether it is pinned), `DELETE /api/chat/session/<id>`.
 
+## As built (2026-10-02, first slice: engine, API and terminal)
+
+- `engine/session_manage.py`: `list_sessions` (pinned first in the order pinned, then the one last used first; a blank conversation only when it is the newest; each row says whether a reply is being written into it), `rename` (a later meta line, title of 1 to 80 characters on one line), `pin` (a later meta line with `pinned_at`; pinning one already pinned, or unpinning one that is not, writes nothing), `delete` (the file and its recap to `sessions/.trash/`, an earlier file of the same name there is never replaced, `busy` while a reply is being written). `session_ids` already ignores the trash folder (it lists `*.jsonl` of the directory only). `turn_cancel.running` is the public question "is a reply in flight".
+- Web API: `GET /api/chat/sessions?persona=`, `PATCH /api/chat/session/<id>` (title and/or pinned, the row comes back), `DELETE /api/chat/session/<id>?persona=` (404, 422 for a bad title, 409 while a reply is being written). The routes live in `server_session_handlers.py`.
+- Terminal: `/sessions` and `/history` (`cli/sessions_command.py`): the numbered list, `open <n>` (a new generation that continues the chosen conversation, the last four turns shown again, the meter re-estimated), `rename <n> <title>`, `pin <n>`, `unpin <n>`, `delete <n>` (deleting the conversation on screen starts a new generation). A reply still being written in the conversation left lands in its own, as after a persona switch.
+- Not yet: the web app's list on the persona's profile and the browser's state per conversation (so "New conversation" works while a reply is being written), the routes taking a conversation id for the status and Stop, and the `parallel_replies` setting. The restore of a deleted conversation is by hand, as designed.
+
 ## Not built
 
 - Restoring a deleted conversation from the app, and emptying the trash.
