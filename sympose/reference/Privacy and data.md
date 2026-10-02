@@ -6,7 +6,7 @@ Not by default. With the default local model, run by Ollama, everything stays on
 
 ## What is sent when I use a cloud model?
 
-Your messages and the conversation so far are always sent to that provider. What comes from your vault is sent only if you allow it, one kind at a time: your notes, their properties and your recaps. None is allowed by default. The vault itself is never uploaded as a whole.
+Your messages and the conversation so far are always sent to that provider. What comes from your vault is sent only if you allow it, one kind at a time: your notes, their properties, your recaps and your earlier conversations word for word. None is allowed by default. The vault itself is never uploaded as a whole.
 
 ## How do I let a cloud model use my notes?
 

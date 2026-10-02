@@ -55,13 +55,16 @@ def render(sent: dict[str, Any] | None, name: str = "The persona") -> list[str]:
     categories) — each only when it happened. `[]` before any reply this session."""
     if sent is None:
         return ["No reply yet this session to show what grounded it."]
-    if not sent["notes"] and not sent["recaps"]:
+    chats = sent.get("chats") or []
+    if not sent["notes"] and not sent["recaps"] and not chats:
         return ["Nothing from the vault grounded the last reply.", *_memory(sent), *_lookups(sent, name)]
     lines = ["Grounded the last reply:"] if sent["notes"] else []
     lines += [_note_line(n, note) for n, note in enumerate(sent["notes"], start=1)]
     if sent["recaps"]:
         count = len(sent["recaps"])
         lines.append(f"Also sent: {count} earlier-conversation {'recap' if count == 1 else 'recaps'}.")
+    if chats:
+        lines.append(f"Also sent: {len(chats)} {'exchange' if len(chats) == 1 else 'exchanges'} from earlier conversations, word for word.")
     lines += _memory(sent)
     if sent["searched"]:
         lines.append(f'A follow-up rewrite searched: "{sent["searched"]}".')

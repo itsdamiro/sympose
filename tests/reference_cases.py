@@ -413,6 +413,7 @@ REF_CASES: list[RefCase] = [
     RefCase("switch-while-replying", "can I open another conversation while she is still writing a reply?", find=("lands in the conversation it was sent from",)),
     RefCase("parallel-replies-setting", "what does the parallel_replies setting do?", find=("different conversations of one persona",), first="Settings.md"),
     RefCase("sessions-bin-command", "how do I restore a deleted conversation in the terminal?", find=("/sessions restore",)),
+    RefCase("past-chats-setting", "can she read my earlier conversations word for word? what is past_chats?", find=("`past_chats` setting",)),
     RefCase("recap-count-setting", "how many earlier conversations does she remember? what is recap_count?", find=("`recap_count` setting",)),
     RefCase("no-answer-from-model", "it says there was no answer from the model, what do I do?", find=("model_timeout",)),
     RefCase("history-tokens-setting", "can I limit how much of the earlier conversation is sent each time? history_tokens", find=("`history_tokens` setting",)),

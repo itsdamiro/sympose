@@ -6,7 +6,7 @@ Settings are stored in `settings.json`, in the folder where Sympose runs. `SYMPO
 
 Type /settings for a list of the common ones, each with its value. Choose a row to change it: a true or false one flips, one with a few values moves to the next, and for a number the chat box asks for it. Enter saves, an empty line puts the default back and Esc leaves it as it was. A number that cannot be used is refused.
 
-The list has `show_grounding`, `show_trim_notice`, `show_context_meter`, `show_background_status`, `status_typing`, `reply_reveal`, `context_window`, `reply_limit`, `history_tokens`, `model_timeout`, `grounding_followups`, `session_recaps`, `recap_count` and `recap_chars`.
+The list has `show_grounding`, `show_trim_notice`, `show_context_meter`, `show_background_status`, `status_typing`, `reply_reveal`, `context_window`, `reply_limit`, `history_tokens`, `model_timeout`, `grounding_followups`, `session_recaps`, `recap_count`, `recap_chars` and `past_chats`.
 
 It also has `grounding_search`, `embedding_min_similarity`, `embedding_margin`, `vault_lookup`, `vault_lookup_rounds`, `auto_compact`, `compact_at`, `compact_to` and `parallel_replies`.
 
@@ -79,6 +79,12 @@ Setting `session_recaps` to `false` stops Samantha writing and reading recaps of
 ## recap_count and recap_chars
 
 The `recap_count` setting is how many recaps of earlier conversations she reads, 1 to 10, 2 by default. The `recap_chars` setting is how much of each she reads, 200 to 2000 characters, 800 by default. More of either gives her a longer memory of past chats and takes room in every prompt, so a small local model may need less.
+
+## past_chats
+
+The `past_chats` setting lets her look in your earlier conversations, word for word. It is `"off"` by default, which means recaps only. With `"auto"`, before each reply Sympose looks for the few exchanges of earlier conversations that match your message and shows them to her, with her own old replies marked as hers and possibly wrong. A cloud model gets them only if `cloud_share` allows `"chats"`.
+
+A small local model can repeat something she once made up, so check what she says when you use `past_chats`.
 
 ## grounding_followups
 

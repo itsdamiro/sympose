@@ -15,7 +15,7 @@ from sympose.engine import settings_apply as apply, budget, embeddings, followup
 # The rows, in the order the list shows them, and the digit that chooses each (1 to 9).
 KEYS = [
     "show_grounding", "show_trim_notice", "show_context_meter", "show_background_status", "status_typing", "reply_reveal",
-    "context_window", "reply_limit", "history_tokens", "model_timeout", "grounding_followups", "session_recaps", "recap_count", "recap_chars", "auto_compact", "compact_at", "compact_to",
+    "context_window", "reply_limit", "history_tokens", "model_timeout", "grounding_followups", "session_recaps", "recap_count", "recap_chars", "past_chats", "auto_compact", "compact_at", "compact_to",
     "grounding_search", "embedding_min_similarity", "embedding_margin", "vault_lookup", "vault_lookup_rounds",
     "memory_remember", "memory_rewrite", "memory_auto_refresh", "parallel_replies",
 ]
@@ -312,7 +312,7 @@ def test_slash_settings_lists_every_setting_with_its_value(profiles):
             await _open(pilot, app)
             assert app.panel_kind == settings_list.PICKER_KIND
             labels = [str(app.panel.get_option_at_index(i).prompt) for i in range(app.panel.option_count)]
-            assert len(labels) == 26
+            assert len(labels) == 27
             assert "show_grounding — off:" in labels[0]
             assert "status_typing — 40 (default):" in labels[4]
             assert "reply_reveal — 50 (default):" in labels[5]
@@ -457,13 +457,13 @@ def test_a_setting_changed_here_applies_to_the_module_that_reads_it(profiles):
 
 
 def test_rows_past_the_ninth_are_reached_with_the_arrow_keys(profiles):
-    """Digits choose rows 1 to 9; the list is twenty-six long and the picker shows about ten."""
+    """Digits choose rows 1 to 9; the list is twenty-seven long and the picker shows about ten."""
 
     async def scenario():
         app = SymposeCLI()
         async with app.run_test() as pilot:
             await _open(pilot, app)
-            await pilot.press(*["down"] * 20, "enter")  # the first press lands on the first row
+            await pilot.press(*["down"] * 21, "enter")  # the first press lands on the first row
             await pilot.pause()
             assert app.pending_setting == "embedding_margin"
 

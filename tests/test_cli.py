@@ -2993,7 +2993,7 @@ def test_switching_from_cloud_to_local_says_nothing_leaves_the_computer(profiles
 def test_no_question_when_everything_is_already_allowed(profiles):
     from sympose import settings_store
 
-    settings_store.set("cloud_share", ["notes", "properties", "recaps", "vault_map", "connections", "memory"])
+    settings_store.set("cloud_share", ["notes", "properties", "recaps", "chats", "vault_map", "connections", "memory"])
 
     async def scenario():
         app = SymposeCLI()
@@ -3006,7 +3006,7 @@ def test_no_question_when_everything_is_already_allowed(profiles):
             await pilot.pause()
             assert app.panel is None
             assert any(
-                "may receive: notes, properties, recaps, vault_map, connections, memory" in line
+                "may receive: notes, properties, recaps, chats, vault_map, connections, memory" in line
                 for line in _lines(app)
             )
 

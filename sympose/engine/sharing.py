@@ -15,10 +15,10 @@ from sympose import settings_store
 from sympose.engine import budget
 
 SETTING = "cloud_share"
-NOTES, PROPERTIES, RECAPS, VAULT_MAP, CONNECTIONS, MEMORY = (
-    "notes", "properties", "recaps", "vault_map", "connections", "memory",
+NOTES, PROPERTIES, RECAPS, CHATS, VAULT_MAP, CONNECTIONS, MEMORY = (
+    "notes", "properties", "recaps", "chats", "vault_map", "connections", "memory",
 )
-CATEGORIES = (NOTES, PROPERTIES, RECAPS, VAULT_MAP, CONNECTIONS, MEMORY)
+CATEGORIES = (NOTES, PROPERTIES, RECAPS, CHATS, VAULT_MAP, CONNECTIONS, MEMORY)
 # What a grounded passage of the user's own notes is, by its `kind` (a note's properties are a
 # passage of their own, docs/decisions/030); anything else that is a vault passage is note text.
 _PROPERTIES_KIND = "properties"
@@ -27,6 +27,7 @@ DESCRIPTIONS = {
     NOTES: "passages of your notes found for a message",
     PROPERTIES: "the properties of your notes, with each note's name (frontmatter: emails, phone numbers, links)",
     RECAPS: "recaps of your earlier conversations",
+    CHATS: "your earlier conversations, word for word (what you and the persona said)",
     VAULT_MAP: "the shape of your vault (folder names, their purpose, note counts, common tags)",
     CONNECTIONS: "how a note found for a message connects to your other notes (links, tags, folder)",
     MEMORY: "the persona's own memory of you (its profile, active context and decisions files, docs/decisions/041)",
@@ -38,6 +39,7 @@ _REFERENCE_SOURCE = "sympose"
 class Gated:
     grounding: list[dict[str, Any]]
     recaps: list[dict[str, Any]]
+    chats: list[dict[str, Any]]
     # The categories something was held back from, with how many passages or recaps.
     withheld: dict[str, int]
 
@@ -67,8 +69,10 @@ def category_of(hit: dict[str, Any]) -> str | None:
     return PROPERTIES if hit.get("kind") == _PROPERTIES_KIND else NOTES
 
 
-def gate(model: str, grounding: list[dict[str, Any]], recaps: list[dict[str, Any]]) -> Gated:
-    """`grounding` and `recaps` as `model` may receive them, and what was held back. A note's own
+def gate(
+    model: str, grounding: list[dict[str, Any]], recaps: list[dict[str, Any]], chats: list[dict[str, Any]] | None = None,
+) -> Gated:
+    """`grounding`, `recaps` and earlier-conversation `chats` as `model` may receive them, and what was held back. A note's own
     connections (docs/decisions/035) are stripped from a surviving hit, not the hit itself, when
     `connections` is not approved: they are an extra fact about a note that was sent, not a reason to
     withhold the note (a hit already dropped for its own category takes its connections with it, with
@@ -91,7 +95,8 @@ def gate(model: str, grounding: list[dict[str, Any]], recaps: list[dict[str, Any
             hit = {k: v for k, v in hit.items() if k != "connections"}
         kept.append(hit)
     kept_recaps = [recap for recap in recaps if keep(RECAPS)]
-    return Gated(kept, kept_recaps, withheld)
+    kept_chats = [chat for chat in chats or [] if keep(CHATS)]
+    return Gated(kept, kept_recaps, kept_chats, withheld)
 
 
 def embeds_notes(embedding_model: str) -> bool:
@@ -101,12 +106,15 @@ def embeds_notes(embedding_model: str) -> bool:
 
 def categories_of(
     grounding: list[dict[str, Any]], recaps: list[dict[str, Any]], vault_map: bool = False, memory: bool = False,
+    chats: bool = False,
 ) -> list[str]:
     """The categories that `grounding`, `recaps`, (docs/decisions/035) the vault map, and
     (docs/decisions/041) the persona's own memory carry, in the order of `CATEGORIES` (what a turn
     actually sent, for the reply header and the session record). `vault_map`/`memory`: whether the
     map, or any memory content, was actually sent this turn."""
     present = {category_of(hit) for hit in grounding} | ({RECAPS} if recaps else set())
+    if chats:
+        present.add(CHATS)
     if vault_map:
         present.add(VAULT_MAP)
     if memory:

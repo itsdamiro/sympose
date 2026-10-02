@@ -6,7 +6,7 @@ docs/decisions/031). How they are laid out is `prompt`."""
 from typing import Any
 
 from sympose.engine.prompt_text import (
-    ANSWER_FROM_RECAPS, CONNECTED_TO, EMPTY_NOTE, EMPTY_NOTE_ALIASES, EMPTY_NOTE_HEADINGS, MEMORY_CONTEXT_LABEL,
+    ANSWER_FROM_CHATS, ANSWER_FROM_RECAPS, CHATS_HER, CHATS_LABEL, CHATS_USER, CONNECTED_TO, EMPTY_NOTE, EMPTY_NOTE_ALIASES, EMPTY_NOTE_HEADINGS, MEMORY_CONTEXT_LABEL,
     MEMORY_DECISIONS_LABEL, MEMORY_PROFILE_LABEL, NO_NOTES, NO_REFERENCE, PROPERTIES_OF_NOTE, RECAPS_LABEL,
     REFERENCE_LABEL, VAULT_MAP_LABEL, WITHHELD_CONNECTIONS, WITHHELD_MEMORY, WITHHELD_NOTES, WITHHELD_PROPERTIES,
     WITHHELD_RECAPS, WITHHELD_VAULT_MAP,
@@ -95,6 +95,20 @@ def recaps_block(recaps: list[dict[str, Any]], omitted: int = 0, withheld: int =
         lines.append(f"({omitted} more recaps were left out to fit the context window.)")
     lines.append(ANSWER_FROM_RECAPS)
     return "\n".join(lines)
+
+
+def chats_block(chats: list[dict[str, Any]], omitted: int = 0) -> str | None:
+    """Exchanges from earlier conversations, word for word (docs/decisions/056), in the order they were
+    held, or nothing at all. What a cloud model was not allowed is said with the message, not here."""
+    if not chats:
+        return None
+    lines = [CHATS_LABEL]
+    for chat in chats:
+        lines.append(f"({chat['date']}, message {chat['turn']} of that conversation)\n{CHATS_USER}: {chat['user']}\n{CHATS_HER}: {chat['assistant']}")
+    if omitted:
+        lines.append(f"({omitted} more matching exchanges were left out to fit the context window.)")
+    lines.append(ANSWER_FROM_CHATS)
+    return "\n\n".join(lines)
 
 
 def memory_block(

@@ -12,8 +12,7 @@ from typing import Any
 from sympose import profile as profile_mod, vault_map as vault_map_mod
 from sympose.engine import (
     budget, compaction, connections, followup, grounding, grounding_properties, history_cap, lookup, memory, memory_tools,
-    persona_tools,
-    prompt, recap, recap_refresh, reference, session, session_compaction, sharing, tool_support, turn_cancel, turn_status,
+    past_chats, persona_tools, prompt, recap, recap_refresh, reference, session, session_compaction, sharing, tool_support, turn_cancel, turn_status,
 )
 from sympose.engine import model as model_mod
 from sympose.engine.model import EngineModelError
@@ -101,6 +100,11 @@ def run_turn(
         turn_cancel.finish(handle, sid)
 
 
+def _split_chats(items: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """The recaps and the earlier-conversation exchanges (which carry a `user` side) of a list that holds both."""
+    return [i for i in items if "user" not in i], [i for i in items if "user" in i]
+
+
 def _run(
     persona: dict[str, Any],
     handle: str,
@@ -146,8 +150,12 @@ def _run(
     turn_status.set_phase(handle, turn_status.ASKING)
     # Only what this model may receive goes any further (docs/decisions/031): the prompt, its token
     # count and the record below all see the same set.
-    gated = sharing.gate(target_model, grounding_results, recap.latest(handle, exclude=sid))
+    # Earlier conversations word for word (docs/decisions/056) are found locally and pass the same gate.
+    gated = sharing.gate(
+        target_model, grounding_results, recap.latest(handle, exclude=sid), past_chats.find(handle, user_message, sid),
+    )
     grounding_results, recaps_found, withheld = gated.grounding, gated.recaps, gated.withheld
+    chats_found = gated.chats
 
     # The vault map (docs/decisions/035): computed locally either way (nothing leaves the machine by
     # computing it), sent only when the model may receive it; fixed for every attempt of the fitting
@@ -174,9 +182,10 @@ def _run(
     def build(
         hist: list[dict[str, str]],
         hits: list[dict[str, Any]],
-        recaps: list[dict[str, Any]],
+        recap_chat_items: list[dict[str, Any]],
         decisions: list[str],
     ) -> list[dict[str, str]]:
+        recaps, chats = _split_chats(recap_chat_items)
         # Passages of each source that did not fit are left out: the prompt says
         # so, per source, instead of claiming nothing matched.
         kept_reference = sum(1 for h in hits if h.get("source") == reference.SOURCE)
@@ -190,6 +199,8 @@ def _run(
             point_to=point_to,
             recaps=recaps,
             recaps_omitted=len(recaps_found) - len(recaps),
+            chats=chats,
+            chats_omitted=len(chats_found) - len(chats),
             withheld=withheld,
             vault_map=map_text if map_allowed else None,
             vault_map_withheld=bool(map_text) and not map_allowed,
@@ -202,16 +213,20 @@ def _run(
         )
 
     prompt_tokens = 0
-    recaps_sent = recaps_found
+    recaps_sent, chats_sent = recaps_found, chats_found
     decisions_sent = mem.decisions
+    # The exchanges ride at the end of the recaps' list through the fitting, so they are the first of the
+    # two to be left out when the prompt does not fit: they cost the most and answer the fewest questions.
     if limits is None:
-        messages, dropped = build(history, grounding_results, recaps_found, mem.decisions), 0
+        messages, dropped = build(history, grounding_results, recaps_found + chats_found, mem.decisions), 0
     else:
         fitted = budget.fit(
-            build, history, grounding_results, target_model, limits.prompt_tokens, recaps_found, mem.decisions,
+            build, history, grounding_results, target_model, limits.prompt_tokens,
+            recaps_found + chats_found, mem.decisions,
         )
         messages, grounding_results, dropped = fitted.messages, fitted.grounding, fitted.history_dropped
-        recaps_sent, prompt_tokens = fitted.recaps, fitted.tokens
+        recaps_sent, chats_sent = _split_chats(fitted.recaps)
+        prompt_tokens = fitted.tokens
         decisions_sent = fitted.decisions
     dropped += capped  # the turns `history_tokens` left out count with the ones the window's own fitting dropped
     lookups: list[dict[str, Any]] = []
@@ -249,12 +264,13 @@ def _run(
     cloud = None if sharing.is_local(target_model) else (
         sharing.categories_of(
             grounding_results, recaps_sent, vault_map=map_allowed and bool(map_text), memory=bool(memory_sent),
+            chats=bool(chats_sent),
         ),
         [name for name in sharing.CATEGORIES if name in withheld],
     )
     sent = sent_record(
         grounding_results, recaps_sent, searched_used, dropped, rewrite, cloud,
-        (lookup.ASK if ask else lookup.AUTO) if chose_ask else None, lookups, memory_sent,
+        (lookup.ASK if ask else lookup.AUTO) if chose_ask else None, lookups, memory_sent, chats_sent,
     )
     saved = session.append_turn(
         handle,

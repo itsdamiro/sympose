@@ -215,6 +215,23 @@ ANSWER_FROM_RECAPS = (
     "If the user asks what you talked about before, or where you left off, answer from these "
     "recaps and say they are only a summary."
 )
+# Earlier conversations word for word (docs/decisions/056). Her own side is hers, not the user's: a reply
+# can hold what she got wrong or made up (measured, docs/decisions/023 and 055), so it is never a fact about them.
+CHATS_LABEL = (
+    "Exchanges from earlier conversations with the user, word for word, found because they match this "
+    "message. \"User\" is what the user wrote then. \"You\" is what you said then: you may have been wrong or "
+    "made something up, so it is never something the user said or a fact about them:"
+)
+CHATS_USER, CHATS_HER = "User", "You"  # the names of the two sides of an exchange
+ANSWER_FROM_CHATS = (
+    "If the user asks what you said or thought before, answer from these exchanges and say which "
+    "conversation they are from. If they do not cover the question, say you do not have it."
+)
+WITHHELD_CHATS = (
+    "Earlier conversations match this message, but the user has not allowed their words to be sent to "
+    "this cloud model. Don't say you never talked about it: say you cannot use them with this model, and "
+    "tell the person you are talking to that they can allow it with /share; write \"you\", not \"the user\"."
+)
 NO_RECAP = "NONE"
 RECAP_INSTRUCTIONS = (
     "You write a short recap of a conversation, so the user's assistant can pick up where it left off "

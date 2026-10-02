@@ -13,6 +13,7 @@ def sent_record(
     mode: str | None = None,
     lookups: list[dict[str, Any]] | None = None,
     memory: list[str] | None = None,
+    chats: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """What reached the model besides the messages, for the session record
     (docs/decisions/025): where each note came from, never its text. `cloud`, for a model that is
@@ -24,7 +25,9 @@ def sent_record(
     a `remember` tool call or marker happened even though `mode` wasn't (`remember` runs independent of
     `vault_lookup`'s own setting). `memory` is which of the persona's own memory files reached this turn
     (docs/decisions/041) — any of `"profile"`, `"context"`, `"decisions"` — never their text; empty when
-    the persona has no memory yet or none of it was allowed to reach this model."""
+    the persona has no memory yet or none of it was allowed to reach this model. `chats` is the earlier
+    conversations' exchanges that reached the model (docs/decisions/056), by session id and message number
+    and how they were found, never their text; left out when none did."""
     return {
         "notes": [
             {
@@ -47,4 +50,5 @@ def sent_record(
         **({"mode": mode} if mode else {}),
         **({"lookups": lookups or []} if mode or lookups else {}),
         "memory": memory or [],
+        **({"chats": [{"session": c["session"], "turn": c["turn"], "how": "auto"} for c in chats]} if chats else {}),
     }

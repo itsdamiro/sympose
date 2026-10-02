@@ -20,11 +20,11 @@ Not yet. Slack is planned as the first remote way to reach your vault, and Teleg
 
 ## Does Samantha remember me between conversations?
 
-In two ways. At the start of a conversation she is given short recaps of your last conversations, written from what you said, so she can pick up where you left off. And each persona has memory files, profile.md, context.md and decisions.md, which she reads every time. She cannot browse past conversations yet.
+In two ways. At the start of a conversation she is given short recaps of your last conversations, written from what you said, so she can pick up where you left off. And each persona has memory files, profile.md, context.md and decisions.md, which she reads every time. She cannot browse past conversations unless you set `past_chats` to `"auto"`.
 
 ## Does Samantha review my session logs or read past conversations?
 
-No, not the logs. Every conversation is saved as a session log in `profiles/<handle>/sessions/`, but she never reads them. She only gets short recaps of your last conversations, so she cannot quote what was said or search old conversations. She should say what she has and never agree that she reads the logs. Searching past conversations is planned, not built.
+No. Every conversation is saved in `profiles/<handle>/sessions/`, but she never reads them herself. By default she gets only short recaps, so she cannot quote what was said. With `past_chats` on `"auto"`, Sympose shows her the few matching exchanges, word for word. She should never agree that she reads the logs.
 
 ## What else is missing?
 

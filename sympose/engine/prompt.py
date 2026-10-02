@@ -19,10 +19,10 @@ from typing import Any
 
 from sympose.engine import reference as reference_mod
 from sympose.engine.prompt_blocks import (
-    compaction_block, memory_block, notes_block, recaps_block, reference_block, vault_map_block,
+    chats_block, compaction_block, memory_block, notes_block, recaps_block, reference_block, vault_map_block,
 )
 from sympose.engine.prompt_text import (
-    ANSWER_FROM_NOTES, ANSWER_FROM_RECAPS, ANSWER_FROM_REFERENCE, CONNECTED_TO, DEFAULT_SOUL, GROUNDING_RULE,
+    ANSWER_FROM_CHATS, ANSWER_FROM_NOTES, ANSWER_FROM_RECAPS, ANSWER_FROM_REFERENCE, CHATS_LABEL, WITHHELD_CHATS, CONNECTED_TO, DEFAULT_SOUL, GROUNDING_RULE,
     HOW_YOU_WORK, HOW_YOU_WORK_ASK, GROUNDING_RULE_ASK, MEMORY_CONTEXT_LABEL, MEMORY_CONTEXT_MARK,
     MEMORY_DECISIONS_LABEL, MEMORY_NO_CHANGE, MEMORY_PROFILE_LABEL, MEMORY_PROFILE_MARK, MEMORY_REFRESH_INSTRUCTIONS,
     NO_NOTES, NO_RECAP, NO_REFERENCE, NO_TOPIC, POINT_TO_REFERENCE, RECAPS_LABEL,
@@ -30,12 +30,12 @@ from sympose.engine.prompt_text import (
     VAULT_MAP_LABEL, WITHHELD_CONNECTIONS, WITHHELD_MEMORY, WITHHELD_NOTES, WITHHELD_PROPERTIES, WITHHELD_RECAPS,
     WITHHELD_VAULT_MAP, how_you_work,
 )
-from sympose.engine.sharing import MEMORY, RECAPS
+from sympose.engine.sharing import CHATS, MEMORY, RECAPS
 from sympose.persona_files import load_soul
 from sympose.profile import reference_persona_names
 
 __all__ = [
-    "ANSWER_FROM_NOTES", "ANSWER_FROM_RECAPS", "ANSWER_FROM_REFERENCE", "CONNECTED_TO", "DEFAULT_SOUL",
+    "ANSWER_FROM_CHATS", "CHATS_LABEL", "WITHHELD_CHATS", "ANSWER_FROM_NOTES", "ANSWER_FROM_RECAPS", "ANSWER_FROM_REFERENCE", "CONNECTED_TO", "DEFAULT_SOUL",
     "GROUNDING_RULE", "GROUNDING_RULE_ASK", "HOW_YOU_WORK", "HOW_YOU_WORK_ASK", "MEMORY_CONTEXT_LABEL",
     "MEMORY_CONTEXT_MARK", "MEMORY_DECISIONS_LABEL", "MEMORY_NO_CHANGE", "MEMORY_PROFILE_LABEL",
     "MEMORY_PROFILE_MARK", "MEMORY_REFRESH_INSTRUCTIONS", "NO_NOTES", "NO_RECAP", "NO_REFERENCE", "NO_TOPIC",
@@ -60,6 +60,8 @@ def build_system_prompt(
     memory_withheld: bool = False,
     remember: str | None = None,
     compaction: str | None = None,
+    chats: list[dict[str, Any]] | None = None,
+    chats_omitted: int = 0,
 ) -> str:
     # `handle` is always lowercase (`profile.get_profile` lowercases it
     # before building a file path) -- title-cased here so a fallback
@@ -95,6 +97,10 @@ def build_system_prompt(
     recaps_text = recaps_block(recaps or [], recaps_omitted, recaps_withheld)
     if recaps_text:
         parts.append(recaps_text)
+    # Earlier conversations word for word (docs/decisions/056), after the recaps they go deeper than.
+    chats_text = chats_block(chats or [], chats_omitted)
+    if chats_text:
+        parts.append(chats_text)
     # The notes of a compaction (docs/decisions/055) come last: they stand for the start of this very
     # conversation, so they sit closest to the history that follows. Fixed, like the memory above.
     notes_text = compaction_block(compaction)
@@ -114,8 +120,11 @@ def build_user_turn(
     vault_map: str | None = None,
     vault_map_withheld: bool = False,
     lookup: bool = False,
+    chats_withheld: bool = False,
 ) -> str:
-    """`lookup`: no notes were searched for the message, the persona looks them up itself
+    """`chats_withheld`: earlier conversations matched but a cloud model may not have them; the line saying so
+    sits with the message, where a small model weighs it most (the notes' own withheld lines do too).
+    `lookup`: no notes were searched for the message, the persona looks them up itself
     (docs/decisions/040), so there is no notes block to say "nothing matched" about. `vault_map`, or the line saying a cloud model may not have it (`vault_map_withheld`), comes first
     (docs/decisions/039): it is fixed and never left out to fit the window, unlike the notes below it.
     `reference`: the persona has the Sympose reference library, so the turn
@@ -137,6 +146,8 @@ def build_user_turn(
             parts.append(ANSWER_FROM_REFERENCE)
     if point_to and not reference:
         parts.append(POINT_TO_REFERENCE.format(names=" or ".join(point_to)))
+    if chats_withheld:
+        parts.append(WITHHELD_CHATS)
     parts.append(f"User's message: {user_message}")
     return "\n\n".join(parts)
 
@@ -160,6 +171,8 @@ def build_messages(
     memory_decisions: list[str] | None = None,
     remember: str | None = None,
     compaction: str | None = None,
+    chats: list[dict[str, Any]] | None = None,
+    chats_omitted: int = 0,
 ) -> list[dict[str, str]]:
     """The system prompt (with the recaps of earlier conversations, docs/decisions/023 and 026, and the
     persona's own memory, docs/decisions/041), the history as it was said (the notes of earlier turns
@@ -176,6 +189,7 @@ def build_messages(
         "content": build_system_prompt(
             profile, recaps, recaps_omitted, withheld.get(RECAPS, 0), lookup,
             memory_profile, memory_context, memory_decisions, bool(withheld.get(MEMORY, 0)), remember, compaction,
+            chats, chats_omitted,
         ),
     }
     has_library = bool(profile.get("sympose_reference"))
@@ -185,7 +199,7 @@ def build_messages(
         "role": "user",
         "content": build_user_turn(
             user_message, grounding_results, omitted, has_library, reference_omitted, point_to, withheld,
-            vault_map, vault_map_withheld, lookup,
+            vault_map, vault_map_withheld, lookup, bool(withheld.get(CHATS, 0)),
         ),
     }
     return [system, *history, user]

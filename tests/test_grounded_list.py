@@ -139,3 +139,13 @@ def test_a_reply_grounded_only_in_memory_says_which_memory_files_reached_it():
 def test_a_search_and_a_remember_in_one_turn_each_get_their_line():
     sent = _sent(mode="ask", lookups=[{"tool": "search_notes", "query": "x", "found": 2}, {"tool": "remember", "saved": True}])
     assert grounded_list.render(sent, "Aria")[-2:] == ['Aria looked up: searched "x" (2 found).', "Aria remembered something."]
+
+
+def test_earlier_conversation_exchanges_get_a_line_even_when_nothing_else_was_sent():
+    chat = {"session": "20260923T090000-bbbbbbbb", "turn": 2, "how": "auto"}
+
+    assert grounded_list.render(_sent(chats=[chat]))[-1] == (
+        "Also sent: 1 exchange from earlier conversations, word for word."
+    )
+    assert "Also sent: 2 exchanges from" in grounded_list.render(_sent(chats=[chat, chat]))[-1]
+    assert grounded_list.render(_sent()) == ["Nothing from the vault grounded the last reply."]
