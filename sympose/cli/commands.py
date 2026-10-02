@@ -1,6 +1,6 @@
 """The slash-command registry. `/clear` and `/quit` are real, wired to
 the actual engine's concurrency state (docs/decisions/008). `/history` was a mock command and was removed
-until it is real (#111); `/compact` is real since docs/decisions/055."""
+until it is real (#111); `/compact` is real since docs/decisions/055, and `/sessions` (also `/history`) since docs/decisions/057."""
 
 from dataclasses import dataclass
 
@@ -27,6 +27,8 @@ COMMANDS: list[SlashCommand] = [
     SlashCommand("/grounded", "List every note and passage that grounded the last reply"),
     SlashCommand("/context", "Explain the context meter's number"),
     SlashCommand("/compact", "Condense the earlier part of this conversation"),
+    SlashCommand("/sessions", "List, open, rename, pin or delete past conversations", takes_args=True),
+    SlashCommand("/history", "The same as /sessions", takes_args=True),
     SlashCommand("/remember", "Save something to decisions.md, in your own words", takes_args=True),
     SlashCommand("/memory", "Refresh or review context.md/profile.md"),
     SlashCommand("/share", "Choose what cloud models may receive"),
