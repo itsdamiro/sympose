@@ -72,7 +72,7 @@ def test_call_model_passes_a_finite_timeout(settings_file, monkeypatch):
     model.call_model([{"role": "user", "content": "hi"}])
 
     assert isinstance(captured["timeout"], model.httpx.Timeout)
-    assert captured["timeout"].read == model._REQUEST_TIMEOUT_SECONDS
+    assert captured["timeout"].read == model.model_wait.BASE_SECONDS
 
 
 def test_call_model_uses_a_short_connect_timeout(settings_file, monkeypatch):

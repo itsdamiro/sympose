@@ -13,7 +13,7 @@ import httpx
 import litellm
 
 from sympose import settings_store
-from sympose.engine import model_tools, reply_text, turn_cancel
+from sympose.engine import model_tools, model_wait, reply_text, turn_cancel
 from sympose.engine.model_tools import ToolCall
 
 log = logging.getLogger(__name__)
@@ -28,8 +28,8 @@ _SETTINGS_KEY = "chat_model"
 # message to that persona behind it forever, with no error and no way out short
 # of killing the process, since a thread running a blocking network call can't
 # be cancelled. A generous but finite bound turns that into a recoverable
-# `EngineModelError` instead.
-_REQUEST_TIMEOUT_SECONDS = 120
+# `EngineModelError` instead. How long it is depends on the prompt and on `model_timeout`
+# (docs/decisions/059, `model_wait`).
 # A single `timeout=` number applies to connecting too, and a connect can stall far longer than any
 # real one takes: Python tries a host's resolved addresses one at a time, and a dead IPv6 route (no
 # response, not a refusal) can eat most of a minute before it gives up and falls back to IPv4 — measured
@@ -112,6 +112,7 @@ def call_model(
     ttft_ms: int | None = None
     finished = False
     truncated = False
+    waited = model_wait.seconds(messages)
     started = time.perf_counter()
     stream = None
     try:
@@ -119,7 +120,7 @@ def call_model(
             model=target_model,
             messages=messages,
             stream=True,
-            timeout=httpx.Timeout(_REQUEST_TIMEOUT_SECONDS, connect=_CONNECT_TIMEOUT_SECONDS),
+            timeout=httpx.Timeout(waited, connect=_CONNECT_TIMEOUT_SECONDS),
             **{name: value for name, value in limits.items() if value is not None},
         )
         for chunk in stream:
@@ -137,6 +138,8 @@ def call_model(
         raise
     except Exception as e:
         log.warning("Model call to %s failed: %s", target_model, e)
+        if model_wait.is_timeout(e):
+            raise EngineModelError(model_wait.message(target_model, waited)) from e
         raise EngineModelError(
             f"Couldn't reach model '{target_model}': {e}"
         ) from e
