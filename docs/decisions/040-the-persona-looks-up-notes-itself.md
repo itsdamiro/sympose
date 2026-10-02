@@ -106,6 +106,10 @@ It is part of `ask` and does not need a new setting: whoever chose `ask` has the
 
 **Measured (2026-10-02, `gemini/gemini-flash-latest`, `ask`, 3 runs each, a scratch vault of seven invented films with mixed-case names, a copy of the shipped persona, a temporary settings file).** "Pull out the 5th note in my Films folder": 3 of 3 listed the folder, opened the right note (the fifth alphabetically, the lower-case names sorted among the others) and said it was alphabetical, once adding that the user's own order might differ. "Open the first note": 3 of 3 the same way. "What is in my Films folder?": 3 of 3 one `list_notes` call and all seven names, no note opened. Two model calls for a position request, one for a listing. **Not measured:** a folder of more than 100 notes, a model other than Gemini Flash, the no-note cases (small talk, general knowledge) with the third tool present, and the whole 34-case set; the bar above for offering `ask` more widely is unchanged by this.
 
+## Amendment (2026-10-02, ADR 058): a fourth tool, and a default that follows the model
+
+`find_notes` joins the three (filters on folder, tag, property, links and exact text; ADR 058). And `vault_lookup` is now `by_model` unless the user chose `auto` or `ask`: the persona looks in the notes itself on the models in `lookup.MEASURED` (today `gemini/gemini-flash-latest`, which met this ADR's bar again with four tools: 47 of 48, see ADR 058) and Sympose searches before each reply on every other model. A user's explicit `auto` or `ask` always wins, and `ask` still works on any model that can call tools. A model joins the list by being measured against the bar above.
+
 ## Not built
 
 - A per-persona `vault_lookup` (a persona whose job is to chat may want `ask` and one that works in the vault `auto`).

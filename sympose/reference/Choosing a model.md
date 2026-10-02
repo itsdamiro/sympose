@@ -34,7 +34,7 @@ Some features need a model that can call tools, which means asking Sympose to do
 
 ## Which features need a model that can call tools?
 
-Only `vault_lookup` set to `"ask"`: Samantha searches your notes, opens one by name or lists the notes in a folder herself, so you can ask for "the 5th note in my Movies folder". Remembering, recaps, condensing a long chat and searching by meaning work on every model.
+Looking in your notes herself, `vault_lookup` `"ask"`, or by default on a tested model such as Gemini Flash: she searches, opens one, lists a folder or filters by tag and property, so you can ask for "the 5th note in my Movies folder". Remembering, recaps, condensing a long chat and searching by meaning work on every model.
 
 ## Which models can call tools?
 

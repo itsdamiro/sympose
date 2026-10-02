@@ -6,11 +6,15 @@ Every message you send is looked up in your vault first. The best matching passa
 
 ## Can Samantha look in my notes herself instead of searching every message?
 
-Yes, with a model that can call tools: set `vault_lookup` to `"ask"`. Samantha then decides when to look, with a tool that searches your notes, one that opens a note and one that lists the notes in a folder. Each lookup is one more model call. Other models keep the default, `"auto"`, and /grounded shows what she looked up.
+Yes, with a model that can call tools. The default, `vault_lookup` `"by_model"`, does it on tested models such as Gemini Flash; `"ask"` does it on any that can call tools. She then decides when to search, open a note, list a folder or find notes by tag, property or link. Each lookup is one more model call; /grounded shows them.
+
+## Can Samantha count or filter my notes, like which are tagged idea?
+
+Yes, when she looks in your notes herself: a tool finds notes by folder, tag, property value, a link to or from a note, or exact words, and gives the count with the matches, so only those use the model's window. She says how many notes mention backups from a real count, not a guess. It does not search by meaning.
 
 ## Why can't Samantha open the 5th note in my folder?
 
-Only with `vault_lookup` set to `"ask"` and a model that can call tools: she then lists the folder's notes herself, alphabetically by file name, and opens the 5th. With `"auto"`, or a model without tools such as gemma2:9b, she cannot list a folder: she only gets what a search finds for your words.
+Only when she looks in your notes herself (`vault_lookup` `"ask"`, or the default on a tested model) with a model that can call tools: she then lists the folder's notes herself, alphabetically by file name, and opens the 5th. With `"auto"`, or a model without tools such as gemma2:9b, she cannot list a folder: she only gets what a search finds for your words.
 
 ## Does Samantha know the names of all my notes?
 

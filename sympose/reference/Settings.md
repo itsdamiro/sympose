@@ -72,7 +72,7 @@ Setting `grounding_followups` to `"off"` stops the extra search for follow-up qu
 
 ## vault_lookup
 
-The `vault_lookup` setting is who looks in your notes. `"auto"` (the default) is Sympose, before each reply. With `"ask"` Samantha decides, using tools that only read; it needs a model that can call tools, and any other model keeps `"auto"`. See How Samantha uses your notes.
+The `vault_lookup` setting is who looks in your notes. `"by_model"` (the default) lets Samantha look herself on models that were tested for it, today Gemini Flash, and leaves Sympose to search before each reply on the others. `"auto"` always has Sympose search. `"ask"` always lets her decide, with tools that only read; it needs a model that can call tools, and any other keeps `"auto"`.
 
 ## vault_lookup_rounds
 
