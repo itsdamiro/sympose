@@ -66,7 +66,7 @@ SETTINGS: list[Setting] = [
         lambda: recap.DEFAULT_CHARS, hint=f"characters, {recap.CHARS_RANGE[0]} to {recap.CHARS_RANGE[1]}", whole=True, group=CONTEXT,
     ),
     Setting(
-        past_chats.SETTING, CHOICE, "earlier conversations, word for word", past_chats.mode,
+        past_chats.SETTING, CHOICE, "past chats word for word (auto: local, ask: cloud)", past_chats.mode,
         lambda: past_chats.OFF, choices=past_chats.MODES, group=CONTEXT,
     ),
     toggle(compaction.SETTING, "condensing a long conversation on its own", compaction.enabled, group=CONTEXT),

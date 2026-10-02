@@ -286,3 +286,10 @@ def test_off_a_turn_carries_no_chats_key(monkeypatch):
     result = turn.run_turn("samantha", "what did you say about the Atlas database?", session_id=NEW)
 
     assert "chats" not in result.sent
+
+
+def test_settings_row_tells_which_mode_suits_which_model():
+    from sympose.engine.settings_registry import SETTINGS
+
+    summary = next(s.summary for s in SETTINGS if s.key == past_chats.SETTING)
+    assert "auto: local" in summary and "ask: cloud" in summary
