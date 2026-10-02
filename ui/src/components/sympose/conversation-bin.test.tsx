@@ -34,6 +34,16 @@ describe("ConversationBin", () => {
     expect(screen.getByText("2 conversations")).toBeTruthy()
   })
 
+  it("does not show one persona's deleted conversations under another, while the other's load or when they fail to", async () => {
+    const { rerender } = render(<ConversationBin persona="samantha" />)
+    expect(await screen.findByText("The movies")).toBeTruthy()
+    api.fetchBinnedSessions.mockResolvedValue(null) // the other persona's list cannot be read
+    rerender(<ConversationBin persona="aria" />)
+    await waitFor(() => expect(api.fetchBinnedSessions).toHaveBeenCalledWith("aria"))
+    expect(screen.queryByText("The movies")).toBeNull()
+    expect(screen.queryByText("2 conversations")).toBeNull()
+  })
+
   it("says when there are none", async () => {
     api.fetchBinnedSessions.mockResolvedValue([])
     render(<ConversationBin persona="samantha" />)

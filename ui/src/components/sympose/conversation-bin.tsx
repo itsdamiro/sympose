@@ -32,7 +32,9 @@ function ConversationBin({
   onRestored?: () => void
   className?: string
 }) {
-  const [rows, setRows] = React.useState<BinnedSession[] | null>(null)
+  // The rows remember whose they are: another persona's are never shown, nor acted on (Restore, Empty), while its own load.
+  const [loaded, setLoaded] = React.useState<{ persona: string; rows: BinnedSession[] } | null>(null)
+  const rows = loaded && loaded.persona === persona ? loaded.rows : null
   const [failed, setFailed] = React.useState(false)
   const [busy, setBusy] = React.useState<string | null>(null)
   const [localKey, setLocalKey] = React.useState(0)
@@ -43,7 +45,7 @@ function ConversationBin({
     void fetchBinnedSessions(persona).then((next) => {
       if (!live) return
       setFailed(next === null)
-      if (next) setRows(next) // a failed load keeps the list that was shown, and says so
+      if (next) setLoaded({ persona, rows: next }) // a failed load keeps this persona's list that was shown, and says so
     })
     return () => {
       live = false
