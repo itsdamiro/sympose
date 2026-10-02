@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from sympose import settings_store
-from sympose.engine import budget, lookup_find, lookup_list, lookup_tools, model as model_mod, model_tools, turn_cancel, turn_status
+from sympose.engine import budget, chat_tools, lookup_find, lookup_list, lookup_tools, model as model_mod, model_tools, turn_cancel, turn_status
 
 log = logging.getLogger(__name__)
 
@@ -36,6 +36,7 @@ MAX_ROUNDS = 8
 _TOOL_PHASE = {
     lookup_tools.SEARCH: turn_status.SEARCHING, lookup_tools.OPEN: turn_status.READING,
     lookup_list.LIST: turn_status.SEARCHING, lookup_find.FIND: turn_status.SEARCHING,
+    chat_tools.SEARCH: turn_status.SEARCHING, chat_tools.OPEN: turn_status.READING,
 }
 _NO_ROOM = "There was no room left in the context window for this result."
 # Added, for the last call only and never saved, once the lookups are used up: a model was seen to answer
@@ -68,6 +69,7 @@ class Conversed:
     withheld: dict[str, int] = field(default_factory=dict)
     lookups: list[dict[str, Any]] = field(default_factory=list)
     tokens_added: int = 0
+    chats: list[dict[str, Any]] = field(default_factory=list)  # exchanges of earlier conversations the chat tools sent
 
 
 def mode() -> str:
@@ -145,6 +147,7 @@ def converse(
     hits: list[dict[str, Any]] = []
     withheld: dict[str, int] = {}
     lookups: list[dict[str, Any]] = []
+    chats: list[dict[str, Any]] = []
     added = 0
     limit = rounds()
     for round_number in range(limit + 1):
@@ -170,7 +173,7 @@ def converse(
                     f"Model '{model}' used its {limit} lookups without writing an answer."
                 )
             ttft = None if reply.ttft_ms is None else round((before - started) * 1000) + reply.ttft_ms
-            return Conversed(reply, ttft, hits, withheld, lookups, added)
+            return Conversed(reply, ttft, hits, withheld, lookups, added, chats)
         asked = model_tools.assistant_message(reply.text, reply.tool_calls)
         work.append(asked)
         added += _tokens(json.dumps(asked["tool_calls"]) + (reply.text or ""), model)  # replayed with every later call
@@ -186,6 +189,7 @@ def converse(
                 lookups.append({**result.lookup, "found": 0, "no_room": True})
                 continue
             _merge(hits, result.hits)
+            chats.extend(c for c in result.chats if (c['session'], c['turn']) not in {(k['session'], k['turn']) for k in chats})
             for category, count in result.withheld.items():
                 withheld[category] = withheld.get(category, 0) + count
             lookups.append(result.lookup)

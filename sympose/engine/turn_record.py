@@ -14,6 +14,7 @@ def sent_record(
     lookups: list[dict[str, Any]] | None = None,
     memory: list[str] | None = None,
     chats: list[dict[str, Any]] | None = None,
+    chats_mode: str | None = None,
 ) -> dict[str, Any]:
     """What reached the model besides the messages, for the session record
     (docs/decisions/025): where each note came from, never its text. `cloud`, for a model that is
@@ -27,7 +28,8 @@ def sent_record(
     (docs/decisions/041) — any of `"profile"`, `"context"`, `"decisions"` — never their text; empty when
     the persona has no memory yet or none of it was allowed to reach this model. `chats` is the earlier
     conversations' exchanges that reached the model (docs/decisions/056), by session id and message number
-    and how they were found, never their text; left out when none did."""
+    and how they were found, never their text; left out when none did. `chats_mode` is the `past_chats` mode that ran (`ask`, or `auto` when
+    the model cannot call tools), left out unless the user chose `ask`; the tool calls are in `lookups`."""
     return {
         "notes": [
             {
@@ -48,7 +50,8 @@ def sent_record(
         "rewrite": rewrite,
         **({"cloud": cloud[0], "withheld": cloud[1]} if cloud else {}),
         **({"mode": mode} if mode else {}),
-        **({"lookups": lookups or []} if mode or lookups else {}),
+        **({"lookups": lookups or []} if mode or lookups or chats_mode == "ask" else {}),
         "memory": memory or [],
-        **({"chats": [{"session": c["session"], "turn": c["turn"], "how": "auto"} for c in chats]} if chats else {}),
+        **({"chats": [{"session": c["session"], "turn": c["turn"], "how": c.get("how", "auto")} for c in chats]} if chats else {}),
+        **({"chats_mode": chats_mode} if chats_mode else {}),
     }

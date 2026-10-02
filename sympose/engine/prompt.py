@@ -22,7 +22,7 @@ from sympose.engine.prompt_blocks import (
     chats_block, compaction_block, memory_block, notes_block, recaps_block, reference_block, vault_map_block,
 )
 from sympose.engine.prompt_text import (
-    ANSWER_FROM_CHATS, ANSWER_FROM_NOTES, ANSWER_FROM_RECAPS, ANSWER_FROM_REFERENCE, CHATS_LABEL, WITHHELD_CHATS, CONNECTED_TO, DEFAULT_SOUL, GROUNDING_RULE,
+    ANSWER_FROM_CHATS, CHAT_TOOLS_TEXT, ANSWER_FROM_NOTES, ANSWER_FROM_RECAPS, ANSWER_FROM_REFERENCE, CHATS_LABEL, WITHHELD_CHATS, CONNECTED_TO, DEFAULT_SOUL, GROUNDING_RULE,
     HOW_YOU_WORK, HOW_YOU_WORK_ASK, GROUNDING_RULE_ASK, MEMORY_CONTEXT_LABEL, MEMORY_CONTEXT_MARK,
     MEMORY_DECISIONS_LABEL, MEMORY_NO_CHANGE, MEMORY_PROFILE_LABEL, MEMORY_PROFILE_MARK, MEMORY_REFRESH_INSTRUCTIONS,
     NO_NOTES, NO_RECAP, NO_REFERENCE, NO_TOPIC, POINT_TO_REFERENCE, RECAPS_LABEL,
@@ -35,7 +35,7 @@ from sympose.persona_files import load_soul
 from sympose.profile import reference_persona_names
 
 __all__ = [
-    "ANSWER_FROM_CHATS", "CHATS_LABEL", "WITHHELD_CHATS", "ANSWER_FROM_NOTES", "ANSWER_FROM_RECAPS", "ANSWER_FROM_REFERENCE", "CONNECTED_TO", "DEFAULT_SOUL",
+    "ANSWER_FROM_CHATS", "CHAT_TOOLS_TEXT", "CHATS_LABEL", "WITHHELD_CHATS", "ANSWER_FROM_NOTES", "ANSWER_FROM_RECAPS", "ANSWER_FROM_REFERENCE", "CONNECTED_TO", "DEFAULT_SOUL",
     "GROUNDING_RULE", "GROUNDING_RULE_ASK", "HOW_YOU_WORK", "HOW_YOU_WORK_ASK", "MEMORY_CONTEXT_LABEL",
     "MEMORY_CONTEXT_MARK", "MEMORY_DECISIONS_LABEL", "MEMORY_NO_CHANGE", "MEMORY_PROFILE_LABEL",
     "MEMORY_PROFILE_MARK", "MEMORY_REFRESH_INSTRUCTIONS", "NO_NOTES", "NO_RECAP", "NO_REFERENCE", "NO_TOPIC",
@@ -62,6 +62,7 @@ def build_system_prompt(
     compaction: str | None = None,
     chats: list[dict[str, Any]] | None = None,
     chats_omitted: int = 0,
+    chat_tools: bool = False,
 ) -> str:
     # `handle` is always lowercase (`profile.get_profile` lowercases it
     # before building a file path) -- title-cased here so a fallback
@@ -101,6 +102,8 @@ def build_system_prompt(
     chats_text = chats_block(chats or [], chats_omitted)
     if chats_text:
         parts.append(chats_text)
+    if chat_tools:  # she looks in earlier conversations herself (docs/decisions/056, `past_chats` `ask`)
+        parts.append(CHAT_TOOLS_TEXT)
     # The notes of a compaction (docs/decisions/055) come last: they stand for the start of this very
     # conversation, so they sit closest to the history that follows. Fixed, like the memory above.
     notes_text = compaction_block(compaction)
@@ -173,6 +176,7 @@ def build_messages(
     compaction: str | None = None,
     chats: list[dict[str, Any]] | None = None,
     chats_omitted: int = 0,
+    chat_tools: bool = False,
 ) -> list[dict[str, str]]:
     """The system prompt (with the recaps of earlier conversations, docs/decisions/023 and 026, and the
     persona's own memory, docs/decisions/041), the history as it was said (the notes of earlier turns
@@ -189,7 +193,7 @@ def build_messages(
         "content": build_system_prompt(
             profile, recaps, recaps_omitted, withheld.get(RECAPS, 0), lookup,
             memory_profile, memory_context, memory_decisions, bool(withheld.get(MEMORY, 0)), remember, compaction,
-            chats, chats_omitted,
+            chats, chats_omitted, chat_tools,
         ),
     }
     has_library = bool(profile.get("sympose_reference"))

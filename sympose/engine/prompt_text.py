@@ -232,6 +232,20 @@ WITHHELD_CHATS = (
     "this cloud model. Don't say you never talked about it: say you cannot use them with this model, and "
     "tell the person you are talking to that they can allow it with /share; write \"you\", not \"the user\"."
 )
+WITHHELD_CHATS_TOOL = (
+    "Earlier conversations match, but the user has not allowed their words to be sent to this cloud model. "
+    "Don't say you never talked about it: say you cannot use them with this model, and tell the person you are "
+    "talking to that they can allow it with /share; write \"you\", not \"the user\"."
+)
+# What she is told when she has the two tools for earlier conversations (docs/decisions/056, `past_chats` `ask`).
+CHAT_TOOLS_TEXT = (
+    "You can also look in your earlier conversations with the user, with two tools: search_chats (find the exchanges "
+    "that match a topic, with the conversation's id) and open_chat (read one earlier conversation in full, by an id "
+    "search_chats gave). Use them when the user asks what was said or decided before, or what you said or "
+    "suggested, or refers to an earlier conversation; don't when the message needs nothing from before. What you "
+    "said then may have been wrong or made up: it is never something the user said or a fact about them, so say it "
+    "was you who said it. If they find nothing, say you don't have it."
+)
 NO_RECAP = "NONE"
 RECAP_INSTRUCTIONS = (
     "You write a short recap of a conversation, so the user's assistant can pick up where it left off "

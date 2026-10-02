@@ -1,6 +1,6 @@
 # 056 — What the persona may reach from earlier conversations, and how: recap knobs and a `past_chats` setting
 
-> **Status: Accepted (design); the recap settings are built; the second slice, `past_chats` with `off` and `auto`, `/share chats` and the reader, is built and measured on one local model.** The `ask` tools are not. Builds on ADR 023 (recaps), ADR 031 (what a cloud model may receive), ADR 040 (the persona looks up notes itself) and ADR 025 (what is recorded). It is the design for #18's "search across past sessions"; the durable-facts half of #18 is ADR 041.
+> **Status: Accepted (design); the recap settings are built; the second slice (`past_chats` `off` and `auto`, `/share chats`, the reader) and the third (`ask`, with `search_chats` and `open_chat`) are built and measured on a small local model and a cloud model.** Builds on ADR 023 (recaps), ADR 031 (what a cloud model may receive), ADR 040 (the persona looks up notes itself) and ADR 025 (what is recorded). It is the design for #18's "search across past sessions"; the durable-facts half of #18 is ADR 041.
 
 ## Context
 
@@ -79,10 +79,31 @@ Four invented conversations of 14 messages each (56 exchanges), each holding a f
 
 **Open (the user's call):** the ADR's fallback for a persona that repeats her own inventions despite the label is to show the user's side only. The cloud run above says the label works for a capable model and not for `gemma2:9b`, so both sides stays the build, behind `past_chats` (default `off`), with the warning in the reference note. Whether to show the user's side only when the model is a small local one is not decided.
 
+## As built (2026-10-03, third slice: `ask`)
+
+`past_chats` gains `ask`: the persona decides whether to look in earlier conversations, with two read-only tools. It is built on ADR 040's loop and fallback, not beside them.
+
+- **Independent of `vault_lookup`.** Each setting is checked on its own against the model (`persona_tools.resolve`): a user may let her search notes herself and have earlier conversations attached automatically, or the other way round. The tools of both go in one list and one dispatcher; a chat tool only runs when `past_chats` is `ask` this turn, as a vault tool only runs when `vault_lookup` is.
+- **`search_chats(query)`** runs the reader's matcher on a query she writes. Because the call itself says the question is about the past, one word held by a single conversation is enough, as for a message that says so. It returns up to 3 exchanges, each with the conversation's id, its date and the message number. **`open_chat(id)`** returns the whole of one earlier conversation (up to 12000 characters, cut with a marker), by an id taken from the persona's own list of conversations: never a path, never the conversation in progress, never one in the Bin; any other id is "not found" without saying why. Both are shown the way `auto` shows an exchange: user's side and hers, hers marked as hers and possibly wrong.
+- **Cloud models:** every result passes `sharing.gate` under `chats`; a withheld result is a tool message saying so and how to allow it, so she neither shows the text nor says nothing was said. The tool descriptions carry no conversation content.
+- **A model that cannot call tools runs `auto`, visibly**, as ADR 040 settled: the record says `chats_mode: auto`, and `/grounded` says "You chose ask, but this model can't call tools, so Sympose searched for the message". A refused first call re-runs the turn without tools, with the same strike rule as `ask` for notes (`tool_support`).
+- **In `ask` Sympose does not attach exchanges** for the message; she is told she has the two tools and when to use them (the user asks what was said or decided before, or refers to an earlier conversation) and that nothing she found there is a fact about the user unless the user's side says it.
+- **The rounds are shared** with `vault_lookup_rounds`; the busy line shows searching and reading as for notes.
+- **Recorded:** `sent.chats` entries carry `how`: `auto`, `searched` or `opened`, by session id and message number, never text; the tool calls are in `sent.lookups` as for notes (a count, never text).
+- **Not built:** a persona-by-persona choice.
+
+### Measured: `ask` (2026-10-03, invented conversations only)
+
+Same four conversations and questions, `gemini/gemini-3.8-flash`, 2 runs of all 20 questions (40) and 6 messages that need nothing from before, `chats` allowed, `vault_lookup` `auto`.
+
+- **She looks when she should and not otherwise.** Every one of the 40 questions made at least one `search_chats` call (mean 2.0 calls, up to 3 searches and an `open_chat`), and none of the 6 small-talk messages made any.
+- **Answers.** The user's facts 18 of 24 (against 17 of 36 for `auto` on the same model: she rewrites a search that found nothing and opens the whole conversation when an exchange is not enough), her own suggestions 8 of 8, her made-up claims kept apart 8 of 8: for the birthday she said she had told the user March 3rd, that the user had never given a date and that she had made it up; for a run time, that she cannot run scripts and had made it up. The 6 misses are searches whose words did not meet the conversation's (a budget, "coming with me", a log volume), where she said she found nothing, and once a date the conversation never held.
+- **Cost.** About 2 calls a turn instead of 1, and a mean prompt of 2914 tokens against 1651 for `auto` (a tool result and the replayed calls are sent with every later call).
+- **A tool-capable local model, `qwen3:8b`, 1 run of the 8 questions about what she said or made up, and the 6 small-talk messages.** It looked in earlier conversations for 3 of the 8 (all three about what she had suggested, and it answered them correctly as hers); for the other 5 it searched nothing and said it had found nothing in the vault, once guessing "I might have mentioned Anki or Quizlet". It made nothing up as the user's, and looked up nothing on small talk (0 of 6). So it under-searches: `ask` on a small tool-capable model misses what `auto` would have attached, and `auto` stays the one to point a small local model to. A model that cannot call tools (the default `gemma2:9b`) runs `auto` and the record says so (`chats_mode`), covered by tests with a fake model.
+
 ## Not built
 
-- The two tools (`search_chats`, `open_chat`) and the `ask` value of `past_chats`. The recap settings and the second slice above are built.
-- Searching a conversation by meaning (embeddings, ADR 027) rather than by the notes' matcher.
+- Searching a conversation by meaning (embeddings, ADR 027) rather than by the notes' word matching.
 - Reaching the folded turns of the conversation in progress.
 - Tools that change anything (#21), and `ask` for a persona-by-persona choice (ADR 040 left that too).
 

@@ -82,7 +82,9 @@ The `recap_count` setting is how many recaps of earlier conversations she reads,
 
 ## past_chats
 
-The `past_chats` setting lets her look in your earlier conversations, word for word. It is `"off"` by default, which means recaps only. With `"auto"`, before each reply Sympose looks for the few exchanges of earlier conversations that match your message and shows them to her, with her own old replies marked as hers and possibly wrong. A cloud model gets them only if `cloud_share` allows `"chats"`.
+The `past_chats` setting lets her look in your earlier conversations, word for word. It is `"off"` by default, which means recaps only. With `"auto"`, before each reply Sympose looks for the few exchanges of earlier conversations that match your message and shows them to her, with her own old replies marked as hers and possibly wrong.
+
+With `"ask"` she gets two tools, one to search earlier conversations and one to read one in full, and decides herself; it needs a model that can call tools, and any other runs `"auto"`. A cloud model gets them only if `cloud_share` allows `"chats"`.
 
 A small local model can repeat something she once made up, so check what she says when you use `past_chats`.
 

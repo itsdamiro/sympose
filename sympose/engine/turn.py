@@ -87,11 +87,11 @@ def run_turn(
             retry_remember = memory.MARKER if memory.remember_enabled() else None
             result = _run(
                 persona, handle, user_message, sid, existing, history, target_model,
-                persona_tools.Modes(False, modes.chose_ask, retry_remember), capped,
+                persona_tools.Modes(False, modes.chose_ask, retry_remember, False, modes.chose_chats), capped,
             )
             tool_support.note_refusal(target_model)
             return result
-        if modes.ask or modes.remember == memory.TOOL:
+        if modes.ask or modes.chats or modes.remember == memory.TOOL:
             tool_support.note_success(target_model)
         return result
     finally:
@@ -152,7 +152,7 @@ def _run(
     # count and the record below all see the same set.
     # Earlier conversations word for word (docs/decisions/056) are found locally and pass the same gate.
     gated = sharing.gate(
-        target_model, grounding_results, recap.latest(handle, exclude=sid), past_chats.find(handle, user_message, sid),
+        target_model, grounding_results, recap.latest(handle, exclude=sid), past_chats.find(handle, user_message, sid, tools=modes.chats),
     )
     grounding_results, recaps_found, withheld = gated.grounding, gated.recaps, gated.withheld
     chats_found = gated.chats
@@ -210,6 +210,7 @@ def _run(
             memory_decisions=decisions,
             remember=remember,
             compaction=notes,
+            chat_tools=modes.chats,
         )
 
     prompt_tokens = 0
@@ -230,7 +231,7 @@ def _run(
         decisions_sent = fitted.decisions
     dropped += capped  # the turns `history_tokens` left out count with the ones the window's own fitting dropped
     lookups: list[dict[str, Any]] = []
-    tools = persona_tools.for_turn(ask, remember == memory.TOOL)
+    tools = persona_tools.for_turn(ask, remember == memory.TOOL, modes.chats, sid)
     if tools:
         tool_list, run_tool = tools
         done = lookup.converse(
@@ -238,6 +239,7 @@ def _run(
         )
         reply, reply_ttft, lookups = done.reply, done.ttft_ms, done.lookups
         grounding_results = grounding_results + done.hits
+        chats_sent = chats_sent + done.chats
         for category, count in done.withheld.items():
             withheld[category] = withheld.get(category, 0) + count
         prompt_tokens += done.tokens_added
@@ -271,6 +273,7 @@ def _run(
     sent = sent_record(
         grounding_results, recaps_sent, searched_used, dropped, rewrite, cloud,
         (lookup.ASK if ask else lookup.AUTO) if chose_ask else None, lookups, memory_sent, chats_sent,
+        (past_chats.ASK if modes.chats else past_chats.AUTO) if modes.chose_chats else None,
     )
     saved = session.append_turn(
         handle,

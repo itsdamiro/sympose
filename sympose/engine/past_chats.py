@@ -15,8 +15,8 @@ from sympose.engine import reply_text, session
 from sympose.engine.grounding_index import index_terms
 
 SETTING = "past_chats"
-OFF, AUTO = "off", "auto"
-MODES = (OFF, AUTO)
+OFF, AUTO, ASK = "off", "auto", "ask"
+MODES = (OFF, AUTO, ASK)
 EXCHANGES, SIDE_CHARS = 3, 600  # how many exchanges a turn attaches, and how much of each side of one
 _MIN_SHARE = 0.5  # of the message's informative words that an exchange must contain
 _SPECIFIC = 1  # a word found in no more conversations than this is evidence enough on its own
@@ -34,7 +34,7 @@ _CACHE: dict[str, tuple[tuple[int, int], list[dict[str, Any]]]] = {}
 
 
 def mode() -> str:
-    """`off` (the default) or `auto`; anything else a hand-edited file holds is `off`."""
+    """`off` (the default), `auto` or `ask`; anything else a hand-edited file holds is `off`."""
     value = settings_store.get(SETTING)
     return value if value in MODES else OFF
 
@@ -78,15 +78,30 @@ def _terms(exchange: dict[str, Any]) -> set[str]:
     return set(index_terms(f"{exchange['user']} {exchange['assistant']}"))
 
 
-def find(handle: str, message: str, exclude: str | None = None) -> list[dict[str, Any]]:
-    """The exchanges of the persona's other conversations that match `message`, in the order they were
-    held, each cut to `SIDE_CHARS` a side; at most `EXCHANGES`, the best matches. Nothing when the setting
-    is off or no exchange matches strongly enough: a wrong one derails a small model's reply, and none
-    only costs a normal one (the rule the notes follow, docs/decisions/014)."""
-    if mode() != AUTO:
+def chooses_ask() -> bool:
+    """Whether the user chose `ask`: the persona looks in earlier conversations with tools (`chat_tools`)."""
+    return mode() == ASK
+
+
+def find(handle: str, message: str, exclude: str | None = None, tools: bool = False) -> list[dict[str, Any]]:
+    """What Sympose attaches for `message` before the reply: nothing when the setting is `off`, or `ask` with the
+    tools in use this turn (`tools`: the persona looks for herself); otherwise the matching exchanges. `ask` on a
+    model that cannot call tools runs as `auto`, so `tools` is false for it."""
+    if mode() == OFF or (mode() == ASK and tools):
         return []
+    return [{**x, "how": AUTO} for x in search(handle, message, exclude)]
+
+
+def search(handle: str, message: str, exclude: str | None = None, about_the_past: bool | None = None) -> list[dict[str, Any]]:
+    """The exchanges of the persona's other conversations that match `message`, in the order they were
+    held, each cut to `SIDE_CHARS` a side; at most `EXCHANGES`, the best matches. Nothing when no exchange
+    matches strongly enough: a wrong one derails a small model's reply, and none only costs a normal one
+    (the rule the notes follow, docs/decisions/014). `about_the_past`: whether the message is known to be
+    about an earlier conversation (a query the persona wrote for the search tool is); left out, the message's
+    own words say."""
     wanted = [t for t in dict.fromkeys(index_terms(message)) if t not in _ASKING]
-    about_the_past = any(word in _ASKING for word in _WORD.findall(message.lower()))
+    if about_the_past is None:
+        about_the_past = any(word in _ASKING for word in _WORD.findall(message.lower()))
     if not wanted:
         return []
     pool = [x for sid in session.session_ids(handle) if sid != exclude for x in _exchanges(handle, sid)]
@@ -110,3 +125,12 @@ def find(handle: str, message: str, exclude: str | None = None) -> list[dict[str
     best = sorted(scored, key=lambda pair: pair[0], reverse=True)[:EXCHANGES]
     chosen = sorted((x for _, x in best), key=lambda x: (x["session"], x["turn"]))
     return [{**x, "user": x["user"][:SIDE_CHARS], "assistant": x["assistant"][:SIDE_CHARS]} for x in chosen]
+
+
+def conversation(handle: str, session_id: str, exclude: str | None = None) -> list[dict[str, Any]] | None:
+    """Every exchange of one earlier conversation, or `None` when `session_id` is not one of the persona's own
+    saved conversations (an id is never turned into a path: it must be in the list), is the conversation in
+    progress, or is in the Bin (which the list never holds)."""
+    if session_id == exclude or session_id not in session.session_ids(handle):
+        return None
+    return _exchanges(handle, session_id) or None

@@ -14,3 +14,4 @@ class Result:
     hits: list[dict[str, Any]] = field(default_factory=list)
     withheld: dict[str, int] = field(default_factory=dict)
     lookup: dict[str, Any] = field(default_factory=dict)
+    chats: list[dict[str, Any]] = field(default_factory=list)

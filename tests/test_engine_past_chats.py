@@ -43,9 +43,18 @@ def _talk(sid, *pairs):
 
 def test_it_is_off_by_default_and_an_unusable_value_is_off():
     assert past_chats.mode() == "off"
-    for value in ("ask", "yes", 3, None, True):
+    for value in ("asks", "yes", 3, None, True):
         settings_store.set("past_chats", value)
         assert past_chats.mode() == "off"
+
+
+def test_ask_is_a_mode_and_attaches_only_when_the_tools_are_not_in_use():
+    _talk(OLD, ("the Atlas database choice", "SQLite for Atlas."))
+    settings_store.set("past_chats", "ask")
+
+    assert past_chats.mode() == "ask"
+    assert past_chats.find("samantha", "the Atlas database choice", NEW, tools=True) == []
+    assert len(past_chats.find("samantha", "the Atlas database choice", NEW, tools=False)) == 1  # a model without tools
 
 
 def test_off_finds_nothing_even_when_an_exchange_matches():

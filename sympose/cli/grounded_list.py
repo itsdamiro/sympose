@@ -8,7 +8,7 @@ _VIA_LABELS = {
     "embedding": "by meaning", "name": "named in full", "value": "by a property value",
     "search": "found by the persona's search", "opened": "opened by the persona",
 }
-_TOOL_LABELS = {"search_notes": "searched", "open_note": "opened"}
+_TOOL_LABELS = {"search_notes": "searched", "open_note": "opened", "search_chats": "searched earlier conversations for", "open_chat": "opened earlier conversation"}
 _SOURCE_LABELS = {"sympose": "the Sympose reference library"}
 
 
@@ -25,18 +25,23 @@ _MEMORY_FILES = {"profile": "profile.md", "context": "context.md", "decisions": 
 
 def _search_text(call: dict[str, Any]) -> str:
     label = _TOOL_LABELS.get(call.get("tool"), call.get("tool"))
-    return f'{label} "{call.get("query") or call.get("path")}" ({call.get("found", 0)} found)'
+    return f'{label} "{call.get("query") or call.get("path") or call.get("id")}" ({call.get("found", 0)} found)'
 
 
 def _lookups(sent: dict[str, Any], name: str) -> list[str]:
     """What the persona looked up or remembered itself (docs/decisions/040, 041): each lookup as it was made, each
     `remember`, or, when the user chose `ask`, that the model could not take tools and Sympose searched instead."""
+    fallback = []
     if sent.get("mode") == "auto":
-        return ["You chose ask, but this model can't call tools, so Sympose searched for the message."]
+        fallback = ["You chose ask, but this model can't call tools, so Sympose searched for the message."]
+    if sent.get("chats_mode") == "auto":
+        fallback += ["You chose ask for earlier conversations, but this model can't call tools, so Sympose searched for the message."]
+    if fallback:
+        return fallback
     calls = sent.get("lookups") or []
     searches = [_search_text(c) for c in calls if c.get("tool") != "remember"]
     lines = [f"{name} looked up: " + "; ".join(searches) + "."] if searches else []
-    if not searches and sent.get("mode") == "ask":
+    if not searches and "ask" in (sent.get("mode"), sent.get("chats_mode")):
         lines = [f"{name} looked nothing up for this message."]
     for call in calls:
         if call.get("tool") == "remember":
