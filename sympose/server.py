@@ -33,7 +33,7 @@ from sympose import server_session_handlers as sess
 from sympose import server_trash_handlers as th
 from sympose import server_vault_handlers as vh
 from sympose import vault_paths
-from sympose.server_models import ChatCancel, ChatCompact, ChatSessionStart, ChatSessionUpdate, ChatTurn, DefinitionsSwitch, FolderDefinition, HiddenPath, ModelChoice, SettingChange, SharingChange, TrashEmpty, TrashRestore, VaultActivate
+from sympose.server_models import ChatBinAction, ChatCancel, ChatCompact, ChatSessionStart, ChatSessionUpdate, ChatTurn, DefinitionsSwitch, FolderDefinition, HiddenPath, ModelChoice, SettingChange, SharingChange, TrashEmpty, TrashRestore, VaultActivate
 
 
 def create_app() -> FastAPI:
@@ -81,8 +81,8 @@ def create_app() -> FastAPI:
         return ch.cancel_turn(body)
 
     @app.get("/api/chat/status")
-    def chat_status(persona: str | None = Query(None)) -> dict[str, Any]:
-        return ch.get_status(persona)
+    def chat_status(persona: str | None = Query(None), session_id: str | None = Query(None)) -> dict[str, Any]:
+        return ch.get_status(persona, session_id)
 
     @app.get("/api/chat/status-phrases")
     def chat_status_phrases(persona: str | None = Query(None)) -> dict[str, Any]:
@@ -104,6 +104,22 @@ def create_app() -> FastAPI:
     @app.get("/api/chat/sessions")
     def chat_sessions(persona: str | None = Query(None)) -> dict[str, Any]:
         return sess.list_sessions(persona)
+
+    @app.get("/api/chat/sessions/bin")
+    def chat_sessions_bin(persona: str | None = Query(None)) -> dict[str, Any]:
+        return sess.list_bin(persona)
+
+    @app.post("/api/chat/sessions/bin/restore")
+    def chat_sessions_bin_restore(body: ChatBinAction) -> dict[str, Any]:
+        return sess.restore_from_bin(body)
+
+    @app.delete("/api/chat/sessions/bin")
+    def chat_sessions_bin_purge(id: str = Query(...), persona: str | None = Query(None)) -> dict[str, Any]:
+        return sess.purge_from_bin(id, persona)
+
+    @app.post("/api/chat/sessions/bin/empty")
+    def chat_sessions_bin_empty(body: ChatBinAction) -> dict[str, Any]:
+        return sess.empty_bin(body)
 
     @app.patch("/api/chat/session/{session_id}")
     def chat_session_update(session_id: str, body: ChatSessionUpdate) -> dict[str, Any]:

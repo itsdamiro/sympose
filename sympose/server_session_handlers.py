@@ -5,15 +5,17 @@ from typing import Any
 
 from fastapi import HTTPException
 
-from sympose.engine import session_manage
+from sympose.engine import session_bin, session_manage
 from sympose.server_handlers import require_profile
-from sympose.server_models import ChatSessionUpdate
+from sympose.server_models import ChatBinAction, ChatSessionUpdate
 
 _ERRORS = {
     session_manage.NOT_FOUND: (404, "No such conversation."),
     session_manage.BAD_TITLE: (422, f"A title is one line of 1 to {session_manage.MAX_TITLE} characters."),
     session_manage.BUSY: (409, "A reply is being written in that conversation. Stop it first."),
     session_manage.FAILED: (500, "Could not save the change."),
+    session_manage.EXISTS: (409, "A conversation with that id is already there."),
+    session_manage.BAD_ID: (404, "No such conversation in the Bin."),
 }
 
 
@@ -45,3 +47,25 @@ def delete_session(session_id: str, persona: str | None) -> dict[str, Any]:
     """Move a conversation to the trash folder (soft delete: nothing is destroyed)."""
     _raise_unless_ok(session_manage.delete(require_profile(persona)["handle"], session_id))
     return {"deleted": session_id}
+
+
+def list_bin(persona: str | None) -> dict[str, Any]:
+    """The persona's deleted conversations, the last deleted first (the Bin keeps them apart from the notes)."""
+    return {"sessions": session_bin.list_deleted(require_profile(persona)["handle"])}
+
+
+def restore_from_bin(body: ChatBinAction) -> dict[str, Any]:
+    """Put a deleted conversation back (409 when one by its id exists already)."""
+    _raise_unless_ok(session_bin.restore(require_profile(body.persona)["handle"], body.id or ""))
+    return {"restored": body.id}
+
+
+def purge_from_bin(session_id: str, persona: str | None) -> dict[str, Any]:
+    """Delete one conversation from the Bin for good."""
+    _raise_unless_ok(session_bin.purge(require_profile(persona)["handle"], session_id))
+    return {"deleted": session_id}
+
+
+def empty_bin(body: ChatBinAction) -> dict[str, Any]:
+    """Delete every conversation in the Bin for good."""
+    return {"deleted": session_bin.empty(require_profile(body.persona)["handle"])}

@@ -197,7 +197,7 @@ def test_delete_moves_the_conversation_to_the_trash_folder(profiles):
 
     out = drive("delete 1", "")
 
-    assert out["lines"][0][-1] == "Moved to the trash folder (sessions/.trash)."
+    assert out["lines"][0][-1] == "Moved to the Bin (/sessions bin)."
     assert out["lines"][1][-1] == "No earlier conversations yet."
     assert (profiles / "samantha" / "sessions" / ".trash" / f"{A}.jsonl").exists()
 
@@ -222,3 +222,45 @@ def test_a_conversation_with_a_reply_being_written_is_not_deleted(profiles):
 
 def test_an_unknown_word_shows_the_usage(profiles):
     assert drive("tidy")["lines"][0][-1].startswith("Usage: /sessions")
+
+
+# -- the Bin (ADR 057): /sessions bin, restore <n>, purge <n> ------------------
+
+
+def test_the_bin_lists_what_was_deleted_by_number(profiles):
+    write(A, T1, "Garden plans")
+    write(B, T2, "Trip", turns=1)
+
+    seen = drive("delete 1", "delete 1", "bin")["lines"]
+    out = seen[2][len(seen[1]):]  # what each command shows is added to what the earlier ones did
+
+    assert out[0].startswith("Deleted conversations")
+    assert sorted(line[5:].split(" · ")[0] for line in out[1:]) == ["Garden plans", "Trip"]
+    assert all("turn" in line and "deleted 20" in line for line in out[1:])
+
+
+def test_an_empty_bin_says_so(profiles):
+    assert drive("bin")["lines"][0] == ["The Bin has no deleted conversations."]
+
+
+def test_restore_brings_a_deleted_conversation_back_into_the_list(profiles):
+    write(A, T1, "Garden plans")
+
+    lines = drive("delete 1", "restore 1", "")["lines"]
+
+    assert lines[1][-1].startswith("Restored")
+    assert lines[2][len(lines[1]) + 1].startswith("  1. Garden plans")
+
+
+def test_purge_deletes_one_for_good(profiles):
+    write(A, T1, "Garden plans")
+
+    lines = drive("delete 1", "purge 1", "bin")["lines"]
+
+    assert lines[1][-1] == "Deleted for good."
+    assert lines[2][len(lines[1]):] == ["The Bin has no deleted conversations."]
+    assert not os.path.exists(os.path.join(session.sessions_dir("samantha"), ".trash", f"{A}.jsonl"))
+
+
+def test_restore_of_a_number_the_bin_does_not_have_says_so(profiles):
+    assert "no conversation number 3" in drive("restore 3")["lines"][0][-1]

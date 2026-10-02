@@ -1,7 +1,7 @@
 """A persona's list of conversations and what the user can do to one (docs/decisions/057): rename it, pin it to
 the top, delete it. The session file stays append-only (docs/decisions/049): a rename or a pin is a later meta
 line, which wins on load, so nothing already written is touched. Delete is soft: the file and its recap move to
-`sessions/.trash/` (the persona stops knowing the conversation, the user can move them back by hand); nothing
+`sessions/.trash/` (the persona stops knowing the conversation; the Bin lists them and puts them back, `session_bin`); nothing
 the user wrote is destroyed by a click. A conversation with a reply being written is not deleted."""
 
 import json
@@ -18,6 +18,7 @@ log = logging.getLogger(__name__)
 TRASH = ".trash"
 MAX_TITLE = 80
 OK, NOT_FOUND, BAD_TITLE, BUSY, FAILED = "ok", "not_found", "bad_title", "busy", "failed"
+EXISTS, BAD_ID = "exists", "bad_id"  # restoring a conversation from the Bin (session_bin)
 
 
 def _row(handle: str, session_id: str, loaded: dict[str, Any]) -> dict[str, Any]:
@@ -91,7 +92,9 @@ def delete(handle: str, session_id: str) -> str:
     try:
         trash = os.path.join(session.sessions_dir(handle), TRASH)
         os.makedirs(trash, exist_ok=True)
-        os.replace(session.session_path(handle, session_id), _free(trash, f"{session_id}.jsonl"))
+        moved = _free(trash, f"{session_id}.jsonl")
+        os.replace(session.session_path(handle, session_id), moved)
+        os.utime(moved)  # the Bin says when it was deleted: the file's time is now, not when it was last written
         recap_file = recap.path(handle, session_id)
         if os.path.exists(recap_file):
             os.replace(recap_file, _free(trash, f"{session_id}.recap.md"))

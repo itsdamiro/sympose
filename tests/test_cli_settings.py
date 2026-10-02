@@ -17,7 +17,7 @@ KEYS = [
     "show_grounding", "show_trim_notice", "show_context_meter", "show_background_status", "status_typing", "reply_reveal",
     "context_window", "reply_limit", "grounding_followups", "session_recaps", "auto_compact", "compact_at", "compact_to",
     "grounding_search", "embedding_min_similarity", "embedding_margin", "vault_lookup", "vault_lookup_rounds",
-    "memory_remember", "memory_rewrite", "memory_auto_refresh",
+    "memory_remember", "memory_rewrite", "memory_auto_refresh", "parallel_replies",
 ]
 
 
@@ -312,7 +312,7 @@ def test_slash_settings_lists_every_setting_with_its_value(profiles):
             await _open(pilot, app)
             assert app.panel_kind == settings_list.PICKER_KIND
             labels = [str(app.panel.get_option_at_index(i).prompt) for i in range(app.panel.option_count)]
-            assert len(labels) == 21
+            assert len(labels) == 22
             assert "show_grounding — off:" in labels[0]
             assert "status_typing — 40 (default):" in labels[4]
             assert "reply_reveal — 50 (default):" in labels[5]

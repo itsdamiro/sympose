@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from helpers import write_persona
 
 from sympose import server_chat_handlers as ch
+from sympose import server_chat_locks as chat_locks
 from sympose.engine import grounding, recap, recap_refresh, session, turn, turn_status
 from sympose.engine.model import EngineModelError, ModelReply
 from sympose.server import create_app
@@ -30,7 +31,7 @@ def scratch(tmp_path, monkeypatch):
     monkeypatch.setenv("VAULT_PATHS", str(tmp_path))
     monkeypatch.setattr(grounding, "ground", lambda profile, msg, max_results=5: [])
     monkeypatch.setattr(turn.budget, "_native_max", lambda model: None)
-    monkeypatch.setattr(ch, "_LOCKS", {})
+    monkeypatch.setattr(chat_locks, "_LOCKS", {})
 
 
 @pytest.fixture(autouse=True)
@@ -404,6 +405,37 @@ def test_a_page_of_older_turns_does_not_start_them_again(client, recaps_started)
 def test_starting_a_new_conversation_starts_them(client, recaps_started):
     client.post("/api/chat/session", json={"persona": "samantha"})
     assert recaps_started == ["samantha"]
+
+
+@pytest.fixture
+def indexes_started(monkeypatch):
+    """The search by meaning's index (ADR 027) is built in the background when a chat opens, as the terminal
+    does at launch; here that is only recorded."""
+    started = []
+    monkeypatch.setattr(ch.semantic_refresh, "refresh_in_background", lambda handle: started.append(handle))
+    return started
+
+
+def test_opening_the_chat_starts_the_search_index_as_the_terminal_does_at_launch(client, indexes_started):
+    page(client)
+    assert indexes_started == ["samantha"]
+
+
+def test_paging_back_through_a_conversation_does_not_start_the_index_again(client, indexes_started):
+    seed(NEW, 5)
+    page(client, session_id=NEW, before=3)
+    assert indexes_started == []
+
+
+def test_starting_a_new_conversation_starts_the_index(client, indexes_started):
+    client.post("/api/chat/session", json={"persona": "samantha"})
+    assert indexes_started == ["samantha"]
+
+
+def test_an_unknown_persona_starts_no_index(client, indexes_started):
+    client.get("/api/chat/session", params={"persona": "nobody"})
+    client.post("/api/chat/session", json={"persona": "nobody"})
+    assert indexes_started == []
 
 
 def test_an_unknown_persona_starts_no_recaps(client, recaps_started):

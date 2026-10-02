@@ -1,10 +1,12 @@
 """`/sessions` (and `/history`, the same command; docs/decisions/057): the persona's past conversations, numbered, and
 what can be done to one: `open <n>`, `rename <n> <title>`, `pin <n>`, `unpin <n>`, `delete <n>`. A number is the
 conversation's place in the list as it is when the command runs, so a command acts on what `/sessions` shows now.
+`/sessions bin` lists the deleted ones (the Bin of the web app), and `restore <n>` and `purge <n>` act on one by its
+number in that list.
 
 Opening a conversation starts a new generation that continues it, as a persona switch starts one with no session:
 a reply still being written in the conversation left lands in its own, and the messages typed from now on go to
-the one opened. Deleting is soft (the files move to `sessions/.trash/`)."""
+the one opened. Deleting is soft (the files move to `sessions/.trash/`, which is the Bin)."""
 
 from datetime import datetime
 
@@ -12,20 +14,22 @@ from rich.style import Style
 
 from sympose.cli import meter, meter_estimate, transcript as transcript_mod
 from sympose.cli.options import active_model
-from sympose.engine import session, session_compaction, session_manage
+from sympose.engine import session, session_bin, session_compaction, session_manage
 
 NAMES = ("/sessions", "/history")
 _SHOWN_TURNS = 4  # the last turns of an opened conversation that are shown again, so the user sees where it stopped
 
 _USAGE = (
     "Usage: /sessions lists the conversations. /sessions open <n>, rename <n> <title>, pin <n>, unpin <n> or "
-    "delete <n> act on one by its number."
+    "delete <n> act on one by its number. /sessions bin lists the deleted ones; restore <n> and purge <n> (for good) act on those."
 )
 _FAILED = {
     session_manage.NOT_FOUND: "That conversation is no longer there.",
     session_manage.BAD_TITLE: f"A title is one line of 1 to {session_manage.MAX_TITLE} characters.",
     session_manage.BUSY: "A reply is being written in that conversation: stop it first, or wait.",
     session_manage.FAILED: "Could not save the change.",
+    session_manage.EXISTS: "A conversation with that id is already there, so it was not replaced.",
+    session_manage.BAD_ID: "That conversation is no longer in the Bin.",
 }
 
 
@@ -86,6 +90,31 @@ async def _open(app, row: dict) -> None:
     app.transcript.scroll_end(animate=False)
 
 
+def _show_bin(app, rows: list[dict]) -> None:
+    if not rows:
+        transcript_mod.mount_line(app, "The Bin has no deleted conversations.", "system")
+        return
+    transcript_mod.mount_line(app, "Deleted conversations (/sessions restore <n>, or purge <n> to delete for good):", "system")
+    for number, row in enumerate(rows, 1):
+        turns = f"{row['turns']} turn{'s' if row['turns'] != 1 else ''}"
+        deleted = datetime.fromtimestamp(row["deleted_at"]).strftime("%Y-%m-%d %H:%M")
+        transcript_mod.mount_line(app, f"{number:>3}. {row['title'] or '(untitled)'} · {turns} · deleted {deleted}", "system")
+
+
+def _bin_command(app, word: str, rest: str) -> None:
+    handle, rows = app.persona.handle, session_bin.list_deleted(app.persona.handle)
+    if word == "bin":
+        _show_bin(app, rows)
+        return
+    row = _row(app, rows, rest.split(" ")[0])
+    if row is None:
+        return
+    restoring = word == "restore"
+    outcome = (session_bin.restore if restoring else session_bin.purge)(handle, row["id"])
+    done = "Restored: it is in /sessions again." if restoring else "Deleted for good."
+    transcript_mod.mount_line(app, done if outcome == session_manage.OK else _FAILED[outcome], "system")
+
+
 async def run(app, args: str) -> None:
     handle = app.persona.handle
     rows = session_manage.list_sessions(handle)
@@ -93,6 +122,8 @@ async def run(app, args: str) -> None:
     word, rest = word.lower(), rest.strip()
     if not word:
         _show_list(app, rows)
+    elif word in ("bin", "restore", "purge"):
+        _bin_command(app, word, rest)
     elif word in ("open", "rename", "pin", "unpin", "delete"):
         number, _, title = rest.partition(" ")
         row = _row(app, rows, number)
@@ -107,7 +138,7 @@ async def run(app, args: str) -> None:
             outcome = session_manage.delete(handle, row["id"])
         else:
             outcome = session_manage.pin(handle, row["id"], word == "pin")
-        done = {"rename": "Renamed.", "pin": "Pinned.", "unpin": "Unpinned.", "delete": "Moved to the trash folder (sessions/.trash)."}[word]
+        done = {"rename": "Renamed.", "pin": "Pinned.", "unpin": "Unpinned.", "delete": "Moved to the Bin (/sessions bin)."}[word]
         transcript_mod.mount_line(app, done if outcome == session_manage.OK else _FAILED[outcome], "system")
         if word == "delete" and outcome == session_manage.OK and row["id"] == app.session_id:
             app.session_generation += 1  # the conversation on screen is gone: the next message starts a new one

@@ -122,3 +122,48 @@ def test_a_delete_is_409_while_a_reply_is_being_written_into_it(client):
 
     assert client.delete(f"/api/chat/session/{A}", params={"persona": "samantha"}).status_code == 409
     assert client.get("/api/chat/sessions", params={"persona": "samantha"}).json()["sessions"][0]["replying"] is True
+
+
+# -- the Bin's conversations (ADR 057) ---------------------------------------
+
+
+def test_a_deleted_conversation_is_in_the_bin_and_can_be_restored(client):
+    write(A, T1, title="movies")
+    client.delete(f"/api/chat/session/{A}", params={"persona": "samantha"})
+
+    [row] = client.get("/api/chat/sessions/bin", params={"persona": "samantha"}).json()["sessions"]
+    assert (row["id"], row["title"], row["turns"]) == (A, "movies", 1)
+    assert client.get("/api/chat/sessions", params={"persona": "samantha"}).json() == {"sessions": []}
+
+    done = client.post("/api/chat/sessions/bin/restore", json={"persona": "samantha", "id": A})
+    assert done.status_code == 200 and done.json() == {"restored": A}
+    assert [r["id"] for r in client.get("/api/chat/sessions", params={"persona": "samantha"}).json()["sessions"]] == [A]
+    assert client.get("/api/chat/sessions/bin", params={"persona": "samantha"}).json() == {"sessions": []}
+
+
+def test_restoring_over_an_existing_conversation_is_refused(client):
+    write(A, T1, title="movies")
+    client.delete(f"/api/chat/session/{A}", params={"persona": "samantha"})
+    write(A, T2, title="newer")
+    assert client.post("/api/chat/sessions/bin/restore", json={"persona": "samantha", "id": A}).status_code == 409
+
+
+def test_restoring_or_deleting_what_is_not_in_the_bin_is_a_404(client):
+    assert client.post("/api/chat/sessions/bin/restore", json={"persona": "samantha", "id": "nope"}).status_code == 404
+    assert client.post("/api/chat/sessions/bin/restore", json={"persona": "samantha", "id": "../x"}).status_code == 404
+    assert client.delete("/api/chat/sessions/bin", params={"persona": "samantha", "id": "nope"}).status_code == 404
+
+
+def test_a_conversation_can_be_deleted_for_good_from_the_bin_and_the_bin_emptied(client):
+    write(A, T1)
+    write(B, T2)
+    for sid in (A, B):
+        client.delete(f"/api/chat/session/{sid}", params={"persona": "samantha"})
+    assert client.delete("/api/chat/sessions/bin", params={"persona": "samantha", "id": A}).json() == {"deleted": A}
+    assert [r["id"] for r in client.get("/api/chat/sessions/bin", params={"persona": "samantha"}).json()["sessions"]] == [B]
+    assert client.post("/api/chat/sessions/bin/empty", json={"persona": "samantha"}).json() == {"deleted": 1}
+    assert client.get("/api/chat/sessions/bin", params={"persona": "samantha"}).json() == {"sessions": []}
+
+
+def test_the_bin_routes_of_an_unknown_persona_are_a_404(client):
+    assert client.get("/api/chat/sessions/bin", params={"persona": "nobody"}).status_code == 404

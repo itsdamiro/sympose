@@ -98,9 +98,11 @@ class FolderDefinition(BaseModel):
 
 
 class ChatCancel(BaseModel):
-    """Body of `POST /api/chat/cancel` — stop the persona's reply in flight (docs/decisions/054)."""
+    """Body of `POST /api/chat/cancel` — stop a reply in flight (docs/decisions/054): the conversation
+    `session_id` names, or every reply the persona is writing when it is left out (docs/decisions/057)."""
 
     persona: str | None = None
+    session_id: str | None = None
 
 
 class ChatTurn(BaseModel):
@@ -124,6 +126,14 @@ class ChatSessionStart(BaseModel):
     """Body of `POST /api/chat/session` — start a fresh, empty conversation with a persona."""
 
     persona: str | None = None
+
+
+class ChatBinAction(BaseModel):
+    """Body of the Bin's conversation routes (docs/decisions/057): the persona, and for a restore the
+    conversation's name in the Bin (`id` is left out to empty the Bin)."""
+
+    persona: str | None = None
+    id: str | None = None
 
 
 class ChatSessionUpdate(BaseModel):

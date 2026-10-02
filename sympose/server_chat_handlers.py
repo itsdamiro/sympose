@@ -1,35 +1,31 @@
 """The web chat's route handlers (docs/decisions/044): a thin door to `engine.run_turn`, the same call
 the terminal makes. The engine does not queue (docs/decisions/008 does that at each channel's call
-site), so this keeps one lock per persona: two messages for the same persona run in order, and
-personas do not wait for each other. A lock cannot span processes, so a terminal chat and a web chat
-writing the same session at the same moment are not ordered against each other."""
+site), so this keeps the locks: two messages in one conversation always run in order, personas do not wait
+for each other, and two conversations of one persona wait for each other unless `parallel_replies` lets them
+run side by side (docs/decisions/057). A message that is waiting for its turn can be stopped. A lock cannot
+span processes, so a terminal chat and a web chat writing the same session at the same moment are not
+ordered against each other."""
 
-import threading
 from typing import Any
 
 from fastapi import HTTPException
 
+from sympose import server_chat_locks as locks
 from sympose.engine import (
-    compaction, context_estimate, model as model_mod, recap_refresh, semantic_refresh, session, session_compaction,
-    status_phrases, turn, turn_status,
+    compaction, context_estimate, model as model_mod, recap_refresh, semantic_refresh, session,
+    session_compaction, status_phrases, turn, turn_status,
 )
 from sympose.engine.turn_cancel import request as cancel_requested
 from sympose.server_handlers import require_profile
 from sympose.server_models import ChatCancel, ChatCompact, ChatSessionStart, ChatTurn
 
-_LOCKS: dict[str, threading.Lock] = {}
-_LOCKS_GUARD = threading.Lock()
-
-
-def _lock_for(handle: str) -> threading.Lock:
-    with _LOCKS_GUARD:
-        return _LOCKS.setdefault(handle, threading.Lock())
-
-
 def send_turn(body: ChatTurn) -> dict[str, Any]:
     profile = require_profile(body.persona)
     handle = profile["handle"]
-    with _lock_for(handle):
+    lock = locks.lock_for(handle, body.session_id, model_mod.resolve_model(profile.get("model")))
+    if not locks.acquire(lock, handle, body.session_id):
+        return {"cancelled": True}  # stopped while it waited for the other conversation's reply
+    try:
         try:
             result = turn.run_turn(handle, body.message, body.session_id)
         except turn.PersonaNotFoundError as e:
@@ -38,6 +34,8 @@ def send_turn(body: ChatTurn) -> dict[str, Any]:
             raise HTTPException(status_code=502, detail=str(e))
         except turn.TurnCancelled:  # stopped by the user (docs/decisions/054): nothing was saved
             return {"cancelled": True}
+    finally:
+        lock.release()
     return {
         "reply": result.reply,
         "session_id": result.session_id,
@@ -57,10 +55,13 @@ def send_turn(body: ChatTurn) -> dict[str, Any]:
 
 
 def cancel_turn(body: ChatCancel) -> dict[str, Any]:
-    """Stop the persona's reply in flight (docs/decisions/054). `stopping` is whether one was running; the
-    turn's own request answers `{"cancelled": true}` when the engine reaches its next check, so this does
-    not wait for it."""
-    return {"stopping": cancel_requested(require_profile(body.persona)["handle"])}
+    """Stop a reply in flight (docs/decisions/054): the conversation `session_id` names, or every reply the
+    persona is writing when it is left out. A message still waiting for its turn (docs/decisions/057) is stopped
+    too and is not run. `stopping` is whether anything was stopped; the turn's own request answers
+    `{"cancelled": true}` when the engine reaches its next check, so this does not wait for it."""
+    handle = require_profile(body.persona)["handle"]
+    running = cancel_requested(handle, body.session_id)
+    return {"stopping": locks.stop_waiting(handle, body.session_id) or running}
 
 
 def compact_session(body: ChatCompact) -> dict[str, Any]:
@@ -85,12 +86,16 @@ def compact_session(body: ChatCompact) -> dict[str, Any]:
     }
 
 
-def get_status(persona: str | None) -> dict[str, Any]:
-    """What the persona's in-flight reply is doing right now (`searching`, `reading`, `asking`), or
-    `None` when nothing is running: the web chat polls this while it waits (docs/decisions/043). `indexing` is
+def get_status(persona: str | None, session_id: str | None = None) -> dict[str, Any]:
+    """What the in-flight reply of the conversation `session_id` names (else the persona's oldest) is doing
+    right now (`searching`, `reading`, `asking`), `queued` while its message waits for another conversation's
+    reply to finish (docs/decisions/057), or `None` when nothing is running: the web chat polls this while it
+    waits (docs/decisions/043). `indexing` is
     the whole percent of the search index build still running, or `None`: until it is done the reply searches
     by keyword, which the chat says (docs/decisions/044, amendment of 2026-10-01)."""
-    return {"phase": turn_status.phase(require_profile(persona)["handle"]), "indexing": semantic_refresh.progress()}
+    handle = require_profile(persona)["handle"]
+    phase = turn_status.phase(handle, session_id) or ("queued" if locks.is_waiting(handle, session_id) else None)
+    return {"phase": phase, "indexing": semantic_refresh.progress()}
 
 
 def get_status_phrases(persona: str | None) -> dict[str, Any]:
@@ -123,12 +128,19 @@ def _latest_session(handle: str) -> tuple[str, dict[str, Any]] | None:
     return None
 
 
+def _start_background_builds(handle: str) -> None:
+    """What the terminal starts at launch, started when a web chat opens: the recaps of the conversations held
+    since the last one (ADR 023) and the search by meaning's index (ADR 027, only when that knob is on)."""
+    recap_refresh.refresh_in_background(handle)
+    semantic_refresh.refresh_in_background(handle)
+
+
 def start_session(body: ChatSessionStart) -> dict[str, Any]:
     """A fresh, empty conversation, so a refresh before the first message shows it blank rather than
     bringing the previous one back. When the latest is already blank it is reused, so pressing the button
     twice does not leave empty files behind."""
     handle = require_profile(body.persona)["handle"]
-    recap_refresh.refresh_in_background(handle)  # the conversations before this one, as the terminal does at launch (ADR 023)
+    _start_background_builds(handle)
     latest = _latest_session(handle)
     if latest and not latest[1]["turns"]:
         return {"session_id": latest[0]}
@@ -148,7 +160,7 @@ def get_session(persona: str | None, session_id: str | None, before: int | None,
     has no launch. Nothing is asked of the model when none is missing."""
     handle = require_profile(persona)["handle"]
     if before is None:
-        recap_refresh.refresh_in_background(handle)
+        _start_background_builds(handle)
     if session_id:
         try:
             loaded = session.load_session(handle, session_id)

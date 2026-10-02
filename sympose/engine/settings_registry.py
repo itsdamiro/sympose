@@ -6,7 +6,7 @@ channel's own (the terminal's are in `cli/display_settings.py`)."""
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from sympose.engine import budget, compaction, embeddings, followup, lookup, memory, memory_refresh, recap
+from sympose.engine import budget, compaction, embeddings, followup, lookup, memory, memory_refresh, parallel, recap
 
 TOGGLE, CHOICE, NUMBER = "toggle", "choice", "number"
 ON, OFF = "on", "off"
@@ -32,8 +32,8 @@ def toggle(key: str, summary: str, current: Callable[[], bool], default: bool = 
     return Setting(key, TOGGLE, summary, current, lambda: default, group=group)
 
 
-CONTEXT, SEARCH, LOOKUP, MEMORY = "Context", "Search", "Note lookup", "Memory"
-GROUPS = (CONTEXT, SEARCH, LOOKUP, MEMORY)
+CONTEXT, SEARCH, LOOKUP, MEMORY, CONVERSATIONS = "Context", "Search", "Note lookup", "Memory", "Conversations"
+GROUPS = (CONTEXT, SEARCH, LOOKUP, MEMORY, CONVERSATIONS)
 
 SETTINGS: list[Setting] = [
     Setting(
@@ -92,6 +92,10 @@ SETTINGS: list[Setting] = [
     toggle(
         memory_refresh.AUTO_REFRESH_SETTING, "checking for a memory update on its own",
         memory_refresh.auto_refresh_enabled, default=False, group=MEMORY,
+    ),
+    Setting(
+        parallel.SETTING, CHOICE, "replies in several conversations at once",
+        parallel.mode, lambda: parallel.AUTO, choices=(parallel.AUTO, parallel.ON, parallel.OFF), group=CONVERSATIONS,
     ),
 ]
 
