@@ -40,6 +40,19 @@ afterEach(() => {
 })
 
 describe("useSessionList", () => {
+  it("keeps the list of the persona now shown when a slower answer for the one before arrives last", async () => {
+    let arriveForSamantha!: (rows: unknown) => void
+    api.fetchSessions.mockImplementation((persona: string) =>
+      persona === "samantha" ? new Promise((resolve) => (arriveForSamantha = resolve)) : Promise.resolve([row("x")])
+    )
+    const c = chat({ sessionId: undefined })
+    const { result, rerender } = renderHook(({ persona }) => useSessionList(persona, c), { initialProps: { persona: "samantha" } })
+    rerender({ persona: "aria" })
+    await waitFor(() => expect(result.current.sessions.map((s) => s.id)).toEqual(["x"]))
+    await act(async () => arriveForSamantha([row("old")]))
+    expect(result.current.sessions.map((s) => s.id)).toEqual(["x"])
+  })
+
   it("lists the backend's rows with the one on screen, the replying and the unread added from the chat", async () => {
     const c = chat({ marks: { b: { replying: true, unread: false }, a: { replying: false, unread: true } } })
     const { result } = renderHook(() => useSessionList("samantha", c))

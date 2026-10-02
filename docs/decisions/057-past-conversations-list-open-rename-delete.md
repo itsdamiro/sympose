@@ -67,6 +67,8 @@ The model is a chat tool with threads: the user moves between conversations and 
 
 A first message in the web chat has no conversation id until its reply lands (the engine makes one up), so its Stop sent no `session_id`, and a stop with none ends every reply the persona is writing, including the other conversations' when `parallel_replies` is on. The stop request now carries `unnamed` when the web has no id: it ends only the replies (and waiting messages) that began without one, which the registry marks (`turn_cancel.begin(..., named=False)`). Persona-wide stop for a caller that wants it is unchanged. Rejected: opening the conversation before the first message, as "New conversation" does (the route reuses the latest blank conversation, which another open conversation in the browser may already hold, and it would put a second path into the logic that reconciles the blank conversation the backend answers with); a client-made id (it would copy the engine's id format).
 
+Two more from the same review. The Bin of a persona no longer shows the rows of the persona before it while its own load or fail to load (its Restore and "Empty" would have acted on the new persona with the old rows and count). And the list of conversations keeps only the answer to the newest read, so a slower answer for the persona before cannot arrive last and leave the new persona's list stuck on "loading".
+
 ## Not built
 
 - A model-written title (the first message stays the default title).

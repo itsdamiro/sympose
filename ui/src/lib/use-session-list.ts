@@ -33,16 +33,18 @@ export function useSessionList(persona: string, chat: ChatForList) {
   const [binVersion, setBinVersion] = React.useState(0)
   const { openConversation, newConversation, forgetConversation, listVersion } = chat
 
+  // Only the answer to the newest read is kept: a slower, earlier one (the persona before, or the list as it was a
+  // moment ago) arriving last would put its rows back.
+  const newest = React.useRef(0)
   const refresh = React.useCallback(async () => {
+    const mine = ++newest.current
     const next = await fetchSessions(persona)
-    if (next) setLoaded({ persona, rows: next })
+    if (next && mine === newest.current) setLoaded({ persona, rows: next })
   }, [persona])
 
   React.useEffect(() => {
-    void fetchSessions(persona).then((next) => {
-      if (next) setLoaded({ persona, rows: next })
-    })
-  }, [persona, listVersion])
+    void refresh()
+  }, [refresh, listVersion])
 
   const sessions: ListedSession[] = React.useMemo(
     () =>
