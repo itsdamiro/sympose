@@ -52,7 +52,7 @@ import {
   slideEnterClassName,
   slideExitClassName,
 } from "@/lib/use-slide-swap"
-import { fetchVaultNote, saveVaultNote } from "@/lib/vault-note-api"
+import { fetchVaultNote, saveVaultNote, type SaveVaultNoteResult } from "@/lib/vault-note-api"
 import { getUnsavedGuard, setUnsavedGuard } from "@/lib/unsaved-guard"
 import { useReadOnlyToggle } from "@/lib/use-read-only-toggle"
 import { extractWikilinks } from "@/lib/extract-wikilinks"
@@ -131,6 +131,13 @@ function getStyloScroller(el: HTMLElement): HTMLElement | null {
  * driven by the toolbar `save` button and `⌘/Ctrl-S`, or automatically a beat
  * after typing stops when Settings › Markdown editor › Autosave is on.
  */
+export interface PanelFile {
+  load: (path: string) => Promise<{ content: string; mtime?: number } | null>
+  save: (path: string, text: string, mtime?: number) => Promise<SaveVaultNoteResult>
+  title: string
+  banner?: React.ReactNode
+}
+
 interface MarkdownPanelProps extends React.ComponentProps<"div"> {
   storageKey?: string
   /** Relative vault path of the note to load. `undefined` shows the empty state. */
@@ -185,6 +192,15 @@ interface MarkdownPanelProps extends React.ComponentProps<"div"> {
   toolbarItems: ToolbarItem[]
   /** Collapses the editor; its button is the first icon of the toolbar, at the far left. Omit where it cannot collapse. */
   onCollapse?: () => void
+  /**
+   * A file that is not a vault note (a persona's own file, docs/decisions/061): its load and save in place of the
+   * vault's, and none of the note chrome (no actions menu, frontmatter card or links footer). `path` is then an
+   * opaque key the file's functions understand (never a vault path), `title` is shown where the vault path would be,
+   * and `banner` sits at the top of the document with what is particular to this file.
+   */
+  file?: PanelFile
+  /** Changed from outside to read the open file again (after a reset or an accepted rewrite changed it on disk). */
+  reloadToken?: number
   /**
    * Revealed when true (default), collapsed when false. The panel stays mounted
    * either way and transitions its width / opacity / offset, so it fades and
@@ -412,6 +428,8 @@ function MarkdownPanel({
   preferences,
   toolbarItems,
   onCollapse,
+  file,
+  reloadToken = 0,
   open = true,
   fill = false,
   phone = false,
@@ -550,6 +568,7 @@ function MarkdownPanel({
     phone,
     frontmatterVisible,
     readOnly,
+    banner: file?.banner,
   })
   // Deliberately synchronous, not effect-deferred: `canvasHeader()` below is
   // invoked directly in this component's own render (the read-only branch
@@ -562,10 +581,13 @@ function MarkdownPanel({
     phone,
     frontmatterVisible,
     readOnly,
+    banner: file?.banner,
   }
   const canvasHeader = React.useCallback(() => {
-    const { frontmatter, onWikiLinkClick, phone, frontmatterVisible, readOnly } =
+    const { frontmatter, onWikiLinkClick, phone, frontmatterVisible, readOnly, banner } =
       frontmatterCardStateRef.current
+    // A persona's file has no frontmatter card; what is particular to it (docs/decisions/061) takes the place.
+    if (banner) return <div className={cn("mt-2", phone ? "px-2" : "px-4 sm:px-6")}>{banner}</div>
     if (frontmatter === null) return null
     return (
       // Animate via `grid-template-rows` rather than `max-height` — it tweens
@@ -597,16 +619,24 @@ function MarkdownPanel({
     )
   }, [])
 
+  // The file's functions are read off a ref, so a new object each render never refetches; the effects below depend on
+  // `path`, which is what names the file.
+  const fileRef = React.useRef(file)
+  React.useEffect(() => {
+    fileRef.current = file
+  })
+
   React.useEffect(() => {
     if (!path) return
     let alive = true
-    fetchVaultNote(path, persona).then((result) => {
+    const opening = fileRef.current ? fileRef.current.load(path) : fetchVaultNote(path, persona)
+    opening.then((result) => {
       if (!alive) return
       if (!result) {
         setFetch({ status: "error" })
         return
       }
-      const split = splitFrontmatter(result.content)
+      const split = fileRef.current ? null : splitFrontmatter(result.content) // a persona's file is all body
       const fm = split ? split.frontmatter : null
       const bd = split ? split.body : result.content
       const prefix = split
@@ -631,7 +661,7 @@ function MarkdownPanel({
     // new vault's own last-open note happens to share the old one's exact
     // relative path — otherwise this effect would see no `path` change and
     // go on showing the previous vault's content under the new vault's name.
-  }, [path, persona, vaultPath, reloadKey])
+  }, [path, persona, vaultPath, reloadKey, reloadToken])
 
   // Persist the current frontmatter + body to the vault. Shared by the toolbar
   // `save` button, `⌘/Ctrl-S` (both via stylo's `onSave`), autosave, and the
@@ -685,7 +715,10 @@ function MarkdownPanel({
 
       savingRef.current = true
       const loadedAtStart = loadCountRef.current
-      const result = await saveVaultNote(targetPath, text, persona, mtimeRef.current)
+      const saving = fileRef.current
+        ? fileRef.current.save(targetPath, text, mtimeRef.current)
+        : saveVaultNote(targetPath, text, persona, mtimeRef.current)
+      const result = await saving
       savingRef.current = false
       if (result.ok && loadCountRef.current !== loadedAtStart) return true // written; the buffer is another note's by now
       if (result.ok) {
@@ -696,7 +729,7 @@ function MarkdownPanel({
         // `[[links]]` added since the last load — without rescanning on
         // every keystroke.
         setFetch({ status: "ready", content: text })
-        if (!silent) notify.success("Note saved")
+        if (!silent) notify.success(fileRef.current ? "Saved" : "Note saved")
         return true
       }
       if (result.conflict) {
@@ -782,8 +815,8 @@ function MarkdownPanel({
   // Outbound `[[wikilinks]]` for the footer — derived from the note as loaded,
   // not from live keystrokes, so typing never re-scans the whole document.
   const links = React.useMemo(
-    () => (note.status === "ready" ? extractWikilinks(note.content) : []),
-    [note]
+    () => (note.status === "ready" && !file ? extractWikilinks(note.content) : []),
+    [note, file]
   )
 
   // The frontmatter/read-edit/note-actions buttons — a single stable overlay
@@ -825,23 +858,25 @@ function MarkdownPanel({
           className="size-4"
         />
       </button>
-      <NoteActionsMenu
-        path={path}
-        persona={persona}
-        onRenamed={async (next) => {
-          // The file has moved: save this note's unsaved edits to its new path now, while the buffer still
-          // belongs to it, instead of letting the leave-note flush PUT to the old path (404, edits lost).
-          if (path) await getUnsavedGuard()?.retarget(path, next)
-          onRenamed?.(next)
-        }}
-        onDeleted={() => {
-          // Nothing to save to: the flush would PUT to a path that no longer exists.
-          loadedPathRef.current = undefined
-          onDeleted?.()
-        }}
-        pinned={!!isPinned?.(path)}
-        onTogglePin={onTogglePin}
-      />
+      {!file && (
+        <NoteActionsMenu
+          path={path}
+          persona={persona}
+          onRenamed={async (next) => {
+            // The file has moved: save this note's unsaved edits to its new path now, while the buffer still
+            // belongs to it, instead of letting the leave-note flush PUT to the old path (404, edits lost).
+            if (path) await getUnsavedGuard()?.retarget(path, next)
+            onRenamed?.(next)
+          }}
+          onDeleted={() => {
+            // Nothing to save to: the flush would PUT to a path that no longer exists.
+            loadedPathRef.current = undefined
+            onDeleted?.()
+          }}
+          pinned={!!isPinned?.(path)}
+          onTogglePin={onTogglePin}
+        />
+      )}
     </>
   )
 
@@ -854,7 +889,11 @@ function MarkdownPanel({
   const pathSegments = path ? path.split("/") : []
   const folderSegments = pathSegments.slice(0, -1)
   const fileSegment = pathSegments[pathSegments.length - 1]
-  const breadcrumb = (
+  const breadcrumb = file ? (
+    <div className="flex min-w-0 flex-1 items-center overflow-hidden font-mono text-xs text-fg-muted">
+      <span className="truncate text-foreground">{file.title}</span>
+    </div>
+  ) : (
     <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden font-mono text-xs text-fg-muted">
       {vaultName && <span className="shrink-0">{vaultName}</span>}
       {folderSegments.map((segment, i) => (

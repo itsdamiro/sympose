@@ -167,4 +167,74 @@ describe("MarkdownPanel leaving a note with unsaved edits", () => {
       expect(row.className).not.toContain("pl-1.5")
     })
   })
+
+  describe("a file that is not a vault note (a persona's own file, docs/decisions/061)", () => {
+    const base = { preferences: PREFERENCES, toolbarItems: [] }
+    const makeFile = () => ({
+      load: vi.fn().mockResolvedValue({ content: "She speaks plainly.", mtime: 40 }),
+      save: vi.fn().mockResolvedValue({ ok: true, mtime: 41 }),
+      title: "Samantha · soul.md",
+    })
+
+    it("loads and saves through the file's own functions, never the vault's", async () => {
+      const file = makeFile()
+      render(<MarkdownPanel {...base} path="persona:samantha/soul.md" file={file} />)
+      const editor = (await screen.findByLabelText("editor")) as HTMLTextAreaElement
+      expect(editor.value).toBe("She speaks plainly.")
+      expect(file.load).toHaveBeenCalledWith("persona:samantha/soul.md")
+      fireEvent.change(editor, { target: { value: "She speaks plainly, and warmly." } })
+      await act(async () => {
+        await getUnsavedGuard()!.save()
+      })
+      expect(file.save).toHaveBeenCalledWith("persona:samantha/soul.md", "She speaks plainly, and warmly.", 40)
+      expect(api.fetchVaultNote).not.toHaveBeenCalled()
+      expect(api.saveVaultNote).not.toHaveBeenCalled()
+    })
+
+    it("has no note actions: a persona's file is not renamed or deleted as a note is", async () => {
+      render(<MarkdownPanel {...base} path="persona:samantha/soul.md" file={makeFile()} />)
+      await screen.findByLabelText("editor")
+      expect(screen.queryByText("rename")).toBeNull()
+      expect(screen.queryByText("delete")).toBeNull()
+    })
+
+    it("names itself by the file's title in read mode, not by a vault path", async () => {
+      const file = makeFile()
+      const view = render(<MarkdownPanel {...base} path="persona:samantha/soul.md" file={file} previewRequest={0} vaultName="Notes" />)
+      await screen.findByLabelText("editor")
+      view.rerender(<MarkdownPanel {...base} path="persona:samantha/soul.md" file={file} previewRequest={1} vaultName="Notes" />)
+      await waitFor(() => expect(screen.getByLabelText("editor").getAttribute("data-mode")).toBe("preview"))
+      expect(screen.getByText("Samantha · soul.md")).toBeTruthy()
+      expect(screen.queryByText("Notes")).toBeNull()
+    })
+
+    it("shows the file's banner at the top of the document", async () => {
+      const file = { ...makeFile(), banner: <p>Your own copy is in use.</p> }
+      const view = render(<MarkdownPanel {...base} path="persona:samantha/soul.md" file={file} previewRequest={0} />)
+      await screen.findByLabelText("editor")
+      view.rerender(<MarkdownPanel {...base} path="persona:samantha/soul.md" file={file} previewRequest={1} />)
+      expect(await screen.findByText("Your own copy is in use.")).toBeTruthy()
+    })
+
+    it("saves what was typed exactly: a #word in a persona's file is not turned into a frontmatter tag", async () => {
+      const file = { ...makeFile(), load: vi.fn().mockResolvedValue({ content: "She likes #focus", mtime: 40 }) }
+      render(<MarkdownPanel {...base} path="persona:samantha/profile.md" file={file} />)
+      const editor = (await screen.findByLabelText("editor")) as HTMLTextAreaElement
+      fireEvent.change(editor, { target: { value: "She likes #focus and #rest" } })
+      await act(async () => {
+        await getUnsavedGuard()!.save()
+      })
+      expect(file.save.mock.calls[0][1]).toBe("She likes #focus and #rest")
+    })
+
+    it("reads the file again when told to from outside, as after a reset or an accepted rewrite", async () => {
+      const file = makeFile()
+      const view = render(<MarkdownPanel {...base} path="persona:samantha/soul.md" file={file} reloadToken={0} />)
+      await screen.findByLabelText("editor")
+      expect(file.load).toHaveBeenCalledTimes(1)
+      view.rerender(<MarkdownPanel {...base} path="persona:samantha/soul.md" file={file} reloadToken={1} />)
+      await waitFor(() => expect(file.load).toHaveBeenCalledTimes(2))
+    })
+  })
 })
+
