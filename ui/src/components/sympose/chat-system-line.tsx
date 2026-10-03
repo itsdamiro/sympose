@@ -38,7 +38,7 @@ function ChatSystemLine({ className, kind, title, children, ...props }: ChatSyst
       data-kind={kind}
       role={kind === "error" ? "alert" : "status"}
       className={cn(
-        "flex max-w-[74ch] items-start gap-2 rounded-lg border px-3 py-2 text-xs leading-relaxed",
+        "flex w-full items-start gap-2 rounded-lg border px-3 py-2 text-xs leading-relaxed",
         kind === "error" ? "border-danger/40 bg-danger/5 text-danger" : "border-border bg-chip/40 text-fg-muted",
         className
       )}
