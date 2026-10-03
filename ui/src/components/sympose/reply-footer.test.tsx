@@ -46,6 +46,21 @@ describe("ReplyFooter: the references", () => {
     expect(screen.queryByText("Projects/Atlas.md")).toBeNull()
   })
 
+  it("lists a note once however it was found: its passages and ways of being found merge", () => {
+    const sent: SentRecord = {
+      notes: [
+        { path: "Projects/Atlas.md", heading: "Goals", source: "vault", via: "opened" },
+        { path: "Projects/Atlas.md", heading: "", source: "vault", via: "value" },
+        { path: "Projects/Atlas.md", heading: "Risks", source: "vault", via: "opened" },
+      ],
+    }
+    render(<ReplyFooter sent={sent} />)
+    fireEvent.click(screen.getByRole("button", { name: /Based on Atlas/ }))
+    expect(screen.getAllByText("Projects/Atlas.md")).toHaveLength(1)
+    expect(screen.getByText(/Goals, Risks/)).toBeTruthy()
+    expect(screen.getByText("opened by a lookup · by a property value")).toBeTruthy()
+  })
+
   it("opens a note of the user's vault when its path is clicked, and never offers the reference library's", () => {
     const onOpenNote = vi.fn()
     render(<ReplyFooter sent={two} onOpenNote={onOpenNote} />)

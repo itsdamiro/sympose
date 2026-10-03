@@ -54,6 +54,29 @@ export function noteDetail(note: SentNote): string {
   return bits.filter(Boolean).join(" · ")
 }
 
+export interface NoteEntry {
+  note: SentNote
+  headings: string[]
+  details: string[]
+}
+
+/** One entry per note: the passages, and the ways it was found (a lookup, a property, by meaning), of one path
+ *  merge into a single item instead of one line each. */
+export function noteEntries(notes: SentNote[]): NoteEntry[] {
+  const byPath = new Map<string, NoteEntry>()
+  for (const note of notes) {
+    const entry = byPath.get(note.path) ?? { note, headings: [], details: [] }
+    byPath.set(note.path, entry)
+    if (note.heading && !entry.headings.includes(note.heading)) entry.headings.push(note.heading)
+    for (const bit of noteDetail(note).split(" · ").filter(Boolean)) {
+      if (!entry.details.includes(bit) && !(bit.startsWith("similarity") && entry.details.some((d) => d.startsWith("similarity")))) {
+        entry.details.push(bit)
+      }
+    }
+  }
+  return [...byPath.values()]
+}
+
 const TOOL_LABELS: Record<string, string> = {
   search_notes: "searched",
   open_note: "opened",

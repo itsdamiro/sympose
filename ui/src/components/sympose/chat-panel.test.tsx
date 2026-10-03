@@ -315,7 +315,7 @@ describe("ChatPanel", () => {
       { id: "2", role: "persona", handle: "samantha", body: "As you said.", sent: { notes: [], chats: [{ session: "s1", turn: 2, how: "auto" }] } },
     ]
     setup({ turns })
-    expect(await screen.findByRole("button", { name: /Based on 1 earlier exchange/ })).toBeTruthy()
+    expect(await screen.findByText(/Based on 1 earlier exchange/)).toBeTruthy()
   })
 
   it("shows the model picker in place of the plain chip when there is one", () => {

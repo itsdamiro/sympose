@@ -13,7 +13,7 @@ import {
   groundedNotes,
   hasFooterRow,
   isReference,
-  noteDetail,
+  noteEntries,
   rowSummary,
 } from "@/lib/grounded"
 
@@ -113,8 +113,8 @@ function ReplyFooter({ className, sent, showReferences = true, onOpenNote, ...pr
       </div>
       {open && notes.length > 0 && (
         <ul className="mt-1.5 max-h-48 space-y-1.5 overflow-y-auto border-l border-border pl-3">
-          {notes.map((note, i) => (
-            <li key={`${note.path}-${note.heading}-${i}`} className="min-w-0">
+          {noteEntries(notes).map(({ note, headings, details }) => (
+            <li key={note.path} className="min-w-0">
               {onOpenNote && !isReference(note) ? (
                 <button
                   type="button"
@@ -126,8 +126,8 @@ function ReplyFooter({ className, sent, showReferences = true, onOpenNote, ...pr
               ) : (
                 <span className="text-foreground">{note.path}</span>
               )}
-              {note.heading && <span className="text-fg-muted"> — {note.heading}</span>}
-              {noteDetail(note) && <div className="text-fg-muted">{noteDetail(note)}</div>}
+              {headings.length > 0 && <span className="text-fg-muted"> — {headings.join(", ")}</span>}
+              {details.length > 0 && <div className="text-fg-muted">{details.join(" · ")}</div>}
             </li>
           ))}
         </ul>
