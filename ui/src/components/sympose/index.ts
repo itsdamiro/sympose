@@ -53,6 +53,8 @@ export {
 } from "./segmented-control"
 export { CollapsibleFooterSection } from "./collapsible-footer-section"
 export { RecentNotesFooter } from "./recent-notes-footer"
+export { RelatedNotesFooter } from "./related-notes-footer"
+export { RelevanceMeter } from "./relevance-meter"
 export { SettingsChecks } from "./settings-checks"
 export { ThemeToggle } from "./theme-toggle"
 export { TopBar } from "./top-bar"

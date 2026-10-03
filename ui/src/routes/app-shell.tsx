@@ -37,6 +37,7 @@ import { useNebulaGraph } from "@/lib/use-nebula-graph"
 import { useBrandMarkLabel } from "@/lib/use-brand-mark-preference"
 import { useNoteOpening } from "@/lib/use-note-opening"
 import { useLinkSources } from "@/lib/use-link-sources"
+import { useRelatedNotes } from "@/lib/use-related-notes"
 import {
   ConversationList,
   PersonaCard,
@@ -58,6 +59,7 @@ import {
   MENU_TRASH_ID,
   NebulaModeToggle,
   RecentNotesFooter,
+  RelatedNotesFooter,
   SettingsChecks,
   ThemeToggle,
   PersonaSwitcher,
@@ -276,6 +278,10 @@ export function AppShell() {
       selectNote,
       openEditor: () => panels.open("editor"),
     })
+  // The notes close in meaning to the vault note open in the editor (docs/decisions/066): a section of the notes
+  // panel's footer, never asked for while a persona's own file is open.
+  const related = useRelatedNotes(fileEditor.path ? undefined : openableNote, activePersona)
+  const showRelated = related.enabled && related.related.some((note) => !note.hidden)
   const { wikiLinkSource, tagSource, embedSource } = useLinkSources(
     vaultTree,
     nebulaGraph,
@@ -673,16 +679,29 @@ export function AppShell() {
                 </div>
               ) : active === MENU_ACCOUNT_ID ? (
                 <PersonaSwitcher personas={rosterPersonas} active={activePersona} onSwitch={setActivePersona} />
-              ) : !trashView && recentNodes.length > 0 ? (
-                <RecentNotesFooter
-                  nodes={recentNodes}
-                  actions={vaultTreeActions}
-                  selectedPath={vaultTreeActions.selectedPath}
-                  onSelect={vaultTreeActions.onSelect}
-                  hideExtension={vaultTreeActions.hideExtension}
-                  onRemoveFromRecents={vaultTreeActions.onRemoveFromRecents}
-                  onClearRecents={vaultTreeActions.onClearRecents}
-                />
+              ) : !trashView && (showRelated || recentNodes.length > 0) ? (
+                <div className="flex min-h-0 flex-col gap-3">
+                  {showRelated && (
+                    <RelatedNotesFooter
+                      related={related.related}
+                      actions={vaultTreeActions}
+                      selectedPath={vaultTreeActions.selectedPath}
+                      onSelect={vaultTreeActions.onSelect}
+                      hideExtension={vaultTreeActions.hideExtension}
+                    />
+                  )}
+                  {recentNodes.length > 0 && (
+                    <RecentNotesFooter
+                      nodes={recentNodes}
+                      actions={vaultTreeActions}
+                      selectedPath={vaultTreeActions.selectedPath}
+                      onSelect={vaultTreeActions.onSelect}
+                      hideExtension={vaultTreeActions.hideExtension}
+                      onRemoveFromRecents={vaultTreeActions.onRemoveFromRecents}
+                      onClearRecents={vaultTreeActions.onClearRecents}
+                    />
+                  )}
+                </div>
               ) : undefined
             }
           >

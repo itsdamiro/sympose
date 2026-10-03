@@ -444,6 +444,7 @@ export function VaultTreeRow({
   hideExtension,
   showPath = false,
   onRemoveFromRecents,
+  trailing,
 }: {
   node: VaultNode
   /** This row's node just left the vault tree (deleted, or moved by a
@@ -464,6 +465,8 @@ export function VaultTreeRow({
   /** This row is a "Recent" group entry — drop just this path from the
    *  history. Omit outside that group. */
   onRemoveFromRecents?: () => void
+  /** Something drawn at the far end of a note's row (the related notes' relevance meter, docs/decisions/066). */
+  trailing?: React.ReactNode
 }) {
   const isOpen = expanded.has(node.path)
   const isSelected = selectedPath === node.path
@@ -661,6 +664,7 @@ export function VaultTreeRow({
               className="size-3 shrink-0 text-fg-muted"
             />
           )}
+          {trailing}
         </button>,
         basePad + (depth > 0 ? 20 : 0)
       )}
