@@ -9,7 +9,7 @@ import pytest
 from helpers import write_persona
 
 from sympose import settings_store, vault_paths
-from sympose.engine import followup, grounding, prompt, reference, session, turn, turn_status
+from sympose.engine import followup, grounding, prompt, recap_refresh, reference, session, turn, turn_evidence, turn_status
 from sympose.engine.model import ModelReply
 
 # Captured before `no_follow_up_rewrite` (below) ever monkeypatches the *module-level*
@@ -694,12 +694,44 @@ def test_the_two_sources_take_turns_so_neither_is_dropped_wholesale():
     ref = [{"source": "sympose", "n": i} for i in range(3)]
     vault = [{"n": i} for i in range(2)]
 
-    merged = turn._interleave(ref, vault)
+    merged = turn_evidence.interleave(ref, vault)
 
     assert [(h.get("source"), h["n"]) for h in merged] == [
         ("sympose", 0), (None, 0), ("sympose", 1), (None, 1), ("sympose", 2),
     ]
-    assert turn._interleave([], vault) == vault and turn._interleave(ref, []) == ref
+    assert turn_evidence.interleave([], vault) == vault and turn_evidence.interleave(ref, []) == ref
+
+
+def test_a_list_of_recaps_and_exchanges_is_told_apart_by_the_user_side():
+    recap = {"text": "a recap"}
+    exchange = {"user": "q", "assistant": "a"}
+
+    assert turn_evidence.split_chats([exchange, recap, exchange]) == ([recap], [exchange, exchange])
+    assert turn_evidence.split_chats([]) == ([], [])
+
+
+def test_in_ask_mode_the_message_is_not_searched_and_no_rewrite_is_recorded(monkeypatch):
+    """The persona decides what to look up (ADR 040), so gathering evidence must not search for the message."""
+    from sympose.engine import persona_tools
+
+    def never(*a, **k):
+        raise AssertionError("the vault was searched for the message")
+
+    monkeypatch.setattr(followup, "ground", never)
+    monkeypatch.setattr(turn_evidence.reference, "ground", lambda persona, message: [])
+    monkeypatch.setattr(turn_evidence.recap_refresh, "wait_for_refresh", lambda handle: None)
+    monkeypatch.setattr(turn_evidence.past_chats, "find", lambda *a, **k: [])
+    monkeypatch.setattr(turn_evidence.recap, "latest", lambda *a, **k: [])
+    monkeypatch.setattr(turn_evidence.vault_map_mod, "build", lambda persona: "")
+    persona = {"handle": "p", "sympose_reference": True}
+
+    found = turn_evidence.gather(
+        persona, "p", "sid", "hello", [], "ollama_chat/gemma2:9b", None,
+        persona_tools.Modes(ask=True, chose_ask=True, remember=None), None,
+    )
+
+    assert (found.grounding, found.searched, found.rewrite) == ([], None, False)
+    assert found.vault_found == 0 and found.reference_found == 0
 
 
 def test_under_a_tight_window_the_best_vault_passage_outlasts_the_weaker_reference_ones(sessions_root, monkeypatch):
@@ -844,7 +876,7 @@ def test_a_turn_waits_for_the_recap_being_written_at_launch_before_reading_recap
         waited.append(handle)
         _put_recap("20260923T090000-bbbbbbbb", "Was planning a trip to Lisbon.")  # done by the time it returns
 
-    monkeypatch.setattr(turn.recap_refresh, "wait_for_refresh", finish_writing)
+    monkeypatch.setattr(recap_refresh, "wait_for_refresh", finish_writing)
     calls = _capture_call(monkeypatch)
 
     turn.run_turn("samantha", "where did we leave off?")
@@ -971,7 +1003,7 @@ def test_the_rewritten_query_is_not_recorded_when_only_the_library_grounded_the_
     _library_persona(sessions_root)
     _capture_call(monkeypatch)
     monkeypatch.setattr(reference, "ground", lambda persona, msg: [_reference_hit()])
-    monkeypatch.setattr(turn.followup, "ground", lambda *a, **k: followup.Followed([], "a query that found nothing", True))
+    monkeypatch.setattr(followup, "ground", lambda *a, **k: followup.Followed([], "a query that found nothing", True))
 
     result = turn.run_turn("samantha", "do you remember last time?")
 
@@ -1233,7 +1265,7 @@ def test_the_search_step_shows_searching_and_the_model_call_shows_asking(session
         captured["ground_phase"] = turn_status.phase("samantha")
         return [], None, False
 
-    monkeypatch.setattr(turn.followup, "ground", fake_ground)
+    monkeypatch.setattr(followup, "ground", fake_ground)
 
     def fake_call_model(messages, model=None, **_):
         captured["call_phase"] = turn_status.phase("samantha")
