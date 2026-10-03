@@ -22,8 +22,8 @@ PERSONA = {"name": "Samantha", "handle": "samantha", "vault_folders": ["*"]}
 HERE = os.path.dirname(os.path.abspath(__file__))
 # `off` is the same question with the line left out: the baseline she must not do better than by luck.
 CASES: list[tuple[str, LiveCase]] = [
-    ("auto", LiveCase("related-to-starter", ("what else in my notes is related to my sourdough starter?",), expect=(r"Weekend Bread Baking",), forbid=(r"(?<!not )(?<!n't )\blinks? to\b", r"is linked (?:to|with)"))),
-    ("auto", LiveCase("related-to-marathon", ("which notes are connected to my marathon training log?",), expect=(r"Trail Running Routes",), forbid=(r"is linked (?:to|with)",))),
+    ("auto", LiveCase("related-to-starter", ("what else in my notes is related to my sourdough starter?",), expect=(r"Weekend Bread Baking",), forbid=(r"(?<!not )(?<!n't )\blinks? to\b", r"is linked (?:to|with) (?!no\b)"))),
+    ("auto", LiveCase("related-to-marathon", ("which notes are connected to my marathon training log?",), expect=(r"Trail Running Routes",), forbid=(r"is linked (?:to|with) (?!no\b)",))),
     ("auto", LiveCase("similar-trap", ("does my marathon training log link to the trail running routes note?",), forbid=(r"(?<!not )(?<!n't )(?<!no )\blinks? to\b.*trail running", r"yes[,.]? (?:it )?(?:is )?link",))),
     ("off", LiveCase("related-to-starter-off", ("what else in my notes is related to my sourdough starter?",), expect=(r"Weekend Bread Baking",))),
 ]

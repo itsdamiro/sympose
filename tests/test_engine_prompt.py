@@ -623,6 +623,22 @@ def test_a_hubs_links_name_five_and_count_the_rest_without_claiming_the_others_a
     assert "has no link with a note" not in text  # three more are linked, so an unnamed note may be
 
 
+def test_a_note_with_neighbours_by_meaning_points_from_its_links_line_to_them():
+    # docs/decisions/067: "no links" answers a question about links; a question about what is connected has more to say.
+    result = {**_grounding_result(), "links": _links(), "related": ["Cara"]}
+
+    text = prompt.build_user_turn("who is Anna?", [result])
+
+    assert "Notes close in meaning to Typography, which are not links, are listed below as possibly related." in text
+    assert text.index("listed below as possibly related") < text.index(prompt.RELATED_TO.format(names="Cara"))
+
+
+def test_a_note_without_neighbours_by_meaning_has_no_such_pointer():
+    result = {**_grounding_result(), "links": _links()}
+
+    assert "listed below" not in prompt.build_user_turn("who is Anna?", [result])
+
+
 def test_notes_close_in_meaning_are_said_to_be_a_guess_after_the_connections():
     result = {**_grounding_result(), "connections": ["Ben"], "related": ["Cara", "Dee"]}
 

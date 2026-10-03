@@ -21,6 +21,8 @@ Grounding is zero-hallucination (CLAUDE.md); a link that is not there is a made-
 
 The last sentence is left out when a direction was cut off at its cap, since a note not named may then be linked.
 
+**A pointer when the note also has neighbours by meaning (added after the first measurement, see Measured).** "No links" is the whole answer to a question about links, and a question about what is *connected* has more to say. When the same note carries a "possibly related" line (ADR 066), the links line ends with "Notes close in meaning to X, which are not links, are listed below as possibly related." It adds nothing when there are no neighbours.
+
 **Stated once per note.** The line (and "Also connected") is carried by a note's first passage only, not repeated under each passage of the same note, where the lines of two notes with alike titles interleaved. It also counts the note once, not once per passage, when a cloud model has not been allowed them.
 
 It is present for every grounded note, including one with no links at all, so that "none" is a statement she can quote instead of an absence she must guess from.
@@ -50,12 +52,14 @@ The first wording was no better than nothing: the bare "it" and a `;` that separ
 
 **A cost found:** asked "which notes are connected to my marathon training log?", a note with no links but a note close in meaning (ADR 066) now gets "it has no links, nothing links to it" in most replies (4 of 6 at n=6, against 0 of 6 before) and the neighbour is left unmentioned, where before she offered it. The answer is true; it is less helpful. The "possibly related" line is right beside it in the prompt.
 
+**The pointer (n=6 per case, `tests/live_related_cases.py`).** Asked "which notes are connected to my marathon training log?", the reply names the neighbour by meaning 2 of 6 before the pointer (8 of 9 and 5 of 6 in the two runs before ADR 067) and 3 of 6 and 4 of 6 with it; "what is related to my sourdough starter" 6 of 6, the link-trap case 6 of 6, the line-off control 0 of 6. Two of the three remaining misses are a different fault: the same note appears as two bullets with the same title (two passages), and she says it is "listed twice". Safety, 32 replies each to the two Workspaces yes/no questions with and without the pointer, read by hand: 5 to 6 wrong without, 5 to 7 with; no sign it makes her state a link that is not there.
+
 ## Consequences
 
 - A few tokens per grounded note (about 20 to 40), always present; the prompt-fitting loop drops the line with its note, as it does `connections`.
 - A question of the form "does A link to B" has a literal answer in the prompt, true or false.
 - The "Connected to" line becomes "Also connected", shorter and no longer readable as links.
-- A question about "connected" notes is answered about links first; the neighbour by meaning is offered less often (Measured).
+- A question about "connected" notes is answered about links first; the pointer brings the neighbour by meaning back about half the time (Measured), not always.
 - A grounding gap remains for list questions about a note whose title is nearly another's (Measured); a structural answer is the second option below, if it is wanted.
 - A vault whose links cannot be read (no link graph) says "no note" for both, which would be wrong; the graph is rebuilt from the snapshot the notes already come from, so this cannot happen without the note itself missing.
 

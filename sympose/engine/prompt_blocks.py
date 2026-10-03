@@ -6,7 +6,7 @@ docs/decisions/031). How they are laid out is `prompt`."""
 from typing import Any
 
 from sympose.engine.prompt_text import (
-    ANSWER_FROM_CHATS, ANSWER_FROM_RECAPS, CHATS_HER, CHATS_LABEL, CHATS_USER, CONNECTED_TO, EMPTY_NOTE, EMPTY_NOTE_ALIASES, EMPTY_NOTE_HEADINGS, LINKS, LINKS_COMPLETE, LINKS_NO_NOTE, MEMORY_CONTEXT_LABEL,
+    ANSWER_FROM_CHATS, ANSWER_FROM_RECAPS, CHATS_HER, CHATS_LABEL, CHATS_USER, CONNECTED_TO, EMPTY_NOTE, EMPTY_NOTE_ALIASES, EMPTY_NOTE_HEADINGS, LINKS, LINKS_COMPLETE, LINKS_NO_NOTE, LINKS_SEE_RELATED, MEMORY_CONTEXT_LABEL,
     MEMORY_DECISIONS_LABEL, MEMORY_PROFILE_LABEL, NO_NOTES, NO_REFERENCE, PROPERTIES_OF_NOTE, RECAPS_LABEL,
     REFERENCE_LABEL, RELATED_TO, VAULT_MAP_LABEL, WITHHELD_CONNECTIONS, WITHHELD_MEMORY, WITHHELD_NOTES, WITHHELD_PROPERTIES,
     WITHHELD_RECAPS, WITHHELD_VAULT_MAP,
@@ -52,7 +52,7 @@ def passage_text(result: dict[str, Any]) -> str:
             + (EMPTY_NOTE_ALIASES.format(names=result["text"]) if result["text"] else "")
         )
     if links := result.get("links"):
-        text += "\n" + links_line(result["title"], links)
+        text += "\n" + links_line(result["title"], links, bool(result.get("related")))
     if connections := result.get("connections"):
         text += "\n" + CONNECTED_TO.format(names="; ".join(connections))
     if related := result.get("related"):
@@ -60,7 +60,7 @@ def passage_text(result: dict[str, Any]) -> str:
     return text
 
 
-def links_line(title: str, links: dict[str, Any]) -> str:
+def links_line(title: str, links: dict[str, Any], has_related: bool = False) -> str:
     """A note's links (docs/decisions/067): the names shown for each direction with a count of the rest, "no note" for
     a direction with none, and the note named in each sentence (several notes' passages sit side by side in a prompt); the reminder that an unnamed note is not linked only when nothing was cut off."""
 
@@ -69,7 +69,8 @@ def links_line(title: str, links: dict[str, Any]) -> str:
         return "; ".join(names) or LINKS_NO_NOTE
 
     complete = not (links["more_to"] or links["more_from"])
-    return LINKS.format(title=title, to=side("to"), from_=side("from")) + (LINKS_COMPLETE.format(title=title) if complete else "")
+    line = LINKS.format(title=title, to=side("to"), from_=side("from")) + (LINKS_COMPLETE.format(title=title) if complete else "")
+    return line + (LINKS_SEE_RELATED.format(title=title) if has_related else "")
 
 
 def vault_map_block(text: str | None, withheld: bool = False) -> str | None:
