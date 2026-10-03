@@ -115,7 +115,7 @@ def indexing(profile: dict[str, Any]) -> bool:
 
 def for_hits(profile: dict[str, Any], hits: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """`hits` with a `related` field added to each note's own passage: the titles of up to `FOR_PERSONA` notes close
-    in meaning, never a note already grounded this turn or already named in the passage's `connections`. A passage
+    in meaning, never a note already grounded this turn or already named in the passage's `links` or `connections`. A passage
     of the library or of a note's properties, and a note with no neighbour, is returned unchanged; a note found
     through more than one passage is computed once and shared (the line must not be repeated in the prompt or
     counted twice as withheld). It is a separate field from `connections`, so a guess is never told as a link."""
@@ -130,7 +130,8 @@ def for_hits(profile: dict[str, Any], hits: list[dict[str, Any]]) -> list[dict[s
             updated.append(hit)
             continue
         if path not in by_path:
-            named = set(hit.get("connections") or [])
+            links = hit.get("links") or {}
+            named = set(hit.get("connections") or []) | set(links.get("to", [])) | set(links.get("from", []))
             found = neighbours(profile, path, FOR_PERSONA + len(named), skip=grounded)
             by_path[path] = [n["title"] for n in found if n["title"] not in named][:FOR_PERSONA]
         found_titles = by_path[path]

@@ -17,6 +17,7 @@ from sympose.vault_manifest_build import _stem, _tags_of
 from sympose.vault_snapshot import get_vault_snapshot
 
 MAX_PER_NOTE = 3
+MAX_LINKS = 5  # names shown per direction of a note's links (docs/decisions/067); the rest is a count
 
 # `(the snapshot list object, the precomputed maps built from it)` per scope: the snapshot is already
 # mtime-cached and returns the very same list until the vault changes, so an identity check is enough to
@@ -94,14 +95,14 @@ def _index(profile: dict[str, Any], mv: str, allowed_dirs: list[str]) -> dict[st
 
 
 def for_hits(profile: dict[str, Any], hits: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """`hits` with a `connections` field added to each note's own text or title passage (docs/decisions/030):
-    up to `MAX_PER_NOTE` other notes it links to or from, shares a tag or alias with, or shares a top-level
-    folder with, ranked in that order (a real link is the strongest signal, a shared folder the weakest).
+    """`hits` with a `links` field (docs/decisions/067: the notes it links to and from, always, "none" included) and a
+    `connections` field (docs/decisions/030: up to `MAX_PER_NOTE` other notes sharing a tag or alias, or its top-level
+    folder, ranked in that order, never one already in `links`) added to each note's own text or title passage.
     A passage of the Sympose reference library or of a note's own properties is returned unchanged: the
-    reference is not the user's vault, and a properties passage already rides with the note that carries
-    it. A note with no connection of any kind is returned unchanged too. A note found through more than
-    one passage (`grounding_index.PASSAGES_PER_NOTE`) gets its connections computed once and shared: the
-    line must not be repeated in the prompt, or double-counted as withheld when it is not approved."""
+    reference is not the user's vault, and a properties passage already rides with the note that carries it.
+    A note found through more than one passage (`grounding_index.PASSAGES_PER_NOTE`) carries them on its first
+    passage only: said again under each, the lines of two notes with alike titles interleave, and a small model
+    has been seen to read one note's links as the other's (and the line would be counted as withheld twice)."""
     sandbox = vault_paths.resolve_sandbox(profile)
     if sandbox is None or not hits:
         return hits
@@ -110,8 +111,16 @@ def for_hits(profile: dict[str, Any], hits: list[dict[str, Any]]) -> list[dict[s
     labels, by_folder, by_label = index["labels"], index["by_folder"], index["by_label"]
     out, into = index["out"], index["into"]
 
+    def linked(path: str) -> dict[str, Any]:
+        """`{"to": [...], "from": [...], "more_to": n, "more_from": n}`: both directions, always, even empty."""
+        sides = {}
+        for side, notes in (("to", out.get(path, set())), ("from", into.get(path, set()))):
+            names = sorted(titles.get(other, other) for other in notes)
+            sides[side], sides[f"more_{side}"] = names[:MAX_LINKS], max(0, len(names) - MAX_LINKS)
+        return sides
+
     def connected(path: str) -> list[str]:
-        seen = {path}
+        seen = {path} | out.get(path, set()) | into.get(path, set())  # links are stated on their own line
         found: list[str] = []
 
         def add(candidates: set[str]) -> None:
@@ -121,7 +130,6 @@ def for_hits(profile: dict[str, Any], hits: list[dict[str, Any]]) -> list[dict[s
                 seen.add(other)
                 found.append(titles.get(other, other))
 
-        add(out.get(path, set()) | into.get(path, set()))
         own_labels = labels.get(path, set())
         if len(found) < MAX_PER_NOTE and own_labels:
             add({other for label in own_labels for other in by_label.get(label, set())})
@@ -129,15 +137,16 @@ def for_hits(profile: dict[str, Any], hits: list[dict[str, Any]]) -> list[dict[s
             add(by_folder.get(folders.get(path, ""), set()))
         return found
 
-    by_path: dict[str, list[str]] = {}
+    by_path: dict[str, dict[str, Any]] = {}
     updated = []
     for hit in hits:
         path = hit.get("rel_path")
         if hit.get("source") == reference.SOURCE or hit.get("kind") == "properties" or path not in titles:
             updated.append(hit)
             continue
-        if path not in by_path:
-            by_path[path] = connected(path)
-        found = by_path[path]
-        updated.append({**hit, "connections": found} if found else hit)
+        if path in by_path:  # a note's lines are stated once, with its first (best) passage, not under every passage
+            updated.append(hit)
+            continue
+        by_path[path] = found = {"links": linked(path), "connections": connected(path)}
+        updated.append({**hit, "links": found["links"], **({"connections": found["connections"]} if found["connections"] else {})})
     return updated

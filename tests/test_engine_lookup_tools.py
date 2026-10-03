@@ -84,7 +84,7 @@ def test_a_cloud_model_gets_the_notes_when_the_user_approved_them_but_not_the_pr
     result = lookup_tools.search_notes(ALL, CLOUD, "Atlas database")
 
     assert "SQLite" in result.text and "status: active" not in result.text
-    assert result.withheld == {"properties": 1} and "/share" in result.text
+    assert result.withheld == {"properties": 1, "connections": 1} and "/share" in result.text
 
 
 def test_a_note_is_opened_by_its_path_with_or_without_the_extension_in_any_case(scratch):
@@ -175,7 +175,7 @@ def test_a_note_found_through_open_carries_its_connections(scratch):
     put(scratch, "Projects/Atlas.md", "# Atlas\nSee [[Priya]].")
     put(scratch, "People/Priya.md", "A colleague.")
 
-    assert "Priya" in lookup_tools.open_note(ALL, LOCAL, "Atlas").text.split("Connected to")[-1]
+    assert "Priya" in lookup_tools.open_note(ALL, LOCAL, "Atlas").text.split("Links of")[-1]
 
 
 def test_run_gives_the_model_the_result_and_the_record_the_call(scratch):

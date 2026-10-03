@@ -592,6 +592,37 @@ def test_a_notes_connections_ride_with_it_and_are_stated_as_fact():
     assert text.index("Some notes about fonts.") < text.index("Ben; Cara")  # the note's own text comes first
 
 
+def _links(to=(), from_=(), more_to=0, more_from=0):
+    return {"to": list(to), "from": list(from_), "more_to": more_to, "more_from": more_from}
+
+
+def test_a_notes_links_are_stated_both_ways_with_the_reminder_that_others_are_not_linked():
+    result = {**_grounding_result(), "links": _links(to=["Core plugins"], from_=["Tabs", "Notes"])}
+
+    text = prompt.build_user_turn("who is Anna?", [result])
+
+    assert "Links of Typography (read from the vault): Typography links to Core plugins. Typography is linked from Tabs; Notes." in text
+    assert "Typography has no link with a note not named here, however alike the titles." in text
+    assert text.index("Some notes about fonts.") < text.index("Links of Typography")
+
+
+def test_a_note_with_no_links_says_so_instead_of_saying_nothing():
+    result = {**_grounding_result(), "links": _links()}
+
+    text = prompt.build_user_turn("who is Anna?", [result])
+
+    assert "Typography links to no note. Typography is linked from no note." in text
+
+
+def test_a_hubs_links_name_five_and_count_the_rest_without_claiming_the_others_are_not_linked():
+    result = {**_grounding_result(), "links": _links(to=["A", "B", "C", "D", "E"], more_to=3)}
+
+    text = prompt.build_user_turn("who is Anna?", [result])
+
+    assert "Typography links to A; B; C; D; E; and 3 more." in text
+    assert "has no link with a note" not in text  # three more are linked, so an unnamed note may be
+
+
 def test_notes_close_in_meaning_are_said_to_be_a_guess_after_the_connections():
     result = {**_grounding_result(), "connections": ["Ben"], "related": ["Cara", "Dee"]}
 

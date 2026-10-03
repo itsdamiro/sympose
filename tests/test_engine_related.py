@@ -290,6 +290,15 @@ def test_a_neighbour_already_named_as_a_connection_is_not_repeated(vault):
     assert out[0]["related"] == ["a3"]
 
 
+def test_a_neighbour_already_stated_as_a_link_is_not_repeated(vault):
+    put(vault, SPREAD)
+    links = {"to": ["a2"], "from": [], "more_to": 0, "more_from": 0}
+
+    out = related.for_hits(WHOLE, [hit("a.md", links=links)])
+
+    assert "a2" not in out[0]["related"]  # a linked note is a fact already told, never "possibly related"
+
+
 def test_it_is_at_most_three_and_the_level_still_applies(vault):
     put(vault, SPREAD)
     settings_store.set("connections_relevance", "wide")

@@ -90,9 +90,9 @@ def gate(
     for hit in grounding:
         if not keep(category_of(hit)):
             continue
-        if (hit.get("connections") or hit.get("related")) and CONNECTIONS not in ok:
+        if (hit.get("connections") or hit.get("related") or hit.get("links")) and CONNECTIONS not in ok:
             withheld[CONNECTIONS] = withheld.get(CONNECTIONS, 0) + 1
-            hit = {k: v for k, v in hit.items() if k not in ("connections", "related")}
+            hit = {k: v for k, v in hit.items() if k not in ("connections", "related", "links")}
         kept.append(hit)
     kept_recaps = [recap for recap in recaps if keep(RECAPS)]
     kept_chats = [chat for chat in chats or [] if keep(CHATS)]
@@ -119,7 +119,7 @@ def categories_of(
         present.add(VAULT_MAP)
     if memory:
         present.add(MEMORY)
-    if any(hit.get("connections") or hit.get("related") for hit in grounding):
+    if any(hit.get("connections") or hit.get("related") or hit.get("links") for hit in grounding):
         present.add(CONNECTIONS)
     return [name for name in CATEGORIES if name in present]
 

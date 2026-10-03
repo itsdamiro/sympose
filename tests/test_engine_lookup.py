@@ -308,7 +308,7 @@ def test_what_is_held_back_from_a_cloud_model_adds_up_over_the_lookups():
 
 def test_a_second_result_is_fitted_to_what_the_first_left_of_the_window(tmp_path):
     (tmp_path / "vault" / "Long.md").write_text("word " * 300)
-    limits = budget.Budget(prompt_tokens=700, num_ctx=None, reply_cap=None)
+    limits = budget.Budget(prompt_tokens=740, num_ctx=None, reply_cap=None)
     call = script(asks("open_note", '{"path": "Long"}', "1"), asks("open_note", '{"path": "Long"}', "2"), says("x"))
 
     done = lookup.converse(PERSONA, BASE, LOCAL, limits, used_tokens=100, call=call)

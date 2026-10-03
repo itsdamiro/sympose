@@ -201,7 +201,12 @@ WITHHELD_VAULT_MAP = (
 
 # A grounded note's connections to other notes (docs/decisions/035): computed from real links, tags
 # and folders, never guessed, so they are stated as fact when shown at all.
-CONNECTED_TO = "Connected to (by a link, a shared tag, or the same folder, not a search): {names}"
+CONNECTED_TO = "Also connected (shares a tag, an alias or a folder, not a link, not a search): {names}"
+# A grounded note's links, both ways, always stated, "no note" when none (docs/decisions/067): so "does A link to B" has
+# a literal answer and two alike titles are not read as a link.
+LINKS = "Links of {title} (read from the vault): {title} links to {to}. {title} is linked from {from_}."
+LINKS_NO_NOTE = "no note"
+LINKS_COMPLETE = " {title} has no link with a note not named here, however alike the titles."
 # The notes close in meaning to a grounded note (docs/decisions/066): a guess made from what the notes say, so it is
 # said as one and never as a link.
 RELATED_TO = "Possibly related (close in meaning, a guess from the text, not a link; never say they are linked): {names}"

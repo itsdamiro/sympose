@@ -106,6 +106,16 @@ def test_the_gate_strips_connections_from_a_surviving_hit_it_does_not_drop_the_h
     assert gated.grounding == [NOTE]  # the note itself was allowed; only its connections were not
 
 
+def test_the_gate_strips_a_notes_links_with_its_connections():
+    settings_store.set("cloud_share", ["notes"])
+    linked = {**NOTE, "links": {"to": [], "from": [], "more_to": 0, "more_from": 0}}
+
+    gated = sharing.gate(CLOUD, [linked], [])
+
+    assert gated.grounding == [NOTE] and gated.withheld == {"connections": 1}  # "no links" is not told unapproved
+    assert sharing.categories_of([linked], []) == ["notes", "connections"]
+
+
 def test_the_gate_keeps_connections_once_approved():
     settings_store.set("cloud_share", ["notes", "connections"])
     connected = {**NOTE, "connections": ["Ben"]}
