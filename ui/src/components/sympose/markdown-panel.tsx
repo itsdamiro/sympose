@@ -14,6 +14,7 @@ import "@damiro/stylo/styles.css"
 import "@damiro/stylo/katex.css"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
+  Alert02Icon,
   BookOpen01Icon,
   CodeIcon,
   FloppyDiskIcon,
@@ -43,6 +44,7 @@ import {
 } from "@hugeicons/core-free-icons"
 
 import { cn } from "@/lib/utils"
+import { EmptyState } from "@/components/sympose/empty-state"
 import { getCookieBool, setCookieBool } from "@/lib/cookies"
 import { eighthWidth, useResizable } from "@/lib/use-resizable"
 import { useFillWidth } from "@/lib/use-fill-width"
@@ -1002,9 +1004,7 @@ function MarkdownPanel({
       )}
 
       {note.status === "error" && (
-        <div className="grid flex-1 place-items-center px-6 text-center text-sm text-fg-muted">
-          Couldn't load this note.
-        </div>
+        <EmptyState icon={Alert02Icon} title="Couldn't load this note" />
       )}
 
       {note.status === "ready" && (

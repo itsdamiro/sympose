@@ -1,8 +1,10 @@
 import * as React from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
+import { UserIcon } from "@hugeicons/core-free-icons"
 
 import { cn } from "@/lib/utils"
 import { resolvePersonaVisuals, type LivePersona } from "@/lib/personas"
+import { EmptyState } from "@/components/sympose/empty-state"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { ModelChip } from "@/components/sympose/model-chip"
 import { PersonaFilesMenu } from "@/components/sympose/persona-files-menu"
@@ -57,10 +59,12 @@ function PersonaCard({
 
   if (!current) {
     return (
-      <p className={cn("text-sm text-fg-muted", className)}>
-        No personas found. Check the API at <code>/api/personas</code>
-        .
-      </p>
+      <EmptyState
+        className={className}
+        icon={UserIcon}
+        title="No personas found"
+        description="Check the API at /api/personas."
+      />
     )
   }
 

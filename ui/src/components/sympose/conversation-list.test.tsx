@@ -95,7 +95,7 @@ describe("ConversationList", () => {
     expect(screen.getByText("New conversation")).toBeTruthy()
     cleanup()
     setup([])
-    expect(screen.getByText("No conversations yet.")).toBeTruthy()
+    expect(screen.getByText("No conversations yet")).toBeTruthy()
   })
 
   it("marks the one on screen, the pinned, the replying and the unread", () => {

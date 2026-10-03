@@ -692,6 +692,7 @@ export function AppShell() {
               model={activePersonaModel}
               modelSlot={modelPicker("chat")}
               personaName={activePersonaName}
+              personaHandle={activePersona}
               open={chatOpen}
               phone={isPhone}
             />

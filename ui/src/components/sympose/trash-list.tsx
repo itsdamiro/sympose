@@ -1,15 +1,9 @@
 import * as React from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { ArrowRight01Icon, Delete02Icon, DeletePutBackIcon, File01Icon, Folder01Icon } from "@hugeicons/core-free-icons"
+import { Alert02Icon, ArrowRight01Icon, Delete02Icon, DeletePutBackIcon, File01Icon, Folder01Icon } from "@hugeicons/core-free-icons"
 import { cn } from "@/lib/utils"
 import { ago } from "@/lib/ago"
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty"
+import { EmptyAction, EmptyState } from "@/components/sympose/empty-state"
 import { BinRow } from "@/components/sympose/bin-row"
 import { confirm } from "@/lib/confirm-store"
 import { notify } from "@/lib/notify"
@@ -146,12 +140,13 @@ function TrashList({
 
   if (bin === null) {
     return failed ? (
-      <div className={cn("flex flex-col items-start gap-2 text-sm text-fg-muted", className)}>
-        <p>Couldn&apos;t load the bin. Is the backend running?</p>
-        <button type="button" onClick={reload} className="rounded-md px-2 py-1 text-xs hover:bg-accent hover:text-foreground">
-          Try again
-        </button>
-      </div>
+      <EmptyState
+        className={className}
+        icon={Alert02Icon}
+        title="Couldn't load the bin"
+        description="Is the backend running?"
+        action={<EmptyAction onClick={reload}>Try again</EmptyAction>}
+      />
     ) : (
       <p className={cn("text-sm text-fg-muted", className)}>Loading bin…</p>
     )
@@ -160,17 +155,12 @@ function TrashList({
   const { items, folders } = bin
   if (items.length === 0) {
     return (
-      <Empty className={cn("border-0 p-8", className)}>
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <HugeiconsIcon icon={Delete02Icon} />
-          </EmptyMedia>
-          <EmptyTitle>No deleted notes</EmptyTitle>
-          <EmptyDescription>
-            Deleted notes and files land here and can be restored to where they were.
-          </EmptyDescription>
-        </EmptyHeader>
-      </Empty>
+      <EmptyState
+        className={className}
+        icon={Delete02Icon}
+        title="No deleted notes"
+        description="Deleted notes and files land here and can be restored to where they were."
+      />
     )
   }
 

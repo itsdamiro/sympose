@@ -11,6 +11,7 @@ import {
 
 import { cn } from "@/lib/utils"
 import { agoIso } from "@/lib/ago"
+import { EmptyState } from "@/components/sympose/empty-state"
 import { GroupCaption } from "@/components/sympose/group-caption"
 import { ResultText } from "@/components/sympose/result-text"
 import { RowActionsTrigger } from "@/components/sympose/row-actions"
@@ -210,7 +211,7 @@ function ConversationList({ sessions, onOpen, onRename, onPin, onDelete, classNa
   return (
     <section className={cn("flex flex-col gap-2", className)} aria-label="Conversations">
       {sessions.length === 0 ? (
-        <p className="text-sm text-fg-muted">No conversations yet.</p>
+        <EmptyState compact icon={Message01Icon} title="No conversations yet" />
       ) : (
         <ConversationGroups sessions={sessions} rowProps={{ onOpen, onRename, onPin, onDelete }} />
       )}

@@ -1,6 +1,5 @@
 import * as React from "react"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { Delete02Icon, DeletePutBackIcon, Message01Icon } from "@hugeicons/core-free-icons"
+import { Alert02Icon, Delete02Icon, DeletePutBackIcon, Message01Icon } from "@hugeicons/core-free-icons"
 
 import { cn } from "@/lib/utils"
 import { ago } from "@/lib/ago"
@@ -14,7 +13,7 @@ import {
   restoreSession,
   type BinnedSession,
 } from "@/lib/sessions-api"
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
+import { EmptyAction, EmptyState } from "@/components/sympose/empty-state"
 
 /**
  * The deleted conversations of the active persona, in the Bin and apart from the notes (ADR 057). Each can be put
@@ -98,12 +97,13 @@ function ConversationBin({
 
   if (rows === null) {
     return failed ? (
-      <div className={cn("flex flex-col items-start gap-2 text-sm text-fg-muted", className)}>
-        <p>Couldn&apos;t load the deleted conversations. Is the backend running?</p>
-        <button type="button" onClick={reload} className="rounded-md px-2 py-1 text-xs hover:bg-accent hover:text-foreground">
-          Try again
-        </button>
-      </div>
+      <EmptyState
+        className={className}
+        icon={Alert02Icon}
+        title="Couldn't load the deleted conversations"
+        description="Is the backend running?"
+        action={<EmptyAction onClick={reload}>Try again</EmptyAction>}
+      />
     ) : (
       <p className={cn("text-sm text-fg-muted", className)}>Loading…</p>
     )
@@ -111,15 +111,12 @@ function ConversationBin({
 
   if (rows.length === 0) {
     return (
-      <Empty className={cn("border-0 p-8", className)}>
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <HugeiconsIcon icon={Delete02Icon} />
-          </EmptyMedia>
-          <EmptyTitle>No deleted conversations</EmptyTitle>
-          <EmptyDescription>A conversation you delete lands here and can be put back.</EmptyDescription>
-        </EmptyHeader>
-      </Empty>
+      <EmptyState
+        className={className}
+        icon={Delete02Icon}
+        title="No deleted conversations"
+        description="A conversation you delete lands here and can be put back."
+      />
     )
   }
 

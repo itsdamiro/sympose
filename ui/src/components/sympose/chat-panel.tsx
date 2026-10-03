@@ -3,6 +3,8 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { BubbleChatAddIcon, PinIcon, StopIcon } from "@hugeicons/core-free-icons"
 
 import { cn } from "@/lib/utils"
+import { resolvePersonaVisuals } from "@/lib/personas"
+import { EmptyState } from "@/components/sympose/empty-state"
 import type { ChatPhase } from "@/lib/chat-api"
 import type { ChatTurn } from "@/lib/chat-types"
 import { ChatMessage } from "@/components/sympose/chat-message"
@@ -67,6 +69,8 @@ interface ChatPanelProps extends React.ComponentProps<"div"> {
   modelSlot?: React.ReactNode
   /** Active persona's display name, for the empty-state copy and placeholder. */
   personaName?: string
+  /** The persona's handle: her icon and accent mark the empty conversation, as they mark her replies. */
+  personaHandle?: string
   /** Revealed when true (default), collapsed when false — same contract as
    *  `<ContentPanel>`/`<MarkdownPanel>`. Always mounted either way so the
    *  open/close transition can play. */
@@ -120,12 +124,14 @@ function ChatPanel({
   model,
   modelSlot,
   personaName = "Samantha",
+  personaHandle = "samantha",
   open = true,
   phone = false,
   style,
   ...props
 }: ChatPanelProps) {
   const showStop = sending && !!onStop
+  const visuals = resolvePersonaVisuals(personaHandle)
   // Condense is offered only when it is worth it (the meter is amber and there is something to fold), not all the time.
   const advised = condenseAdvised({
     figure: contextFigure,
@@ -263,9 +269,12 @@ function ChatPanel({
             </div>
           )}
           {turns.length === 0 ? (
-            <div className="grid flex-1 place-items-center px-6 text-center text-sm text-fg-muted">
-              Ask {personaName} anything about your vault.
-            </div>
+            <EmptyState
+              icon={visuals.icon}
+              accent={visuals.accent}
+              title={`Ask ${personaName} anything`}
+              description="Start with a question about your vault."
+            />
           ) : (
             turns.map((turn) =>
               turn.role === "system" ? (

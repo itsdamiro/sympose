@@ -1,5 +1,7 @@
 import * as React from "react"
+import { Folder01Icon, Search01Icon } from "@hugeicons/core-free-icons"
 
+import { EmptyState } from "@/components/sympose/empty-state"
 import { cn, stripMdExtension } from "@/lib/utils"
 import { vaultScopedKey } from "@/lib/cookies"
 import { useBinPreferences } from "@/lib/use-bin-section-preference"
@@ -142,22 +144,25 @@ export function VaultFolderView({
             onConversationRestored={onConversationRestored}
           />
         ) : vaultTreeEmpty ? (
-          <p className="text-sm text-fg-muted">
-            No notes in scope — check that the API is reachable
-            and the persona has vault folders.
-          </p>
+          <EmptyState
+            icon={Folder01Icon}
+            title="No notes in scope"
+            description="Check that the API is reachable and the persona has vault folders."
+          />
         ) : (
           <>
             {panelEmpty && (
-              <p className="text-sm text-fg-muted">This folder is empty.</p>
+              <EmptyState icon={Folder01Icon} title="This folder is empty" />
             )}
             {!panelEmpty &&
               vaultSearchQuery &&
               searchedPanelNodes.length === 0 &&
               contentMatches.length === 0 && (
-                <p className="text-sm text-fg-muted">
-                  No matches for "{vaultSearchQuery}" in {activeLabel}.
-                </p>
+                <EmptyState
+                  icon={Search01Icon}
+                  title={`No matches for "${vaultSearchQuery}"`}
+                  description={`in ${activeLabel}`}
+                />
               )}
             {(searchedPanelNodes.length > 0 ||
               pinnedNodes.length > 0 ||

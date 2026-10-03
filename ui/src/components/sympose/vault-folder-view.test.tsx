@@ -120,7 +120,7 @@ describe("VaultFolderView: what is said instead of a tree", () => {
 
   it("says an empty folder is empty, and shows no tree", () => {
     setup({ panelEmpty: true, searchedPanelNodes: [] })
-    expect(screen.getByText("This folder is empty.")).toBeTruthy()
+    expect(screen.getByText("This folder is empty")).toBeTruthy()
     expect(screen.queryByTestId("tree")).toBeNull()
   })
 
@@ -131,7 +131,7 @@ describe("VaultFolderView: what is said instead of a tree", () => {
 
   it("says nothing matched, in the folder, when a search found nothing anywhere in it", () => {
     setup({ vaultSearchQuery: "zzz", searchedPanelNodes: [], contentMatches: [] })
-    expect(screen.getByText(/No matches for "zzz" in Notes\./)).toBeTruthy()
+    expect(screen.getByText(/No matches for "zzz"/)).toBeTruthy()
   })
 
   it("does not say so when nothing is being searched for, whatever the tree holds", () => {
@@ -149,7 +149,7 @@ describe("VaultFolderView: what is said instead of a tree", () => {
 
   it("does not say so, nor that the folder is empty, when the folder is empty but the search found things elsewhere", () => {
     setup({ panelEmpty: false, vaultSearchQuery: "a", searchedPanelNodes: [], beyondFolderMatches: [hit("Daily/x.md")] })
-    expect(screen.queryByText("This folder is empty.")).toBeNull()
+    expect(screen.queryByText("This folder is empty")).toBeNull()
   })
 })
 
