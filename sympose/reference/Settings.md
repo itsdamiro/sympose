@@ -132,6 +132,18 @@ The `embedding_min_similarity` setting is how close in meaning a note must be to
 
 The `embedding_margin` setting keeps only the notes that are nearly as close in meaning as the best one, so a near neighbour does not come along with the note you needed. It is a number from 0 to 1 and the default is 0.02. A larger number attaches more notes, and 1 attaches every note that reaches `embedding_min_similarity`.
 
+## connections_by_meaning
+
+The `connections_by_meaning` setting decides whether Sympose finds notes close in meaning to a note. `"auto"`, the default, finds them from the passages already indexed for search, with no extra model call; `"off"` finds none.
+
+Samantha is told of them on a separate line, "possibly related", as a guess from the text. The web app's notes panel lists them under Related notes. A cloud model is told only if `cloud_share` allows `"connections"`.
+
+## connections_relevance
+
+The `connections_relevance` setting is how close in meaning a note must be to count as possibly related: `"close"` keeps few, nearly all clearly related, `"balanced"` (the default) is right about 85 to 89% of the time, and `"wide"` lets looser ones in.
+
+The same level decides what Samantha is told and what the notes panel lists. It is a level and not a number because the right number depends on the embedding model.
+
 ## folder_definition_min_notes
 
 The `folder_definition_min_notes` setting is how many notes a top-level folder needs before `sympose vault --health` offers it a definition note. The default is 5.

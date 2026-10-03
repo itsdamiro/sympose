@@ -416,6 +416,8 @@ REF_CASES: list[RefCase] = [
     RefCase("past-chats-setting", "can she read my earlier conversations word for word? what is past_chats?", find=("`past_chats` setting",)),
     RefCase("recap-count-setting", "how many earlier conversations does she remember? what is recap_count?", find=("`recap_count` setting",)),
     RefCase("no-answer-from-model", "it says there was no answer from the model, what do I do?", find=("model_timeout",)),
+    RefCase("connections-by-meaning-setting", "what does the connections_by_meaning setting do?", find=("`connections_by_meaning` setting",), first="Settings.md"),
+    RefCase("connections-relevance-setting", "how do I get fewer notes in the related notes list? connections_relevance", find=("`connections_relevance` setting",), first="Settings.md"),
     RefCase("history-tokens-setting", "can I limit how much of the earlier conversation is sent each time? history_tokens", find=("`history_tokens` setting",)),
 ]
 
