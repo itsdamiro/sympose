@@ -62,6 +62,7 @@ import { parseFrontmatter, serializeFrontmatter } from "@/lib/frontmatter"
 import type { EditorPreferences } from "@/lib/use-editor-preferences"
 import { FrontmatterCard } from "@/components/sympose/frontmatter-card"
 import { NoteActionsMenu } from "@/components/sympose/note-actions-menu"
+import { PanelCollapseButton } from "@/components/sympose/panel-collapse-button"
 import { ScrollThumb } from "@/components/sympose/scroll-thumb"
 import { CodeBlockCopyButtons } from "@/components/sympose/code-block-copy-button"
 
@@ -182,6 +183,8 @@ interface MarkdownPanelProps extends React.ComponentProps<"div"> {
   /** The toolbar's button set — Settings > Markdown editor >
    *  `<StyloToolbarSettings>`. */
   toolbarItems: ToolbarItem[]
+  /** Collapses the editor; its button is the first icon of the toolbar, at the far left. Omit where it cannot collapse. */
+  onCollapse?: () => void
   /**
    * Revealed when true (default), collapsed when false. The panel stays mounted
    * either way and transitions its width / opacity / offset, so it fades and
@@ -408,6 +411,7 @@ function MarkdownPanel({
   vaultName,
   preferences,
   toolbarItems,
+  onCollapse,
   open = true,
   fill = false,
   phone = false,
@@ -926,7 +930,7 @@ function MarkdownPanel({
           // `_ENTER`) and the note-switch wrapper (`slideExitClassName`/
           // `slideEnterClassName`) respectively, via scoped descendant
           // selectors — the same one marker serves both animations.
-          <div className="min-h-9.25 border-b border-border">
+          <div className={cn("min-h-9.25 border-b border-border", onCollapse && "ps-7.5")}>
             <div className="sy-note-chrome">{bar}</div>
           </div>
         ),
@@ -1035,7 +1039,7 @@ function MarkdownPanel({
             // doesn't flip until the exit's `animationend` commits it), so the line
             // itself never slides or fades; only the `.sy-note-chrome`
             // breadcrumb inside does.
-            <div className="flex min-h-9.25 shrink-0 items-center border-b border-border pr-24 pl-1.5">
+            <div className={cn("flex min-h-9.25 shrink-0 items-center border-b border-border pr-24", onCollapse ? "pl-9" : "pl-1.5")}>
               <div className="sy-note-chrome flex min-w-0 flex-1">
                 {breadcrumb}
               </div>
@@ -1189,7 +1193,7 @@ function MarkdownPanel({
           the ambient nebula); on phone it drops to the plain background */}
       <div
         className={cn(
-          "flex h-full w-full flex-col overflow-hidden",
+          "relative flex h-full w-full flex-col overflow-hidden",
           phone
             ? "text-foreground"
             : "rounded-lg sy-frosted-panel text-panel-foreground"
@@ -1226,6 +1230,14 @@ function MarkdownPanel({
         >
           {notePayload.node}
         </div>
+        {onCollapse && (
+          // The collapse button: the far-left counterpart of the note's own buttons at the far right, a fixed overlay
+          // on the card itself (not inside the slide-swapped note) so it stays put across a note switch, the read/edit
+          // toggle, and an empty or loading editor. The toolbar and the read-mode path row are inset to clear it.
+          <div className="absolute top-1 left-1.5 z-10">
+            <PanelCollapseButton label="Collapse the editor" onClick={onCollapse} />
+          </div>
+        )}
       </div>
 
       {/* right-edge resize handle — mirrors <ContentPanel>; gone when filling

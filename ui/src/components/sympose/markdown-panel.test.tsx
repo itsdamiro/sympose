@@ -132,4 +132,39 @@ describe("MarkdownPanel leaving a note with unsaved edits", () => {
     view.rerender(<MarkdownPanel {...props} previewRequest={1} />)
     await waitFor(() => expect(screen.getByLabelText("editor").getAttribute("data-mode")).toBe("preview"))
   })
+
+  describe("the collapse button", () => {
+    const base = { preferences: PREFERENCES, toolbarItems: [] }
+
+    it("is the far-left icon of the editor's toolbar, and collapses the editor", async () => {
+      const onCollapse = vi.fn()
+      render(<MarkdownPanel {...base} path="Old.md" onCollapse={onCollapse} />)
+      await screen.findByLabelText("editor")
+      const button = screen.getByRole("button", { name: "Collapse the editor" })
+      expect(button.parentElement?.className).toContain("left-1.5") // the far left, as the note's own buttons are the far right
+      fireEvent.click(button)
+      expect(onCollapse).toHaveBeenCalledTimes(1)
+    })
+
+    it("is there when no note is open, so an empty editor can be collapsed too", () => {
+      render(<MarkdownPanel {...base} path={undefined} onCollapse={() => {}} />)
+      expect(screen.getByRole("button", { name: "Collapse the editor" })).toBeTruthy()
+    })
+
+    it("is left out when the panel cannot be collapsed", async () => {
+      render(<MarkdownPanel {...base} path="Old.md" />)
+      await screen.findByLabelText("editor")
+      expect(screen.queryByRole("button", { name: "Collapse the editor" })).toBeNull()
+    })
+
+    it("makes room for itself in the read-mode path row, which has no toolbar of stylo's", async () => {
+      const view = render(<MarkdownPanel {...base} path="Old.md" previewRequest={0} onCollapse={() => {}} />)
+      await screen.findByLabelText("editor")
+      view.rerender(<MarkdownPanel {...base} path="Old.md" previewRequest={1} onCollapse={() => {}} />)
+      await waitFor(() => expect(screen.getByLabelText("editor").getAttribute("data-mode")).toBe("preview"))
+      const row = document.querySelector(".sy-note-chrome")?.parentElement as HTMLElement
+      expect(row.className).toContain("pl-9")
+      expect(row.className).not.toContain("pl-1.5")
+    })
+  })
 })

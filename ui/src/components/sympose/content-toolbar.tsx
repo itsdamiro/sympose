@@ -10,6 +10,7 @@ import {
 } from "@hugeicons/core-free-icons"
 
 import { cn } from "@/lib/utils"
+import { PanelCollapseButton } from "@/components/sympose/panel-collapse-button"
 import type { CreateKind } from "@/lib/use-create-flow"
 
 /**
@@ -45,6 +46,7 @@ export function ContentToolbar({
   submitCreate,
   noteInputRef,
   folderInputRef,
+  onCollapse,
 }: {
   canGoBack: boolean
   canGoForward: boolean
@@ -66,10 +68,13 @@ export function ContentToolbar({
   submitCreate: () => Promise<void>
   noteInputRef: React.RefObject<HTMLInputElement | null>
   folderInputRef: React.RefObject<HTMLInputElement | null>
+  /** Collapses the panel; its button is the first icon, at the far left. Omit where the panel cannot collapse. */
+  onCollapse?: () => void
 }) {
   return (
     <div className="flex items-center justify-between gap-1">
       <div className="flex items-center gap-0.5">
+        {onCollapse && <PanelCollapseButton label="Collapse the content panel" onClick={onCollapse} />}
         <button
           type="button"
           onClick={goBack}

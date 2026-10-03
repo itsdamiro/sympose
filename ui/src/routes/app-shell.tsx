@@ -303,6 +303,7 @@ export function AppShell() {
 
   const contentHeader = (
     <ContentToolbar
+      onCollapse={isPhone ? undefined : () => panels.close("content")}
       canGoBack={canGoBack}
       canGoForward={canGoForward}
       goBack={goBack}
@@ -554,6 +555,7 @@ export function AppShell() {
           </ContentPanel>
 
           <MarkdownPanel
+            onCollapse={isPhone ? undefined : () => panels.close("editor")}
             storageKey="sympose:shell.md"
             path={openableNote}
             persona={activePersona}

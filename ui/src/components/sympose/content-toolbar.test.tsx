@@ -39,6 +39,18 @@ function setup(over: Partial<React.ComponentProps<typeof ContentToolbar>> = {}) 
 }
 
 describe("ContentToolbar: back and forward", () => {
+  it("has the collapse button first, before back and forward, only when the panel can be collapsed", () => {
+    const onCollapse = vi.fn()
+    setup({ onCollapse })
+    const buttons = screen.getAllByRole("button")
+    expect(buttons[0].getAttribute("aria-label")).toBe("Collapse the content panel")
+    fireEvent.click(buttons[0])
+    expect(onCollapse).toHaveBeenCalledTimes(1)
+    cleanup()
+    setup()
+    expect(screen.queryByRole("button", { name: "Collapse the content panel" })).toBeNull()
+  })
+
   it("goes back and forward", () => {
     const p = setup()
     fireEvent.click(screen.getByLabelText("Back"))
