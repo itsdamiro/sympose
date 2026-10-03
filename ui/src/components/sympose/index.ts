@@ -52,7 +52,7 @@ export {
 export { ThemeToggle } from "./theme-toggle"
 export { TopBar } from "./top-bar"
 export { TrashList } from "./trash-list"
-export { BinView } from "./bin-view"
+export { BinView, BinSectionPills } from "./bin-view"
 export { ConversationList } from "./conversation-list"
 export { WorkspaceSection } from "./workspace-section"
 export { WorkspaceSwitcher } from "./workspace-switcher"

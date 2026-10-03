@@ -374,6 +374,30 @@ export function AppShell() {
     />
   )
 
+  // The model picker, in the chat's footer and on the Persona page (a pick is saved on the persona either way). The
+  // cloud notice, with its switches, shows in the panel the picker was used from: `noticeAt` is where it was last asked
+  // for, and the other panel's picker offers to bring it there.
+  const [noticeAt, setNoticeAt] = React.useState<"chat" | "persona">("chat")
+  const noticeIn = (panel: "chat" | "persona") => cloudNotice.open && noticeAt === panel
+  const cloudNoticeBox = (
+    <CloudNotice state={sharingState} onChange={setShared} onClose={cloudNotice.close} />
+  )
+  const modelPicker = (panel: "chat" | "persona") =>
+    models.state ? (
+      <ModelPicker
+        state={models.state}
+        onChoose={(model) => {
+          setNoticeAt(panel)
+          switchModel(model)
+        }}
+        noticeClosed={!noticeIn(panel)}
+        onShowNotice={() => {
+          setNoticeAt(panel)
+          cloudNotice.reopen()
+        }}
+        {...(panel === "persona" ? { side: "bottom" as const, align: "start" as const } : {})}
+      />
+    ) : undefined
   const contentBody =
     active === MENU_ACCOUNT_ID ? (
       <PersonaCard
@@ -382,6 +406,8 @@ export function AppShell() {
         phone={isPhone}
         files={personaFiles.files}
         onOpenFile={openPersonaFile}
+        modelSlot={modelPicker("persona")}
+        notice={noticeIn("persona") ? cloudNoticeBox : undefined}
         conversations={
           <ConversationList
             sessions={sessionList.sessions}
@@ -658,13 +684,13 @@ export function AppShell() {
               statusPhrases={statusPhrases}
               contextFigure={chatDisplayPrefs.showMeter ? contextFigure : null}
               typeStatus={chatDisplayPrefs.typeStatus}
-              notice={cloudNotice.open ? <CloudNotice state={sharingState} onChange={setShared} onClose={cloudNotice.close} /> : undefined}
+              notice={noticeIn("chat") ? cloudNoticeBox : undefined}
               draft={chat.draft}
               onDraftChange={chat.setDraft}
               onSubmit={chat.send}
               onStop={chat.stop}
               model={activePersonaModel}
-              modelSlot={models.state ? <ModelPicker state={models.state} onChoose={switchModel} noticeClosed={!cloudNotice.open} onShowNotice={cloudNotice.reopen} /> : undefined}
+              modelSlot={modelPicker("chat")}
               personaName={activePersonaName}
               open={chatOpen}
               phone={isPhone}

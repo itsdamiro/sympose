@@ -35,4 +35,17 @@ describe("PersonaCard", () => {
     fireEvent.click(await screen.findByText("Profile"))
     expect(onOpenFile).toHaveBeenCalledWith("profile.md")
   })
+
+  it("shows the model picker given to it, the chat's own, in place of the plain chip", () => {
+    const { container } = render(
+      <PersonaCard personas={personas} active="samantha" modelSlot={<button>pick a model</button>} />
+    )
+    expect(screen.getByRole("button", { name: "pick a model" })).toBeTruthy()
+    expect(container.querySelector('[data-slot="model-chip"]')).toBeNull()
+  })
+
+  it("shows the cloud notice under the model row when it is given one", () => {
+    render(<PersonaCard personas={personas} active="samantha" notice={<div>may receive</div>} />)
+    expect(screen.getByText("may receive")).toBeTruthy()
+  })
 })

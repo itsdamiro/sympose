@@ -83,3 +83,7 @@ The Bin's rows carried two always-reserved buttons (Restore, Delete) where the f
 
 The app's lines between the turns (a confirmation, an error, a notice, the condensed notes) were plain muted text in the persona column's width, and damiro took the condensed notes for part of a reply. `ChatSystemLine` is now a small bordered card with an icon by kind (the danger tint for an error), and a passage with a `title` (the notes that stand for condensed turns: "The turns above are condensed into these notes", "The notes", "The notes now") has a heading over its text, in prose rather than mono. The terminal is unchanged.
 
+## Amendment (2026-10-03): the Bin's two pills, the model picker on the Persona page, the cloud notice where it was asked for
+
+The Bin's Notes and Conversations switch is two pills with an icon each (a file, a message), inline with the page title at its right edge, and the choice is kept in a cookie (`sympose:bin.section`, notes by default). The Persona page shows the chat's own model picker in place of the plain model chip, so the model can be changed there too (the same component, opening below and from the left edge there, above the composer in the chat). The cloud notice (what the model may receive, ADR 031) is drawn in the panel the picker was used from: a pick, or "What this model may receive…", in one panel shows it there and not in the other, whose picker offers to bring it over.
+

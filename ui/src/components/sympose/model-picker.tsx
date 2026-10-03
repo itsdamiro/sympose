@@ -23,6 +23,8 @@ function ModelPicker({
   onChoose,
   noticeClosed = false,
   onShowNotice,
+  side = "top",
+  align = "end",
   className,
 }: {
   state: ModelsState | null
@@ -30,6 +32,9 @@ function ModelPicker({
   /** The cloud notice was closed: a cloud model's menu then offers to bring it back. */
   noticeClosed?: boolean
   onShowNotice?: () => void
+  /** Where the menu opens: above the composer by default; below and from the left edge on the Persona page. */
+  side?: "top" | "bottom"
+  align?: "start" | "end"
   className?: string
 }) {
   if (!state) return null
@@ -51,7 +56,7 @@ function ModelPicker({
         <HugeiconsIcon icon={state.currentCloud ? CloudIcon : ComputerIcon} />
         {short}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" side="top" className="w-auto min-w-64">
+      <DropdownMenuContent align={align} side={side} className="w-auto min-w-64">
         {state.models.map((m) => (
           <DropdownMenuItem key={m.id} onClick={() => m.id !== state.current && onChoose(m.id)}>
             <HugeiconsIcon icon={m.cloud ? CloudIcon : ComputerIcon} className="text-fg-muted" />

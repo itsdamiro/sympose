@@ -2,11 +2,13 @@ import * as React from "react"
 
 import { cn, stripMdExtension } from "@/lib/utils"
 import { vaultScopedKey } from "@/lib/cookies"
+import { useBinPreferences } from "@/lib/use-bin-section-preference"
 import { isNoteDrag, readNoteDrag } from "@/lib/vault-drag"
 import type { VaultSearchResult } from "@/lib/vault-search-api"
 import {
   SearchResultRow,
   BinView,
+  BinSectionPills,
   VaultTree,
   collectFolderPaths,
   searchMatchDetail,
@@ -82,8 +84,10 @@ export function VaultFolderView({
   openEditor: () => void
 }) {
   const [dragOverRootHeading, setDragOverRootHeading] = React.useState(false)
+  const [bin, setBin] = useBinPreferences()
   return (
       <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between gap-2">
         <h2
           className={cn(
             "-mx-2 min-w-0 truncate rounded-md px-2 font-heading text-2xl font-semibold text-fg-strong transition-colors",
@@ -126,9 +130,12 @@ export function VaultFolderView({
         >
           {trashView ? "Bin" : activeLabel || "Vault"}
         </h2>
+        {trashView && <BinSectionPills section={bin.section} onChange={(next) => setBin("section", next)} />}
+        </div>
         {trashView ? (
           <BinView
             persona={activePersona}
+            section={bin.section}
             refreshKey={vaultRefreshKey}
             conversationsKey={conversationBinKey}
             onNoteRestored={() => refreshVault()}
