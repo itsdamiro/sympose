@@ -51,6 +51,7 @@ import {
   MENU_TRASH_ID,
   NebulaModeToggle,
   ThemeToggle,
+  PersonaSwitcher,
   TopBar,
 } from "@/components/sympose"
 
@@ -330,7 +331,6 @@ export function AppShell() {
       <PersonaCard
         personas={rosterPersonas}
         active={activePersona}
-        onSwitch={setActivePersona}
         phone={isPhone}
         conversations={
           <ConversationList
@@ -543,6 +543,8 @@ export function AppShell() {
                 <div className="flex items-center justify-end">
                   <ThemeToggle />
                 </div>
+              ) : active === MENU_ACCOUNT_ID ? (
+                <PersonaSwitcher personas={rosterPersonas} active={activePersona} onSwitch={setActivePersona} />
               ) : undefined
             }
           >

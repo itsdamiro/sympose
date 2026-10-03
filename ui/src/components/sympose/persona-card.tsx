@@ -12,8 +12,6 @@ interface PersonaCardProps {
   personas: LivePersona[]
   /** Handle of the active persona. */
   active: string
-  /** Switch the active persona (writes the cookie upstream). */
-  onSwitch: (handle: string) => void
   /**
    * Phone shell: the containing panel is padded `px-4 py-6` instead of the
    * desktop `p-8`, so the accent band's bleed margins change to match.
@@ -25,7 +23,8 @@ interface PersonaCardProps {
 }
 
 /**
- * The Persona panel — identity of the active persona plus a switcher. Soul
+ * The Persona panel — identity of the active persona (the switch to another is `PersonaSwitcher`, pinned under the
+ * panel). Soul
  * and Memory open the persona's markdown; both are disabled until their
  * endpoints land (`GET /api/personas/{handle}/soul|memory`). The persona's
  * conversations are listed under the model row (ADR 057). The header band is tinted with the persona's own accent,
@@ -36,13 +35,11 @@ interface PersonaCardProps {
 function PersonaCard({
   personas,
   active,
-  onSwitch,
   phone = false,
   conversations,
   className,
 }: PersonaCardProps) {
   const current = personas.find((p) => p.handle === active) ?? personas[0]
-  const others = personas.filter((p) => p.handle !== current?.handle)
 
   if (!current) {
     return (
@@ -129,42 +126,6 @@ function PersonaCard({
         </>
       )}
 
-      {others.length > 0 && (
-        <>
-          <hr className="border-border" />
-          <div className="flex flex-col gap-2">
-            <span className="text-xs font-semibold tracking-wide text-fg-muted uppercase">
-              Switch personas
-            </span>
-            <div className="flex flex-wrap gap-2">
-              {others.map((p) => {
-                const v = resolvePersonaVisuals(p.handle)
-                return (
-                  <button
-                    key={p.handle}
-                    type="button"
-                    onClick={() => onSwitch(p.handle)}
-                    title={`${p.name} — ${p.title}`}
-                    className="rounded-full outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                  >
-                    <Avatar
-                      size="default"
-                      className="size-9 transition-transform hover:scale-105"
-                    >
-                      <AvatarFallback
-                        className="text-xs font-medium text-background"
-                        style={{ background: v.accent }}
-                      >
-                        <HugeiconsIcon icon={v.icon} className="size-4" />
-                      </AvatarFallback>
-                    </Avatar>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        </>
-      )}
     </div>
   )
 }
