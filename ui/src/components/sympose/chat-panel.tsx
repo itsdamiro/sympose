@@ -71,6 +71,8 @@ interface ChatPanelProps extends React.ComponentProps<"div"> {
   personaName?: string
   /** The persona's handle: her icon and accent mark the empty conversation, as they mark her replies. */
   personaHandle?: string
+  /** Her title, under the greeting of an empty conversation. */
+  personaTitle?: string
   /** Revealed when true (default), collapsed when false — same contract as
    *  `<ContentPanel>`/`<MarkdownPanel>`. Always mounted either way so the
    *  open/close transition can play. */
@@ -125,6 +127,7 @@ function ChatPanel({
   modelSlot,
   personaName = "Samantha",
   personaHandle = "samantha",
+  personaTitle,
   open = true,
   phone = false,
   style,
@@ -273,7 +276,7 @@ function ChatPanel({
               icon={visuals.icon}
               accent={visuals.accent}
               title={`Ask ${personaName} anything`}
-              description="Start with a question about your vault."
+              description={personaTitle || undefined}
             />
           ) : (
             turns.map((turn) =>

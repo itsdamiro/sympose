@@ -693,6 +693,7 @@ export function AppShell() {
               modelSlot={modelPicker("chat")}
               personaName={activePersonaName}
               personaHandle={activePersona}
+              personaTitle={rosterPersonas.find((p) => p.handle === activePersona)?.title}
               open={chatOpen}
               phone={isPhone}
             />

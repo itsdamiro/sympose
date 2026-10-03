@@ -320,10 +320,10 @@ describe("ChatPanel", () => {
     expect(await screen.findByText(/Based on 1 earlier exchange/)).toBeTruthy()
   })
 
-  it("greets an empty conversation with the persona's icon, her name and a way to start, as the Bin's empty list does", () => {
-    const { container } = render(<ChatPanel turns={[]} draft="" onDraftChange={() => {}} onSubmit={() => {}} personaName="Ada" />)
+  it("greets an empty conversation with the persona's icon, her name and her title, as the Bin's empty list does", () => {
+    const { container } = render(<ChatPanel turns={[]} draft="" onDraftChange={() => {}} onSubmit={() => {}} personaName="Ada" personaTitle="Proofreader" />)
     expect(screen.getByText("Ask Ada anything")).toBeTruthy()
-    expect(screen.getByText("Start with a question about your vault.")).toBeTruthy()
+    expect(screen.getByText("Proofreader")).toBeTruthy() // her own title, not a line about the vault
     expect(container.querySelector('[data-slot="empty-icon"] svg')).not.toBeNull()
   })
 
