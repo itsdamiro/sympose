@@ -41,6 +41,16 @@ describe("ConversationList", () => {
     expect(spies.onOpen).toHaveBeenCalledWith("b")
   })
 
+  it("draws each row as a search result is drawn: an icon, the title and a detail line beneath it", () => {
+    setup([row("a"), row("b", { pinned_at: "2026-10-01T00:00:00Z" })])
+    const blocks = document.querySelectorAll('[data-slot="result-text"]')
+    expect(blocks).toHaveLength(2)
+    expect(blocks[0].textContent).toContain("Title a")
+    expect(blocks[0].textContent).toContain("2 turns · 3h ago")
+    expect(blocks[0].querySelector("svg")).toBeTruthy()
+    expect(blocks[1].querySelector('svg[aria-label="Pinned"]')).toBeTruthy() // a pinned one shows the pin in the icon's place
+  })
+
   it("names a conversation with no title and says when there are none", () => {
     setup([row("a", { title: "" })])
     expect(screen.getByText("New conversation")).toBeTruthy()

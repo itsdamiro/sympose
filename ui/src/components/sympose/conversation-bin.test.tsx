@@ -44,6 +44,16 @@ describe("ConversationBin", () => {
     expect(screen.queryByText("2 conversations")).toBeNull()
   })
 
+  it("draws each row as a search result is drawn: an icon, the title and a detail line beneath it", async () => {
+    render(<ConversationBin persona="samantha" />)
+    await screen.findByText("The movies")
+    const blocks = document.querySelectorAll('[data-slot="result-text"]')
+    expect(blocks).toHaveLength(2)
+    expect(blocks[0].textContent).toContain("The movies")
+    expect(blocks[0].textContent).toContain("3 turns · deleted 2h ago")
+    expect(blocks[0].querySelector("svg")).toBeTruthy()
+  })
+
   it("says when there are none", async () => {
     api.fetchBinnedSessions.mockResolvedValue([])
     render(<ConversationBin persona="samantha" />)

@@ -46,3 +46,7 @@ Two things must not grow with this: the line must not drown the conversation (se
 - **The cloud summary as visible text on the row.** It repeats on every cloud reply, so it would be read once and then be noise; an icon with a dot says "something was held back" without words.
 - **A tooltip for the cloud popup.** A tooltip does not open on touch; the popover does, and keeps the same look.
 - **Merging the cloud names into the references list.** They answer a different question (what left the machine), and a user checking one should not have to read the other.
+
+## Amendment (2026-10-03): the conversation list and the Bin read like the search results
+
+damiro asked that the persona's conversation list and the Bin's rows take the style of the search results. The search row's text (a small icon, a title that wraps to two lines in the entity colour and brightens on hover, a muted detail line indented under it, no card or hover background) moved into one component, `ResultText`, used by the search results, the conversation list and the Bin, so the three cannot drift. A conversation shows a message icon, or the pin in its place when pinned; "replying…" and the unread dot follow its title; the one on screen keeps its tint, since a search result has no such state. The Bin's restore and delete-for-good buttons and the list's `⋯` menu, right-click menu and rename field are unchanged.

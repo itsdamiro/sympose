@@ -1,9 +1,10 @@
 import * as React from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Delete02Icon, DeletePutBackIcon } from "@hugeicons/core-free-icons"
+import { Delete02Icon, DeletePutBackIcon, Message01Icon } from "@hugeicons/core-free-icons"
 
 import { cn } from "@/lib/utils"
 import { ago } from "@/lib/ago"
+import { ResultText } from "@/components/sympose/result-text"
 import { confirm } from "@/lib/confirm-store"
 import { notify } from "@/lib/notify"
 import {
@@ -134,12 +135,13 @@ function ConversationBin({
         </button>
       </div>
       {rows.map((row) => (
-        <div key={row.id} className="group/row flex items-center gap-2 rounded-md py-1 pr-1">
-          <div className="flex min-w-0 flex-1 flex-col">
-            <span className="truncate text-sm">{row.title || "Untitled conversation"}</span>
-            <span className="text-xs text-fg-muted">
-              {row.turns} turn{row.turns === 1 ? "" : "s"} · deleted {ago(row.deleted_at)}
-            </span>
+        <div key={row.id} className="group/row group/result flex items-center gap-2 rounded-md py-1 pr-1">
+          <div className="min-w-0 flex-1">
+            <ResultText
+              icon={Message01Icon}
+              title={row.title || "Untitled conversation"}
+              detail={`${row.turns} turn${row.turns === 1 ? "" : "s"} · deleted ${ago(row.deleted_at)}`}
+            />
           </div>
           <button
             type="button"

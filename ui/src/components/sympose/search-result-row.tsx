@@ -2,6 +2,7 @@ import * as React from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { ArrowRight01Icon, Note01Icon, ViewOffIcon } from "@hugeicons/core-free-icons"
 
+import { ResultText } from "@/components/sympose/result-text"
 import type { VaultSearchResult } from "@/lib/vault-search-api"
 
 /**
@@ -69,18 +70,7 @@ export function SearchResultRow({
       onClick={onSelect}
       className="group/result flex w-full flex-col items-start gap-0.5 py-1 text-left focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
     >
-      <span className="flex w-full items-start gap-1.5 text-sm text-entity/85 transition-colors group-hover/result:text-entity">
-        <HugeiconsIcon
-          icon={Note01Icon}
-          className="mt-0.5 size-3.5 shrink-0 text-fg-muted"
-        />
-        <span className="line-clamp-2 min-w-0 flex-1">{label}</span>
-      </span>
-      {detail && (
-        <span className="flex w-full min-w-0 items-center gap-1 pl-5 text-xs text-fg-muted">
-          {detail}
-        </span>
-      )}
+      <ResultText icon={Note01Icon} title={label} detail={detail} />
     </button>
   )
 }

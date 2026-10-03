@@ -4,6 +4,7 @@ import {
   Add01Icon,
   Delete02Icon,
   Edit01Icon,
+  Message01Icon,
   MoreHorizontalIcon,
   PinIcon,
   PinOffIcon,
@@ -11,6 +12,7 @@ import {
 
 import { cn } from "@/lib/utils"
 import { agoIso } from "@/lib/ago"
+import { ResultText } from "@/components/sympose/result-text"
 import type { ListedSession } from "@/lib/use-session-list"
 import {
   ContextMenu,
@@ -111,26 +113,28 @@ function ConversationRow({
             onClick={() => onOpen(row.id)}
             aria-current={row.current ? "true" : undefined}
             className={cn(
-              "flex min-w-0 flex-1 flex-col rounded-md px-2 py-1.5 pr-8 text-left transition-colors hover:bg-accent",
+              "group/result flex min-w-0 flex-1 rounded-md px-2 py-1 pr-8 text-left transition-colors",
               row.current && "bg-accent"
             )}
           >
-            <span className="flex min-w-0 items-center gap-1.5">
-              {pinned && <HugeiconsIcon icon={PinIcon} className="size-3 shrink-0 text-fg-muted" aria-label="Pinned" />}
-              <span className="truncate text-sm">{title}</span>
-              {row.replying && (
-                <span className="shrink-0 text-xs text-fg-muted" role="status">
-                  replying…
-                </span>
-              )}
-              {row.unread && !row.replying && (
-                <span className="size-2 shrink-0 rounded-full bg-(--persona-accent) dark:bg-(--persona-accent-dark)" role="status" aria-label="New reply" />
-              )}
-            </span>
-            <span className="text-xs text-fg-muted">
-              {row.turns} turn{row.turns === 1 ? "" : "s"}
-              {when ? ` · ${when}` : ""}
-            </span>
+            <ResultText
+              icon={pinned ? PinIcon : Message01Icon}
+              iconLabel={pinned ? "Pinned" : undefined}
+              title={title}
+              trailing={
+                <>
+                  {row.replying && (
+                    <span className="shrink-0 text-xs text-fg-muted" role="status">
+                      replying…
+                    </span>
+                  )}
+                  {row.unread && !row.replying && (
+                    <span className="mt-1 size-2 shrink-0 rounded-full bg-(--persona-accent) dark:bg-(--persona-accent-dark)" role="status" aria-label="New reply" />
+                  )}
+                </>
+              }
+              detail={`${row.turns} turn${row.turns === 1 ? "" : "s"}${when ? ` · ${when}` : ""}`}
+            />
           </button>
 
           {renaming !== null && (
