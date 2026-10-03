@@ -14,6 +14,9 @@ PERSONA_FILENAME = "persona.yaml"
 # The user's own choices over the shipped file (docs/decisions/046): untracked, written by the app.
 PERSONA_LOCAL_FILENAME = "persona.local.yaml"
 SOUL_FILENAME = "soul.md"
+# The user's own soul, saved from the web editor: untracked, read first, so the shipped file is never written
+# (docs/decisions/061, 046).
+SOUL_LOCAL_FILENAME = "soul.local.md"
 
 
 def profiles_dir() -> str:
@@ -33,14 +36,9 @@ def persona_dir(handle: str) -> str:
     return os.path.join(profiles_dir(), handle)
 
 
-def load_soul(handle: str) -> str | None:
-    """The persona's `soul.md` text (docs/decisions/012), or `None` when it
-    has none — missing, empty, unsafe path, or unreadable — so the caller
-    can fall back to a generic soul. Read on demand rather than inside
-    `get_profile`, which runs on every vault route that has no use for it;
-    an edit to the file takes effect on the next call."""
+def _read_soul(handle: str, filename: str) -> str | None:
     try:
-        path = os.path.join(persona_dir(handle), SOUL_FILENAME)
+        path = os.path.join(persona_dir(handle), filename)
     except ValueError:
         return None
     if not is_safe_path(path, profiles_dir()):
@@ -53,6 +51,14 @@ def load_soul(handle: str) -> str | None:
     except (OSError, UnicodeDecodeError) as e:
         log.warning("Couldn't read %s, using the default soul: %s", path, e)
         return None
+
+
+def load_soul(handle: str) -> str | None:
+    """The persona's soul text (docs/decisions/012): the user's own `soul.local.md` when it has text, else the
+    shipped `soul.md` (docs/decisions/061), or `None` when it has neither — missing, empty, unsafe path, or
+    unreadable — so the caller can fall back to a generic soul. Read on demand rather than inside `get_profile`,
+    which runs on every vault route that has no use for it; an edit to either file takes effect on the next call."""
+    return _read_soul(handle, SOUL_LOCAL_FILENAME) or _read_soul(handle, SOUL_FILENAME)
 
 
 def _found_as_lower(base: str, name: str) -> bool:

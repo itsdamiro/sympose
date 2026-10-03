@@ -25,6 +25,7 @@ from sympose import server_origin
 from sympose import server_handlers as h
 from sympose import server_hidden_handlers as hh
 from sympose import server_model_handlers as mh
+from sympose import server_persona_file_handlers as pfh
 from sympose import server_persona_handlers as ph
 from sympose import server_settings_handlers as seh
 from sympose import server_sharing_handlers as sph
@@ -33,7 +34,7 @@ from sympose import server_session_handlers as sess
 from sympose import server_trash_handlers as th
 from sympose import server_vault_handlers as vh
 from sympose import vault_paths
-from sympose.server_models import ChatBinAction, ChatCancel, ChatCompact, ChatSessionStart, ChatSessionUpdate, ChatTurn, DefinitionsSwitch, FolderDefinition, HiddenPath, ModelChoice, SettingChange, SharingChange, TrashEmpty, TrashRestore, VaultActivate
+from sympose.server_models import ChatBinAction, ChatCancel, ChatCompact, ChatSessionStart, ChatSessionUpdate, ChatTurn, DefinitionsSwitch, FolderDefinition, HiddenPath, ModelChoice, PersonaFileWrite, SettingChange, SharingChange, TrashEmpty, TrashRestore, VaultActivate
 
 
 def create_app() -> FastAPI:
@@ -160,6 +161,34 @@ def create_app() -> FastAPI:
     @app.get("/api/personas")
     def get_personas() -> dict[str, Any]:
         return ph.get_personas()
+
+    @app.get("/api/personas/{handle}/files")
+    def list_persona_files(handle: str) -> dict[str, Any]:
+        return pfh.list_files(handle)
+
+    @app.get("/api/personas/{handle}/files/{name}")
+    def get_persona_file(handle: str, name: str) -> dict[str, Any]:
+        return pfh.get_file(handle, name)
+
+    @app.put("/api/personas/{handle}/files/{name}")
+    def put_persona_file(handle: str, name: str, body: PersonaFileWrite) -> dict[str, Any]:
+        return pfh.put_file(handle, name, body)
+
+    @app.post("/api/personas/{handle}/files/soul.md/reset")
+    def reset_persona_soul(handle: str) -> dict[str, Any]:
+        return pfh.reset_soul(handle)
+
+    @app.get("/api/personas/{handle}/files/{name}/pending")
+    def get_persona_file_pending(handle: str, name: str) -> dict[str, str]:
+        return pfh.get_pending(handle, name)
+
+    @app.post("/api/personas/{handle}/files/{name}/pending/accept")
+    def accept_persona_file_pending(handle: str, name: str) -> dict[str, Any]:
+        return pfh.accept_pending(handle, name)
+
+    @app.post("/api/personas/{handle}/files/{name}/pending/discard")
+    def discard_persona_file_pending(handle: str, name: str) -> dict[str, Any]:
+        return pfh.discard_pending(handle, name)
 
     @app.get("/api/vault/tree")
     def get_vault_tree(persona: str | None = Query(None)) -> dict[str, Any]:

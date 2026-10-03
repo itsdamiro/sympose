@@ -163,3 +163,12 @@ class ModelChoice(BaseModel):
     """Body of `PUT /api/personas/{handle}/model` — the persona's own model, or `null` to clear it."""
 
     model: str | None = None
+
+
+class PersonaFileWrite(BaseModel):
+    """Body of `PUT /api/personas/{handle}/files/{name}` (docs/decisions/061): the editor saving one of a persona's
+    own files. `expected_mtime` is the mtime it was opened at, so a change made meanwhile is a 409, not overwritten."""
+
+    content: str
+    expected_mtime: float | None = None
+
