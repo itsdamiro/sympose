@@ -55,12 +55,16 @@ export function useVaultSearch({
   isSentinel,
   activePersona,
   vaultRefreshKey,
+  scope = "vault",
 }: {
   panelNodes: VaultNode[]
   resolvedActive: string
   isSentinel: boolean
   activePersona: string
   vaultRefreshKey: number
+  /** What the field searches (docs/decisions/065): the vault, the settings, the conversations. A query is kept
+   *  while the kind of page stays the same (folder to folder) and cleared when it changes. */
+  scope?: "vault" | "settings" | "conversations"
 }) {
   const [vaultSearch, setVaultSearch] = React.useState("")
   const [searchOpen, setSearchOpen] = React.useState(false)
@@ -72,6 +76,13 @@ export function useVaultSearch({
   React.useEffect(() => {
     if (searchOpen) searchInputRef.current?.focus()
   }, [searchOpen])
+  // a vault query must not filter Settings, nor a settings query the conversations: the field closes with the page
+  const [seenScope, setSeenScope] = React.useState(scope)
+  if (seenScope !== scope) {
+    setSeenScope(scope)
+    setSearchOpen(false)
+    setVaultSearch("")
+  }
 
   const vaultSearchQuery = vaultSearch.trim()
   const searchedPanelNodes = React.useMemo(

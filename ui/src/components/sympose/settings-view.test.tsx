@@ -153,3 +153,16 @@ function radio(group: string, option: string): HTMLElement {
   if (!el) throw new Error(`no ${option} in ${group}`)
   return el as HTMLElement
 }
+
+describe("SettingsView: the toolbar search", () => {
+  it("filters its rows and sections by the toolbar's query, and says so when nothing matches", () => {
+    setup({ query: "autosave" })
+    expect(document.querySelector('[data-slot="control-row"]:not([hidden])')?.textContent).toContain("Autosave")
+    cleanup()
+    setup({ query: "zzzzqqq" })
+    expect(screen.getByText('No settings match "zzzzqqq"').closest('[class*="group-has-"]')).toBeTruthy() // hides itself while a row or section shows
+    cleanup()
+    setup({ query: "" })
+    expect(screen.queryByText(/No settings match/)).toBeNull()
+  })
+})

@@ -18,14 +18,14 @@ const row = (id: string, extra: Partial<ListedSession> = {}): ListedSession => (
   ...extra,
 })
 
-function setup(sessions: ListedSession[]) {
+function setup(sessions: ListedSession[], query = "") {
   const spies = {
     onOpen: vi.fn(),
     onRename: vi.fn().mockResolvedValue(true),
     onPin: vi.fn(),
     onDelete: vi.fn(),
   }
-  render(<ConversationList sessions={sessions} {...spies} />)
+  render(<ConversationList sessions={sessions} query={query} {...spies} />)
   return spies
 }
 
@@ -166,5 +166,31 @@ describe("ConversationList", () => {
     const del = await screen.findAllByText("Delete")
     fireEvent.click(del[del.length - 1])
     expect(spies.onDelete).not.toHaveBeenCalled()
+  })
+
+  it("filters by title, every word, case ignored, and says so when nothing is left", () => {
+    setup([row("a", { title: "Garden plans" }), row("b", { title: "Tax notes" }), row("c", { title: "Garden tools" })], "garden")
+    expect(screen.getByText("Garden plans")).toBeTruthy()
+    expect(screen.getByText("Garden tools")).toBeTruthy()
+    expect(screen.queryByText("Tax notes")).toBeNull()
+    cleanup()
+    setup([row("a", { title: "Garden plans" })], "tax")
+    expect(screen.getByText('No conversations match "tax"')).toBeTruthy()
+  })
+
+  it("keeps the pinned group and its caption only while both groups still have a row", () => {
+    const rows = [row("a", { title: "Garden", pinned_at: "2026-10-01T00:00:00Z" }), row("b", { title: "Garden two" }), row("c", { title: "Tax" })]
+    setup(rows, "garden")
+    const captions = Array.from(document.querySelectorAll('[data-slot="group-caption"]')).map((c) => c.textContent)
+    expect(captions).toEqual(["Pinned", "All conversations"])
+    cleanup()
+    setup(rows, "tax") // only an unpinned one is left: no caption to set apart
+    expect(document.querySelectorAll('[data-slot="group-caption"]')).toHaveLength(0)
+  })
+
+  it("matches the placeholder title of a conversation with no message yet", () => {
+    setup([row("a", { title: "" }), row("b", { title: "Tax" })], "new conv")
+    expect(screen.getByText("New conversation")).toBeTruthy()
+    expect(screen.queryByText("Tax")).toBeNull()
   })
 })

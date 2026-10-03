@@ -298,6 +298,9 @@ export function AppShell() {
   const { activeNode, panelNodes, activeRootFolder, pinnedNodes, pinnedShowPath, recentNodes } =
     useFolderView({ vaultTree, resolvedActive, pinnedPaths, recentPaths })
 
+  // what the toolbar's search field searches on this page (docs/decisions/065)
+  const searchScope =
+    resolvedActive === MENU_SETTINGS_ID ? "settings" : resolvedActive === MENU_ACCOUNT_ID ? "conversations" : "vault"
   const {
     vaultSearch,
     setVaultSearch,
@@ -315,6 +318,7 @@ export function AppShell() {
     isSentinel,
     activePersona,
     vaultRefreshKey,
+    scope: searchScope,
   })
 
   // Only gates the "this folder is empty" message — while searching, an
@@ -409,6 +413,9 @@ export function AppShell() {
       submitCreate={submitCreate}
       noteInputRef={noteInputRef}
       folderInputRef={folderInputRef}
+      searchLabel={
+        { vault: "Search vault", settings: "Search settings", conversations: "Search conversations" }[searchScope]
+      }
     />
   )
 
@@ -453,6 +460,7 @@ export function AppShell() {
             onRename={sessionList.rename}
             onPin={(id, pinned) => void sessionList.pin(id, pinned)}
             onDelete={sessionList.remove}
+            query={vaultSearchQuery}
           />
         }
       />
@@ -481,6 +489,7 @@ export function AppShell() {
         sharingState={sharingState}
         setShared={setShared}
         cloudNotice={cloudNotice}
+        query={vaultSearchQuery}
       />
     ) : (
       <VaultFolderView

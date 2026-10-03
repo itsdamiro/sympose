@@ -227,4 +227,23 @@ describe("useVaultSearch", () => {
     expect(result.current.contentMatches).toBe(first.contentMatches)
     expect(result.current.beyondFolderMatches).toBe(first.beyondFolderMatches)
   })
+
+  it("keeps a query from one folder to the next, and clears it when the kind of page changes", () => {
+    const { result, rerender } = setup()
+    act(() => {
+      result.current.setSearchOpen(true)
+      result.current.setVaultSearch("pear")
+    })
+    const props = { panelNodes: [note("Daily/x.md")], resolvedActive: "Daily", isSentinel: false, activePersona: "samantha", vaultRefreshKey: 0 }
+    rerender({ ...props, scope: "vault" })
+    expect(result.current.vaultSearch).toBe("pear") // folder to folder: the query stays
+
+    rerender({ ...props, scope: "settings" })
+    expect(result.current.vaultSearch).toBe("")
+    expect(result.current.searchOpen).toBe(false)
+
+    act(() => result.current.setVaultSearch("autosave"))
+    rerender({ ...props, scope: "conversations" })
+    expect(result.current.vaultSearch).toBe("") // a settings query must not filter the conversations
+  })
 })

@@ -9,6 +9,7 @@ export { ContentPanel } from "./content-panel"
 export {
   ControlRow,
   ControlSection,
+  ControlSearchProvider,
   ControlSectionsProvider,
   useCollapseAll,
   CollapseAllButton,

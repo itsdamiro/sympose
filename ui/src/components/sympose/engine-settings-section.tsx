@@ -132,12 +132,14 @@ function EngineSettingsSections() {
       {state.groups.map((group) => (
         <ControlSection key={group.name} title={group.name}>
           {group.settings.map((s) => (
-            <div key={s.key} className="flex flex-col gap-1">
-              <ControlRow label={label(s)}>
-                <Control setting={s} change={change} />
-              </ControlRow>
-              {s.kind === "number" && s.hint && <p className="text-xs text-fg-muted">{s.hint}</p>}
-            </div>
+            <ControlRow
+              key={s.key}
+              label={label(s)}
+              keywords={s.hint}
+              hint={s.kind === "number" && s.hint ? <p className="text-xs text-fg-muted">{s.hint}</p> : undefined}
+            >
+              <Control setting={s} change={change} />
+            </ControlRow>
           ))}
         </ControlSection>
       ))}

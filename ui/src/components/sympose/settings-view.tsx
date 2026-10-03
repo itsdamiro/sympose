@@ -1,9 +1,11 @@
 import * as React from "react"
+import { Search01Icon } from "@hugeicons/core-free-icons"
 
 import {
   CloudSharingSection,
   ChatDisplaySection,
   CollapseAllButton,
+  ControlSearchProvider,
   ControlSectionsProvider,
   EditorPreferencesSection,
   EngineSettingsSections,
@@ -13,6 +15,7 @@ import {
   RecentNotesPreferencesSection,
   WorkspaceSection,
 } from "@/components/sympose"
+import { EmptyState } from "@/components/sympose/empty-state"
 import { setShowDefinitionNotes } from "@/lib/vault-hidden-api"
 
 /**
@@ -45,6 +48,7 @@ export function SettingsView({
   sharingState,
   setShared,
   cloudNotice,
+  query = "",
 }: {
   title: string
   brandMarkLabel: React.ComponentProps<typeof WorkspaceSection>["brandMarkLabel"]
@@ -69,8 +73,12 @@ export function SettingsView({
   sharingState: React.ComponentProps<typeof CloudSharingSection>["state"]
   setShared: React.ComponentProps<typeof CloudSharingSection>["onChange"]
   cloudNotice: { open: boolean; reopen: () => void; close: () => void }
+  /** What the toolbar's search field holds (docs/decisions/065): rows and sections without a match are hidden. */
+  query?: string
 }) {
   return (
+    <div className="group/settings contents">
+      <ControlSearchProvider query={query}>
       <ControlSectionsProvider>
         <div className="flex items-center justify-between gap-4">
           <h1 className="font-heading text-2xl font-semibold text-fg-strong">
@@ -112,6 +120,17 @@ export function SettingsView({
           onNoticeOpenChange={(open) => (open ? cloudNotice.reopen() : cloudNotice.close())}
         />
         <EngineSettingsSections />
+        {query.trim() !== "" && (
+          // shown only while no row is visible and no section matched by its title (the page has no state of its own
+          // about that: the rows and sections hide themselves)
+          <EmptyState
+            icon={Search01Icon}
+            title={`No settings match "${query.trim()}"`}
+            className="group-has-[[data-slot=control-row]:not([hidden])]/settings:hidden group-has-[[data-search-match]]/settings:hidden"
+          />
+        )}
       </ControlSectionsProvider>
+      </ControlSearchProvider>
+    </div>
   )
 }

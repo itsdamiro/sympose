@@ -6,10 +6,12 @@ import {
   Message01Icon,
   PinIcon,
   PinOffIcon,
+  Search01Icon,
 } from "@hugeicons/core-free-icons"
 
 import { cn } from "@/lib/utils"
 import { agoIso } from "@/lib/ago"
+import { matchesQuery } from "@/lib/search-match"
 import { EmptyState } from "@/components/sympose/empty-state"
 import { GroupCaption } from "@/components/sympose/group-caption"
 import { ResultText } from "@/components/sympose/result-text"
@@ -35,6 +37,8 @@ interface ConversationListProps {
   onRename: (id: string, title: string) => Promise<boolean>
   onPin: (id: string, pinned: boolean) => void
   onDelete: (row: ListedSession) => void
+  /** What the toolbar's search field holds (docs/decisions/065): only the conversations whose title has every word. */
+  query?: string
   className?: string
 }
 
@@ -206,13 +210,16 @@ function ConversationGroups({
  * Rename and Delete are on the row's `⋯` and on a right-click (a delete goes to the Bin). The list is only its
  * conversations, with no title line and no New button: a new one starts from the icon under the message box.
  */
-function ConversationList({ sessions, onOpen, onRename, onPin, onDelete, className }: ConversationListProps) {
+function ConversationList({ sessions, onOpen, onRename, onPin, onDelete, query = "", className }: ConversationListProps) {
+  const shown = query.trim() ? sessions.filter((row) => matchesQuery(row.title || "New conversation", query)) : sessions
   return (
     <section className={cn("flex flex-col gap-2", className)} aria-label="Conversations">
       {sessions.length === 0 ? (
         <EmptyState compact icon={Message01Icon} title="No conversations yet" />
+      ) : shown.length === 0 ? (
+        <EmptyState compact icon={Search01Icon} title={`No conversations match "${query.trim()}"`} />
       ) : (
-        <ConversationGroups sessions={sessions} rowProps={{ onOpen, onRename, onPin, onDelete }} />
+        <ConversationGroups sessions={shown} rowProps={{ onOpen, onRename, onPin, onDelete }} />
       )}
     </section>
   )

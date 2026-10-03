@@ -47,6 +47,7 @@ export function ContentToolbar({
   noteInputRef,
   folderInputRef,
   onCollapse,
+  searchLabel = "Search vault",
 }: {
   canGoBack: boolean
   canGoForward: boolean
@@ -70,6 +71,8 @@ export function ContentToolbar({
   folderInputRef: React.RefObject<HTMLInputElement | null>
   /** Collapses the panel; its button is the first icon, at the far left. Omit where the panel cannot collapse. */
   onCollapse?: () => void
+  /** What the search field searches on this page: the vault, the settings, the conversations (docs/decisions/065). */
+  searchLabel?: string
 }) {
   return (
     <div className="flex items-center justify-between gap-1">
@@ -122,8 +125,8 @@ export function ContentToolbar({
               onBlur={() => {
                 if (!vaultSearch) closeSearch()
               }}
-              placeholder="Search vault"
-              aria-label="Search vault"
+              placeholder={searchLabel}
+              aria-label={searchLabel}
               tabIndex={searchOpen ? 0 : -1}
               // Sized off stylo's own `.stylo-search-field` (the find/replace
               // input this was modeled on): `radius-md - 3px`, not the toolbar's
@@ -157,7 +160,7 @@ export function ContentToolbar({
             if (searchOpen) closeSearch()
             else setSearchOpen(true)
           }}
-          aria-label="Search vault"
+          aria-label={searchLabel}
           aria-pressed={searchOpen}
           className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground aria-pressed:text-foreground"
         >

@@ -7,6 +7,7 @@ import {
 
 import { cn } from "@/lib/utils"
 import { getCookieBool, setCookieBool } from "@/lib/cookies"
+import { matchesQuery } from "@/lib/search-match"
 import {
   Collapsible,
   CollapsibleContent,
@@ -16,6 +17,22 @@ import {
 /** Cookie key for a section's open/closed state, keyed by its (unique) title. */
 const sectionCookieKey = (title: string) =>
   `sympose:pref.section.${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`
+
+/**
+ * The Settings search (docs/decisions/065): the query typed in the toolbar, read by every `ControlSection` and
+ * `ControlRow` beneath it. A row shows when every word of the query is in its label, its keywords or the title of a
+ * section around it; a section with nothing to show hides, and one that has a match is held open while the query
+ * lasts. Outside a provider the query is empty and nothing is filtered.
+ */
+const SearchContext = React.createContext("")
+
+/** The titles of the sections around this point, so a row can be found by its section's name too. */
+const TitlesContext = React.createContext("")
+
+/** Provides the Settings search query to the sections and rows beneath it. */
+function ControlSearchProvider({ query, children }: { query: string; children: React.ReactNode }) {
+  return <SearchContext.Provider value={query.trim()}>{children}</SearchContext.Provider>
+}
 
 /**
  * Broadcasts a "collapse all" pulse to every `ControlSection` beneath a
@@ -90,6 +107,11 @@ function ControlSection({
   className,
 }: ControlSectionProps) {
   const { signal: collapseSignal } = React.useContext(CollapseAllContext)
+  const query = React.useContext(SearchContext)
+  const outerTitles = React.useContext(TitlesContext)
+  const titles = `${outerTitles} ${title}`
+  const searching = query !== ""
+  const titleHit = searching && matchesQuery(titles, query)
   const cookieKey = React.useMemo(() => sectionCookieKey(title), [title])
   const [open, setOpen] = React.useState(() =>
     getCookieBool(cookieKey, defaultOpen)
@@ -115,10 +137,17 @@ function ControlSection({
 
   return (
     <Collapsible
-      open={open}
+      // held open while a query is typed, so its matches can be seen; what the user folded is kept and comes back
+      open={open || searching}
       onOpenChange={handleOpenChange}
       data-slot="control-section"
-      className={cn("border-b border-border/60 last:border-b-0", className)}
+      data-search-match={titleHit || undefined}
+      className={cn(
+        "border-b border-border/60 last:border-b-0",
+        // a section whose rows all fail the query (and whose title does not match) is not shown
+        searching && !titleHit && "not-has-[[data-slot=control-row]:not([hidden])]:hidden",
+        className
+      )}
     >
       <CollapsibleTrigger
         className={cn(
@@ -136,27 +165,38 @@ function ControlSection({
         />
       </CollapsibleTrigger>
       <CollapsibleContent className="h-(--collapsible-panel-height) overflow-hidden transition-[height] duration-snappy ease-snappy data-ending-style:h-0 data-starting-style:h-0">
-        <div className="flex flex-col gap-3 pt-1 pb-3">{children}</div>
+        <div className="flex flex-col gap-3 pt-1 pb-3">
+          <TitlesContext.Provider value={titles}>{children}</TitlesContext.Provider>
+        </div>
       </CollapsibleContent>
     </Collapsible>
   )
 }
 
-/** A single labelled control row inside a ControlSection. */
+/** A single labelled control row inside a ControlSection. `keywords` and `hint` are searched with the label (the
+ *  hint is drawn under the row); with a Settings search active, a row with no match is hidden, not unmounted, so
+ *  its state is kept. */
 function ControlRow({
   label,
   htmlFor,
   children,
   className,
+  keywords = "",
+  hint,
 }: {
   label: React.ReactNode
   htmlFor?: string
   children?: React.ReactNode
   className?: string
+  keywords?: string
+  hint?: React.ReactNode
 }) {
-  return (
+  const query = React.useContext(SearchContext)
+  const titles = React.useContext(TitlesContext)
+  const text = `${typeof label === "string" ? label : ""} ${keywords} ${titles}`
+  const hidden = query !== "" && !matchesQuery(text, query)
+  const line = (
     <div
-      data-slot="control-row"
       className={cn(
         // min-h-7 matches the segmented-control/toggle rows' own height (their
         // `size="sm"` button + padding + border lands here) — without it a
@@ -173,12 +213,20 @@ function ControlRow({
       {children}
     </div>
   )
+  // one structure whether or not there is a hint, so a hint appearing or going never remounts the control
+  return (
+    <div data-slot="control-row" hidden={hidden} className="flex flex-col gap-1">
+      {line}
+      {hint}
+    </div>
+  )
 }
 
 export {
   ControlSection,
   ControlRow,
   ControlSectionsProvider,
+  ControlSearchProvider,
   useCollapseAll,
   CollapseAllButton,
 }
