@@ -202,6 +202,9 @@ WITHHELD_VAULT_MAP = (
 # A grounded note's connections to other notes (docs/decisions/035): computed from real links, tags
 # and folders, never guessed, so they are stated as fact when shown at all.
 CONNECTED_TO = "Connected to (by a link, a shared tag, or the same folder, not a search): {names}"
+# The notes close in meaning to a grounded note (docs/decisions/066): a guess made from what the notes say, so it is
+# said as one and never as a link.
+RELATED_TO = "Possibly related (close in meaning, a guess from the text, not a link; never say they are linked): {names}"
 WITHHELD_CONNECTIONS = (
     "(Notes' connections to each other were not included: the user has not allowed them to be sent "
     "to this cloud model. If they matter to the question, say so, and tell the person you are "

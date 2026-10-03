@@ -592,6 +592,22 @@ def test_a_notes_connections_ride_with_it_and_are_stated_as_fact():
     assert text.index("Some notes about fonts.") < text.index("Ben; Cara")  # the note's own text comes first
 
 
+def test_notes_close_in_meaning_are_said_to_be_a_guess_after_the_connections():
+    result = {**_grounding_result(), "connections": ["Ben"], "related": ["Cara", "Dee"]}
+
+    text = prompt.build_user_turn("who is Anna?", [result])
+
+    assert prompt.RELATED_TO.format(names="Cara; Dee") in text
+    assert text.index("Ben") < text.index("Cara; Dee")
+    assert "not a link" in prompt.RELATED_TO  # she must never state a guess as a link
+
+
+def test_no_related_field_adds_nothing():
+    text = prompt.build_user_turn("who is Anna?", [_grounding_result()])
+
+    assert "close in meaning" not in text
+
+
 def test_no_connections_field_adds_nothing():
     text = prompt.build_user_turn("who is Anna?", [_grounding_result()])
 

@@ -123,6 +123,12 @@ def blocked(index: Any, model: str) -> bool:
         return _blocked((model, id(index)))
 
 
+def building(index: Any, model: str) -> bool:
+    """Whether a build of `index` for `model` is running now (not whether one failed recently, as `blocked`)."""
+    with _LOCK:
+        return (model, id(index)) in _BUILDING
+
+
 def start_build(index: Any, wait: bool = False, model: str | None = None) -> threading.Thread | None:
     """Build `index` in a background thread for `model` (the setting, by default), unless that build
     is already running or failed recently."""

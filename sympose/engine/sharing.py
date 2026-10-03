@@ -29,7 +29,7 @@ DESCRIPTIONS = {
     RECAPS: "recaps of your earlier conversations",
     CHATS: "your earlier conversations, word for word (what you and the persona said)",
     VAULT_MAP: "the shape of your vault (folder names, their purpose, note counts, common tags)",
-    CONNECTIONS: "how a note found for a message connects to your other notes (links, tags, folder)",
+    CONNECTIONS: "how a note found for a message connects to your other notes (links, tags, folder) and which other notes are close in meaning to it",
     MEMORY: "the persona's own memory of you (its profile, active context and decisions files, docs/decisions/041)",
 }
 _REFERENCE_SOURCE = "sympose"
@@ -90,9 +90,9 @@ def gate(
     for hit in grounding:
         if not keep(category_of(hit)):
             continue
-        if hit.get("connections") and CONNECTIONS not in ok:
+        if (hit.get("connections") or hit.get("related")) and CONNECTIONS not in ok:
             withheld[CONNECTIONS] = withheld.get(CONNECTIONS, 0) + 1
-            hit = {k: v for k, v in hit.items() if k != "connections"}
+            hit = {k: v for k, v in hit.items() if k not in ("connections", "related")}
         kept.append(hit)
     kept_recaps = [recap for recap in recaps if keep(RECAPS)]
     kept_chats = [chat for chat in chats or [] if keep(CHATS)]
@@ -119,7 +119,7 @@ def categories_of(
         present.add(VAULT_MAP)
     if memory:
         present.add(MEMORY)
-    if any(hit.get("connections") for hit in grounding):
+    if any(hit.get("connections") or hit.get("related") for hit in grounding):
         present.add(CONNECTIONS)
     return [name for name in CATEGORIES if name in present]
 

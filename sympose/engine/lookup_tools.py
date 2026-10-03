@@ -10,7 +10,7 @@ returned as passages, gated by `sharing` like the automatic search's, before any
 import json
 from typing import Any
 
-from sympose.engine import connections, grounding, grounding_properties, lookup_find, lookup_list, lookup_scope, sharing
+from sympose.engine import connections, grounding, grounding_properties, lookup_find, lookup_list, lookup_scope, related, sharing
 from sympose.engine.lookup_result import Result
 from sympose.engine.prompt_blocks import passage_text
 from sympose.engine.prompt_text import WITHHELD_CONNECTIONS, WITHHELD_NOTES, WITHHELD_PROPERTIES
@@ -92,7 +92,7 @@ def _no_folder_named(raw: str | dict[str, Any] | None) -> bool:
 def _with_extras(profile: dict[str, Any], hits: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """`hits` with each note's connections and, after all the text, its properties, as a turn's own
     search adds them (docs/decisions/030 and 035), so the two ways of finding notes give the same passages."""
-    with_connections = connections.for_hits(profile, hits)
+    with_connections = related.for_hits(profile, connections.for_hits(profile, hits))
     index = grounding.scope_index(profile) if hits else None
     if index is None:
         return with_connections

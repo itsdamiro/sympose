@@ -6,7 +6,7 @@ channel's own (the terminal's are in `cli/display_settings.py`)."""
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from sympose.engine import budget, compaction, embeddings, followup, history_cap, lookup, memory, memory_refresh, model_wait, parallel, past_chats, recap
+from sympose.engine import budget, compaction, embeddings, followup, history_cap, lookup, memory, memory_refresh, model_wait, parallel, past_chats, recap, related
 
 TOGGLE, CHOICE, NUMBER = "toggle", "choice", "number"
 ON, OFF = "on", "off"
@@ -68,6 +68,14 @@ SETTINGS: list[Setting] = [
     Setting(
         past_chats.SETTING, CHOICE, "past chats word for word (auto: local, ask: cloud)", past_chats.mode,
         lambda: past_chats.OFF, choices=past_chats.MODES, group=CONTEXT,
+    ),
+    Setting(
+        related.SETTING, CHOICE, "notes close in meaning", related.mode,
+        lambda: related.AUTO, choices=related.MODES, group=CONTEXT,
+    ),
+    Setting(
+        related.LEVEL_SETTING, CHOICE, "how close they must be", related.level,
+        lambda: related.BALANCED, choices=related.LEVELS, group=CONTEXT,
     ),
     toggle(compaction.SETTING, "condensing a long conversation on its own", compaction.enabled, group=CONTEXT),
     Setting(

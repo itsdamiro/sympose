@@ -150,6 +150,23 @@ def refine(
     return [{**h, "index": n} for n, h in enumerate(hits[:max_results], start=1)]
 
 
+def passage_vectors(index: Index) -> _Vectors | None:
+    """The vectors of every passage of `index`, for a reader that is not a search (docs/decisions/066: the notes
+    close in meaning), or `None` when there are none to give: `keywords` mode, a cloud embedding model the notes may
+    not be sent to, a model that is not answering, or an index still being built. It never fails the caller."""
+    if embeddings.mode() == embeddings.KEYWORDS or not index.passages:
+        return None
+    model = embeddings.model()
+    if not sharing.embeds_notes(model) or time.monotonic() < _UNAVAILABLE_UNTIL.get(model, 0.0):
+        return None
+    try:
+        return _vectors_for(index, _SYNC_LIMIT, model)
+    except embeddings.EmbeddingUnavailable as e:
+        _UNAVAILABLE_UNTIL[model] = time.monotonic() + _COOLDOWN_SECONDS
+        _warn_once(str(e))
+        return None
+
+
 def _forget_for_tests() -> None:
     with _CACHE_LOCK:
         _CACHE.clear()

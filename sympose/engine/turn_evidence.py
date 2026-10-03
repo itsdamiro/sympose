@@ -9,7 +9,7 @@ from typing import Any, Callable
 from sympose import profile as profile_mod, vault_map as vault_map_mod
 from sympose.engine import (
     budget, connections, followup, grounding, grounding_properties, memory, past_chats, persona_tools, prompt, recap,
-    recap_refresh, reference, session_compaction, sharing, turn_status,
+    recap_refresh, reference, related, session_compaction, sharing, turn_status,
 )
 
 
@@ -68,6 +68,8 @@ def gather(
     # Each note's connections to others (docs/decisions/035) ride inside its own passage, before
     # properties are appended below, so both `gate` and the sacrifice loop see them as one item.
     grounding_results = connections.for_hits(persona, grounding_results)
+    # Then the notes close in meaning (docs/decisions/066), a separate guess beside them, never merged into them.
+    grounding_results = related.for_hits(persona, grounding_results)
     # The properties of the notes found come after all the text, so they are the first to go (docs/decisions/030).
     index = grounding.scope_index(persona) if vault_hits else None
     if index is not None:

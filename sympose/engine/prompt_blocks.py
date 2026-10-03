@@ -8,7 +8,7 @@ from typing import Any
 from sympose.engine.prompt_text import (
     ANSWER_FROM_CHATS, ANSWER_FROM_RECAPS, CHATS_HER, CHATS_LABEL, CHATS_USER, CONNECTED_TO, EMPTY_NOTE, EMPTY_NOTE_ALIASES, EMPTY_NOTE_HEADINGS, MEMORY_CONTEXT_LABEL,
     MEMORY_DECISIONS_LABEL, MEMORY_PROFILE_LABEL, NO_NOTES, NO_REFERENCE, PROPERTIES_OF_NOTE, RECAPS_LABEL,
-    REFERENCE_LABEL, VAULT_MAP_LABEL, WITHHELD_CONNECTIONS, WITHHELD_MEMORY, WITHHELD_NOTES, WITHHELD_PROPERTIES,
+    REFERENCE_LABEL, RELATED_TO, VAULT_MAP_LABEL, WITHHELD_CONNECTIONS, WITHHELD_MEMORY, WITHHELD_NOTES, WITHHELD_PROPERTIES,
     WITHHELD_RECAPS, WITHHELD_VAULT_MAP,
 )
 from sympose.engine.compaction_text import NOTES_LABEL
@@ -53,6 +53,8 @@ def passage_text(result: dict[str, Any]) -> str:
         )
     if connections := result.get("connections"):
         text += "\n" + CONNECTED_TO.format(names="; ".join(connections))
+    if related := result.get("related"):
+        text += "\n" + RELATED_TO.format(names="; ".join(related))
     return text
 
 

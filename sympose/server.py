@@ -240,6 +240,13 @@ def create_app() -> FastAPI:
     ) -> dict[str, Any]:
         return sh.search_vault(q, persona)
 
+    @app.get("/api/vault/related")
+    def related_notes(
+        path: str = Query(..., description="Relative path of the open note"),
+        persona: str | None = Query(None),
+    ) -> dict[str, Any]:
+        return sh.related_notes(path, persona)
+
     @app.get("/api/vault/note")
     def read_note(
         path: str = Query(..., description="Relative path of note"),

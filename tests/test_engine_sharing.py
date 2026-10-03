@@ -125,6 +125,37 @@ def test_a_hit_dropped_for_its_own_category_takes_its_connections_with_it_uncoun
     assert gated.withheld == {"properties": 1}  # no separate "connections" count for a hit already dropped
 
 
+def test_the_connections_category_tells_the_user_it_includes_notes_close_in_meaning():
+    # What the user approves must say what is sent (docs/decisions/066).
+    assert "close in meaning" in sharing.DESCRIPTIONS[sharing.CONNECTIONS]
+
+
+def test_notes_close_in_meaning_are_the_connections_category_too():
+    related = {**NOTE, "related": ["Ben"]}
+
+    assert sharing.categories_of([related], []) == ["notes", "connections"]
+
+
+def test_the_gate_strips_notes_close_in_meaning_and_counts_them_once_with_the_connections():
+    settings_store.set("cloud_share", ["notes"])
+    both = {**NOTE, "connections": ["Ben"], "related": ["Cara"]}
+    only_related = {**NOTE, "rel_path": "Zed.md", "related": ["Cara"]}
+
+    gated = sharing.gate(CLOUD, [both, only_related], [])
+
+    assert gated.grounding == [NOTE, {**NOTE, "rel_path": "Zed.md"}]
+    assert gated.withheld == {"connections": 2}  # one per note, not one per field
+
+
+def test_the_gate_keeps_notes_close_in_meaning_once_connections_are_approved():
+    settings_store.set("cloud_share", ["notes", "connections"])
+    related = {**NOTE, "related": ["Cara"]}
+
+    gated = sharing.gate(CLOUD, [related], [])
+
+    assert gated.grounding == [related] and gated.withheld == {}
+
+
 def test_a_cloud_embedder_may_see_the_notes_only_when_approved():
     assert not sharing.embeds_notes("openai/text-embedding-3-small")
     assert sharing.embeds_notes("ollama/nomic-embed-text")
