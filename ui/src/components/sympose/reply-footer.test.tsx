@@ -97,6 +97,14 @@ describe("ReplyFooter: the references", () => {
     expect(screen.getByText("1 older turn left out of context")).toBeTruthy()
   })
 
+  it("keeps the note icon before the line, whether it opens notes or is plain text", () => {
+    render(<ReplyFooter sent={one} />)
+    expect(screen.getByRole("button", { name: /Based on Atlas/ }).querySelector("svg")).not.toBeNull()
+    cleanup()
+    const { container } = render(<ReplyFooter sent={chatsOnly} />)
+    expect(container.querySelector('[data-slot="reply-footer"] span svg')).not.toBeNull()
+  })
+
   it("draws no info icon when there is nothing but notes", () => {
     render(<ReplyFooter sent={one} />)
     expect(screen.queryByRole("button", { name: "More about what she used" })).toBeNull()

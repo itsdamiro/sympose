@@ -1,6 +1,6 @@
 import * as React from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { ArrowDown01Icon, InformationCircleIcon } from "@hugeicons/core-free-icons"
+import { ArrowDown01Icon, BookOpen01Icon, InformationCircleIcon } from "@hugeicons/core-free-icons"
 
 import { cn } from "@/lib/utils"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -98,6 +98,7 @@ function ReplyFooter({ className, sent, showReferences = true, onOpenNote, ...pr
             onClick={() => setOpen(!open)}
             className={cn(lineClass, "rounded px-1 py-0.5 transition-colors hover:bg-accent hover:text-foreground")}
           >
+            <HugeiconsIcon icon={BookOpen01Icon} aria-hidden className="size-3.5 shrink-0" />
             <span className="truncate">{summary}</span>
             <HugeiconsIcon
               icon={ArrowDown01Icon}
@@ -107,6 +108,7 @@ function ReplyFooter({ className, sent, showReferences = true, onOpenNote, ...pr
           </button>
         ) : (
           <span className={cn(lineClass, "px-1 py-0.5")}>
+            <HugeiconsIcon icon={BookOpen01Icon} aria-hidden className="size-3.5 shrink-0" />
             <span className="truncate">{summary}</span>
           </span>
         )}

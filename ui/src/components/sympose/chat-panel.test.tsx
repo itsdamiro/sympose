@@ -327,6 +327,20 @@ describe("ChatPanel", () => {
     expect(container.querySelector('[data-slot="empty-icon"] svg')).not.toBeNull()
   })
 
+  it("shows how long a reply took to start, before its time, and nothing when that is not known", async () => {
+    const turns: ChatTurn[] = [
+      { id: "2", role: "persona", handle: "samantha", body: "SQLite.", latency: "0.82s", timestamp: "10:42" },
+      { id: "3", role: "persona", handle: "samantha", body: "Postgres.", timestamp: "10:43" },
+    ]
+    setup({ turns })
+    const ttft = await screen.findByText("TTFT 0.82s")
+    const time = screen.getByText("10:42")
+    expect(ttft.compareDocumentPosition(time) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy() // TTFT comes first
+    expect(screen.getAllByText(/TTFT/)).toHaveLength(1)
+    expect(ttft.nextElementSibling?.textContent).toBe("·") // a centre dot between the two, only where both are shown
+    expect(screen.getByText("10:43").previousElementSibling?.textContent).not.toBe("·")
+  })
+
   it("shows the model picker in place of the plain chip when there is one", () => {
     setup({ model: "ollama_chat/gemma2:9b", modelSlot: <button>pick a model</button> })
     expect(screen.getByRole("button", { name: "pick a model" })).toBeTruthy()

@@ -27,6 +27,7 @@ export function ReplyModelChip({ model, sent, showCloudSent = true }: ReplyModel
     <Popover>
       <PopoverTrigger
         openOnHover
+        nativeButton={false}
         role="button"
         delay={150}
         aria-label={`${model}: what was sent to the cloud model`}

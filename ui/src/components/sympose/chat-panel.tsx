@@ -298,6 +298,7 @@ function ChatPanel({
                       <ReplyModelChip model={(turn.model ?? model) as string} sent={turn.sent} showCloudSent={showCloudSent} />
                     ) : undefined
                   }
+                  latency={turn.latency}
                   timestamp={turn.timestamp}
                   streaming={turn.streaming}
                   actions={turn.actions}

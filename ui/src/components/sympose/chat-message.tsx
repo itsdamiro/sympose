@@ -6,6 +6,7 @@ import { resolvePersonaVisuals } from "@/lib/personas"
 import type { ChatAction } from "@/lib/chat-types"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { ActionBadge } from "@/components/sympose/action-badge"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 /** A blinking caret at the tail of a mid-stream persona reply. */
 function StreamingCaret({ className, ...props }: React.ComponentProps<"span">) {
@@ -28,6 +29,8 @@ interface ChatMessageProps extends React.ComponentProps<"div"> {
   /** Marks the reply in its header, beside the avatar (the reply's model chip, with the cloud mark on a cloud model's reply, ADR 060) — `role: "persona"` only. */
   indicator?: React.ReactNode
   timestamp?: string
+  /** How long the model took to start answering (time to first token), as "0.82s" — `role: "persona"` only, shown before the time. */
+  latency?: string
   streaming?: boolean
   actions?: ChatAction[]
   /** What grounded this reply (the notes it was based on) — `role: "persona"` only, under the text. */
@@ -46,6 +49,7 @@ function ChatMessage({
   handle,
   indicator,
   timestamp,
+  latency,
   streaming = false,
   actions,
   grounding,
@@ -91,6 +95,22 @@ function ChatMessage({
           </AvatarFallback>
         </Avatar>
         {indicator}
+        {latency && (
+          <Tooltip>
+            <TooltipTrigger
+              render={<button type="button" />}
+              className="cursor-default rounded font-mono text-xs text-fg-muted tabular-nums outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            >
+              TTFT {latency}
+            </TooltipTrigger>
+            <TooltipContent>Time to first token: how long the model took to start answering</TooltipContent>
+          </Tooltip>
+        )}
+        {latency && timestamp && (
+          <span aria-hidden className="text-xs text-fg-muted">
+            ·
+          </span>
+        )}
         {timestamp && (
           <span className="font-mono text-xs text-fg-muted tabular-nums">
             {timestamp}
