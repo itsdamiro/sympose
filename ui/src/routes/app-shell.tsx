@@ -57,6 +57,7 @@ import {
   MENU_SETTINGS_ID,
   MENU_TRASH_ID,
   NebulaModeToggle,
+  RecentNotesFooter,
   SettingsChecks,
   ThemeToggle,
   PersonaSwitcher,
@@ -501,7 +502,6 @@ export function AppShell() {
         beyondFolderMatches={beyondFolderMatches}
         pinnedNodes={pinnedNodes}
         pinnedShowPath={pinnedShowPath}
-        recentNodes={recentNodes}
         vaultTreeActions={vaultTreeActions}
         unhideFromView={unhideFromView}
         selectNote={selectNote}
@@ -664,6 +664,16 @@ export function AppShell() {
                 </div>
               ) : active === MENU_ACCOUNT_ID ? (
                 <PersonaSwitcher personas={rosterPersonas} active={activePersona} onSwitch={setActivePersona} />
+              ) : !trashView && recentNodes.length > 0 ? (
+                <RecentNotesFooter
+                  nodes={recentNodes}
+                  actions={vaultTreeActions}
+                  selectedPath={vaultTreeActions.selectedPath}
+                  onSelect={vaultTreeActions.onSelect}
+                  hideExtension={vaultTreeActions.hideExtension}
+                  onRemoveFromRecents={vaultTreeActions.onRemoveFromRecents}
+                  onClearRecents={vaultTreeActions.onClearRecents}
+                />
               ) : undefined
             }
           >

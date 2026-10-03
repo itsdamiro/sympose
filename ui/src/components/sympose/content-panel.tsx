@@ -274,7 +274,10 @@ function ContentPanel({
       <div
         ref={scrollWrapRef}
         className={cn(
+          // a `footer` may be tall (the recent notes): the surface keeps a small floor (`min-h-32`) and
+          // the footer, which shrinks, gives way below that, scrolling inside its own sections
           "group/scroll-thumb relative w-full flex-1 min-h-0 overflow-hidden",
+          footer && "min-h-32",
           // plain phone pages (Settings / Persona) sit on the same background as
           // chat and the editor — no fill, no rounding
           phone && plain
@@ -317,12 +320,14 @@ function ContentPanel({
       {footer && (
         <div
           className={cn(
-            "shrink-0 border-t border-border",
+            "flex min-h-0 shrink flex-col border-t border-border",
             phone && plain
               ? "text-foreground"
               : "sy-frosted-panel text-panel-foreground",
             phone
-              ? "px-4 py-3"
+              ? // the footer's sides line up with the content's (`p-6` on the phone vault surface, `px-4` on a
+                // plain page: see `contentClassName` in `app-shell.tsx`), so a footer row sits under the rows above it
+                cn("py-3", plain ? "px-4" : "px-6")
               : cn(
                   "px-8 py-3",
                   "rounded-br-lg",

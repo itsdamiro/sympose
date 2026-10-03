@@ -76,7 +76,6 @@ function setup(over: Partial<React.ComponentProps<typeof VaultFolderView>> = {})
     beyondFolderMatches: [],
     pinnedNodes: [],
     pinnedShowPath: false,
-    recentNodes: [],
     vaultTreeActions: { persona: "samantha" } as React.ComponentProps<typeof VaultFolderView>["vaultTreeActions"],
     ...spies,
     ...over,
@@ -125,7 +124,7 @@ describe("VaultFolderView: what is said instead of a tree", () => {
     expect(screen.queryByTestId("tree")).toBeNull()
   })
 
-  it("still shows pinned and recent notes in an empty folder", () => {
+  it("still shows pinned notes in an empty folder", () => {
     setup({ panelEmpty: true, searchedPanelNodes: [], pinnedNodes: [note("Other/p.md")] })
     expect(screen.getByTestId("tree")).toBeTruthy()
   })
@@ -155,29 +154,28 @@ describe("VaultFolderView: what is said instead of a tree", () => {
 })
 
 describe("VaultFolderView: the tree", () => {
-  it("hands the tree the folder's nodes, its pinned and recent notes, and the row actions", () => {
+  it("hands the tree the folder's nodes, its pinned notes, and the row actions", () => {
     const pinned = [note("Notes/p.md")]
-    const recent = [note("Notes/r.md")]
-    setup({ pinnedNodes: pinned, recentNodes: recent, pinnedShowPath: true })
+    setup({ pinnedNodes: pinned, pinnedShowPath: true })
     const p = treeProps[0]
     expect((p.nodes as VaultNode[]).map((n) => n.path)).toEqual(["Notes/a.md"])
     expect(p.pinnedNodes).toBe(pinned)
-    expect(p.recentNodes).toBe(recent)
     expect(p.pinnedShowPath).toBe(true)
     expect(p.persona).toBe("samantha")
   })
 
   it("has the tree caption its plain list \"Notes in\" the folder, with the folder's own icon", () => {
-    setup({ activeLabel: "Movies", recentNodes: [note("Other/r.md")] })
+    setup({ activeLabel: "Movies", pinnedNodes: [note("Other/p.md")] })
     const p = treeProps.at(-1)!
     expect(p.listLabel).toBe("Notes in Movies")
     expect(p.listIcon).toBe(folderIconFor("Movies"))
     expect(p.listIcon).not.toBe(folderIconFor("Unknown"))
   })
 
-  it("shows the tree for recent notes alone", () => {
-    setup({ panelEmpty: true, searchedPanelNodes: [], recentNodes: [note("Other/r.md")] })
-    expect(screen.getByTestId("tree")).toBeTruthy()
+  it("says an empty folder is empty even with recent notes: they are the footer's, not the tree's", () => {
+    setup({ panelEmpty: true, searchedPanelNodes: [] })
+    expect(screen.queryByTestId("tree")).toBeNull()
+    expect(screen.getByText("This folder is empty")).toBeTruthy()
   })
 
   it("browsing: remembers the open folders for the vault, and starts none expanded", () => {

@@ -11,15 +11,9 @@ const note = (path: string): VaultNode => ({ type: "note", name: path.split("/")
 const captions = () => [...document.querySelectorAll('[data-slot="group-caption"]')].map((el) => el.textContent)
 
 describe("VaultTree: captions", () => {
-  it("sets the plain tree apart as All notes once Pinned or Recent sits above it", () => {
+  it("sets the plain tree apart as All notes once Pinned sits above it, and not for Recent, which is the footer's", () => {
     render(<VaultTree nodes={[note("a.md")]} pinnedNodes={[note("p.md")]} />)
     expect(captions()).toEqual(["Pinned", "All notes"])
-    cleanup()
-    render(<VaultTree nodes={[note("a.md")]} recentNodes={[note("r.md")]} />)
-    expect(captions()).toEqual(["Recent", "All notes"])
-    cleanup()
-    render(<VaultTree nodes={[note("a.md")]} pinnedNodes={[note("p.md")]} recentNodes={[note("r.md")]} />)
-    expect(captions()).toEqual(["Pinned", "Recent", "All notes"])
   })
 
   it("names the folder and takes its icon when given them", () => {

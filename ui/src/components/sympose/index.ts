@@ -50,6 +50,8 @@ export {
   SegmentedControl,
   type SegmentedControlOption,
 } from "./segmented-control"
+export { CollapsibleFooterSection } from "./collapsible-footer-section"
+export { RecentNotesFooter } from "./recent-notes-footer"
 export { SettingsChecks } from "./settings-checks"
 export { ThemeToggle } from "./theme-toggle"
 export { TopBar } from "./top-bar"

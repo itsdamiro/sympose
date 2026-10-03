@@ -21,7 +21,7 @@ import {
 /**
  * The content panel for a vault folder or the Bin: the folder's name as a heading
  * (a drop target, to move a note to the root of the folder in view), then either
- * the Bin, or the folder's tree with its pinned and recent notes, and, while
+ * the Bin, or the folder's tree with its pinned notes, and, while
  * searching, the content matches in the folder ("Also found in") and the matches
  * beyond it. Hides nothing itself: what the user hid is already left out of the
  * nodes it is given (docs/decisions/037), apart from search hits, which are
@@ -50,7 +50,6 @@ export function VaultFolderView({
   beyondFolderMatches,
   pinnedNodes,
   pinnedShowPath,
-  recentNodes,
   vaultTreeActions,
   unhideFromView,
   selectNote,
@@ -77,10 +76,9 @@ export function VaultFolderView({
   beyondFolderMatches: VaultSearchResult[]
   pinnedNodes: VaultNode[]
   pinnedShowPath: boolean
-  recentNodes: VaultNode[]
   vaultTreeActions: Omit<
     React.ComponentProps<typeof VaultTree>,
-    "nodes" | "pinnedNodes" | "pinnedShowPath" | "recentNodes" | "defaultExpanded" | "storageKey"
+    "nodes" | "pinnedNodes" | "pinnedShowPath" | "defaultExpanded" | "storageKey"
   >
   unhideFromView: (paths: string | string[]) => unknown
   selectNote: (path: string) => void
@@ -165,9 +163,7 @@ export function VaultFolderView({
                   description={`in ${activeLabel}`}
                 />
               )}
-            {(searchedPanelNodes.length > 0 ||
-              pinnedNodes.length > 0 ||
-              recentNodes.length > 0) && (
+            {(searchedPanelNodes.length > 0 || pinnedNodes.length > 0) && (
               <VaultTree
                 // Remounts between browsing and searching so a search's
                 // matching folders start expanded (`defaultExpanded`, a
@@ -178,7 +174,6 @@ export function VaultFolderView({
                 nodes={searchedPanelNodes}
                 pinnedNodes={pinnedNodes}
                 pinnedShowPath={pinnedShowPath}
-                recentNodes={recentNodes}
                 listLabel={activeLabel ? `Notes in ${activeLabel}` : undefined}
                 listIcon={folderIconFor(activeLabel)}
                 defaultExpanded={

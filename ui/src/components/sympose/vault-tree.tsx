@@ -43,8 +43,8 @@ import { DropdownMenuItem } from "@/components/ui/dropdown-menu"
  * per root folder, never vault-wide and never mixed across root folders;
  * `pinnedShowPath` labels those rows by full path instead of bare
  * filename, worth it only when that root folder actually has subfolders).
- * Pass `recentNodes` the same way for a genuinely vault-wide "Recent" group
- * under it.
+ * The vault-wide "Recent" list is not part of the tree: it is the panel's
+ * footer (`RecentNotesFooter`), which draws its rows with `VaultTreeRow`.
  */
 export interface VaultNode {
   name: string
@@ -71,10 +71,9 @@ const IGNORED = new Set([".obsidian", ".git", "Attachments", ".trash"])
 // every render and re-trigger `useAnimatedNodeList`'s effect indefinitely.
 const NO_CHILDREN: VaultNode[] = []
 
-// A "Recent" row isn't tracked by `useAnimatedNodeList` (its order is
-// recency, not vault-tree membership — see `recentNodes` below), so it never
-// actually has an exit animation to complete; `VaultTreeRow` still requires
-// the callback.
+// A pinned row isn't tracked by `useAnimatedNodeList` (its order is the pin
+// order, not vault-tree membership), so it never actually has an exit
+// animation to complete; `VaultTreeRow` still requires the callback.
 function noop() {}
 
 export function filterVaultTree(nodes: VaultNode[]): VaultNode[] {
@@ -154,7 +153,7 @@ function PinnedSectionCaption({
 
 /** "Recent" group caption with its "Clear recents" action, emptying the
  *  whole history — not just what's currently shown. */
-function RecentSectionCaption({
+export function RecentSectionCaption({
   paddingLeft,
   onClearRecents,
 }: {
@@ -240,7 +239,7 @@ export function flatSearchTree(
   return out
 }
 
-interface RowActions {
+export interface RowActions {
   /** Persona handle scoping the vault-note API calls. */
   persona?: string
   /** A note row was renamed: old path → new vault-relative path. */
@@ -297,22 +296,8 @@ interface VaultTreeProps
   /** Unpin every currently pinned note in one call — the "Pinned" group
    *  caption's "Unpin all". */
   onUnpinAll?: (paths: string[]) => void
-  /**
-   * Recently opened notes, most-recent-first, already resolved to their real
-   * `VaultNode` and capped to the Settings "Recent notes shown" count
-   * (`use-recent-notes.ts`) — vault-wide, so a caller resolves them against
-   * the *full* tree, not just this instance's own `nodes`. Rendered as a
-   * "Recent" group under Pinned.
-   */
-  recentNodes?: VaultNode[]
-  /** Drop one note out of the Recent history — each recent row's own
-   *  "Remove from recents" menu item. */
-  onRemoveFromRecents?: (path: string) => void
-  /** Empty the whole Recent history — the "Recent" group caption's
-   *  "Clear recents". */
-  onClearRecents?: () => void
-  /** The caption over the plain tree when Pinned or Recent sits above it ("Notes in Movies"): it says the rows below
-   *  are the folder's own, not more of Recent. Defaults to "All notes". */
+  /** The caption over the plain tree when Pinned sits above it ("Notes in Movies"): it says the rows below are the
+   *  folder's own, not more of Pinned. Defaults to "All notes". */
   listLabel?: string
   /** The caption's icon: the folder's own. */
   listIcon?: IconSvgElement
@@ -337,9 +322,6 @@ function VaultTree({
   pinnedNodes = NO_CHILDREN,
   pinnedShowPath = false,
   onUnpinAll,
-  recentNodes = NO_CHILDREN,
-  onRemoveFromRecents,
-  onClearRecents,
   listLabel = "All notes",
   listIcon = Folder01Icon,
   ...props
@@ -411,40 +393,7 @@ function VaultTree({
         </>
       )}
 
-      {pinnedNodes.length > 0 && recentNodes.length > 0 && (
-        <div className="h-3" aria-hidden="true" />
-      )}
-
-      {recentNodes.length > 0 && (
-        <>
-          <RecentSectionCaption
-            paddingLeft={0}
-            onClearRecents={onClearRecents}
-          />
-          {recentNodes.map((node) => (
-            <VaultTreeRow
-              key={`recent:${node.path}`}
-              node={node}
-              closing={false}
-              onExitComplete={noop}
-              depth={0}
-              expanded={expanded}
-              onToggle={toggle}
-              selectedPath={selectedPath}
-              onSelect={onSelect}
-              actions={actions}
-              hideExtension={hideExtension}
-              onRemoveFromRecents={
-                onRemoveFromRecents
-                  ? () => onRemoveFromRecents(node.path)
-                  : undefined
-              }
-            />
-          ))}
-        </>
-      )}
-
-      {(pinnedNodes.length > 0 || recentNodes.length > 0) &&
+      {pinnedNodes.length > 0 &&
         display.length > 0 && (
           <>
             <div className="h-3" aria-hidden="true" />
@@ -477,7 +426,7 @@ function isDailyFolder(name: string) {
   )
 }
 
-function VaultTreeRow({
+export function VaultTreeRow({
   node,
   closing,
   onExitComplete,
