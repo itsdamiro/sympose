@@ -26,6 +26,10 @@ The `model` line is optional.
 
 `soul.md` holds a persona's voice and temperament: how it talks and what it is like to be with. It holds no rules and no capabilities, and is best kept around 1.5 KB. A persona without a soul file uses a plain, generic companion voice.
 
+## Can I edit a persona's soul and memory in the web app?
+
+Yes. On the Persona page the FILES chip lists the soul and the three memory files; choosing one opens it in the editor. A saved soul becomes your own copy, `soul.local.md`; the shipped `soul.md` never changes, and Reset to default puts it back. Proposed changes to the profile or context are shown for Review first.
+
 ## Can I stop a persona from seeing some of my folders?
 
 Yes. `vault_folders` in `persona.yaml` lists the top-level folders a persona may read, or `'*'` for all of them. It is a hard boundary: searching, note grounding, the web app and the graph all stay inside it. A folder listed there that is not in the vault is not created: the persona simply sees nothing in it, and `sympose doctor` names the entry so a misspelt folder is easy to find.

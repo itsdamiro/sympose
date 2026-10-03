@@ -4,7 +4,9 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { cn } from "@/lib/utils"
 import { resolvePersonaVisuals, type LivePersona } from "@/lib/personas"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { ModelChip, chipClass } from "@/components/sympose/model-chip"
+import { ModelChip } from "@/components/sympose/model-chip"
+import { PersonaFilesMenu } from "@/components/sympose/persona-files-menu"
+import type { PersonaFileInfo } from "@/lib/persona-files-api"
 
 interface PersonaCardProps {
   /** Live roster from `GET /api/personas`. */
@@ -16,6 +18,10 @@ interface PersonaCardProps {
    * desktop `p-8`, so the accent band's bleed margins change to match.
    */
   phone?: boolean
+  /** The persona's own files (ADR 061), listed in the FILES chip beside the model chip; `onOpenFile` opens one in the
+   *  editor. */
+  files?: PersonaFileInfo[]
+  onOpenFile?: (name: string) => void
   /** The persona's conversations (ADR 057), shown under the model row. */
   conversations?: React.ReactNode
   className?: string
@@ -35,6 +41,8 @@ function PersonaCard({
   personas,
   active,
   phone = false,
+  files = [],
+  onOpenFile,
   conversations,
   className,
 }: PersonaCardProps) {
@@ -98,19 +106,7 @@ function PersonaCard({
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <ModelChip model={current.model} />
-        <div className="flex gap-2">
-          {(["Soul", "Memory"] as const).map((name) => (
-            <button
-              key={name}
-              type="button"
-              disabled
-              title={`Persona ${name.toLowerCase()} — coming soon`}
-              className={cn(chipClass, "text-fg-muted uppercase tracking-wide disabled:opacity-60")}
-            >
-              {name}
-            </button>
-          ))}
-        </div>
+        <PersonaFilesMenu files={files} onOpen={(name) => onOpenFile?.(name)} />
       </div>
 
       {conversations && (

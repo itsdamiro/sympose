@@ -40,6 +40,7 @@ export { NebulaModeToggle } from "./nebula-mode-toggle"
 export { NotificationsSection } from "./notifications-section"
 export { ModelChip } from "./model-chip"
 export { PersonaCard } from "./persona-card"
+export { PersonaFileBanner } from "./persona-file-banner"
 export { PersonaSwitcher } from "./persona-switcher"
 export {
   RecentNotesPreferencesSection,

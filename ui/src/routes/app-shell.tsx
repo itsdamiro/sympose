@@ -5,6 +5,8 @@ import { useBreakpoint } from "@/lib/use-breakpoint"
 import { usePanels } from "@/lib/use-panels"
 import { useNebulaStage } from "@/lib/use-nebula-stage"
 import { useSelectedNote } from "@/lib/use-selected-note"
+import { usePersonaFileEditor } from "@/lib/use-persona-file-editor"
+import { usePersonaFiles } from "@/lib/use-persona-files"
 import { useVaults, useVaultSwitching } from "@/lib/use-vaults"
 import { useMenuCollapse } from "@/lib/use-menu-collapse"
 import { useMenuItems } from "@/lib/use-menu-items"
@@ -35,6 +37,7 @@ import { useLinkSources } from "@/lib/use-link-sources"
 import {
   ConversationList,
   PersonaCard,
+  PersonaFileBanner,
   ChatActionGroup,
   ContentPanel,
   ContentSlot,
@@ -180,7 +183,16 @@ export function AppShell() {
 
   const { vaultTree, vaultName, hiddenState, isHidden, changeHidden, hideFromView, unhideFromView } =
     useVaultTree({ activePersona, vaultRefreshKey, refreshVault })
-  const { selectedNote, setSelectedNote, openableNote, selectNote, noteRenamed } =
+  // A persona's own files (docs/decisions/061): listed in the Persona page's FILES chip, and opened in the editor in
+  // place of the vault note until a note is opened again.
+  const personaFiles = usePersonaFiles(activePersona)
+  const fileEditor = usePersonaFileEditor({
+    handle: activePersona,
+    personaName: activePersonaName,
+    refreshFiles: personaFiles.refresh,
+  })
+  const { close: closePersonaFile } = fileEditor
+  const { selectedNote, setSelectedNote, openableNote, selectNote: selectVaultNote, noteRenamed } =
     useSelectedNote({
       vaultPath: vaultsState.active,
       isHidden,
@@ -188,6 +200,39 @@ export function AppShell() {
       remapPin,
       remapRecent,
     })
+  const selectNote = React.useCallback(
+    (path: string) => {
+      closePersonaFile()
+      selectVaultNote(path)
+    },
+    [closePersonaFile, selectVaultNote]
+  )
+  const openPersonaFile = (name: string) => {
+    fileEditor.open(name)
+    panels.open("editor")
+  }
+  const currentFileInfo = personaFiles.files.find((f) => f.name === fileEditor.current?.name)
+  const personaFileChanged = () => {
+    void personaFiles.refresh()
+    fileEditor.reload() // the file changed on disk under the editor (a reset, an accepted rewrite)
+  }
+  // What the editor is told about a persona file: its load and save, and the strip that names the file and says what
+  // is particular to it (docs/decisions/061).
+  const panelFile =
+    fileEditor.file && fileEditor.current
+      ? {
+          ...fileEditor.file,
+          banner: (
+            <PersonaFileBanner
+              title={fileEditor.file.title}
+              handle={activePersona}
+              name={fileEditor.current.name}
+              info={currentFileInfo}
+              onChanged={personaFileChanged}
+            />
+          ),
+        }
+      : undefined
   const {
     pendingCreate,
     createName,
@@ -335,6 +380,8 @@ export function AppShell() {
         personas={rosterPersonas}
         active={activePersona}
         phone={isPhone}
+        files={personaFiles.files}
+        onOpenFile={openPersonaFile}
         conversations={
           <ConversationList
             sessions={sessionList.sessions}
@@ -559,7 +606,9 @@ export function AppShell() {
           <MarkdownPanel
             onCollapse={isPhone ? undefined : () => panels.close("editor")}
             storageKey="sympose:shell.md"
-            path={openableNote}
+            path={fileEditor.path ?? openableNote}
+            file={panelFile}
+            reloadToken={fileEditor.reloadToken}
             persona={activePersona}
             vaultPath={vaultsState.active}
             onWikiLinkClick={openWikilink}
