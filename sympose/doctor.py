@@ -153,30 +153,53 @@ CHECKS: list[Callable[[], list[Finding]]] = [
 ]
 
 
+@dataclass(frozen=True)
+class Outcome:
+    """One finding and where it stands: `needs_you` (nothing automatic), `fixable` (`--fix` would), `fixed`, or `failed`."""
+
+    problem: str
+    state: str
+    fix: str | None = None
+    error: str = ""
+
+
+def examine(fix: bool = False) -> list[Outcome]:
+    """Runs every check and, with `fix`, applies what can be; the terminal and the web app both read this."""
+    outcomes: list[Outcome] = []
+    for check in CHECKS:
+        for finding in check():
+            if finding.apply is None:
+                outcomes.append(Outcome(finding.problem, "needs_you"))
+            elif not fix:
+                outcomes.append(Outcome(finding.problem, "fixable", finding.fix))
+            else:
+                try:
+                    finding.apply()
+                    outcomes.append(Outcome(finding.problem, "fixed", finding.fix))
+                except OSError as e:
+                    outcomes.append(Outcome(finding.problem, "failed", finding.fix, str(e)))
+    return outcomes
+
+
 def run(fix: bool = False, out: TextIO | None = None) -> int:
     """Prints the findings (and, with `fix`, applies what can be) and returns 0 when nothing is left wrong, else 1."""
     from sympose import doctor_models  # imported here: it brings in litellm, a few seconds
 
     out = out or sys.stdout
     print("\n".join(doctor_models.report()) + "\n", file=out)
-    found = left = 0
-    for check in CHECKS:
-        for finding in check():
-            found += 1
-            print(f"- {finding.problem}", file=out)
-            if finding.apply is None:
-                left += 1
-                print("    needs you: nothing here can be fixed automatically", file=out)
-            elif not fix:
-                left += 1
-                print(f"    --fix would: {finding.fix}", file=out)
-            else:
-                try:
-                    finding.apply()
-                    print(f"    fixed: {finding.fix}", file=out)
-                except OSError as e:
-                    left += 1
-                    print(f"    could not fix it: {e}", file=out)
+    outcomes = examine(fix)
+    found = len(outcomes)
+    left = sum(o.state in ("needs_you", "fixable", "failed") for o in outcomes)
+    for o in outcomes:
+        print(f"- {o.problem}", file=out)
+        if o.state == "needs_you":
+            print("    needs you: nothing here can be fixed automatically", file=out)
+        elif o.state == "fixable":
+            print(f"    --fix would: {o.fix}", file=out)
+        elif o.state == "fixed":
+            print(f"    fixed: {o.fix}", file=out)
+        else:
+            print(f"    could not fix it: {o.error}", file=out)
     if not found:
         print("Everything looks healthy.", file=out)
     elif left:

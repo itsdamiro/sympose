@@ -20,6 +20,7 @@ from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from sympose import server_chat_handlers as ch
+from sympose import server_check_handlers as ckh
 from sympose import server_definition_handlers as dh
 from sympose import server_origin
 from sympose import server_handlers as h
@@ -56,6 +57,18 @@ def create_app() -> FastAPI:
     @app.get("/health")
     def health() -> dict[str, Any]:
         return {"status": "healthy", "vault": vault_paths.get_master_vault()}
+
+    @app.get("/api/doctor")
+    def get_doctor() -> dict[str, Any]:
+        return ckh.get_doctor()
+
+    @app.post("/api/doctor/fix")
+    def fix_doctor() -> dict[str, Any]:
+        return ckh.fix_doctor()
+
+    @app.get("/api/vault/health")
+    def get_vault_health() -> dict[str, Any]:
+        return ckh.get_vault_health()
 
     @app.get("/api/vaults")
     def list_vaults() -> dict[str, Any]:

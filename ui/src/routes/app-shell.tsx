@@ -57,6 +57,7 @@ import {
   MENU_SETTINGS_ID,
   MENU_TRASH_ID,
   NebulaModeToggle,
+  SettingsChecks,
   ThemeToggle,
   PersonaSwitcher,
   TopBar,
@@ -657,7 +658,8 @@ export function AppShell() {
               // Settings list can't scroll it out of reach, the same way the
               // editor panel's own "Links" row stays put under the note body.
               active === MENU_SETTINGS_ID ? (
-                <div className="flex items-center justify-end">
+                <div className="flex items-center justify-between">
+                  <SettingsChecks />
                   <ThemeToggle />
                 </div>
               ) : active === MENU_ACCOUNT_ID ? (

@@ -9,7 +9,7 @@ from sympose.vault_health import Check, Finding, Scope, folder_of
 
 SHOWN_PER_FOLDER = 3
 ROOT = "(vault root)"
-_LIMITS = "Links written as [text](Note.md) are not checked, and a link inside a code block is read like any other."
+LIMITS = "Links written as [text](Note.md) are not checked, and a link inside a code block is read like any other."
 
 
 def _folder_lines(findings: list[Finding], totals: Counter, of_notes: bool) -> list[str]:
@@ -37,7 +37,7 @@ def render(scope: Scope, results: list[tuple[Check, list[Finding]]]) -> list[str
             lines += [f"{check.heading} ({len(findings)})", *body, ""]
     problems = problem_count(results)
     lines.append(f"{problems} problem(s) found." if problems else "Nothing wrong found.")
-    return lines + [_LIMITS]
+    return lines + [LIMITS]
 
 
 def problem_count(results: list[tuple[Check, list[Finding]]]) -> int:

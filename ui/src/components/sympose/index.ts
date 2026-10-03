@@ -50,6 +50,7 @@ export {
   SegmentedControl,
   type SegmentedControlOption,
 } from "./segmented-control"
+export { SettingsChecks } from "./settings-checks"
 export { ThemeToggle } from "./theme-toggle"
 export { TopBar } from "./top-bar"
 export { TrashList } from "./trash-list"
