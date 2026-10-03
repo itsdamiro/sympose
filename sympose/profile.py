@@ -11,6 +11,7 @@ this module deliberately stays free of that — no `litellm` import here, see
 import glob
 import logging
 import os
+import re
 from typing import Any
 
 import yaml
@@ -58,6 +59,20 @@ def _aliases(value: Any) -> list[str]:
     return [name.strip() for name in value if isinstance(name, str) and name.strip()]
 
 
+_ICON_NAME = re.compile(r"[a-z0-9][a-z0-9_-]{0,39}")
+_COLOR = re.compile(r"[#a-zA-Z0-9(),.%/ -]{1,64}")
+
+
+def _look(value: Any, pattern: re.Pattern[str]) -> str | None:
+    """One of a persona's look keys (`icon`, `accent`, `accent_dark` in persona.yaml): a short string of a safe
+    shape, else `None`. The value ends up in the web app (an icon's name, a colour in a style attribute), so a
+    value of any other shape is ignored rather than passed on; a persona never loses its place over it."""
+    if not isinstance(value, str):
+        return None
+    value = value.strip()
+    return value if pattern.fullmatch(value) else None
+
+
 def _normalize(data: dict[str, Any], handle: str) -> dict[str, Any]:
     """Fills in every key a caller might read, so nothing downstream needs
     its own `.get(key, default)` duplication. `model` is left as whatever
@@ -75,6 +90,11 @@ def _normalize(data: dict[str, Any], handle: str) -> dict[str, Any]:
         "model": data.get("model"),
         "skills": data.get("skills") or [],
         "aliases": _aliases(data.get("aliases")),
+        # Her look (docs/decisions/062): the name of her icon in the icon set the user chose, and her colour for
+        # light and dark. The web app falls back to its own defaults for any that is missing.
+        "icon": _look(data.get("icon"), _ICON_NAME),
+        "accent": _look(data.get("accent"), _COLOR),
+        "accent_dark": _look(data.get("accent_dark"), _COLOR),
         # Whether the persona has the Sympose reference library (docs/decisions/022):
         # an explicit true; and the shipped default persona unless it says otherwise, so a
         # `persona.yaml` written before the key existed does not lose it.

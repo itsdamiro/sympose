@@ -24,6 +24,9 @@ def get_personas() -> dict[str, Any]:
                 "title": p["title"],
                 "model": p["model"] or fallback_model,
                 "skills": p["skills"],
+                "icon": p["icon"],
+                "accent": p["accent"],
+                "accent_dark": p["accent_dark"],
                 "is_default": p["handle"] == default_handle,
             }
             for p in list_profiles()

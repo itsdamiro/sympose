@@ -1,0 +1,93 @@
+import {
+  AnchorIcon,
+  Atom01Icon,
+  BirdIcon,
+  Book01Icon,
+  BookOpen01Icon,
+  BrainIcon,
+  Camera01Icon,
+  Chart01Icon,
+  ChefIcon,
+  Coins01Icon,
+  Compass01Icon,
+  CrownIcon,
+  DnaIcon,
+  Fire02Icon,
+  FlashIcon,
+  GhostIcon,
+  GlobeIcon,
+  GraduationScrollIcon,
+  Home01Icon,
+  Idea01Icon,
+  Key01Icon,
+  LampIcon,
+  Leaf01Icon,
+  Mic01Icon,
+  Moon02Icon,
+  MusicNote01Icon,
+  PaintBrush01Icon,
+  Pen01Icon,
+  Plant01Icon,
+  Rocket01Icon,
+  Shield01Icon,
+  StarIcon,
+  StethoscopeIcon,
+  Sun01Icon,
+  Telescope01Icon,
+  UserIcon,
+  Wrench01Icon,
+  CodeIcon,
+} from "@hugeicons/core-free-icons"
+import type { IconSvgElement } from "@hugeicons/react"
+
+/**
+ * The icons a persona may name as her own in her `persona.yaml` (`icon:`, docs/decisions/062). This is the one
+ * icon set the app ships, keyed by the names a persona file uses. The user will choose which set the app draws
+ * from (a theme setting, later); a persona names her icon within the set in use, and a name the set does not have
+ * falls back to the default, so a file written for another set never breaks.
+ */
+export const ICON_SET: Record<string, IconSvgElement> = {
+  anchor: AnchorIcon,
+  atom: Atom01Icon,
+  bird: BirdIcon,
+  book: Book01Icon,
+  "book-open": BookOpen01Icon,
+  brain: BrainIcon,
+  camera: Camera01Icon,
+  chart: Chart01Icon,
+  chef: ChefIcon,
+  code: CodeIcon,
+  coins: Coins01Icon,
+  compass: Compass01Icon,
+  crown: CrownIcon,
+  dna: DnaIcon,
+  fire: Fire02Icon,
+  flash: FlashIcon,
+  ghost: GhostIcon,
+  globe: GlobeIcon,
+  graduation: GraduationScrollIcon,
+  home: Home01Icon,
+  idea: Idea01Icon,
+  key: Key01Icon,
+  lamp: LampIcon,
+  leaf: Leaf01Icon,
+  mic: Mic01Icon,
+  moon: Moon02Icon,
+  music: MusicNote01Icon,
+  paintbrush: PaintBrush01Icon,
+  pen: Pen01Icon,
+  plant: Plant01Icon,
+  rocket: Rocket01Icon,
+  shield: Shield01Icon,
+  star: StarIcon,
+  stethoscope: StethoscopeIcon,
+  sun: Sun01Icon,
+  telescope: Telescope01Icon,
+  user: UserIcon,
+  wrench: Wrench01Icon,
+}
+
+/** The icon a persona file names, or `undefined` when it names none or one the set does not have. */
+export function iconByName(name: string | null | undefined): IconSvgElement | undefined {
+  return name ? ICON_SET[name.toLowerCase()] : undefined
+}

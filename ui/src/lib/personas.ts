@@ -1,6 +1,8 @@
 import { BrainIcon } from "@hugeicons/core-free-icons"
 import type { IconSvgElement } from "@hugeicons/react"
 
+import { iconByName } from "@/lib/persona-icons"
+
 /**
  * Persona roster — mirrors `profiles/*.yaml`. Samantha is the only persona
  * that ships as a product default (see `CLAUDE.md`'s project rules); any
@@ -60,6 +62,11 @@ export interface LivePersona {
   model: string
   skills: string[]
   isDefault: boolean
+  /** Her look, from her `persona.yaml` (docs/decisions/062): the name of her icon in the icon set, and her colour
+   *  in light and dark. Any may be missing. */
+  icon?: string
+  accent?: string
+  accentDark?: string
 }
 
 interface PersonasResponse {
@@ -71,6 +78,9 @@ interface PersonasResponse {
     model: string
     skills: string[]
     is_default: boolean
+    icon?: string | null
+    accent?: string | null
+    accent_dark?: string | null
   }>
 }
 
@@ -83,14 +93,19 @@ export async function fetchPersonas(): Promise<LivePersona[]> {
     const res = await fetch("/api/personas")
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = (await res.json()) as PersonasResponse
-    return data.personas.map((p) => ({
+    const roster = data.personas.map((p) => ({
       handle: p.handle,
       name: p.name,
       title: p.title,
       model: p.model,
       skills: p.skills ?? [],
       isDefault: p.is_default,
+      icon: p.icon ?? undefined,
+      accent: p.accent ?? undefined,
+      accentDark: p.accent_dark ?? undefined,
     }))
+    setLiveLooks(roster)
+    return roster
   } catch (err) {
     console.info(
       `[personas] /api/personas unreachable (${err}) — using the static roster`
@@ -113,14 +128,32 @@ const DEFAULT_VISUALS = {
   accentDark: "oklch(0.72 0.02 260)",
 } as const
 
-/** Icon + light/dark accent for a persona, curated when known, neutral otherwise. */
+type Look = { icon?: string; accent?: string; accentDark?: string }
+
+/** What each persona's file says about her look, as the last roster read it (docs/decisions/062). Read by every
+ *  place that draws her, so the roster is fetched once and nothing needs to pass her look down. */
+let liveLooks = new Map<string, Look>()
+
+const key = (handle: string) => handle.replace(/^@/, "").toLowerCase()
+
+/** Remembers the look each persona's file names; the next draw of her uses it. */
+export function setLiveLooks(roster: LivePersona[]): void {
+  liveLooks = new Map(roster.map((p) => [key(p.handle), { icon: p.icon, accent: p.accent, accentDark: p.accentDark }]))
+}
+
+/** Icon + light/dark accent for a persona: what her `persona.yaml` names, else the curated default for a persona
+ *  that ships, else neutral. A colour given for light only is used for dark too. */
 export function resolvePersonaVisuals(handle: string): {
   icon: IconSvgElement
   accent: string
   accentDark: string
 } {
-  const p = getPersona(handle)
-  return p
-    ? { icon: p.icon, accent: p.accent, accentDark: p.accentDark }
-    : DEFAULT_VISUALS
+  const base = getPersona(handle) ?? DEFAULT_VISUALS
+  const look = liveLooks.get(key(handle))
+  const accent = look?.accent ?? base.accent
+  return {
+    icon: iconByName(look?.icon) ?? base.icon,
+    accent,
+    accentDark: look?.accentDark ?? (look?.accent ? look.accent : base.accentDark),
+  }
 }

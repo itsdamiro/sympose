@@ -4,5 +4,10 @@ aliases: ['Sam']
 sympose_reference: true
 title: 'Polymath Strategic Master Orchestrator'
 
+# Her look: the name of her icon in the icon set the user chose, and her colour in light and dark.
+icon: 'brain'
+accent: 'oklch(0.55 0.13 233)'
+accent_dark: 'oklch(0.78 0.13 220)'
+
 # "*" = full vault access.
 vault_folders: '*'

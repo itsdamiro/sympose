@@ -4,7 +4,7 @@ A persona, also called an agent or a profile, is a character you chat with, each
 
 ## Where does a persona live?
 
-Each persona has its own folder, `profiles/<handle>/`, holding `persona.yaml` (its name, handle, title, allowed folders and optional model), `soul.md` (how it sounds), `sessions/` (its saved conversations) and `recaps/` (short recaps of them).
+Each persona has its own folder, `profiles/<handle>/`, holding `persona.yaml` (its name, handle, title, allowed folders and optional model, icon and colours), `soul.md` (how it sounds), `sessions/` (its saved conversations) and `recaps/` (short recaps of them).
 
 ## How do I create a new persona?
 
@@ -21,6 +21,10 @@ model: 'ollama_chat/gemma2:9b'
 ```
 
 The `model` line is optional.
+
+## How do I give a persona its own icon and colour?
+
+Add `icon: 'leaf'` (a name from the app's icon set, such as brain, book, compass, leaf, star or pen) and `accent: '#c82828'` to its `persona.yaml`, plus `accent_dark` if the colour should differ on a dark theme. The icon and colour show wherever the persona appears. Choosing them in the app is planned.
 
 ## What goes in a soul file?
 

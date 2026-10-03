@@ -78,3 +78,21 @@ def test_a_personas_shown_model_follows_the_chat_model_setting(tmp_path, monkeyp
 
     # What's displayed must be what a turn would actually run on.
     assert entry["model"] == "anthropic/claude-sonnet-5"
+
+
+def test_roster_carries_each_personas_look_and_drops_a_value_of_an_unsafe_shape(tmp_path, monkeypatch):
+    profiles = tmp_path / "profiles"
+    profiles.mkdir()
+    write_persona(profiles, "samantha", "name: Samantha\nvault_folders: '*'\nicon: brain\naccent: 'oklch(0.55 0.13 233)'\naccent_dark: '#7ad'\n")
+    write_persona(profiles, "dev", "name: Dev\nvault_folders: '*'\nicon: 'x; y'\naccent: 'red; background:url(//evil)'\n")
+    write_persona(profiles, "plain", "name: Plain\nvault_folders: '*'\nicon: 3\n")
+    monkeypatch.setenv("SYMPOSE_PROFILES_DIR", str(profiles))
+
+    by_handle = {p["handle"]: p for p in ph.get_personas()["personas"]}
+
+    assert (by_handle["samantha"]["icon"], by_handle["samantha"]["accent"], by_handle["samantha"]["accent_dark"]) == (
+        "brain", "oklch(0.55 0.13 233)", "#7ad",
+    )
+    for handle in ("dev", "plain"):  # left to the app's own defaults, never passed on unchecked
+        assert (by_handle[handle]["icon"], by_handle[handle]["accent"], by_handle[handle]["accent_dark"]) == (None, None, None)
+
