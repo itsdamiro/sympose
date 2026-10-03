@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils"
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 
 /**
- * The one empty placeholder (docs/decisions/060): an icon in a tile, a title, an optional line under it and an
+ * The one empty placeholder (docs/decisions/060): an icon in a circle, a title, an optional line under it and an
  * optional action (a "Try again"). Every list or panel with nothing to show, and every one that could not load,
  * draws it, so they look and read the same: the Bin's lists, the vault folder, the conversation list, the empty
  * chat, a search with no matches. `accent` colours the tile for a persona's own icon (her accent, as her avatar);
@@ -31,7 +31,7 @@ export function EmptyState({
   return (
     <Empty className={cn("border-0", compact ? "p-4" : "p-8", className)}>
       <EmptyHeader>
-        <EmptyMedia variant="icon" className={accent ? "text-background" : undefined} style={accent ? { background: accent } : undefined}>
+        <EmptyMedia variant="icon" className={cn("rounded-full", accent && "text-background")} style={accent ? { background: accent } : undefined}>
           <HugeiconsIcon icon={icon} />
         </EmptyMedia>
         <EmptyTitle>{title}</EmptyTitle>

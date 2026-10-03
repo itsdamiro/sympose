@@ -8,12 +8,13 @@ import { EmptyAction, EmptyState } from "./empty-state"
 afterEach(cleanup)
 
 describe("EmptyState", () => {
-  it("is an icon tile, a title and a line under it, with no border of its own", () => {
+  it("is an icon in a circle, a title and a line under it, with no border of its own", () => {
     const { container } = render(<EmptyState icon={Folder01Icon} title="This folder is empty" description="Add a note." />)
     expect(screen.getByText("This folder is empty")).toBeTruthy()
     expect(screen.getByText("Add a note.")).toBeTruthy()
     expect(container.querySelector('[data-slot="empty-icon"] svg')).not.toBeNull()
     expect(container.querySelector('[data-slot="empty"]')?.className).toContain("border-0")
+    expect(container.querySelector('[data-slot="empty-icon"]')?.className).toContain("rounded-full")
   })
 
   it("draws the line and the action only when given", () => {
