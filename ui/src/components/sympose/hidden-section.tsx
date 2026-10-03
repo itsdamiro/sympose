@@ -1,6 +1,7 @@
 import { HugeiconsIcon } from "@hugeicons/react"
-import { ViewIcon } from "@hugeicons/core-free-icons"
+import { ViewIcon, ViewOffIcon } from "@hugeicons/core-free-icons"
 
+import { EmptyState } from "@/components/sympose/empty-state"
 import { ControlRow, ControlSection } from "@/components/sympose/control-section"
 import { SegmentedControl } from "@/components/sympose/segmented-control"
 
@@ -31,10 +32,12 @@ function HiddenSection({
         is not listed or opened here, but search still finds it.
       </p>
       {hidden.length === 0 ? (
-        <p className="text-sm text-fg-muted">
-          Nothing is hidden. Right-click a folder or note and choose “Hide from
-          view”.
-        </p>
+        <EmptyState
+          compact
+          icon={ViewOffIcon}
+          title="Nothing is hidden"
+          description="Right-click a folder or note and choose “Hide from view”."
+        />
       ) : (
         <ul className="flex flex-col gap-0.5" aria-label="Hidden folders and notes">
           {hidden.map((path) => (

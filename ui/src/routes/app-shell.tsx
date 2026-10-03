@@ -114,6 +114,9 @@ export function AppShell() {
   const contentOpen = panels.isOpen("content")
   const editorOpen = panels.isOpen("editor")
   const chatOpen = panels.isOpen("chat")
+  // On a desktop the three panels fit together, so the chat is always there and has no toggle; on a tablet it shares
+  // the stage with one other panel, and on a phone it is one of the views, so those keep theirs.
+  const chatPinned = breakpoint === "desktop"
   // Editor grows into the content panel's area when that's closed — but only
   // on the smaller breakpoints, where screen room is scarce, and only when
   // chat isn't also open to claim that same freed space. On desktop the
@@ -180,6 +183,12 @@ export function AppShell() {
     activePersona
   )
   const explore = nebulaPrefs.interaction === "explore"
+  // Explore is the one thing that hides the chat on a desktop (it clears the whole stage for the nebula); out of it,
+  // the chat is always there, and is opened again if a saved layout had it closed.
+  const openPanel = panels.open
+  React.useEffect(() => {
+    if (chatPinned && !explore && !chatOpen) openPanel("chat")
+  }, [chatPinned, explore, chatOpen, openPanel])
 
   const { nebulaReady } = useNebulaStage(panels, nebulaPrefs.interaction)
   const { rosterPersonas, activePersonaName, activePersonaModel, activePersonaVisuals } =
@@ -610,10 +619,12 @@ export function AppShell() {
             // border) — 8 + 37/2 - 32/2 = 10.5. A flat `top-4` (16px) sat
             // 5.5px low against it.
             <div className="pointer-events-auto absolute top-[10.5px] right-3 z-30 flex items-center gap-2">
-              <ChatActionGroup
-                chatOpen={chatOpen}
-                onToggleChat={() => panels.toggle("chat")}
-              />
+              {!chatPinned && (
+                <ChatActionGroup
+                  chatOpen={chatOpen}
+                  onToggleChat={() => panels.toggle("chat")}
+                />
+              )}
               <NebulaModeToggle
                 explore={explore}
                 onToggle={() =>

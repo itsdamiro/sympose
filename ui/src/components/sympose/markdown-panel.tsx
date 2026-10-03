@@ -14,6 +14,7 @@ import "@damiro/stylo/styles.css"
 import "@damiro/stylo/katex.css"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
+  File01Icon,
   Alert02Icon,
   BookOpen01Icon,
   CodeIcon,
@@ -992,9 +993,7 @@ function MarkdownPanel({
   const noteBody = (
     <>
       {note.status === "empty" && (
-        <div className="grid flex-1 place-items-center px-6 text-center text-sm text-fg-muted">
-          Select a note to open it here.
-        </div>
+        <EmptyState icon={File01Icon} title="No note open" description="Select a note to open it here." />
       )}
 
       {note.status === "loading" && (

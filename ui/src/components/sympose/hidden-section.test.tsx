@@ -47,6 +47,7 @@ describe("HiddenSection", () => {
   it("says nothing is hidden, and how to hide something, when the list is empty", () => {
     setup({ hidden: [] })
     expect(screen.getByText(/Nothing is hidden/)).toBeTruthy()
+    expect(document.querySelector('[data-slot="empty"]')).not.toBeNull() // the app's empty placeholder
     expect(screen.queryByRole("button", { name: /^Unhide/ })).toBeNull()
   })
 

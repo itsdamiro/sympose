@@ -238,3 +238,12 @@ describe("MarkdownPanel leaving a note with unsaved edits", () => {
   })
 })
 
+describe("MarkdownPanel: nothing open", () => {
+  it("shows the app's empty placeholder, not a bare line of text", () => {
+    const { container } = render(<MarkdownPanel preferences={PREFERENCES} toolbarItems={[]} />)
+    expect(screen.getByText("No note open")).toBeTruthy()
+    expect(screen.getByText("Select a note to open it here.")).toBeTruthy()
+    expect(container.querySelector('[data-slot="empty"] [data-slot="empty-icon"] svg')).not.toBeNull()
+  })
+})
+
