@@ -75,6 +75,9 @@ export interface ChatTurn {
   handle?: string
   body: string
   timestamp?: string
+  /** The model that made this reply — `role: "persona"` only; each reply keeps its own, so an old one does not take
+   *  on a model chosen later. */
+  model?: string
   /** TTFT/latency readout — `role: "persona"` only. */
   latency?: string
   streaming?: boolean

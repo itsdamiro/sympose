@@ -21,7 +21,6 @@ const row = (id: string, extra: Partial<ListedSession> = {}): ListedSession => (
 function setup(sessions: ListedSession[]) {
   const spies = {
     onOpen: vi.fn(),
-    onNew: vi.fn(),
     onRename: vi.fn().mockResolvedValue(true),
     onPin: vi.fn(),
     onDelete: vi.fn(),
@@ -61,6 +60,13 @@ describe("ConversationList", () => {
     cleanup()
     setup([row("a", { pinned_at: "2026-10-01T00:00:00Z" })]) // nothing recent to separate it from
     expect(screen.queryByText("Recent")).toBeNull()
+  })
+
+  it("sets the recent conversations well apart from the pinned: about three times the space between two rows", () => {
+    setup([row("a", { pinned_at: "2026-10-01T00:00:00Z" }), row("b")])
+    const [pinned, recent] = Array.from(document.querySelectorAll('[data-slot="group-caption"]')) as HTMLElement[]
+    expect(recent.className).toContain("pt-8") // 32 px above it; two rows are 10 px apart, a folder list's groups 12 px
+    expect(pinned.className).not.toContain("pt-8") // the first caption opens the list
   })
 
   it("sits flush with its heading and has no box, as a folder item does: the open one is marked by its title", () => {
@@ -105,10 +111,11 @@ describe("ConversationList", () => {
     expect(screen.getAllByLabelText("New reply")).toHaveLength(1) // one that is replying does not also show the dot
   })
 
-  it("starts a new conversation from its button", () => {
-    const spies = setup([row("a")])
-    fireEvent.click(screen.getByRole("button", { name: "New" }))
-    expect(spies.onNew).toHaveBeenCalledTimes(1)
+  it("has no title line and no New button: the list is only its conversations (a new one starts from the chat)", () => {
+    setup([row("a"), row("b")])
+    expect(screen.queryByText("Conversations")).toBeNull()
+    expect(screen.queryByRole("button", { name: "New" })).toBeNull()
+    expect(screen.getByRole("region", { name: "Conversations" })).toBeTruthy() // still named for a screen reader
   })
 
   it("pins and unpins from the row's menu", async () => {

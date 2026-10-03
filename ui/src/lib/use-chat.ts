@@ -87,6 +87,7 @@ function turnsFromPage(handle: string, page: SessionPage): ChatTurn[] {
         handle,
         body: saved.assistant,
         timestamp: at,
+        model: saved.model ?? undefined,
         latency: latency(saved.ttft_ms),
         sent: saved.sent,
       },
@@ -249,7 +250,7 @@ export function useChat(persona: string) {
         const context = model && context_used != null && context_limit != null ? { used: context_used, limit: context_limit, model } : undefined
         const answered = addTo(
           { ...done, sessionId: session_id, context, condensed, unread: elsewhere || done.unread },
-          { role: "persona", handle: persona, body: reply, timestamp: time(new Date()), latency: latency(ttft_ms), sent }
+          { role: "persona", handle: persona, body: reply, timestamp: time(new Date()), model: model ?? undefined, latency: latency(ttft_ms), sent }
         )
         // The notes of a compaction (ADR 055) are said once, when they first reach a prompt or grow: not on every reply.
         return condensed > c.condensed

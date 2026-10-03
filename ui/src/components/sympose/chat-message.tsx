@@ -5,7 +5,6 @@ import { cn } from "@/lib/utils"
 import { resolvePersonaVisuals } from "@/lib/personas"
 import type { ChatAction } from "@/lib/chat-types"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { ModelChip } from "@/components/sympose/model-chip"
 import { ActionBadge } from "@/components/sympose/action-badge"
 
 /** A blinking caret at the tail of a mid-stream persona reply. */
@@ -26,8 +25,8 @@ interface ChatMessageProps extends React.ComponentProps<"div"> {
   role: "user" | "persona"
   /** Persona handle — `role: "persona"` only. */
   handle?: string
-  /** Persona's own model string, for the model chip — `role: "persona"` only. */
-  model?: string
+  /** Marks the reply in its header, beside the avatar (the cloud icon of a cloud model's reply, ADR 060) — `role: "persona"` only. */
+  indicator?: React.ReactNode
   timestamp?: string
   streaming?: boolean
   actions?: ChatAction[]
@@ -37,15 +36,15 @@ interface ChatMessageProps extends React.ComponentProps<"div"> {
 
 /**
  * One turn in the chat transcript. User turns are a right-aligned filled
- * bubble; persona turns are a left-aligned identity header (avatar + name +
- * model chip) over plain flowing text — distinction by alignment, not by two
+ * bubble; persona turns are a left-aligned identity header (avatar, an optional
+ * indicator, the time) over plain flowing text — distinction by alignment, not by two
  * different bubble styles.
  */
 function ChatMessage({
   className,
   role,
   handle,
-  model,
+  indicator,
   timestamp,
   streaming = false,
   actions,
@@ -91,7 +90,7 @@ function ChatMessage({
             <HugeiconsIcon icon={visuals.icon} className="size-3.5" />
           </AvatarFallback>
         </Avatar>
-        {model && <ModelChip model={model} />}
+        {indicator}
         {timestamp && (
           <span className="font-mono text-xs text-fg-muted tabular-nums">
             {timestamp}

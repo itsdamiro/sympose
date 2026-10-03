@@ -37,4 +37,13 @@ describe("GroupCaption", () => {
     expect(caption.className).toContain("first:pt-0")
     expect(caption.className).toContain("pb-1.5")
   })
+
+  it("takes its own gap where the rows around it are airier than a folder's: the override replaces the default", () => {
+    const { container } = render(<GroupCaption icon={PinIcon} label="Recent" paddingLeft={0} className="pt-8" />)
+    const caption = container.querySelector('[data-slot="group-caption"]') as HTMLElement
+    expect(caption.className).toContain("pt-8")
+    expect(caption.className).not.toContain("pt-4")
+    expect(caption.className).toContain("first:pt-0") // and still no gap when it opens a list
+  })
 })
+

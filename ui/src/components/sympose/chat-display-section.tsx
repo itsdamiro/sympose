@@ -45,8 +45,8 @@ function ChatDisplaySection({
         />
       </ControlRow>
       <p className="text-xs text-fg-muted">
-        A small cloud icon at the end of the line under a reply from a cloud model. Hover, focus or tap it to see what
-        was sent and what was held back. Hiding it only hides the icon; what a cloud model may receive is set in
+        A small cloud icon beside the avatar on a reply from a cloud model. Hover, focus or tap it to see which model
+        answered, what was sent and what was held back. Hiding it only hides the icon; what a cloud model may receive is set in
         sharing.
       </p>
       <ControlRow label="Type the busy line out by letters">

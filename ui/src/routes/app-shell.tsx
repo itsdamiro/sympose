@@ -386,7 +386,6 @@ export function AppShell() {
           <ConversationList
             sessions={sessionList.sessions}
             onOpen={(id) => void sessionList.open(id)}
-            onNew={() => void sessionList.startNew()}
             onRename={sessionList.rename}
             onPin={(id, pinned) => void sessionList.pin(id, pinned)}
             onDelete={sessionList.remove}

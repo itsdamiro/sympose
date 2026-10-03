@@ -85,55 +85,18 @@ describe("ReplyFooter: the references", () => {
   })
 })
 
-describe("ReplyFooter: the cloud icon", () => {
-  const icon = () => screen.getByRole("button", { name: "What was sent to the cloud model" })
+describe("ReplyFooter: only the references", () => {
+  it("draws nothing for a cloud reply that used no references: the cloud icon is in the reply's header, not here", () => {
+    expect(render(<ReplyFooter sent={{ notes: [], cloud: ["notes"], withheld: ["memory"] }} />).container.firstChild).toBeNull()
+  })
 
-  it("sits on the same row as the references, with an amber mark when something was held back", () => {
+  it("draws no cloud icon beside the references", () => {
     render(<ReplyFooter sent={cloud} />)
-    expect(icon().getAttribute("data-held")).toBe("true")
-    expect(screen.getByRole("button", { name: /Based on Atlas/ })).toBeTruthy()
-  })
-
-  it("has no mark when nothing was held back", () => {
-    render(<ReplyFooter sent={{ ...one, cloud: ["notes"], withheld: [] }} />)
-    expect(icon().getAttribute("data-held")).toBeNull()
-  })
-
-  it("opens on a click or a tap, with what was sent and held back in plain words", async () => {
-    render(<ReplyFooter sent={cloud} />)
-    fireEvent.click(icon())
-    expect(await screen.findByText("Sent to the cloud model: notes, vault map")).toBeTruthy()
-    expect(screen.getByText("Held back: her memory")).toBeTruthy()
-  })
-
-  it("stands alone when the reply used no references", () => {
-    render(<ReplyFooter sent={{ notes: [], cloud: [], withheld: ["notes"] }} />)
-    expect(icon()).toBeTruthy()
-    expect(screen.queryByRole("button", { name: /Based on/ })).toBeNull()
-  })
-
-  it("is not drawn for a local reply, or one that involved nothing of the vault", () => {
-    render(<ReplyFooter sent={one} />)
-    expect(screen.queryByRole("button", { name: "What was sent to the cloud model" })).toBeNull()
-    cleanup()
-    expect(render(<ReplyFooter sent={{ notes: [], cloud: [], withheld: [] }} />).container.firstChild).toBeNull()
-  })
-})
-
-describe("ReplyFooter: the two display choices", () => {
-  it("hides the references but keeps the icon when the line is off", () => {
-    render(<ReplyFooter sent={cloud} showReferences={false} />)
-    expect(screen.queryByRole("button", { name: /Based on/ })).toBeNull()
-    expect(screen.getByRole("button", { name: "What was sent to the cloud model" })).toBeTruthy()
-  })
-
-  it("hides the icon but keeps the references when the cloud notice is off", () => {
-    render(<ReplyFooter sent={cloud} showCloud={false} />)
     expect(screen.getByRole("button", { name: /Based on Atlas/ })).toBeTruthy()
     expect(screen.queryByRole("button", { name: "What was sent to the cloud model" })).toBeNull()
   })
 
-  it("draws nothing when both are off", () => {
-    expect(render(<ReplyFooter sent={cloud} showReferences={false} showCloud={false} />).container.firstChild).toBeNull()
+  it("draws nothing when the references are turned off", () => {
+    expect(render(<ReplyFooter sent={cloud} showReferences={false} />).container.firstChild).toBeNull()
   })
 })

@@ -1,7 +1,6 @@
 import * as React from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  Add01Icon,
   Clock01Icon,
   Delete02Icon,
   Edit01Icon,
@@ -33,7 +32,6 @@ const MAX_TITLE = 80
 interface ConversationListProps {
   sessions: ListedSession[]
   onOpen: (id: string) => void
-  onNew: () => void
   onRename: (id: string, title: string) => Promise<boolean>
   onPin: (id: string, pinned: boolean) => void
   onDelete: (row: ListedSession) => void
@@ -171,7 +169,9 @@ function ConversationRow({
 }
 
 /** The rows, pinned first. When there are both pinned and recent ones they are set apart by the folder list's own
- *  captions ("Pinned", "Recent"); with only one kind the section's title is caption enough. */
+ *  captions ("Pinned", "Recent"); with only one kind there is nothing to set apart. Its rows are two lines each, ten
+ *  pixels apart, so "Recent" takes 32 px above it (a folder list's groups, of single-line rows, are 12 apart): wide
+ *  enough to read as a break and not as one more row. */
 function ConversationGroups({
   sessions,
   rowProps,
@@ -193,7 +193,7 @@ function ConversationGroups({
     <div className="flex flex-col">
       <GroupCaption icon={PinIcon} label="Pinned" paddingLeft={0} />
       {list(pinned)}
-      <GroupCaption icon={Clock01Icon} label="Recent" paddingLeft={0} />
+      <GroupCaption icon={Clock01Icon} label="Recent" paddingLeft={0} className="pt-8" />
       {list(recent)}
     </div>
   )
@@ -203,22 +203,12 @@ function ConversationGroups({
  * The persona's conversations, on its profile (ADR 057): the pinned ones first, then the rest with the one last
  * used on top. A click opens one in the chat, also while a reply is being written in another; a row shows
  * `replying…` while a reply is being written into it and a dot when one has landed that nobody has read. Pin,
- * Rename and Delete are on the row's `⋯` and on a right-click (a delete goes to the Bin).
+ * Rename and Delete are on the row's `⋯` and on a right-click (a delete goes to the Bin). The list is only its
+ * conversations, with no title line and no New button: a new one starts from the icon under the message box.
  */
-function ConversationList({ sessions, onOpen, onNew, onRename, onPin, onDelete, className }: ConversationListProps) {
+function ConversationList({ sessions, onOpen, onRename, onPin, onDelete, className }: ConversationListProps) {
   return (
     <section className={cn("flex flex-col gap-2", className)} aria-label="Conversations">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold tracking-wide text-fg-muted uppercase">Conversations</span>
-        <button
-          type="button"
-          onClick={onNew}
-          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-fg-muted transition-colors hover:bg-accent hover:text-foreground"
-        >
-          <HugeiconsIcon icon={Add01Icon} className="size-3.5" />
-          New
-        </button>
-      </div>
       {sessions.length === 0 ? (
         <p className="text-sm text-fg-muted">No conversations yet.</p>
       ) : (

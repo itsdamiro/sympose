@@ -11,6 +11,8 @@ import { ChatSystemLine } from "@/components/sympose/chat-system-line"
 import { BusyLine } from "@/components/sympose/busy-line"
 import { ContextMeter } from "@/components/sympose/context-meter"
 import { condenseAdvised, percent, type ContextFigure } from "@/lib/context-meter"
+import { hasCloudSent } from "@/lib/grounded"
+import { CloudSentIcon } from "@/components/sympose/cloud-sent-icon"
 import { ReplyFooter } from "@/components/sympose/reply-footer"
 import { ModelChip } from "@/components/sympose/model-chip"
 import { toolbarButtonClass } from "@/components/sympose/panel-collapse-button"
@@ -33,7 +35,7 @@ interface ChatPanelProps extends React.ComponentProps<"div"> {
   onWikiLinkClick?: (target: string) => void
   /** The "Based on ..." end of the row under a reply that used notes or earlier exchanges (a web display knob, on by default). */
   showGrounding?: boolean
-  /** The cloud icon at the other end of that row, on a cloud model's replies (a web display knob, on by default). */
+  /** The cloud icon in the header of a cloud model's reply, beside the avatar (a web display knob, on by default). */
   showCloudSent?: boolean
   /** The context meter's figure (a ring and a percentage in the footer), or `null` for none. */
   contextFigure?: ContextFigure | null
@@ -280,17 +282,14 @@ function ChatPanel({
                   key={turn.id}
                   role="persona"
                   handle={turn.handle}
-                  model={model}
+                  indicator={
+                    showCloudSent && turn.sent && hasCloudSent(turn.sent) ? <CloudSentIcon sent={turn.sent} model={turn.model} /> : undefined
+                  }
                   timestamp={turn.timestamp}
                   streaming={turn.streaming}
                   actions={turn.actions}
                   grounding={
-                    <ReplyFooter
-                      sent={turn.sent}
-                      showReferences={showGrounding}
-                      showCloud={showCloudSent}
-                      onOpenNote={onOpenNote}
-                    />
+                    <ReplyFooter sent={turn.sent} showReferences={showGrounding} onOpenNote={onOpenNote} />
                   }
                 >
                   <ChatMarkdown onWikiLinkClick={onWikiLinkClick}>{turn.body}</ChatMarkdown>

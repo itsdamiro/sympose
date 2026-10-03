@@ -135,3 +135,9 @@ const CLOUD_WORDS: Record<string, string> = {
 export function cloudWords(names: string[] | undefined): string[] {
   return (names ?? []).map((n) => CLOUD_WORDS[n] ?? n.replace(/_/g, " "))
 }
+
+/** Whether the reply came from a cloud model: its record names what was sent to it or held back from it (ADR 031). */
+export function hasCloudSent(sent: SentRecord | null | undefined): boolean {
+  return (sent?.cloud?.length ?? 0) > 0 || (sent?.withheld?.length ?? 0) > 0
+}
+

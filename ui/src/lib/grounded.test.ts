@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import type { SentNote } from "@/lib/chat-types"
-import { cloudWords, groundedChats, groundedChatsLine, groundedContext, groundedLookups, groundedNotes, hasFooterRow, rowSummary, groundedSummary, isReference, noteDetail, noteTitle } from "./grounded"
+import { cloudWords, hasCloudSent, groundedChats, groundedChatsLine, groundedContext, groundedLookups, groundedNotes, hasFooterRow, rowSummary, groundedSummary, isReference, noteDetail, noteTitle } from "./grounded"
 
 const note = (extra: Partial<SentNote> = {}): SentNote => ({ path: "Projects/Atlas.md", heading: "", source: "vault", ...extra })
 
@@ -139,4 +139,13 @@ describe("grounded notes", () => {
     expect(cloudWords(["something_new"])).toEqual(["something new"])
     expect(cloudWords(undefined)).toEqual([])
   })
+
+  it("knows a reply came from a cloud model by its record naming what was sent or held back", () => {
+    expect(hasCloudSent({ notes: [], cloud: ["notes"] })).toBe(true)
+    expect(hasCloudSent({ notes: [], cloud: [], withheld: ["memory"] })).toBe(true)
+    expect(hasCloudSent({ notes: [], cloud: [], withheld: [] })).toBe(false)
+    expect(hasCloudSent({ notes: [] })).toBe(false)
+    expect(hasCloudSent(null)).toBe(false)
+  })
 })
+

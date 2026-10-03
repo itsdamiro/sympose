@@ -367,6 +367,16 @@ describe("useChat resuming", () => {
     expect(result.current.hasMore).toBe(false)
   })
 
+  it("keeps the model that answered each reply with it, live and when resumed, so an old reply does not take on a model chosen later", async () => {
+    api.fetchChatSession.mockResolvedValue(pageOf([saved(0, { model: "ollama_chat/gemma2:9b" })], 0, false))
+    api.sendChatTurn.mockResolvedValue({ ok: true, reply: { ...ok("live").reply, model: "gemini/gemini-flash-latest" } })
+    const { result } = renderHook(() => useChat("samantha"))
+    await waitFor(() => expect(result.current.turns).toHaveLength(2))
+    expect(result.current.turns[1].model).toBe("ollama_chat/gemma2:9b")
+    await say(result, "again")
+    expect(result.current.turns[result.current.turns.length - 1].model).toBe("gemini/gemini-flash-latest")
+  })
+
   it("keeps what grounded a reply with it, live and when resumed", async () => {
     const sent = { notes: [{ path: "Projects/Atlas.md", heading: "", source: "vault" }] }
     api.fetchChatSession.mockResolvedValue(pageOf([saved(0, { sent })], 0, false))

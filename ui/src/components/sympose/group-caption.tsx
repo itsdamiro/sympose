@@ -2,6 +2,8 @@ import * as React from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import type { IconSvgElement } from "@hugeicons/react"
 
+import { cn } from "@/lib/utils"
+
 import { DropdownMenu, DropdownMenuContent } from "@/components/ui/dropdown-menu"
 import { RowActionsTrigger } from "@/components/sympose/row-actions"
 import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from "@/components/ui/context-menu"
@@ -20,11 +22,15 @@ export function GroupCaption({
   label,
   paddingLeft,
   menuItems,
+  className,
 }: {
   icon: IconSvgElement
   label: string
   paddingLeft: number
   menuItems?: React.ReactNode
+  /** Spacing for a list whose rows are airier than a folder's (the conversation list's two-line rows): it replaces the
+   *  default, which suits the tight single-line rows of the vault tree. */
+  className?: string
 }) {
   const inner = (
     <>
@@ -46,7 +52,7 @@ export function GroupCaption({
     return (
       <div
         data-slot="group-caption"
-        className="flex items-center gap-1.5 pt-4 pb-1.5 first:pt-0"
+        className={cn("flex items-center gap-1.5 pt-4 pb-1.5 first:pt-0", className)}
         style={{ paddingLeft: `${paddingLeft}px` }}
       >
         {inner}
@@ -58,7 +64,7 @@ export function GroupCaption({
     <ContextMenu>
       <ContextMenuTrigger
         data-slot="group-caption"
-        className="group/row relative flex items-center gap-1.5 pt-4 pr-8 pb-1.5 first:pt-0"
+        className={cn("group/row relative flex items-center gap-1.5 pt-4 pr-8 pb-1.5 first:pt-0", className)}
         style={{ paddingLeft: `${paddingLeft}px` }}
       >
         {inner}
