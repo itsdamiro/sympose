@@ -4,8 +4,7 @@ import { Delete02Icon, DeletePutBackIcon, Message01Icon } from "@hugeicons/core-
 
 import { cn } from "@/lib/utils"
 import { ago } from "@/lib/ago"
-import { ResultText } from "@/components/sympose/result-text"
-import { rowActionClass } from "@/components/sympose/row-actions"
+import { BinRow } from "@/components/sympose/bin-row"
 import { confirm } from "@/lib/confirm-store"
 import { notify } from "@/lib/notify"
 import {
@@ -136,33 +135,17 @@ function ConversationBin({
         </button>
       </div>
       {rows.map((row) => (
-        <div key={row.id} className="group/row flex items-center gap-2 rounded-md py-1 pr-1">
-          <div className="min-w-0 flex-1">
-            <ResultText
-              icon={Message01Icon}
-              title={row.title || "Untitled conversation"}
-              detail={`${row.turns} turn${row.turns === 1 ? "" : "s"} · deleted ${ago(row.deleted_at)}`}
-            />
-          </div>
-          <button
-            type="button"
-            disabled={busy === row.id}
-            onClick={() => void restore(row)}
-            aria-label={`Restore ${row.title || "the conversation"}`}
-            className={cn(rowActionClass, "disabled:opacity-50")}
-          >
-            <HugeiconsIcon icon={DeletePutBackIcon} className="size-3.5" />
-          </button>
-          <button
-            type="button"
-            disabled={busy === row.id}
-            onClick={() => purge(row)}
-            aria-label={`Delete ${row.title || "the conversation"} permanently`}
-            className={cn(rowActionClass, "hover:bg-destructive/10 hover:text-destructive disabled:opacity-50")}
-          >
-            <HugeiconsIcon icon={Delete02Icon} className="size-3.5" />
-          </button>
-        </div>
+        <BinRow
+          key={row.id}
+          icon={Message01Icon}
+          title={row.title || "Untitled conversation"}
+          detail={`${row.turns} turn${row.turns === 1 ? "" : "s"} · deleted ${ago(row.deleted_at)}`}
+          label={row.title || "the conversation"}
+          actions={[
+            { label: "Restore", icon: DeletePutBackIcon, disabled: busy === row.id, onSelect: () => void restore(row) },
+            { label: "Delete permanently", icon: Delete02Icon, destructive: true, disabled: busy === row.id, onSelect: () => purge(row) },
+          ]}
+        />
       ))}
     </div>
   )

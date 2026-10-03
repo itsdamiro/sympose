@@ -1,6 +1,6 @@
 import * as React from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { ArrowRight01Icon, Delete02Icon, DeletePutBackIcon, Folder01Icon } from "@hugeicons/core-free-icons"
+import { ArrowRight01Icon, Delete02Icon, DeletePutBackIcon, File01Icon, Folder01Icon } from "@hugeicons/core-free-icons"
 import { cn } from "@/lib/utils"
 import { ago } from "@/lib/ago"
 import {
@@ -10,6 +10,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty"
+import { BinRow } from "@/components/sympose/bin-row"
 import { confirm } from "@/lib/confirm-store"
 import { notify } from "@/lib/notify"
 import {
@@ -177,33 +178,17 @@ function TrashList({
     const { dir, name } = splitPath(row.original_path)
     const rowBusy = busy === row.trash_path
     return (
-      <div key={row.trash_path} className="group/row flex items-center gap-2 rounded-md py-1 pr-1">
-        <div className="flex min-w-0 flex-1 flex-col">
-          <span className="truncate font-mono text-sm">
-            {dir ? <span className="text-fg-muted">{dir}</span> : null}
-            {name}
-          </span>
-          <span className="text-xs text-fg-muted">deleted {ago(row.deleted_at)}</span>
-        </div>
-        <button
-          type="button"
-          disabled={rowBusy}
-          onClick={() => void restore(row)}
-          aria-label={`Restore ${name}`}
-          className="grid size-7 shrink-0 place-items-center rounded-md text-fg-muted opacity-0 transition-opacity group-hover/row:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100 disabled:opacity-50"
-        >
-          <HugeiconsIcon icon={DeletePutBackIcon} className="size-4" />
-        </button>
-        <button
-          type="button"
-          disabled={rowBusy}
-          onClick={() => purge(row)}
-          aria-label={`Delete ${name} permanently`}
-          className="grid size-7 shrink-0 place-items-center rounded-md text-fg-muted opacity-0 transition-opacity group-hover/row:opacity-100 hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100 disabled:opacity-50"
-        >
-          <HugeiconsIcon icon={Delete02Icon} className="size-4" />
-        </button>
-      </div>
+      <BinRow
+        key={row.trash_path}
+        icon={File01Icon}
+        title={name}
+        detail={`${dir ? `${dir} · ` : ""}deleted ${ago(row.deleted_at)}`}
+        label={name}
+        actions={[
+          { label: "Restore", icon: DeletePutBackIcon, disabled: rowBusy, onSelect: () => void restore(row) },
+          { label: "Delete permanently", icon: Delete02Icon, destructive: true, disabled: rowBusy, onSelect: () => purge(row) },
+        ]}
+      />
     )
   }
 
@@ -234,36 +219,24 @@ function TrashList({
       {entries.map((entry) =>
         entry.kind === "folder" ? (
           <div key={`folder:${entry.folder.trash_dir}`} className="flex flex-col">
-            <div className="group/row flex items-center gap-2 rounded-md py-1 pr-1">
-              <button
-                type="button"
-                onClick={() => toggle(entry.folder.trash_dir)}
-                aria-expanded={open.has(entry.folder.trash_dir)}
-                aria-label={`${open.has(entry.folder.trash_dir) ? "Hide" : "Show"} the files of ${entry.folder.original_path}`}
-                className="flex min-w-0 flex-1 items-center gap-2 text-left"
-              >
+            <BinRow
+              icon={Folder01Icon}
+              title={`${entry.folder.original_path}/`}
+              detail={`${entry.folder.count} file${entry.folder.count === 1 ? "" : "s"}, deleted ${ago(entry.folder.deleted_at)}`}
+              label={`folder ${entry.folder.original_path}`}
+              onClick={() => toggle(entry.folder.trash_dir)}
+              expanded={open.has(entry.folder.trash_dir)}
+              trailing={
                 <HugeiconsIcon
                   icon={ArrowRight01Icon}
-                  className={cn("size-3.5 shrink-0 text-fg-muted transition-transform", open.has(entry.folder.trash_dir) && "rotate-90")}
+                  aria-hidden
+                  className={cn("mt-0.5 size-3.5 shrink-0 text-fg-muted transition-transform", open.has(entry.folder.trash_dir) && "rotate-90")}
                 />
-                <HugeiconsIcon icon={Folder01Icon} className="size-4 shrink-0 text-fg-muted" />
-                <span className="flex min-w-0 flex-col">
-                  <span className="truncate font-mono text-sm">{entry.folder.original_path}/</span>
-                  <span className="text-xs text-fg-muted">
-                    {entry.folder.count} file{entry.folder.count === 1 ? "" : "s"}, deleted {ago(entry.folder.deleted_at)}
-                  </span>
-                </span>
-              </button>
-              <button
-                type="button"
-                disabled={busy === entry.folder.trash_dir}
-                onClick={() => void restoreFolder(entry.folder)}
-                aria-label={`Restore folder ${entry.folder.original_path}`}
-                className="shrink-0 rounded-md px-2 py-1 text-xs text-fg-muted transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
-              >
-                Restore folder
-              </button>
-            </div>
+              }
+              actions={[
+                { label: "Restore folder", icon: DeletePutBackIcon, disabled: busy === entry.folder.trash_dir, onSelect: () => void restoreFolder(entry.folder) },
+              ]}
+            />
             {open.has(entry.folder.trash_dir) && (
               <div className="ml-6 flex flex-col border-l border-border pl-2">
                 {items.filter((row) => row.folder === entry.folder.trash_dir).map(renderRow)}

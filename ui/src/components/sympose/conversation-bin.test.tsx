@@ -25,6 +25,12 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
+/** Chooses an action from a row's `⋯` menu, as a user does. */
+const pick = async (row: string, item: string) => {
+  fireEvent.click(await screen.findByRole("button", { name: `Actions for ${row}` }))
+  fireEvent.click(await screen.findByRole("menuitem", { name: item }))
+}
+
 describe("ConversationBin", () => {
   it("lists the deleted conversations with their turns and when they were deleted", async () => {
     render(<ConversationBin persona="samantha" />)
@@ -54,14 +60,21 @@ describe("ConversationBin", () => {
     expect(blocks[0].querySelector("svg")).toBeTruthy()
   })
 
-  it("is not dressed as clickable: its title does not react to the pointer, only its two buttons do, in the shared look", async () => {
+  it("is not dressed as clickable: its title does not react to the pointer, and its actions are the shared row menu", async () => {
     render(<ConversationBin persona="samantha" />)
     await screen.findByText("The movies")
     const row = screen.getByText("The movies").closest('[data-slot="result-text"]')?.parentElement?.parentElement as HTMLElement
     expect(row.className).not.toContain("group/result")
-    const restore = screen.getByRole("button", { name: "Restore The movies" })
-    expect(restore.className).toContain("group-hover/row:opacity-100")
-    expect(restore.className).toContain("hover:bg-accent")
+    const dots = screen.getByRole("button", { name: "Actions for The movies" })
+    expect(dots.className).toContain("group-hover/row:opacity-100")
+    expect(dots.className).toContain("hover:bg-accent")
+  })
+
+  it("offers Restore and Delete permanently from a right click as well as from the button", async () => {
+    render(<ConversationBin persona="samantha" />)
+    fireEvent.contextMenu(await screen.findByText("The movies"))
+    expect(await screen.findByRole("menuitem", { name: "Restore" })).toBeTruthy()
+    expect(screen.getByRole("menuitem", { name: "Delete permanently" })).toBeTruthy()
   })
 
   it("says when there are none", async () => {
@@ -74,7 +87,7 @@ describe("ConversationBin", () => {
     api.restoreSession.mockResolvedValue({ ok: true, value: undefined })
     const onRestored = vi.fn()
     render(<ConversationBin persona="samantha" onRestored={onRestored} />)
-    fireEvent.click(await screen.findByRole("button", { name: "Restore The movies" }))
+    await pick("The movies", "Restore")
     await waitFor(() => expect(api.restoreSession).toHaveBeenCalledWith("samantha", "a"))
     await waitFor(() => expect(onRestored).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(api.fetchBinnedSessions).toHaveBeenCalledTimes(2))
@@ -84,7 +97,7 @@ describe("ConversationBin", () => {
     api.restoreSession.mockResolvedValue({ ok: false, error: "A conversation with that id is already there." })
     const onRestored = vi.fn()
     render(<ConversationBin persona="samantha" onRestored={onRestored} />)
-    fireEvent.click(await screen.findByRole("button", { name: "Restore The movies" }))
+    await pick("The movies", "Restore")
     const { notify } = await import("@/lib/notify")
     await waitFor(() => expect(notify.error).toHaveBeenCalledWith("A conversation with that id is already there."))
     expect(onRestored).not.toHaveBeenCalled()
@@ -93,7 +106,7 @@ describe("ConversationBin", () => {
   it("always asks before deleting for good, and deletes only on the answer", async () => {
     api.purgeSession.mockResolvedValue({ ok: true, value: undefined })
     render(<ConversationBin persona="samantha" />)
-    fireEvent.click(await screen.findByRole("button", { name: "Delete The movies permanently" }))
+    await pick("The movies", "Delete permanently")
     const request = confirmMock.mock.calls[0][0]
     expect(request.permanent).toBe(true)
     expect(request.message).toBe("Delete “The movies” forever?")

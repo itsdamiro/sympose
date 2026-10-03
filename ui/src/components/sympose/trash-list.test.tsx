@@ -16,6 +16,12 @@ vi.mock("@/lib/notify", () => ({ notify: { success: vi.fn(), error: vi.fn(), war
 
 import { TrashList } from "./trash-list"
 
+/** Chooses an action from a row's `⋯` menu, as a user does. */
+const pick = async (row: string, item: string) => {
+  fireEvent.click(await screen.findByRole("button", { name: `Actions for ${row}` }))
+  fireEvent.click(await screen.findByRole("menuitem", { name: item }))
+}
+
 const row = (path: string, extra: Record<string, unknown> = {}) => ({
   trash_path: path,
   original_path: path,
@@ -35,12 +41,19 @@ afterEach(() => {
 })
 
 describe("TrashList", () => {
+  it("offers Restore and Delete permanently from a right click as well as from the button", async () => {
+    render(<TrashList persona="samantha" />)
+    fireEvent.contextMenu(await screen.findByText("map.png"))
+    expect(await screen.findByRole("menuitem", { name: "Restore" })).toBeTruthy()
+    expect(screen.getByRole("menuitem", { name: "Delete permanently" })).toBeTruthy()
+  })
+
   it("lists a deleted folder's attachments beside its notes, counting them all as items", async () => {
     render(<TrashList persona="samantha" />)
     expect(await screen.findByText("3 items")).toBeTruthy()
-    expect(screen.getByRole("button", { name: "Restore Plan" })).toBeTruthy() // a note shows without .md
-    expect(screen.getByRole("button", { name: "Restore map.png" })).toBeTruthy() // any other file by its name
-    expect(screen.getByRole("button", { name: "Restore board.canvas" })).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Actions for Plan" })).toBeTruthy() // a note shows without .md
+    expect(screen.getByRole("button", { name: "Actions for map.png" })).toBeTruthy() // any other file by its name
+    expect(screen.getByRole("button", { name: "Actions for board.canvas" })).toBeTruthy()
   })
 
   it("says one item in the singular, and that notes and files land in an empty bin", async () => {
@@ -58,14 +71,14 @@ describe("TrashList", () => {
     api.restoreTrashNote.mockResolvedValue({ ok: true, detail: "Restored to `Trip/img/map.png`" })
     const onRestored = vi.fn()
     render(<TrashList persona="samantha" onRestored={onRestored} />)
-    fireEvent.click(await screen.findByRole("button", { name: "Restore map.png" }))
+    await pick("map.png", "Restore")
     await waitFor(() => expect(api.restoreTrashNote).toHaveBeenCalledWith("Trip-20260101000000/img/map.png", "samantha"))
     await waitFor(() => expect(onRestored).toHaveBeenCalledWith("Trip/img/map.png"))
   })
 
   it("names the file, whatever its kind, when asking before deleting one for good", async () => {
     render(<TrashList persona="samantha" />)
-    fireEvent.click(await screen.findByRole("button", { name: "Delete map.png permanently" }))
+    await pick("map.png", "Delete permanently")
     expect(confirmMock.mock.calls[0][0].message).toBe("Delete “map.png” forever?")
     expect(confirmMock.mock.calls[0][0].permanent).toBe(true)
   })
@@ -87,11 +100,11 @@ describe("TrashList", () => {
       render(<TrashList persona="samantha" />)
       expect(await screen.findByText("Trip/")).toBeTruthy()
       expect(screen.getByText(/2 files, deleted/)).toBeTruthy()
-      expect(screen.getByRole("button", { name: "Restore Loose" })).toBeTruthy()
-      expect(screen.queryByRole("button", { name: "Restore a" })).toBeNull() // folded away
-      fireEvent.click(screen.getByRole("button", { name: "Show the files of Trip" }))
-      expect(screen.getByRole("button", { name: "Restore a" })).toBeTruthy()
-      expect(screen.getByRole("button", { name: "Restore b.png" })).toBeTruthy()
+      expect(screen.getByRole("button", { name: "Actions for Loose" })).toBeTruthy()
+      expect(screen.queryByRole("button", { name: "Actions for a" })).toBeNull() // folded away
+      fireEvent.click(screen.getByRole("button", { name: /Trip\// }))
+      expect(screen.getByRole("button", { name: "Actions for a" })).toBeTruthy()
+      expect(screen.getByRole("button", { name: "Actions for b.png" })).toBeTruthy()
     })
 
     it("restores the folder whole and tells the shell, saying plainly when something was skipped", async () => {
@@ -99,7 +112,7 @@ describe("TrashList", () => {
       api.restoreTrashFolder.mockResolvedValue({ ok: true, detail: "Restored 1 of 2 files. Skipped 1: a.md.", restored: ["Trip/img/b.png"], skipped: [{ path: "Trip/a.md", reason: "already exists" }] })
       const onRestored = vi.fn()
       render(<TrashList persona="samantha" onRestored={onRestored} />)
-      fireEvent.click(await screen.findByRole("button", { name: "Restore folder Trip" }))
+      await pick("folder Trip", "Restore folder")
       await waitFor(() => expect(api.restoreTrashFolder).toHaveBeenCalledWith("Trip", "samantha"))
       const { notify } = await import("@/lib/notify")
       await waitFor(() => expect(notify.warning).toHaveBeenCalledWith("Restored 1 of 2 files. Skipped 1: a.md."))
@@ -110,7 +123,7 @@ describe("TrashList", () => {
       api.fetchTrash.mockResolvedValue(bin(inTrip, [folder]))
       api.restoreTrashFolder.mockResolvedValue({ ok: false, error: "boom" })
       render(<TrashList persona="samantha" />)
-      fireEvent.click(await screen.findByRole("button", { name: "Restore folder Trip" }))
+      await pick("folder Trip", "Restore folder")
       const { notify } = await import("@/lib/notify")
       await waitFor(() => expect(notify.error).toHaveBeenCalledWith("boom"))
     })
