@@ -26,7 +26,8 @@ import { EMPTY_VAULTS, type Vault } from "@/lib/vaults-api"
  */
 
 interface TopBarProps extends React.ComponentProps<"header"> {
-  account?: { name: string }
+  /** The active persona: the button shows her icon in her accent, as the desktop menu's account row does. */
+  account?: { name: string; icon?: IconSvgElement; accent?: string }
   /** Vault button — pressed while the menu rail is showing. */
   menuOpen?: boolean
   onToggleMenu?: () => void
@@ -140,8 +141,11 @@ function TopBar({
             className="grid size-8 place-items-center rounded-md transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none aria-pressed:bg-accent"
           >
             <Avatar size="sm">
-              <AvatarFallback className="bg-accent text-[11px] font-medium uppercase">
-                {account.name.slice(0, 1)}
+              <AvatarFallback
+                className={cn("text-[11px] font-medium uppercase", account.accent ? "text-background" : "bg-accent")}
+                style={account.accent ? { background: account.accent } : undefined}
+              >
+                {account.icon ? <HugeiconsIcon icon={account.icon} className="size-3.5" /> : account.name.slice(0, 1)}
               </AvatarFallback>
             </Avatar>
           </button>

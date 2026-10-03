@@ -491,6 +491,7 @@ export function AppShell() {
           onSettings={() => selectSection(MENU_SETTINGS_ID)}
           accountActive={contentOpen && active === MENU_ACCOUNT_ID}
           onAccount={() => selectSection(MENU_ACCOUNT_ID)}
+          account={{ name: activePersonaName, icon: activePersonaVisuals.icon, accent: activePersonaVisuals.accent }}
           chatActive={chatOpen}
           onChat={() => panels.toggle("chat")}
           vaults={vaultsState.vaults}
