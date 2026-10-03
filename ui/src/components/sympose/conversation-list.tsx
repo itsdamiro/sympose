@@ -2,6 +2,7 @@ import * as React from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Add01Icon,
+  Clock01Icon,
   Delete02Icon,
   Edit01Icon,
   Message01Icon,
@@ -12,6 +13,7 @@ import {
 
 import { cn } from "@/lib/utils"
 import { agoIso } from "@/lib/ago"
+import { GroupCaption } from "@/components/sympose/group-caption"
 import { ResultText } from "@/components/sympose/result-text"
 import type { ListedSession } from "@/lib/use-session-list"
 import {
@@ -113,14 +115,15 @@ function ConversationRow({
             onClick={() => onOpen(row.id)}
             aria-current={row.current ? "true" : undefined}
             className={cn(
-              "group/result flex min-w-0 flex-1 rounded-md px-2 py-1 pr-8 text-left transition-colors",
-              row.current && "bg-accent"
+              "group/result flex min-w-0 flex-1 rounded-md py-1 pr-8 text-left",
+              "focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
             )}
           >
             <ResultText
               icon={pinned ? PinIcon : Message01Icon}
               iconLabel={pinned ? "Pinned" : undefined}
               title={title}
+              emphasized={row.current}
               trailing={
                 <>
                   {row.replying && (
@@ -177,6 +180,35 @@ function ConversationRow({
   )
 }
 
+/** The rows, pinned first. When there are both pinned and recent ones they are set apart by the folder list's own
+ *  captions ("Pinned", "Recent"); with only one kind the section's title is caption enough. */
+function ConversationGroups({
+  sessions,
+  rowProps,
+}: {
+  sessions: ListedSession[]
+  rowProps: Pick<ConversationListProps, "onOpen" | "onRename" | "onPin" | "onDelete">
+}) {
+  const pinned = sessions.filter((row) => row.pinned_at !== null)
+  const recent = sessions.filter((row) => row.pinned_at === null)
+  const list = (rows: ListedSession[]) => (
+    <ul className="flex flex-col gap-0.5">
+      {rows.map((row) => (
+        <ConversationRow key={row.id} row={row} {...rowProps} />
+      ))}
+    </ul>
+  )
+  if (pinned.length === 0 || recent.length === 0) return list(sessions)
+  return (
+    <div className="flex flex-col">
+      <GroupCaption icon={PinIcon} label="Pinned" paddingLeft={0} />
+      {list(pinned)}
+      <GroupCaption icon={Clock01Icon} label="Recent" paddingLeft={0} />
+      {list(recent)}
+    </div>
+  )
+}
+
 /**
  * The persona's conversations, on its profile (ADR 057): the pinned ones first, then the rest with the one last
  * used on top. A click opens one in the chat, also while a reply is being written in another; a row shows
@@ -200,11 +232,7 @@ function ConversationList({ sessions, onOpen, onNew, onRename, onPin, onDelete, 
       {sessions.length === 0 ? (
         <p className="text-sm text-fg-muted">No conversations yet.</p>
       ) : (
-        <ul className="flex flex-col gap-0.5">
-          {sessions.map((row) => (
-            <ConversationRow key={row.id} row={row} onOpen={onOpen} onRename={onRename} onPin={onPin} onDelete={onDelete} />
-          ))}
-        </ul>
+        <ConversationGroups sessions={sessions} rowProps={{ onOpen, onRename, onPin, onDelete }} />
       )}
     </section>
   )

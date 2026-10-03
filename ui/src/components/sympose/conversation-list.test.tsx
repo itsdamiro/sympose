@@ -42,13 +42,38 @@ describe("ConversationList", () => {
   })
 
   it("draws each row as a search result is drawn: an icon, the title and a detail line beneath it", () => {
-    setup([row("a"), row("b", { pinned_at: "2026-10-01T00:00:00Z" })])
+    setup([row("b", { pinned_at: "2026-10-01T00:00:00Z" }), row("a")]) // the list comes pinned first
     const blocks = document.querySelectorAll('[data-slot="result-text"]')
     expect(blocks).toHaveLength(2)
-    expect(blocks[0].textContent).toContain("Title a")
-    expect(blocks[0].textContent).toContain("2 turns · 3h ago")
-    expect(blocks[0].querySelector("svg")).toBeTruthy()
-    expect(blocks[1].querySelector('svg[aria-label="Pinned"]')).toBeTruthy() // a pinned one shows the pin in the icon's place
+    expect(blocks[0].querySelector('svg[aria-label="Pinned"]')).toBeTruthy() // a pinned one shows the pin in the icon's place
+    expect(blocks[1].textContent).toContain("Title a")
+    expect(blocks[1].textContent).toContain("2 turns · 3h ago")
+    expect(blocks[1].querySelector("svg")).toBeTruthy()
+  })
+
+  it("separates pinned from recent conversations with the folder list's captions, only when there are both", () => {
+    setup([row("a", { pinned_at: "2026-10-01T00:00:00Z" }), row("b"), row("c")])
+    const captions = Array.from(document.querySelectorAll('[data-slot="group-caption"]')).map((c) => c.textContent)
+    expect(captions).toEqual(["Pinned", "Recent"])
+    cleanup()
+    setup([row("a"), row("b")])
+    expect(document.querySelectorAll('[data-slot="group-caption"]')).toHaveLength(0)
+    cleanup()
+    setup([row("a", { pinned_at: "2026-10-01T00:00:00Z" })]) // nothing recent to separate it from
+    expect(screen.queryByText("Recent")).toBeNull()
+  })
+
+  it("sits flush with its heading and has no box, as a folder item does: the open one is marked by its title", () => {
+    setup([row("a", { current: true }), row("b")])
+    const open = screen.getByText("Title a").closest("button") as HTMLElement
+    const other = screen.getByText("Title b").closest("button") as HTMLElement
+    for (const button of [open, other]) {
+      expect(button.className).not.toContain("px-2")
+      expect(button.className).not.toContain("bg-accent")
+    }
+    expect(open.getAttribute("aria-current")).toBe("true")
+    expect(screen.getByText("Title a").parentElement?.className).toContain("font-medium")
+    expect(screen.getByText("Title b").parentElement?.className).not.toContain("font-medium")
   })
 
   it("names a conversation with no title and says when there are none", () => {

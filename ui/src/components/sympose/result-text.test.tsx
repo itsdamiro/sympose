@@ -24,6 +24,11 @@ describe("ResultText", () => {
     expect(screen.getByText("replying…")).toBeTruthy()
   })
 
+  it("marks an emphasized row by the weight of its title", () => {
+    render(<ResultText icon={Note01Icon} title="Atlas" emphasized />)
+    expect(screen.getByText("Atlas").parentElement?.className).toContain("font-medium")
+  })
+
   it("is what a search result is made of, so the lists cannot drift apart", () => {
     const { container } = render(<SearchResultRow label="Atlas" detail="line 3" onSelect={() => {}} />)
     expect(container.querySelector('[data-slot="result-text"]')).toBeTruthy()

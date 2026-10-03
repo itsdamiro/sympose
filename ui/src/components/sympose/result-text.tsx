@@ -1,6 +1,8 @@
 import * as React from "react"
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react"
 
+import { cn } from "@/lib/utils"
+
 /**
  * The text of one row in a list of things the user can open: a small icon, a title that wraps to two lines in the
  * entity colour (brighter on hover of the row's `group/result`), and a muted detail line indented under the title.
@@ -13,6 +15,7 @@ export function ResultText({
   title,
   detail,
   trailing,
+  emphasized = false,
 }: {
   icon: IconSvgElement
   /** Names the icon for a reader when it carries meaning (a pin), instead of being hidden as decoration. */
@@ -20,10 +23,17 @@ export function ResultText({
   title: React.ReactNode
   detail?: React.ReactNode
   trailing?: React.ReactNode
+  /** The row the user is in (the conversation on screen): marked by the weight of its title, not a box. */
+  emphasized?: boolean
 }) {
   return (
     <span data-slot="result-text" className="flex w-full min-w-0 flex-col items-start gap-0.5">
-      <span className="flex w-full items-start gap-1.5 text-sm text-entity/85 transition-colors group-hover/result:text-entity">
+      <span
+        className={cn(
+          "flex w-full items-start gap-1.5 text-sm text-entity/85 transition-colors group-hover/result:text-entity",
+          emphasized && "font-medium text-entity"
+        )}
+      >
         <HugeiconsIcon
           icon={icon}
           aria-label={iconLabel}
