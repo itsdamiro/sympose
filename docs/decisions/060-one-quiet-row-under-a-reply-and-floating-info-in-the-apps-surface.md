@@ -70,3 +70,8 @@ damiro asked that the cloud indicator take the place of the model name beside th
 ## Amendment (2026-10-03): the information behind an info icon, the notes in the row
 
 An opened row listed notes, earlier exchanges, lookups and the standing context together, which made it tall enough to scroll the conversation. Now an info icon sits before the "Based on" line and opens (on hover, focus or a tap, as the cloud icon does) a popup with everything that is only information: the earlier exchanges ("word for word"), *Looked up* and *Also in her context*. The line itself opens only the notes, the part a user can act on (the vault's open into the editor; the reference library's are listed, not clickable). The icon is drawn only when there is something behind it, and a row with no notes is plain text without a chevron. A note is listed once however it was reached: its passages (headings) and the ways it was found ("opened by a lookup", "by a property value", by meaning) merge into one item with one link.
+
+## Amendment (2026-10-03): the model chip stays; the cloud mark and hover go on it
+
+The header's cloud icon replaced the model chip, but the ask was to repurpose the chip's place, not remove the name: the model is still worth reading on each reply. `ReplyModelChip` is the model chip again, now of the model that made that reply (live and reopened), and on a cloud reply that sent or held back data it carries the amber mark when something was held back and, on hover, focus or a tap, the popup of what was sent and held back (the model line is dropped from the popup, the chip says it). A local reply keeps the plain chip with no mark or hover; `showCloudSent` removes only the mark and hover. `CloudSentIcon` is gone.
+

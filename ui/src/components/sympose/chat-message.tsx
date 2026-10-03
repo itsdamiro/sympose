@@ -25,7 +25,7 @@ interface ChatMessageProps extends React.ComponentProps<"div"> {
   role: "user" | "persona"
   /** Persona handle — `role: "persona"` only. */
   handle?: string
-  /** Marks the reply in its header, beside the avatar (the cloud icon of a cloud model's reply, ADR 060) — `role: "persona"` only. */
+  /** Marks the reply in its header, beside the avatar (the reply's model chip, with the cloud mark on a cloud model's reply, ADR 060) — `role: "persona"` only. */
   indicator?: React.ReactNode
   timestamp?: string
   streaming?: boolean

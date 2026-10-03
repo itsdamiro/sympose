@@ -27,6 +27,7 @@ function ModelChip({
   model,
   handle,
   tier,
+  children,
   ...props
 }: ModelChipProps) {
   const persona = handle ? getPersona(handle) : undefined
@@ -49,6 +50,7 @@ function ModelChip({
     >
       <HugeiconsIcon icon={isLocal ? ComputerIcon : CloudIcon} />
       {resolvedModel}
+      {children}
     </span>
   )
 }

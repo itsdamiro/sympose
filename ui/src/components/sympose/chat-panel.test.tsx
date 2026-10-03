@@ -278,7 +278,7 @@ describe("ChatPanel", () => {
     expect(screen.queryByText(/Based on/)).toBeNull()
   })
 
-  it("puts the cloud icon in the reply's header beside the avatar, where the model name was, even with the references line off", async () => {
+  it("keeps the model chip in the reply's header and puts the cloud mark and hover on it, even with the references line off", async () => {
     const turns: ChatTurn[] = [
       {
         id: "2", role: "persona", handle: "samantha", body: "SQLite.", model: "gemini/gemini-flash-latest",
@@ -286,28 +286,30 @@ describe("ChatPanel", () => {
       },
     ]
     setup({ turns, showGrounding: false })
-    const icon = await screen.findByRole("button", { name: "What was sent to the cloud model" })
-    expect(icon.getAttribute("data-held")).toBe("true")
-    const message = icon.closest('[data-slot="chat-message"]') as HTMLElement
-    expect(message.querySelector('[data-slot="reply-footer"]')?.contains(icon) ?? false).toBe(false) // not in the footer row
-    expect(icon.parentElement?.className).toContain("items-center") // the header row: avatar, this, the time
+    const chip = await screen.findByRole("button", { name: /what was sent to the cloud model/ })
+    expect(chip.textContent).toContain("gemini/gemini-flash-latest")
+    expect(chip.getAttribute("data-held")).toBe("true")
+    const message = chip.closest('[data-slot="chat-message"]') as HTMLElement
+    expect(message.querySelector('[data-slot="reply-footer"]')?.contains(chip) ?? false).toBe(false) // not in the footer row
+    expect(chip.parentElement?.className).toContain("items-center") // the header row: avatar, this, the time
   })
 
-  it("no longer names the model on every reply: the one chip is the composer's", async () => {
+  it("names the model that made each reply, not the one chosen now, and a local reply's chip has no hover", async () => {
     const turns: ChatTurn[] = [{ id: "2", role: "persona", handle: "samantha", body: "SQLite.", model: "ollama_chat/gemma2:9b" }]
-    const { container } = render(<ChatPanel turns={turns} draft="" onDraftChange={() => {}} onSubmit={() => {}} model="ollama_chat/gemma2:9b" />)
+    const { container } = render(<ChatPanel turns={turns} draft="" onDraftChange={() => {}} onSubmit={() => {}} model="gemini/gemini-flash-latest" />)
     await screen.findByText("SQLite.")
-    expect(container.querySelectorAll('[data-slot="model-chip"]')).toHaveLength(1)
-    expect(container.querySelector('[data-slot="chat-message"] [data-slot="model-chip"]')).toBeNull()
+    const chip = container.querySelector('[data-slot="chat-message"] [data-slot="model-chip"]')
+    expect(chip?.textContent).toBe("ollama_chat/gemma2:9b")
+    expect(chip?.closest("button")).toBeNull()
   })
 
-  it("leaves the cloud icon out when the user turned it off", async () => {
+  it("leaves the cloud mark off the chip when the user turned it off", async () => {
     const turns: ChatTurn[] = [
       { id: "2", role: "persona", handle: "samantha", body: "SQLite.", sent: { notes: [], cloud: ["notes"], withheld: [] } },
     ]
     setup({ turns, showCloudSent: false })
     expect(await screen.findByText("SQLite.")).toBeTruthy()
-    expect(screen.queryByRole("button", { name: "What was sent to the cloud model" })).toBeNull()
+    expect(screen.queryByRole("button", { name: /what was sent to the cloud model/ })).toBeNull()
   })
 
   it("shows a reply built from her own lookups or earlier exchanges, not only from notes", async () => {

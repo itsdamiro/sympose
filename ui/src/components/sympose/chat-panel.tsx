@@ -11,8 +11,7 @@ import { ChatSystemLine } from "@/components/sympose/chat-system-line"
 import { BusyLine } from "@/components/sympose/busy-line"
 import { ContextMeter } from "@/components/sympose/context-meter"
 import { condenseAdvised, percent, type ContextFigure } from "@/lib/context-meter"
-import { hasCloudSent } from "@/lib/grounded"
-import { CloudSentIcon } from "@/components/sympose/cloud-sent-icon"
+import { ReplyModelChip } from "@/components/sympose/reply-model-chip"
 import { ReplyFooter } from "@/components/sympose/reply-footer"
 import { ModelChip } from "@/components/sympose/model-chip"
 import { toolbarButtonClass } from "@/components/sympose/panel-collapse-button"
@@ -35,7 +34,7 @@ interface ChatPanelProps extends React.ComponentProps<"div"> {
   onWikiLinkClick?: (target: string) => void
   /** The "Based on ..." end of the row under a reply that used notes or earlier exchanges (a web display knob, on by default). */
   showGrounding?: boolean
-  /** The cloud icon in the header of a cloud model's reply, beside the avatar (a web display knob, on by default). */
+  /** The cloud mark and hover on the model chip in a cloud model's reply header (a web display knob, on by default). */
   showCloudSent?: boolean
   /** The context meter's figure (a ring and a percentage in the footer), or `null` for none. */
   contextFigure?: ContextFigure | null
@@ -283,7 +282,9 @@ function ChatPanel({
                   role="persona"
                   handle={turn.handle}
                   indicator={
-                    showCloudSent && turn.sent && hasCloudSent(turn.sent) ? <CloudSentIcon sent={turn.sent} model={turn.model} /> : undefined
+                    (turn.model ?? model) ? (
+                      <ReplyModelChip model={(turn.model ?? model) as string} sent={turn.sent} showCloudSent={showCloudSent} />
+                    ) : undefined
                   }
                   timestamp={turn.timestamp}
                   streaming={turn.streaming}
