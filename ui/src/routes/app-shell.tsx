@@ -132,6 +132,8 @@ export function AppShell() {
     cloudNotice,
   } = useChatSession(activePersona)
   const sessionList = useSessionList(activePersona, chat)
+  // The conversation on screen, once it has been saved (a first reply is still in flight before that), so it can be pinned.
+  const currentSession = sessionList.sessions.find((row) => row.current)
   const [editorPrefs, setEditorPref] = useEditorPreferences()
   const [toolbarItems, setToolbarItems] = useToolbarItems()
 
@@ -597,8 +599,11 @@ export function AppShell() {
               onOpenNote={openGroundedNote}
               onWikiLinkClick={openChatWikilink}
               onNewConversation={chat.newConversation}
+              pinned={currentSession?.pinned_at != null}
+              onTogglePin={currentSession ? () => void sessionList.pin(currentSession.id, currentSession.pinned_at == null) : undefined}
               onCompact={chat.compact}
               compacting={chat.compacting}
+              condensed={chat.condensed}
               showGrounding={chatDisplayPrefs.showGrounding}
               showCloudSent={chatDisplayPrefs.showCloudSent}
               statusPhrases={statusPhrases}

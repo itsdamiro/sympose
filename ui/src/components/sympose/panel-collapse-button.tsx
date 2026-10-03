@@ -8,6 +8,9 @@ import { cn } from "@/lib/utils"
  * at its far left. It takes the toolbar buttons' own size, tone and hover, and the main menu's Collapse icon, so every
  * panel's collapse reads as one control and a theme change reaches them together.
  */
+export const toolbarButtonClass =
+  "grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none aria-pressed:bg-accent aria-pressed:text-foreground disabled:pointer-events-none disabled:opacity-40"
+
 export function PanelCollapseButton({
   label,
   onClick,
@@ -23,10 +26,7 @@ export function PanelCollapseButton({
       aria-label={label}
       title={label}
       onClick={onClick}
-      className={cn(
-        "grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
-        className
-      )}
+      className={cn(toolbarButtonClass, className)}
     >
       <HugeiconsIcon icon={SidebarLeft01Icon} className="size-4" />
     </button>

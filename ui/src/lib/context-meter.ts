@@ -39,3 +39,30 @@ export function explanation(figure: ContextFigure): string[] {
       : "It leans a little high, on purpose, so it warns you early.",
   ]
 }
+
+/** The newest turns a condense leaves as they are, never folded into notes (the engine's `KEEP_TURNS`,
+ *  `engine/compaction.py`). */
+export const KEEP_TURNS = 3
+
+/**
+ * Whether condensing the conversation is advisable now (ADR 055): the meter has reached its warning level, so the
+ * conversation is using most of the room, and there is something to fold: more answered turns than the newest
+ * `KEEP_TURNS` plus those the notes already stand for. Older turns not loaded yet (`hasMore`) count as plenty. The
+ * automatic condensing starts later (at `compact_at`, 80% by default); this is the earlier moment, for a user who
+ * turned that off or who would rather choose when. The meter's own amber is the signal, so there is no second number.
+ */
+export function condenseAdvised({
+  figure,
+  answered,
+  condensed,
+  hasMore,
+}: {
+  figure: ContextFigure | null
+  answered: number
+  condensed: number
+  hasMore: boolean
+}): boolean {
+  if (!figure || level(percent(figure.used, figure.limit)) === "ok") return false
+  return hasMore || answered - condensed > KEEP_TURNS
+}
+

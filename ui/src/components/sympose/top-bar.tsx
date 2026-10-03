@@ -2,7 +2,7 @@ import * as React from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import type { IconSvgElement } from "@hugeicons/react"
 import {
-  BubbleChatAddIcon,
+  BubbleChatIcon,
   FolderOpenIcon,
   Settings01Icon,
 } from "@hugeicons/core-free-icons"
@@ -127,7 +127,7 @@ function TopBar({
             onClick={onSettings}
           />
           <IconButton
-            icon={BubbleChatAddIcon}
+            icon={BubbleChatIcon}
             label="Chat"
             pressed={chatActive}
             onClick={onChat}

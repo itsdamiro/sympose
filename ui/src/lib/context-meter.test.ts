@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { ERROR_AT, WARN_AT, explanation, level, percent, tokens } from "./context-meter"
+import { ERROR_AT, KEEP_TURNS, WARN_AT, condenseAdvised, explanation, level, percent, tokens } from "./context-meter"
 
 describe("percent", () => {
   it("is the whole percent of the budget in use", () => {
@@ -52,3 +52,37 @@ describe("explanation", () => {
     expect(lines[2]).toContain("replaces it")
   })
 })
+
+describe("condenseAdvised", () => {
+  const at = (pct: number) => ({ used: pct * 10, limit: 1000, estimated: false })
+  const base = { answered: 8, condensed: 0, hasMore: false }
+
+  it("is not advised while the meter is below its warning level, however long the conversation", () => {
+    expect(condenseAdvised({ ...base, figure: at(WARN_AT - 1), answered: 40 })).toBe(false)
+  })
+
+  it("is advised from the warning level, once there is something to fold", () => {
+    expect(condenseAdvised({ ...base, figure: at(WARN_AT) })).toBe(true)
+    expect(condenseAdvised({ ...base, figure: at(ERROR_AT + 5) })).toBe(true)
+  })
+
+  it("has nothing to fold in the newest turns, which a condense leaves as they are", () => {
+    expect(KEEP_TURNS).toBe(3) // the engine's own (compaction.py KEEP_TURNS)
+    expect(condenseAdvised({ ...base, figure: at(95), answered: KEEP_TURNS })).toBe(false)
+    expect(condenseAdvised({ ...base, figure: at(95), answered: KEEP_TURNS + 1 })).toBe(true)
+  })
+
+  it("does not count turns the notes already stand for", () => {
+    expect(condenseAdvised({ ...base, figure: at(95), answered: 8, condensed: 5 })).toBe(false)
+    expect(condenseAdvised({ ...base, figure: at(95), answered: 8, condensed: 4 })).toBe(true)
+  })
+
+  it("takes older turns that are not loaded yet as plenty to fold", () => {
+    expect(condenseAdvised({ ...base, figure: at(95), answered: 2, hasMore: true })).toBe(true)
+  })
+
+  it("is not advised without a figure", () => {
+    expect(condenseAdvised({ ...base, figure: null })).toBe(false)
+  })
+})
+

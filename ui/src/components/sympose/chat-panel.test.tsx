@@ -166,44 +166,89 @@ describe("ChatPanel", () => {
     expect(scrollIntoView).toHaveBeenCalled()
   })
 
-  it("offers a new conversation once there is one to leave, also while a reply is in flight (ADR 057)", () => {
-    const onNewConversation = vi.fn()
-    const turns: ChatTurn[] = [{ id: "1", role: "user", body: "hi" }]
-    setup({ turns, onNewConversation })
-    fireEvent.click(screen.getByText("New conversation"))
-    expect(onNewConversation).toHaveBeenCalledTimes(1)
-    cleanup()
-    setup({ turns, onNewConversation, sending: true })
-    expect(screen.getByText("New conversation")).toBeTruthy() // the reply finishes into the conversation it was sent from
-    cleanup()
-    setup({ turns: [], onNewConversation })
-    expect(screen.queryByText("New conversation")).toBeNull()
-  })
+  describe("the controls under the message box", () => {
+    const hi: ChatTurn[] = [{ id: "1", role: "user", body: "hi" }]
+    const exchanges = (n: number): ChatTurn[] =>
+      Array.from({ length: n }, (_, i): ChatTurn[] => [
+        { id: `u${i}`, role: "user", body: "q" },
+        { id: `p${i}`, role: "persona", handle: "samantha", body: "a" },
+      ]).flat()
+    const full = { used: 800, limit: 1000, estimated: false } // 80%: the meter is amber
+    const roomy = { used: 300, limit: 1000, estimated: false }
 
-  it("offers to condense the conversation once there is one, and not while a reply is in flight", () => {
-    const onCompact = vi.fn()
-    const turns: ChatTurn[] = [{ id: "1", role: "user", body: "hi" }]
-    setup({ turns, onCompact })
-    fireEvent.click(screen.getByRole("button", { name: "Condense" }))
-    expect(onCompact).toHaveBeenCalledTimes(1)
-    cleanup()
-    setup({ turns, onCompact, sending: true })
-    expect(screen.queryByRole("button", { name: "Condense" })).toBeNull()
-    cleanup()
-    setup({ turns: [], onCompact })
-    expect(screen.queryByRole("button", { name: "Condense" })).toBeNull()
-    cleanup()
-    setup({ turns })
-    expect(screen.queryByRole("button", { name: "Condense" })).toBeNull()
-  })
+    it("has no attachment button: the plus is gone", () => {
+      setup()
+      expect(screen.queryByRole("button", { name: "Add attachment" })).toBeNull()
+    })
 
-  it("says it is condensing, and cannot be pressed again, while the notes are written", () => {
-    const onCompact = vi.fn()
-    setup({ turns: [{ id: "1", role: "user", body: "hi" }], onCompact, compacting: true })
-    const button = screen.getByRole("button", { name: "Condensing…" })
-    expect(button).toHaveProperty("disabled", true)
-    fireEvent.click(button)
-    expect(onCompact).not.toHaveBeenCalled()
+    it("starts with a new-conversation icon, which has nothing to leave until there is a conversation", () => {
+      const onNewConversation = vi.fn()
+      setup({ turns: [], onNewConversation })
+      expect(screen.getByRole("button", { name: "New conversation" })).toHaveProperty("disabled", true)
+      cleanup()
+      setup({ turns: hi, onNewConversation })
+      fireEvent.click(screen.getByRole("button", { name: "New conversation" }))
+      expect(onNewConversation).toHaveBeenCalledTimes(1)
+      cleanup()
+      setup({ turns: hi, onNewConversation, sending: true }) // the reply finishes into the conversation it was sent from (ADR 057)
+      expect(screen.getByRole("button", { name: "New conversation" })).toHaveProperty("disabled", false)
+    })
+
+    it("puts a pin toggle beside it once the conversation can be pinned", () => {
+      const onTogglePin = vi.fn()
+      setup({ turns: hi })
+      expect(screen.queryByRole("button", { name: "Pin conversation" })).toBeNull()
+      cleanup()
+      setup({ turns: hi, onTogglePin, pinned: false })
+      const pin = screen.getByRole("button", { name: "Pin conversation" })
+      expect(pin.getAttribute("aria-pressed")).toBe("false")
+      fireEvent.click(pin)
+      expect(onTogglePin).toHaveBeenCalledTimes(1)
+      cleanup()
+      setup({ turns: [], onTogglePin }) // a blank conversation has not started: nothing to pin
+      expect(screen.queryByRole("button", { name: "Pin conversation" })).toBeNull()
+      cleanup()
+      setup({ turns: hi, onTogglePin, pinned: true })
+      expect(screen.getByRole("button", { name: "Unpin conversation" }).getAttribute("aria-pressed")).toBe("true")
+    })
+
+    it("offers Condense only when it is advisable: the meter is amber and there is something to fold", () => {
+      const onCompact = vi.fn()
+      setup({ turns: exchanges(6), onCompact, contextFigure: full })
+      fireEvent.click(screen.getByRole("button", { name: "Condense" }))
+      expect(onCompact).toHaveBeenCalledTimes(1)
+      for (const [label, props] of [
+        ["a roomy conversation", { turns: exchanges(6), contextFigure: roomy }],
+        ["no figure yet", { turns: exchanges(6), contextFigure: null }],
+        ["nothing to fold", { turns: exchanges(3), contextFigure: full }],
+        ["notes that already cover it", { turns: exchanges(6), contextFigure: full, condensed: 4 }],
+        ["a reply in flight", { turns: exchanges(6), contextFigure: full, sending: true }],
+        ["no way to condense", { turns: exchanges(6), contextFigure: full, onCompact: undefined }],
+      ] as const) {
+        cleanup()
+        setup({ onCompact, ...props })
+        expect(screen.queryByRole("button", { name: "Condense" }), label).toBeNull()
+      }
+    })
+
+    it("says what it is condensing, and cannot be pressed again, while the notes are written, even if the meter has dropped", () => {
+      const onCompact = vi.fn()
+      setup({ turns: exchanges(6), onCompact, contextFigure: roomy, compacting: true })
+      const button = screen.getByRole("button", { name: "Condensing…" })
+      expect(button).toHaveProperty("disabled", true)
+      fireEvent.click(button)
+      expect(onCompact).not.toHaveBeenCalled()
+    })
+
+    it("lists them in one group at the left: new conversation, pin, condense", () => {
+      setup({ turns: exchanges(6), onCompact: vi.fn(), onNewConversation: vi.fn(), onTogglePin: vi.fn(), pinned: false, contextFigure: full })
+      const group = screen.getByRole("group", { name: "Conversation controls" })
+      expect(Array.from(group.querySelectorAll("button")).map((b) => b.getAttribute("aria-label") ?? b.textContent)).toEqual([
+        "New conversation",
+        "Pin conversation",
+        "Condense",
+      ])
+    })
   })
 
   it("shows what a persona reply was based on under that reply, and opens the note it names", () => {

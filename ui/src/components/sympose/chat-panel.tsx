@@ -1,6 +1,6 @@
 import * as React from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { PlusSignIcon, StopIcon } from "@hugeicons/core-free-icons"
+import { BubbleChatAddIcon, PinIcon, StopIcon } from "@hugeicons/core-free-icons"
 
 import { cn } from "@/lib/utils"
 import type { ChatPhase } from "@/lib/chat-api"
@@ -10,9 +10,10 @@ import { ChatMarkdown } from "@/components/sympose/chat-markdown"
 import { ChatSystemLine } from "@/components/sympose/chat-system-line"
 import { BusyLine } from "@/components/sympose/busy-line"
 import { ContextMeter } from "@/components/sympose/context-meter"
-import type { ContextFigure } from "@/lib/context-meter"
+import { condenseAdvised, percent, type ContextFigure } from "@/lib/context-meter"
 import { ReplyFooter } from "@/components/sympose/reply-footer"
 import { ModelChip } from "@/components/sympose/model-chip"
+import { toolbarButtonClass } from "@/components/sympose/panel-collapse-button"
 
 interface ChatPanelProps extends React.ComponentProps<"div"> {
   turns: ChatTurn[]
@@ -41,12 +42,19 @@ interface ChatPanelProps extends React.ComponentProps<"div"> {
   typeStatus?: boolean
   /** Shown above the message box, always in view (the cloud notice, ADR 031). */
   notice?: React.ReactNode
-  /** Starts a fresh conversation; the control shows once there is something to leave behind. */
+  /** Starts a fresh conversation: the icon at the left of the row under the message box, which has nothing to do
+   *  (and is disabled) until there is a conversation to leave behind. */
   onNewConversation?: () => void
-  /** Condenses the earlier part of the conversation into notes (ADR 055); shown beside "New conversation"
-   *  once there is a conversation, and says it is working while the notes are written. */
+  /** Pins or unpins the conversation (ADR 057): a toggle beside the new-conversation icon, shown once the
+   *  conversation has started (it has a turn) and can be pinned (it has been saved). */
+  pinned?: boolean
+  onTogglePin?: () => void
+  /** Condenses the earlier part of the conversation into notes (ADR 055): a button in that row, shown only when it
+   *  is advisable (`condenseAdvised`) and while the notes are being written. `condensed` is how many turns the
+   *  notes already stand for. */
   onCompact?: () => void
   compacting?: boolean
+  condensed?: number
   draft: string
   onDraftChange: (value: string) => void
   onSubmit: () => void
@@ -93,8 +101,11 @@ function ChatPanel({
   onOpenNote,
   onWikiLinkClick,
   onNewConversation,
+  pinned = false,
+  onTogglePin,
   onCompact,
   compacting = false,
+  condensed = 0,
   showGrounding = true,
   showCloudSent = true,
   contextFigure = null,
@@ -114,6 +125,13 @@ function ChatPanel({
   ...props
 }: ChatPanelProps) {
   const showStop = sending && !!onStop
+  // Condense is offered only when it is worth it (the meter is amber and there is something to fold), not all the time.
+  const advised = condenseAdvised({
+    figure: contextFigure,
+    answered: turns.filter((t) => t.role === "persona").length,
+    condensed,
+    hasMore,
+  })
   const submit = () => {
     if (!draft.trim()) return
     onSubmit()
@@ -336,37 +354,45 @@ function ChatPanel({
             )}
           </div>
           <div className="mt-2 flex items-center justify-between px-1">
-            <button
-              type="button"
-              disabled
-              title="Attachments — coming soon"
-              aria-label="Add attachment"
-              className="grid size-7 place-items-center rounded-full border border-border text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
-            >
-              <HugeiconsIcon icon={PlusSignIcon} className="size-4" />
-            </button>
-            <div className="flex items-center gap-2">
-              <ContextMeter figure={contextFigure} />
-              {onCompact && turns.length > 0 && !sending && (
+            <div role="group" aria-label="Conversation controls" className="flex items-center gap-0.5">
+              {onNewConversation && (
+                <button
+                  type="button"
+                  onClick={onNewConversation}
+                  disabled={turns.length === 0}
+                  title="New conversation"
+                  aria-label="New conversation"
+                  className={toolbarButtonClass}
+                >
+                  <HugeiconsIcon icon={BubbleChatAddIcon} className="size-4" />
+                </button>
+              )}
+              {onTogglePin && turns.length > 0 && (
+                <button
+                  type="button"
+                  onClick={onTogglePin}
+                  aria-pressed={pinned}
+                  title={pinned ? "Unpin conversation" : "Pin conversation"}
+                  aria-label={pinned ? "Unpin conversation" : "Pin conversation"}
+                  className={toolbarButtonClass}
+                >
+                  <HugeiconsIcon icon={PinIcon} className="size-4" />
+                </button>
+              )}
+              {onCompact && (compacting || (advised && !sending)) && (
                 <button
                   type="button"
                   onClick={onCompact}
                   disabled={compacting}
-                  title="Write short notes in place of the earlier turns, so a long conversation takes less room"
-                  className="rounded px-1.5 py-0.5 text-xs text-fg-muted transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-60"
+                  title={`The conversation is ${contextFigure ? percent(contextFigure.used, contextFigure.limit) : ""}% full: write short notes in place of the earlier turns, so it takes less room`}
+                  className={cn(toolbarButtonClass, "size-auto h-7 px-2 text-xs")}
                 >
                   {compacting ? "Condensing…" : "Condense"}
                 </button>
               )}
-              {onNewConversation && turns.length > 0 && (
-                <button
-                  type="button"
-                  onClick={onNewConversation}
-                  className="rounded px-1.5 py-0.5 text-xs text-fg-muted transition-colors hover:bg-accent hover:text-foreground"
-                >
-                  New conversation
-                </button>
-              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <ContextMeter figure={contextFigure} />
               {modelSlot ?? (model && <ModelChip model={model} />)}
             </div>
           </div>
