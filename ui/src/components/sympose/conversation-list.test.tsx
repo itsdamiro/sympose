@@ -76,6 +76,14 @@ describe("ConversationList", () => {
     expect(screen.getByText("Title b").parentElement?.className).not.toContain("font-medium")
   })
 
+  it("has the same hover control as a folder item: one shared look for the three-dots button", () => {
+    setup([row("a")])
+    const dots = screen.getByRole("button", { name: "Actions for Title a" })
+    expect(dots.className).toContain("hover:bg-accent")
+    expect(dots.className).not.toContain("hover:bg-background")
+    expect(dots.className).toContain("group-hover/row:opacity-100")
+  })
+
   it("names a conversation with no title and says when there are none", () => {
     setup([row("a", { title: "" })])
     expect(screen.getByText("New conversation")).toBeTruthy()

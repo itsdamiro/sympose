@@ -5,6 +5,7 @@ import { Delete02Icon, DeletePutBackIcon, Message01Icon } from "@hugeicons/core-
 import { cn } from "@/lib/utils"
 import { ago } from "@/lib/ago"
 import { ResultText } from "@/components/sympose/result-text"
+import { rowActionClass } from "@/components/sympose/row-actions"
 import { confirm } from "@/lib/confirm-store"
 import { notify } from "@/lib/notify"
 import {
@@ -135,7 +136,7 @@ function ConversationBin({
         </button>
       </div>
       {rows.map((row) => (
-        <div key={row.id} className="group/row group/result flex items-center gap-2 rounded-md py-1 pr-1">
+        <div key={row.id} className="group/row flex items-center gap-2 rounded-md py-1 pr-1">
           <div className="min-w-0 flex-1">
             <ResultText
               icon={Message01Icon}
@@ -148,18 +149,18 @@ function ConversationBin({
             disabled={busy === row.id}
             onClick={() => void restore(row)}
             aria-label={`Restore ${row.title || "the conversation"}`}
-            className="grid size-7 shrink-0 place-items-center rounded-md text-fg-muted opacity-0 transition-opacity group-hover/row:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100 disabled:opacity-50"
+            className={cn(rowActionClass, "disabled:opacity-50")}
           >
-            <HugeiconsIcon icon={DeletePutBackIcon} className="size-4" />
+            <HugeiconsIcon icon={DeletePutBackIcon} className="size-3.5" />
           </button>
           <button
             type="button"
             disabled={busy === row.id}
             onClick={() => purge(row)}
             aria-label={`Delete ${row.title || "the conversation"} permanently`}
-            className="grid size-7 shrink-0 place-items-center rounded-md text-fg-muted opacity-0 transition-opacity group-hover/row:opacity-100 hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100 disabled:opacity-50"
+            className={cn(rowActionClass, "hover:bg-destructive/10 hover:text-destructive disabled:opacity-50")}
           >
-            <HugeiconsIcon icon={Delete02Icon} className="size-4" />
+            <HugeiconsIcon icon={Delete02Icon} className="size-3.5" />
           </button>
         </div>
       ))}

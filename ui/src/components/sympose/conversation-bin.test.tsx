@@ -54,6 +54,16 @@ describe("ConversationBin", () => {
     expect(blocks[0].querySelector("svg")).toBeTruthy()
   })
 
+  it("is not dressed as clickable: its title does not react to the pointer, only its two buttons do, in the shared look", async () => {
+    render(<ConversationBin persona="samantha" />)
+    await screen.findByText("The movies")
+    const row = screen.getByText("The movies").closest('[data-slot="result-text"]')?.parentElement?.parentElement as HTMLElement
+    expect(row.className).not.toContain("group/result")
+    const restore = screen.getByRole("button", { name: "Restore The movies" })
+    expect(restore.className).toContain("group-hover/row:opacity-100")
+    expect(restore.className).toContain("hover:bg-accent")
+  })
+
   it("says when there are none", async () => {
     api.fetchBinnedSessions.mockResolvedValue([])
     render(<ConversationBin persona="samantha" />)

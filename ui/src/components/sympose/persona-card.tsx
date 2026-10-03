@@ -4,8 +4,7 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { cn } from "@/lib/utils"
 import { resolvePersonaVisuals, type LivePersona } from "@/lib/personas"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
-import { ModelChip } from "@/components/sympose/model-chip"
+import { ModelChip, chipClass } from "@/components/sympose/model-chip"
 
 interface PersonaCardProps {
   /** Live roster from `GET /api/personas`. */
@@ -100,22 +99,17 @@ function PersonaCard({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <ModelChip model={current.model} />
         <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="secondary"
-            disabled
-            title="Persona soul — coming soon"
-          >
-            Soul
-          </Button>
-          <Button
-            size="sm"
-            variant="secondary"
-            disabled
-            title="Persona memory — coming soon"
-          >
-            Memory
-          </Button>
+          {(["Soul", "Memory"] as const).map((name) => (
+            <button
+              key={name}
+              type="button"
+              disabled
+              title={`Persona ${name.toLowerCase()} — coming soon`}
+              className={cn(chipClass, "text-fg-muted uppercase tracking-wide disabled:opacity-60")}
+            >
+              {name}
+            </button>
+          ))}
         </div>
       </div>
 

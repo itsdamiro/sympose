@@ -1,10 +1,9 @@
 import * as React from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import type { IconSvgElement } from "@hugeicons/react"
-import { MoreHorizontalIcon } from "@hugeicons/core-free-icons"
 
-import { cn } from "@/lib/utils"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuContent } from "@/components/ui/dropdown-menu"
+import { RowActionsTrigger } from "@/components/sympose/row-actions"
 import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from "@/components/ui/context-menu"
 
 /**
@@ -30,21 +29,11 @@ export function GroupCaption({
   const inner = (
     <>
       <HugeiconsIcon icon={icon} className="size-3 text-fg-muted" />
-      <span className="text-xs text-fg-muted">{label}</span>
+      <span className="text-xs font-medium tracking-wide text-fg-muted uppercase">{label}</span>
 
       {menuItems && (
         <DropdownMenu modal={false}>
-          <DropdownMenuTrigger
-            aria-label={`${label} group actions`}
-            onClick={(e) => e.stopPropagation()}
-            className={cn(
-              "absolute top-1/2 right-1 grid size-6 -translate-y-1/2 place-items-center rounded text-fg-muted",
-              "opacity-0 transition-opacity hover:bg-accent hover:text-foreground",
-              "group-hover/section-caption:opacity-100 focus-visible:opacity-100 data-popup-open:opacity-100"
-            )}
-          >
-            <HugeiconsIcon icon={MoreHorizontalIcon} className="size-3.5" />
-          </DropdownMenuTrigger>
+          <RowActionsTrigger aria-label={`${label} group actions`} onClick={(e) => e.stopPropagation()} />
           <DropdownMenuContent align="end" className="duration-thumb ease-snappy">
             {menuItems}
           </DropdownMenuContent>
@@ -57,7 +46,7 @@ export function GroupCaption({
     return (
       <div
         data-slot="group-caption"
-        className="flex items-center gap-1.5 pt-2 pb-1"
+        className="flex items-center gap-1.5 pt-4 pb-1.5 first:pt-0"
         style={{ paddingLeft: `${paddingLeft}px` }}
       >
         {inner}
@@ -69,7 +58,7 @@ export function GroupCaption({
     <ContextMenu>
       <ContextMenuTrigger
         data-slot="group-caption"
-        className="group/section-caption relative flex items-center gap-1.5 pt-2 pr-8 pb-1"
+        className="group/row relative flex items-center gap-1.5 pt-4 pr-8 pb-1.5 first:pt-0"
         style={{ paddingLeft: `${paddingLeft}px` }}
       >
         {inner}

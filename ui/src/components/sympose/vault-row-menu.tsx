@@ -4,7 +4,6 @@ import {
   Cancel01Icon,
   Delete02Icon,
   Edit01Icon,
-  MoreHorizontalIcon,
   NoteAddIcon,
   PinIcon,
   PinOffIcon,
@@ -15,7 +14,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
   ContextMenu,
@@ -25,6 +23,7 @@ import {
 import { createVaultNote, deleteVaultFolder } from "@/lib/vault-note-api"
 import { confirm } from "@/lib/confirm-store"
 import { notify } from "@/lib/notify"
+import { RowActionsTrigger } from "@/components/sympose/row-actions"
 import { useVaultNoteActions } from "@/lib/use-vault-note-actions"
 import type { VaultNode } from "@/components/sympose/vault-tree"
 
@@ -247,17 +246,10 @@ function VaultRowMenu({
           modal={false}
           onOpenChangeComplete={enterRenameAfterClose}
         >
-          <DropdownMenuTrigger
+          <RowActionsTrigger
             aria-label={`${isNote ? "Note" : "Folder"} actions`}
             onClick={(e) => e.stopPropagation()}
-            className={cn(
-              "absolute top-1/2 right-1 grid size-6 -translate-y-1/2 scale-75 place-items-center rounded text-fg-muted",
-              "opacity-0 transition-[opacity,transform] duration-thumb ease-snappy hover:bg-accent hover:text-foreground",
-              "group-hover/row:scale-100 group-hover/row:opacity-100 focus-visible:scale-100 focus-visible:opacity-100 data-popup-open:scale-100 data-popup-open:opacity-100"
-            )}
-          >
-            <HugeiconsIcon icon={MoreHorizontalIcon} className="size-3.5" />
-          </DropdownMenuTrigger>
+          />
           <DropdownMenuContent align="end" className="duration-thumb ease-snappy">
             {items}
           </DropdownMenuContent>

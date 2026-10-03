@@ -22,4 +22,19 @@ describe("GroupCaption", () => {
     rerender(<GroupCaption icon={PinIcon} label="Pinned" paddingLeft={0} menuItems={<span>Unpin all</span>} />)
     expect(screen.getByRole("button", { name: "Pinned group actions" })).toBeTruthy()
   })
+
+  it("is in capitals, as the section titles are", () => {
+    render(<GroupCaption icon={PinIcon} label="Pinned" paddingLeft={0} />)
+    const label = screen.getByText("Pinned")
+    expect(label.className).toContain("uppercase")
+    expect(label.className).toContain("tracking-wide")
+  })
+
+  it("keeps a clear gap above it, so a group reads as its own, except when it opens the list", () => {
+    const { container } = render(<GroupCaption icon={PinIcon} label="Pinned" paddingLeft={0} />)
+    const caption = container.querySelector('[data-slot="group-caption"]') as HTMLElement
+    expect(caption.className).toContain("pt-4")
+    expect(caption.className).toContain("first:pt-0")
+    expect(caption.className).toContain("pb-1.5")
+  })
 })

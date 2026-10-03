@@ -6,7 +6,6 @@ import {
   Delete02Icon,
   Edit01Icon,
   Message01Icon,
-  MoreHorizontalIcon,
   PinIcon,
   PinOffIcon,
 } from "@hugeicons/core-free-icons"
@@ -15,6 +14,7 @@ import { cn } from "@/lib/utils"
 import { agoIso } from "@/lib/ago"
 import { GroupCaption } from "@/components/sympose/group-caption"
 import { ResultText } from "@/components/sympose/result-text"
+import { RowActionsTrigger } from "@/components/sympose/row-actions"
 import type { ListedSession } from "@/lib/use-session-list"
 import {
   ContextMenu,
@@ -25,7 +25,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
 /** The longest title a conversation may be given (the backend's `MAX_TITLE`). */
@@ -159,16 +158,7 @@ function ConversationRow({
           )}
 
           <DropdownMenu modal={false} onOpenChangeComplete={enterRenameAfterClose}>
-            <DropdownMenuTrigger
-              aria-label={`Actions for ${title}`}
-              className={cn(
-                "absolute top-1/2 right-1 grid size-6 -translate-y-1/2 scale-75 place-items-center rounded text-fg-muted",
-                "opacity-0 transition-[opacity,transform] duration-thumb ease-snappy hover:bg-background hover:text-foreground",
-                "group-hover/row:scale-100 group-hover/row:opacity-100 focus-visible:scale-100 focus-visible:opacity-100 data-popup-open:scale-100 data-popup-open:opacity-100"
-              )}
-            >
-              <HugeiconsIcon icon={MoreHorizontalIcon} className="size-3.5" />
-            </DropdownMenuTrigger>
+            <RowActionsTrigger aria-label={`Actions for ${title}`} />
             <DropdownMenuContent align="end" className="duration-thumb ease-snappy">
               {items}
             </DropdownMenuContent>

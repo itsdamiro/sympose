@@ -18,6 +18,10 @@ interface ModelChipProps extends React.ComponentProps<"span"> {
   tier?: "cloud" | "local"
 }
 
+/** The look of a chip: the model chip's, and the Soul and Memory chips beside it, so they are the same size. */
+export const chipClass =
+  "inline-flex h-5 w-fit shrink-0 items-center gap-1 rounded-md bg-chip px-1.5 font-mono text-[11px] whitespace-nowrap [&>svg]:size-3"
+
 function ModelChip({
   className,
   model,
@@ -36,7 +40,7 @@ function ModelChip({
       data-slot="model-chip"
       data-tier={resolvedTier}
       className={cn(
-        "inline-flex h-5 w-fit shrink-0 items-center gap-1 rounded-md bg-chip px-1.5 font-mono text-[11px] whitespace-nowrap [&>svg]:size-3",
+        chipClass,
         isLocal ? "text-ok" : "text-fg-muted",
         className
       )}
