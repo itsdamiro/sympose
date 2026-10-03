@@ -1,4 +1,4 @@
-import type { SentNote, SentRecord } from "@/lib/chat-types"
+import type { SentLookup, SentNote, SentRecord } from "@/lib/chat-types"
 
 /** The built-in reference library, as a note's `source`: not a file in the user's vault. */
 export const REFERENCE_SOURCE = "sympose"
@@ -52,4 +52,86 @@ export function noteDetail(note: SentNote): string {
     note.similarity !== undefined ? `similarity ${note.similarity.toFixed(2)}` : null,
   ]
   return bits.filter(Boolean).join(" · ")
+}
+
+const TOOL_LABELS: Record<string, string> = {
+  search_notes: "searched",
+  open_note: "opened",
+  search_chats: "searched earlier conversations for",
+  open_chat: "opened earlier conversation",
+}
+const MEMORY_FILES: Record<string, string> = { profile: "profile.md", context: "context.md", decisions: "decisions.md" }
+const ASK_FALLBACK = "You chose ask, but this model can't call tools, so Sympose searched for the message."
+const CHATS_ASK_FALLBACK = "You chose ask for earlier conversations, but this model can't call tools, so Sympose searched for the message."
+
+const isRemember = (l: SentLookup) => l.tool === "remember"
+const searches = (sent: SentRecord | null | undefined) => (sent?.lookups ?? []).filter((l) => !isRemember(l))
+const fellBack = (sent: SentRecord | null | undefined) => sent?.mode === "auto" || sent?.chats_mode === "auto"
+
+function lookupLine(l: SentLookup): string {
+  if (isRemember(l)) return l.saved ? "remembered something" : "tried to remember something and could not save it"
+  return `${TOOL_LABELS[l.tool] ?? l.tool} "${l.query ?? l.path ?? l.id ?? ""}" (${l.found ?? 0} found)`
+}
+
+/** What she looked up or remembered herself, as the terminal's `/grounded` words it; or that `ask` could not be used
+ *  and Sympose searched for her; or, when `ask` was on and she looked nothing up, that. */
+export function groundedLookups(sent: SentRecord | null | undefined): string[] {
+  if (!sent) return []
+  const lines: string[] = []
+  if (sent.mode === "auto") lines.push(ASK_FALLBACK)
+  if (sent.chats_mode === "auto") lines.push(CHATS_ASK_FALLBACK)
+  if (lines.length > 0) return lines
+  const calls = sent.lookups ?? []
+  if (searches(sent).length === 0 && (sent.mode === "ask" || sent.chats_mode === "ask")) lines.push("Looked nothing up for this message.")
+  return [...lines, ...calls.map(lookupLine)]
+}
+
+/** The standing context a reply carried, listed only inside an open row: recaps, her memory files, the follow-up
+ *  query that found the notes, and how many older turns did not fit. */
+export function groundedContext(sent: SentRecord | null | undefined): string[] {
+  if (!sent) return []
+  const lines: string[] = []
+  const recaps = sent.recaps?.length ?? 0
+  if (recaps > 0) lines.push(`${recaps} earlier-conversation ${recaps === 1 ? "recap" : "recaps"}`)
+  const files = (sent.memory ?? []).map((m) => MEMORY_FILES[m]).filter(Boolean)
+  if (files.length > 0) lines.push(`her memory (${files.join(", ")})`)
+  if (sent.searched) lines.push(`Searched for “${sent.searched}”`)
+  const dropped = sent.history_dropped ?? 0
+  if (dropped > 0) lines.push(`${dropped} older ${dropped === 1 ? "turn" : "turns"} left out of context`)
+  return lines
+}
+
+/** Whether a reply gets a row under it: something specific to it was used (a note, an earlier exchange, a lookup or
+ *  a remember, the fallback). The standing context alone never makes one, so a plain reply stays clean. */
+export function hasFooterRow(sent: SentRecord | null | undefined): boolean {
+  return groundedNotes(sent).length > 0 || groundedChats(sent) > 0 || (sent?.lookups?.length ?? 0) > 0 || fellBack(sent)
+}
+
+/** The closed row's text, or `null` when there is no row. By what the reply was based on; when it found nothing, by
+ *  what she did. */
+export function rowSummary(sent: SentRecord | null | undefined): string | null {
+  if (!hasFooterRow(sent)) return null
+  const notes = groundedNotes(sent)
+  const chats = groundedChats(sent)
+  if (notes.length > 0 || chats > 0) return groundedSummary(notes, chats)
+  const looked = searches(sent).length
+  if (looked > 0) return `Looked up ${looked === 1 ? "one thing" : `${looked} things`}`
+  const remembered = (sent?.lookups ?? []).filter(isRemember)
+  if (remembered.length > 0) return remembered.some((l) => l.saved) ? "Remembered something" : "Tried to remember something"
+  return "Sympose searched for the message"
+}
+
+const CLOUD_WORDS: Record<string, string> = {
+  notes: "notes",
+  properties: "note properties",
+  recaps: "recaps",
+  chats: "earlier conversations",
+  vault_map: "vault map",
+  connections: "note connections",
+  memory: "her memory",
+}
+
+/** The categories of the vault a cloud model was sent or refused, in plain words (ADR 031's names are the code's). */
+export function cloudWords(names: string[] | undefined): string[] {
+  return (names ?? []).map((n) => CLOUD_WORDS[n] ?? n.replace(/_/g, " "))
 }

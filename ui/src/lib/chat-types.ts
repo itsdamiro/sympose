@@ -29,11 +29,36 @@ export interface SentChat {
   how: string
 }
 
-/** What reached the model besides the messages, for one reply: only what the grounded view reads. */
+/** One lookup she made herself in `ask` mode, or a `remember` (ADR 040, 041, 056): what she asked for and how many
+ *  passages it found, never their text. */
+export interface SentLookup {
+  tool: string
+  query?: string
+  path?: string
+  id?: string
+  found?: number
+  /** `remember` only: whether it was written. */
+  saved?: boolean
+}
+
+/** What reached the model besides the messages, for one reply, as the session log records it (ADR 025): the same
+ *  record the terminal's `/grounded` reads. Everything but `notes` is left out when it does not apply. */
 export interface SentRecord {
   notes: SentNote[]
   /** Exchanges of earlier conversations, when `past_chats` attached or looked up any. */
   chats?: SentChat[]
+  /** The conversations whose recaps were sent. */
+  recaps?: string[]
+  /** Which of her memory files were sent: `profile`, `context`, `decisions`. */
+  memory?: string[]
+  /** What she looked up or remembered herself. */
+  lookups?: SentLookup[]
+  /** `ask` for notes, when chosen; `auto` when the model could not take tools and Sympose searched instead. */
+  mode?: string
+  /** The same, for earlier conversations (`past_chats`). */
+  chats_mode?: string
+  /** How many older turns were left out of the prompt. */
+  history_dropped?: number
   /** The query a follow-up was rewritten into, when that is what found the notes. */
   searched?: string | null
   /** A cloud model's turn only (ADR 031): the categories of the vault that were sent, and those held back. */

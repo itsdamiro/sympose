@@ -29,8 +29,25 @@ function ChatDisplaySection({
         />
       </ControlRow>
       <p className="text-xs text-fg-muted">
-        The line under a reply that says which notes it drew on. Hiding it only hides the line; the persona still
-        uses them.
+        The line under a reply that says what it drew on: notes, earlier conversations, what it looked up. Hiding it
+        only hides the line; the persona still uses them.
+      </p>
+      <ControlRow label="What a cloud reply was sent">
+        <SegmentedControl
+          size="sm"
+          aria-label="What a cloud reply was sent"
+          value={prefs.showCloudSent ? "on" : "off"}
+          onValueChange={(v) => setPref("showCloudSent", v === "on")}
+          options={[
+            { value: "on", label: "On" },
+            { value: "off", label: "Off" },
+          ]}
+        />
+      </ControlRow>
+      <p className="text-xs text-fg-muted">
+        A small cloud icon at the end of the line under a reply from a cloud model. Hover, focus or tap it to see what
+        was sent and what was held back. Hiding it only hides the icon; what a cloud model may receive is set in
+        sharing.
       </p>
       <ControlRow label="Type the busy line out by letters">
         <SegmentedControl

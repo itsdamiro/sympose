@@ -596,6 +596,7 @@ export function AppShell() {
               onCompact={chat.compact}
               compacting={chat.compacting}
               showGrounding={chatDisplayPrefs.showGrounding}
+              showCloudSent={chatDisplayPrefs.showCloudSent}
               statusPhrases={statusPhrases}
               contextFigure={chatDisplayPrefs.showMeter ? contextFigure : null}
               typeStatus={chatDisplayPrefs.typeStatus}

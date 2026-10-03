@@ -39,7 +39,7 @@ describe("brand mark label", () => {
 
 describe("chat display", () => {
   it("defaults all on, reads '1' and '0', and writes '1' and '0'", () => {
-    expect(renderHook(() => useChatDisplayPreferences()).result.current[0]).toEqual({ showGrounding: true, typeStatus: true, showMeter: true })
+    expect(renderHook(() => useChatDisplayPreferences()).result.current[0]).toEqual({ showGrounding: true, typeStatus: true, showMeter: true, showCloudSent: true })
     setCookie("sympose:chat.typeStatus", "0")
     setCookie("sympose:chat.showGrounding", "yes")
     const { result } = renderHook(() => useChatDisplayPreferences())
@@ -49,7 +49,9 @@ describe("chat display", () => {
     expect(getCookie("sympose:chat.showMeter")).toBe("0")
     act(() => result.current[1]("showGrounding", true))
     expect(getCookie("sympose:chat.showGrounding")).toBe("1")
-    expect(result.current[0]).toEqual({ showGrounding: true, typeStatus: false, showMeter: false })
+    act(() => result.current[1]("showCloudSent", false))
+    expect(getCookie("sympose:chat.showCloudSent")).toBe("0")
+    expect(result.current[0]).toEqual({ showGrounding: true, typeStatus: false, showMeter: false, showCloudSent: false })
   })
 })
 

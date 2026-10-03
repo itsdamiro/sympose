@@ -6,7 +6,7 @@ import { type PrefSpec, useCookiePreferences } from "@/lib/cookie-preferences"
  * settings and the terminal's own display settings do not touch them.
  */
 export interface ChatDisplayPreferences {
-  /** The "Based on ..." line under a reply that used notes (the terminal's `show_grounding`). */
+  /** The "Based on ..." end of the row under a reply that used notes or earlier exchanges (the terminal's `show_grounding`). */
   showGrounding: boolean
   /** The busy line above the message box types each phrase out by letters (ADR 043, 044; the terminal's
    *  `status_typing`). Off shows whole phrases; a browser that asks for reduced motion gets them anyway. */
@@ -14,12 +14,16 @@ export interface ChatDisplayPreferences {
   /** The context meter (a ring and a percentage) in the composer's footer (ADR 018, 044; the terminal's
    *  `show_context_meter`). */
   showMeter: boolean
+  /** The cloud icon at the end of the row under a cloud model's reply, which says what was sent and held back
+   *  (ADR 031, 060). It hides the indicator only: what a cloud model may receive is `/share`'s. */
+  showCloudSent: boolean
 }
 
 const SPEC: PrefSpec<ChatDisplayPreferences> = {
   showGrounding: { cookie: "sympose:chat.showGrounding", kind: "bool", default: true },
   typeStatus: { cookie: "sympose:chat.typeStatus", kind: "bool", default: true },
   showMeter: { cookie: "sympose:chat.showMeter", kind: "bool", default: true },
+  showCloudSent: { cookie: "sympose:chat.showCloudSent", kind: "bool", default: true },
 }
 
 export function useChatDisplayPreferences() {

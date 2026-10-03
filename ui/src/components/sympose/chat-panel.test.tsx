@@ -233,12 +233,30 @@ describe("ChatPanel", () => {
     expect(screen.queryByText(/Based on/)).toBeNull()
   })
 
-  it("shows what a cloud reply was sent and held back, even with the grounded-notes line off", async () => {
+  it("shows what a cloud reply was sent and held back as an icon, even with the references line off", async () => {
     const turns: ChatTurn[] = [
       { id: "2", role: "persona", handle: "samantha", body: "SQLite.", sent: { notes: [], cloud: ["notes"], withheld: ["recaps"] } },
     ]
     setup({ turns, showGrounding: false })
-    expect(await screen.findByText("Sent: notes · Held back: recaps")).toBeTruthy()
+    const icon = await screen.findByRole("button", { name: "What was sent to the cloud model" })
+    expect(icon.getAttribute("data-held")).toBe("true")
+  })
+
+  it("leaves the cloud icon out when the user turned it off", async () => {
+    const turns: ChatTurn[] = [
+      { id: "2", role: "persona", handle: "samantha", body: "SQLite.", sent: { notes: [], cloud: ["notes"], withheld: [] } },
+    ]
+    setup({ turns, showCloudSent: false })
+    expect(await screen.findByText("SQLite.")).toBeTruthy()
+    expect(screen.queryByRole("button", { name: "What was sent to the cloud model" })).toBeNull()
+  })
+
+  it("shows a reply built from her own lookups or earlier exchanges, not only from notes", async () => {
+    const turns: ChatTurn[] = [
+      { id: "2", role: "persona", handle: "samantha", body: "As you said.", sent: { notes: [], chats: [{ session: "s1", turn: 2, how: "auto" }] } },
+    ]
+    setup({ turns })
+    expect(await screen.findByRole("button", { name: /Based on 1 earlier exchange/ })).toBeTruthy()
   })
 
   it("shows the model picker in place of the plain chip when there is one", () => {
