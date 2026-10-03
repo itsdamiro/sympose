@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { fetchDoctor, fetchHealth, fixable, fixDoctor, leftOver, type DoctorReport } from "./checks-api"
+import { addFolderIcon, fetchDoctor, fetchHealth, fixable, fixDoctor, leftOver, type DoctorReport } from "./checks-api"
 
 const respond = (body: unknown, ok = true, status = ok ? 200 : 500) =>
   ({ ok, status, json: () => Promise.resolve(body) }) as Response
@@ -33,5 +33,18 @@ describe("checks api", () => {
     const report = { models: [], findings: [f("fixable"), f("fixed"), f("needs_you"), f("failed")] }
     expect(fixable(report).map((x) => x.state)).toEqual(["fixable"])
     expect(leftOver(report).map((x) => x.state)).toEqual(["fixable", "needs_you", "failed"])
+  })
+})
+
+describe("addFolderIcon", () => {
+  it("POSTs the folder as JSON to the health's icon route", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(respond({ folder: "Movies", added: ["icon: film-roll"] }))
+    vi.stubGlobal("fetch", fetchMock)
+    expect(await addFolderIcon("Movies")).toEqual({ ok: true, report: { folder: "Movies", added: ["icon: film-roll"] } })
+    expect(fetchMock).toHaveBeenCalledWith("/api/vault/health/icon", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ folder: "Movies" }),
+    })
   })
 })

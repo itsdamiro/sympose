@@ -6,7 +6,7 @@ from typing import Any
 
 from fastapi import HTTPException
 
-from sympose import doctor, vault_health, vault_health_report
+from sympose import doctor, folder_looks_write, vault_health, vault_health_report
 from sympose import profile as profiles
 
 
@@ -44,9 +44,21 @@ def get_vault_health() -> dict[str, Any]:
             {
                 "heading": check.heading,
                 "problem": check.problem,
-                "findings": [{"note": f.note, "message": f.message} for f in findings],
+                "findings": [{"note": f.note, "message": f.message, "folder": f.folder, "adds": list(f.fix)} for f in findings],
             }
             for check, findings in sorted(results, key=lambda r: not r[0].problem)
             if findings
         ],
     }
+
+
+def add_folder_look(folder: str) -> dict[str, Any]:
+    """The fix the health offers for one folder's definition (ADR 064), applied on the user's click: the property
+    lines written, or why not. As with the report, the default persona."""
+    found = profiles.resolve_profile(None)
+    if found is None:
+        raise HTTPException(status_code=409, detail="The default persona cannot be found (run `sympose doctor`).")
+    try:
+        return {"folder": folder, "added": folder_looks_write.add_look(found, folder)}
+    except folder_looks_write.Refused as reason:
+        raise HTTPException(status_code=409, detail=str(reason)) from reason

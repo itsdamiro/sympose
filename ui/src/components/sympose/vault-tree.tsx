@@ -52,6 +52,11 @@ export interface VaultNode {
   path: string
   type: "folder" | "note"
   children?: VaultNode[]
+  /** A top-level folder's look from its definition note (docs/decisions/064): the name of its icon in the icon set,
+   *  and its colour for the nebula (`accent` light, `accent_dark` dark). Each is set only when the note sets it. */
+  icon?: string
+  accent?: string
+  accent_dark?: string
   /** Frontmatter tags, without the leading `#` — notes only. */
   tags?: string[]
   /** Wikilink neighbours (outgoing targets and incoming backlinks, by

@@ -40,7 +40,7 @@ Not built yet: Slack, skills, a persona that writes to your notes or tunes your 
 ## Running it
 
 - Terminal chat: `sympose cli`.
-- Your notes: `sympose vault --health` reports empty notes, links to no note, titles that are not the file name and files that are not notes, grouped by folder, and changes nothing; `sympose vault --draft <folder>` drafts a note saying what a folder is for and what its notes carry, shows it, and writes it only if you say yes.
+- Your notes: `sympose vault --health` reports empty notes, links to no note, titles that are not the file name and files that are not notes, grouped by folder, and changes a note only when you say yes to an offer (adding an icon to a folder's definition note); `sympose vault --draft <folder>` drafts a note saying what a folder is for and what its notes carry, shows it, and writes it only if you say yes.
 - Health check: `sympose doctor` reports what is wrong with the installation (a persona folder that is not lower case, an unreadable persona or settings file, a setting of the wrong kind); `sympose doctor --fix` corrects what belongs to Sympose and never touches your notes.
 - Web app: `sympose web` — the API and the built app together on
   `127.0.0.1:8000` (`--port` or `PORT` in `.env` changes it), this machine

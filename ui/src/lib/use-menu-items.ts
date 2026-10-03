@@ -9,7 +9,7 @@ import { folderIconFor } from "@/lib/vault-folders"
 function menuIconFor(node: VaultNode) {
   if (node.type === "note")
     return node.name.endsWith(".md") ? Note01Icon : File01Icon
-  return folderIconFor(node.name)
+  return folderIconFor(node.name, node.icon)
 }
 
 /**

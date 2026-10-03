@@ -2,11 +2,7 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 import { useEffectiveTheme } from "@/lib/use-effective-theme"
-import {
-  FOLDER_COLORS,
-  FOLDER_COLORS_LIGHT,
-  foldersInGraph,
-} from "@/lib/nebula-graph"
+import { folderLegend } from "@/lib/nebula-graph"
 import { useNebulaFilter } from "@/lib/nebula-filter"
 import type { NebulaGraph, NebulaNode } from "@/lib/nebula-graph"
 import type { NebulaGraphSource } from "@/lib/use-nebula-graph"
@@ -104,8 +100,7 @@ function AmbientNebula({
     selectedNodeId,
   })
 
-  const folders = foldersInGraph(graph)
-  const folderColors = isLight ? FOLDER_COLORS_LIGHT : FOLDER_COLORS
+  const legend = folderLegend(graph, isLight)
 
   return (
     <div
@@ -186,18 +181,18 @@ function AmbientNebula({
           explore ? "opacity-100" : "pointer-events-none opacity-0"
         )}
       >
-        {prefs.legend && folders.length > 0 && (
+        {prefs.legend && legend.length > 0 && (
           <div className="pointer-events-none absolute top-4 left-4 flex max-w-[40vw] flex-wrap gap-x-3 gap-y-1">
-            {folders.map((f) => (
+            {legend.map(({ folder, color }) => (
               <span
-                key={f}
+                key={folder}
                 className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground"
               >
                 <span
                   className="size-2 rounded-full"
-                  style={{ background: folderColors[f] }}
+                  style={{ background: color }}
                 />
-                {f}
+                {folder}
               </span>
             ))}
           </div>

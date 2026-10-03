@@ -1,53 +1,42 @@
-import {
-  BookOpen01Icon,
-  Calendar03Icon,
-  ChefHatIcon,
-  Copy01Icon,
-  Folder01Icon,
-  FolderLibraryIcon,
-  FilmRoll01Icon,
-  HourglassIcon,
-  PaintBrush02Icon,
-  PencilEdit02Icon,
-  QuoteDownIcon,
-  SourceCodeIcon,
-  UserMultiple02Icon,
-} from "@hugeicons/core-free-icons"
+import { Folder01Icon } from "@hugeicons/core-free-icons"
 import type { IconSvgElement } from "@hugeicons/react"
 
+import { iconByName } from "@/lib/persona-icons"
+
 /**
- * Curated folder-name → icon map, used only to give a recognized top-level
- * folder a specific glyph instead of the generic folder icon (see
- * `menuIconFor` in `app-shell.tsx`) — not a fixed list of folders every
- * vault must have. A folder name not in this list still works fine, just
- * with the generic icon.
+ * Curated folder-name → icon-name map, the fallback for a top-level folder whose definition note names no icon
+ * (docs/decisions/064): the icon is a name in the shared icon set (`persona-icons.ts`). Not a fixed list of folders
+ * every vault must have: a folder not in this list is drawn with the generic icon. The vault health offers to write
+ * these names into the definitions (`sympose/folder_looks.py` holds the same list), after which this list can go.
  */
 export interface VaultFolder {
   /** Folder name — also the route id and vault-relative path. */
   name: string
-  icon: IconSvgElement
+  /** The name of its icon in the icon set. */
+  icon: string
 }
 
 export const VAULT_FOLDERS: VaultFolder[] = [
-  { name: "Projects", icon: FolderLibraryIcon },
-  { name: "Code", icon: SourceCodeIcon },
-  { name: "Daily", icon: Calendar03Icon },
-  { name: "Drawings", icon: PaintBrush02Icon },
-  { name: "General", icon: Folder01Icon },
-  { name: "Limbo", icon: HourglassIcon },
-  { name: "Movies", icon: FilmRoll01Icon },
-  { name: "People", icon: UserMultiple02Icon },
-  { name: "Quotes", icon: QuoteDownIcon },
-  { name: "Reading", icon: BookOpen01Icon },
-  { name: "Recipes", icon: ChefHatIcon },
-  { name: "Templates", icon: Copy01Icon },
-  { name: "Writing", icon: PencilEdit02Icon },
+  { name: "Projects", icon: "folder-library" },
+  { name: "Code", icon: "source-code" },
+  { name: "Daily", icon: "calendar" },
+  { name: "Drawings", icon: "paintbrush-2" },
+  { name: "General", icon: "folder" },
+  { name: "Limbo", icon: "hourglass" },
+  { name: "Movies", icon: "film-roll" },
+  { name: "People", icon: "users" },
+  { name: "Quotes", icon: "quote" },
+  { name: "Reading", icon: "book-open" },
+  { name: "Recipes", icon: "chef-hat" },
+  { name: "Templates", icon: "copy" },
+  { name: "Writing", icon: "pencil-edit" },
 ]
 
 const FOLDER_ICONS = new Map(VAULT_FOLDERS.map((f) => [f.name, f.icon]))
 
-/** The glyph for a folder by name: its curated one, else the generic folder. The main menu and the list's "Notes in …"
- *  caption both draw the folder with this, so they always agree. */
-export function folderIconFor(name: string): IconSvgElement {
-  return FOLDER_ICONS.get(name) ?? Folder01Icon
+/** The glyph for a folder: the icon its definition note names (`icon`, from the tree), else the curated one for its
+ *  name, else the generic folder; a name the icon set does not have counts as none. The main menu and the list's
+ *  "Notes in …" caption both draw the folder with this, so they always agree. */
+export function folderIconFor(name: string, icon?: string | null): IconSvgElement {
+  return iconByName(icon) ?? iconByName(FOLDER_ICONS.get(name)) ?? Folder01Icon
 }

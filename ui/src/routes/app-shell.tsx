@@ -668,7 +668,7 @@ export function AppShell() {
               // editor panel's own "Links" row stays put under the note body.
               active === MENU_SETTINGS_ID ? (
                 <div className="flex items-center justify-between">
-                  <SettingsChecks />
+                  <SettingsChecks onChanged={refreshVault} />
                   <ThemeToggle />
                 </div>
               ) : active === MENU_ACCOUNT_ID ? (

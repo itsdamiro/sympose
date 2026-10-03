@@ -10,7 +10,9 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any, Callable
 
+from sympose import folder_definitions as defs
 from sympose import folder_definitions_write as write_defs
+from sympose import folder_looks
 from sympose import vault_graph, vault_paths
 from sympose.vault_defaults import ATTACHMENT_EXTENSIONS, IGNORE_FOLDERS, NOTE_EXTENSIONS
 from sympose.vault_snapshot import get_vault_snapshot
@@ -27,6 +29,7 @@ class Finding:
     folder: str  # the note's top-level folder, "" at the vault root
     note: str  # the note's path in the vault (the folder's name for an offer)
     message: str
+    fix: tuple[str, ...] = ()  # the property lines the offered fix would add to `note`; empty when there is no fix
 
 
 @dataclass(frozen=True)
@@ -56,6 +59,19 @@ def check_due_folders(scope: Scope) -> list[Finding]:
         Finding(folder, folder, f"{folder}: {count} notes and no definition; `sympose vault --draft {shlex.quote(folder)}` drafts one")
         for folder, count in write_defs.due(scope.profile)
     ]
+
+
+def check_definition_icons(scope: Scope) -> list[Finding]:
+    """A definition note with no `icon` for a folder the web app has always drawn with one (ADR 064). An offer, not
+    a fault, and the one check with a fix: the property lines are in the finding, and nothing is written until the
+    person says yes to that folder."""
+    found = []
+    for folder in sorted(folder_looks.BUILT_IN):
+        lines = folder_looks.offer(folder, scope.notes)
+        if lines:
+            colours = " and its colours" if len(lines) > 1 else ""
+            found.append(Finding(folder, defs.definition_path(folder), f"has no icon; can add {lines[0]}{colours}", tuple(lines)))
+    return found
 
 
 def check_empty_notes(scope: Scope) -> list[Finding]:
@@ -138,6 +154,7 @@ def check_titles(scope: Scope) -> list[Finding]:
 
 CHECKS: list[Check] = [
     Check("Folders due a definition", check_due_folders, problem=False, per_folder=False),
+    Check("Folder definitions with no icon", check_definition_icons, problem=False, per_folder=False),
     Check("Empty notes", check_empty_notes),
     Check("Links to no note", check_broken_links),
     Check("Titles that are not the file name", check_titles),

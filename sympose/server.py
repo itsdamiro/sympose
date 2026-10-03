@@ -35,7 +35,7 @@ from sympose import server_session_handlers as sess
 from sympose import server_trash_handlers as th
 from sympose import server_vault_handlers as vh
 from sympose import vault_paths
-from sympose.server_models import ChatBinAction, ChatCancel, ChatCompact, ChatSessionStart, ChatSessionUpdate, ChatTurn, DefinitionsSwitch, FolderDefinition, HiddenPath, ModelChoice, PersonaFileWrite, SettingChange, SharingChange, TrashEmpty, TrashRestore, VaultActivate
+from sympose.server_models import ChatBinAction, ChatCancel, ChatCompact, ChatSessionStart, ChatSessionUpdate, ChatTurn, DefinitionsSwitch, FolderDefinition, FolderIcon, HiddenPath, ModelChoice, PersonaFileWrite, SettingChange, SharingChange, TrashEmpty, TrashRestore, VaultActivate
 
 
 def create_app() -> FastAPI:
@@ -69,6 +69,10 @@ def create_app() -> FastAPI:
     @app.get("/api/vault/health")
     def get_vault_health() -> dict[str, Any]:
         return ckh.get_vault_health()
+
+    @app.post("/api/vault/health/icon")
+    def add_folder_icon(body: FolderIcon) -> dict[str, Any]:
+        return ckh.add_folder_look(body.folder)
 
     @app.get("/api/vaults")
     def list_vaults() -> dict[str, Any]:

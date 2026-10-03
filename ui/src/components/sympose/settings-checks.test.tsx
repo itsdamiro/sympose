@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 const { toast, notify, api } = vi.hoisted(() => ({
   toast: { success: vi.fn() },
   notify: { error: vi.fn() },
-  api: { fetchDoctor: vi.fn(), fetchHealth: vi.fn(), fixDoctor: vi.fn() },
+  api: { fetchDoctor: vi.fn(), fetchHealth: vi.fn(), fixDoctor: vi.fn(), addFolderIcon: vi.fn() },
 }))
 vi.mock("sonner", () => ({ toast }))
 vi.mock("@/lib/notify", () => ({ notify }))
@@ -82,7 +82,7 @@ describe("SettingsChecks", () => {
         notes: 2,
         problems: 1,
         limits: "Links are not all checked.",
-        checks: [{ heading: "Empty notes", problem: true, findings: [{ note: "A.md", message: "has no text" }] }],
+        checks: [{ heading: "Empty notes", problem: true, findings: [{ note: "A.md", message: "has no text", folder: "", adds: [] }] }],
       },
     })
     fireEvent.click(screen.getByRole("button", { name: /Vault health/ }))
@@ -98,5 +98,58 @@ describe("SettingsChecks", () => {
     fireEvent.click(screen.getByRole("button", { name: /Vault health/ }))
     await waitFor(() => expect(notify.error).toHaveBeenCalledWith("Vault health: No vault is set up."))
     expect(screen.queryByRole("dialog")).toBeNull()
+  })
+
+  describe("an offer to add a folder's icon (ADR 064)", () => {
+    const offer = {
+      ok: true,
+      report: {
+        persona: "samantha",
+        notes: 3,
+        problems: 0,
+        limits: "",
+        checks: [
+          {
+            heading: "Folder definitions with no icon",
+            problem: false,
+            findings: [
+              { note: "Movies/Movies.md", message: "has no icon", folder: "Movies", adds: ["icon: film-roll"] },
+              { note: "People/People.md", message: "has no icon", folder: "People", adds: ["icon: users"] },
+            ],
+          },
+        ],
+      },
+    }
+
+    it("opens the dialog although nothing is wrong, writes nothing until Add is pressed, and only for that folder", async () => {
+      api.fetchHealth.mockResolvedValueOnce(offer)
+      api.addFolderIcon.mockResolvedValue({ ok: true, report: { folder: "Movies", added: ["icon: film-roll"] } })
+      const changed = vi.fn()
+      render(<SettingsChecks onChanged={changed} />)
+      fireEvent.click(screen.getByRole("button", { name: /Vault health/ }))
+      await screen.findByRole("dialog")
+      expect(toast.success).not.toHaveBeenCalled()
+      expect(api.addFolderIcon).not.toHaveBeenCalled()
+
+      fireEvent.click(screen.getAllByRole("button", { name: "Add" })[0])
+      await waitFor(() => expect(screen.getByText("Added")).toBeTruthy())
+      expect(api.addFolderIcon).toHaveBeenCalledTimes(1)
+      expect(api.addFolderIcon).toHaveBeenCalledWith("Movies")
+      expect(changed).toHaveBeenCalledTimes(1)
+      expect(screen.getAllByRole("button", { name: "Add" })).toHaveLength(1)
+    })
+
+    it("shows the reason under the offer when the write is refused, and offers Add again", async () => {
+      api.fetchHealth.mockResolvedValueOnce(offer)
+      api.addFolderIcon.mockResolvedValue({ ok: false, error: "`Movies/Movies.md` changed while it was being read." })
+      const changed = vi.fn()
+      render(<SettingsChecks onChanged={changed} />)
+      fireEvent.click(screen.getByRole("button", { name: /Vault health/ }))
+      await screen.findByRole("dialog")
+      fireEvent.click(screen.getAllByRole("button", { name: "Add" })[0])
+      await screen.findByText(/changed while it was being read/)
+      expect(changed).not.toHaveBeenCalled()
+      expect(screen.getAllByRole("button", { name: "Add" })).toHaveLength(2)
+    })
   })
 })

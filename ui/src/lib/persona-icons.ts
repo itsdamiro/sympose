@@ -37,12 +37,25 @@ import {
   UserIcon,
   Wrench01Icon,
   CodeIcon,
+  Calendar03Icon,
+  ChefHatIcon,
+  Copy01Icon,
+  FilmRoll01Icon,
+  Folder01Icon,
+  FolderLibraryIcon,
+  HourglassIcon,
+  PaintBrush02Icon,
+  PencilEdit02Icon,
+  QuoteDownIcon,
+  SourceCodeIcon,
+  UserMultiple02Icon,
 } from "@hugeicons/core-free-icons"
 import type { IconSvgElement } from "@hugeicons/react"
 
 /**
- * The icons a persona may name as her own in her `persona.yaml` (`icon:`, docs/decisions/062). This is the one
- * icon set the app ships, keyed by the names a persona file uses. The user will choose which set the app draws
+ * The icons a persona may name as her own in her `persona.yaml` (`icon:`, docs/decisions/062) and a folder in its
+ * definition note (`icon:`, docs/decisions/064). This is the one icon set the app ships, keyed by the names those
+ * files use. The user will choose which set the app draws
  * from (a theme setting, later); a persona names her icon within the set in use, and a name the set does not have
  * falls back to the default, so a file written for another set never breaks.
  */
@@ -85,6 +98,19 @@ export const ICON_SET: Record<string, IconSvgElement> = {
   telescope: Telescope01Icon,
   user: UserIcon,
   wrench: Wrench01Icon,
+  // The glyphs a folder is drawn with (ADR 064): the one set is shared by personas and folders.
+  calendar: Calendar03Icon,
+  "chef-hat": ChefHatIcon,
+  copy: Copy01Icon,
+  "film-roll": FilmRoll01Icon,
+  folder: Folder01Icon,
+  "folder-library": FolderLibraryIcon,
+  hourglass: HourglassIcon,
+  "paintbrush-2": PaintBrush02Icon,
+  "pencil-edit": PencilEdit02Icon,
+  quote: QuoteDownIcon,
+  "source-code": SourceCodeIcon,
+  users: UserMultiple02Icon,
 }
 
 /** The icon a persona file names, or `undefined` when it names none or one the set does not have. */

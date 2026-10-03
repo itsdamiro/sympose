@@ -176,3 +176,61 @@ def test_draft_reads_as_the_persona_it_is_given(scratch, tmp_path, capsys):
     assert launcher.main(["vault", "--draft", "People", "--persona", "nobody"]) == 1
 
     assert "no persona named 'nobody'" in capsys.readouterr().out
+
+
+def movies(vault, extra=""):
+    put(vault, "Movies/Movies.md", f"---\ntype: folder\n{extra}---\nFilms.\n")
+
+
+def answers(*replies):
+    given = iter(replies)
+    prompts = []
+
+    def ask(prompt):
+        prompts.append(prompt)
+        return next(given)
+
+    ask.prompts = prompts
+    return ask
+
+
+def test_health_offers_an_icon_for_a_definition_with_none_and_writes_it_only_on_a_yes(scratch):
+    movies(scratch)
+    before = open(os.path.join(scratch, "Movies/Movies.md"), encoding="utf-8").read()
+    code, text = run(vault_command.health, ask=answers("n"))
+    assert code == 0  # an offer is not a problem
+    assert "Folder definitions with no icon (1)" in text and "icon: film-roll" in text and "Left as it is." in text
+    assert open(os.path.join(scratch, "Movies/Movies.md"), encoding="utf-8").read() == before
+
+    code, text = run(vault_command.health, ask=answers("y"))
+    assert "Added to Movies/Movies.md." in text
+    now = open(os.path.join(scratch, "Movies/Movies.md"), encoding="utf-8").read()
+    assert "icon: film-roll\n" in now and now.endswith("Films.\n") and "type: folder" in now
+    assert "Folder definitions with no icon" not in run(vault_command.health, ask=answers())[1]
+
+
+def test_health_asks_about_each_folder_on_its_own_and_never_in_bulk(scratch):
+    movies(scratch)
+    put(scratch, "People/People.md", "---\ntype: folder\n---\nPeople.\n")
+    ask = answers("y", "n")
+    run(vault_command.health, ask=ask)
+    assert len(ask.prompts) == 2
+    assert "icon:" in open(os.path.join(scratch, "Movies/Movies.md"), encoding="utf-8").read()
+    assert "icon:" not in open(os.path.join(scratch, "People/People.md"), encoding="utf-8").read()
+
+
+def test_health_without_a_terminal_asks_nothing_and_changes_nothing(scratch):
+    movies(scratch)
+    code, text = run(vault_command.health)  # stdin is not a terminal under pytest
+    assert "Folder definitions with no icon (1)" in text
+    assert "icon:" not in open(os.path.join(scratch, "Movies/Movies.md"), encoding="utf-8").read()
+
+
+def test_an_end_of_input_while_asked_stops_the_offers_without_writing(scratch):
+    movies(scratch)
+
+    def eof(prompt):
+        raise EOFError
+
+    run(vault_command.health, ask=eof)
+    assert "icon:" not in open(os.path.join(scratch, "Movies/Movies.md"), encoding="utf-8").read()

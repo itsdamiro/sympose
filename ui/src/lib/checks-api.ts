@@ -2,7 +2,7 @@ import { detailOf } from "@/lib/vault-note-api"
 
 /**
  * Client for the Settings footer's two checks (docs/decisions/063): `GET /api/doctor` and `POST /api/doctor/fix`
- * (the installation) and `GET /api/vault/health` (the notes, read as the default persona). The backend decides what
+ * (the installation) and `GET /api/vault/health` (the notes, read as the default persona) and `POST /api/vault/health/icon` (its one fix). The backend decides what
  * counts as a problem and how it is worded; the browser draws what comes back.
  */
 export type DoctorState = "needs_you" | "fixable" | "fixed" | "failed"
@@ -25,7 +25,14 @@ export interface HealthCheck {
   heading: string
   /** `false`: an offer or an observation, not a fault. */
   problem: boolean
-  findings: { note: string; message: string }[]
+  findings: {
+    note: string
+    message: string
+    /** The top-level folder the finding is about. */
+    folder: string
+    /** The property lines the offered fix would add to `note` (docs/decisions/064); empty when there is no fix. */
+    adds: string[]
+  }[]
 }
 
 export interface HealthReport {
@@ -55,6 +62,15 @@ export const fetchDoctor = () => call<DoctorReport>("/api/doctor")
 
 /** Does what `sympose doctor --fix` does, then answers with where each finding stands. */
 export const fixDoctor = () => call<DoctorReport>("/api/doctor/fix", { method: "POST" })
+
+/** The vault health's one fix: adds the built-in icon (and colours) to a folder's definition note. Writes a note, so it
+ *  is called only from the button on that folder's offer. */
+export const addFolderIcon = (folder: string) =>
+  call<{ folder: string; added: string[] }>("/api/vault/health/icon", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ folder }),
+  })
 
 export const fetchHealth = () => call<HealthReport>("/api/vault/health")
 

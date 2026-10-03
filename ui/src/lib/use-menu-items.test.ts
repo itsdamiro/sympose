@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 import { renderHook } from "@testing-library/react"
-import { Folder01Icon, Note01Icon, File01Icon } from "@hugeicons/core-free-icons"
+import { Folder01Icon, Note01Icon, File01Icon, StarIcon } from "@hugeicons/core-free-icons"
 import { describe, expect, it } from "vitest"
 
 import type { VaultNode } from "@/components/sympose"
+import { iconByName } from "./persona-icons"
 import { VAULT_FOLDERS } from "./vault-folders"
 import { useMenuItems } from "./use-menu-items"
 
@@ -30,7 +31,22 @@ describe("useMenuItems", () => {
     const known = VAULT_FOLDERS[0]
     const { result } = renderHook(() => useMenuItems([note("a.md"), note("b.pdf"), folder("Unheard Of"), folder(known.name)], false))
     const icons = result.current.menuItems.map((i) => i.icon)
-    expect(icons).toEqual([Note01Icon, File01Icon, Folder01Icon, known.icon])
+    expect(icons).toEqual([Note01Icon, File01Icon, Folder01Icon, iconByName(known.icon)])
+  })
+
+  it("draws a folder with the icon its definition names, over the curated one, and ignores a name the set lacks", () => {
+    const items = renderHook(() =>
+      useMenuItems(
+        [
+          { ...folder("Movies"), icon: "star" },
+          { ...folder("Garden"), icon: "star" },
+          { ...folder("Orchard"), icon: "not-in-the-set" },
+          { ...folder("Movies"), icon: "not-in-the-set" },
+        ],
+        false,
+      ),
+    ).result.current.menuItems
+    expect(items.map((i) => i.icon)).toEqual([StarIcon, StarIcon, Folder01Icon, iconByName("film-roll")])
   })
 
   it("collects the root notes, so a menu pick can open them", () => {

@@ -87,3 +87,41 @@ def test_the_vault_health_says_so_when_there_is_no_vault(client, monkeypatch):
 
     assert response.status_code == 409
     assert "vault" in response.json()["detail"].lower()
+
+
+def _movies(scratch, extra=""):
+    note = scratch / "vault" / "Movies" / "Movies.md"
+    note.parent.mkdir(parents=True)
+    note.write_text(f"---\ntype: folder\n{extra}---\nFilms.\n")
+    return note
+
+
+def test_the_health_offers_an_icon_with_the_lines_it_would_add_and_a_get_writes_nothing(client, scratch):
+    note = _movies(scratch)
+    before = note.read_text()
+
+    body = client.get("/api/vault/health").json()
+
+    offer = next(c for c in body["checks"] if c["heading"] == "Folder definitions with no icon")
+    assert offer["problem"] is False
+    assert offer["findings"][0]["folder"] == "Movies" and offer["findings"][0]["adds"][0] == "icon: film-roll"
+    assert note.read_text() == before
+
+
+def test_a_post_adds_the_icon_to_that_folders_definition_only_and_the_offer_goes(client, scratch):
+    note = _movies(scratch)
+
+    response = client.post("/api/vault/health/icon", json={"folder": "Movies"})
+
+    assert response.status_code == 200 and response.json()["added"][0] == "icon: film-roll"
+    assert "icon: film-roll\n" in note.read_text() and note.read_text().endswith("Films.\n")
+    assert not any(c["heading"] == "Folder definitions with no icon" for c in client.get("/api/vault/health").json()["checks"])
+
+
+def test_a_post_for_a_folder_with_nothing_to_add_is_refused_and_changes_nothing(client, scratch):
+    note = _movies(scratch, "icon: star\n")
+    before = note.read_text()
+
+    assert client.post("/api/vault/health/icon", json={"folder": "Movies"}).status_code == 409
+    assert client.post("/api/vault/health/icon", json={"folder": "../x"}).status_code == 409
+    assert note.read_text() == before

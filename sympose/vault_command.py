@@ -1,10 +1,11 @@
-"""`sympose vault` (docs/decisions/034): `--health` reports on the notes and changes nothing, `--draft <folder>`
+"""`sympose vault` (docs/decisions/034): `--health` reports on the notes and changes one only when you say yes to an offered fix (ADR 064), `--draft <folder>`
 drafts a folder's definition (ADR 033), shows it and writes it only when the person answers yes."""
 
 import sys
 from typing import Any, Callable, TextIO
 
 from sympose import folder_definitions_write as write_defs
+from sympose import folder_looks_write
 from sympose import profile as profiles
 from sympose import vault_health, vault_health_report
 from sympose.vault_write_status import NOTE_DENIED, NOTE_EXISTS
@@ -17,8 +18,10 @@ def _profile(persona: str | None, out: TextIO) -> dict[str, Any] | None:
     return found
 
 
-def health(persona: str | None = None, out: TextIO | None = None) -> int:
-    """Prints the report; 0 when no problem was found, else 1 (a folder offered a definition is not a problem)."""
+def health(persona: str | None = None, out: TextIO | None = None, ask: Callable[[str], str] | None = None) -> int:
+    """Prints the report; 0 when no problem was found, else 1 (a folder offered a definition or an icon is not a
+    problem). A fix the report offers (ADR 064) is asked about one folder at a time, and only at a terminal (or
+    when `ask` is given): a yes writes it, anything else leaves the note as it is."""
     out = out or sys.stdout
     found = _profile(persona, out)
     if found is None:
@@ -29,7 +32,28 @@ def health(persona: str | None = None, out: TextIO | None = None) -> int:
         return 1
     scope, results = scanned
     print("\n".join(vault_health_report.render(scope, results)), file=out)
+    if ask is None and sys.stdin.isatty():
+        ask = input
+    if ask is not None:
+        _offer_fixes(found, [f for _, findings in results for f in findings if f.fix], out, ask)
     return 1 if vault_health_report.problem_count(results) else 0
+
+
+def _offer_fixes(profile: dict[str, Any], fixes: list[Any], out: TextIO, ask: Callable[[str], str]) -> None:
+    for finding in fixes:
+        print(f"\n{finding.note} would get:", *(f"  {line}" for line in finding.fix), sep="\n", file=out)
+        try:
+            answer = ask("Add them? [y/N] ").strip().lower()
+        except EOFError:
+            return
+        if answer not in ("y", "yes"):
+            print("Left as it is.", file=out)
+            continue
+        try:
+            folder_looks_write.add_look(profile, finding.folder)
+            print(f"Added to {finding.note}.", file=out)
+        except folder_looks_write.Refused as reason:
+            print(str(reason), file=out)
 
 
 def _why(proposal: Any) -> str:

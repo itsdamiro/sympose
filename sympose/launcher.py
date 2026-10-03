@@ -94,7 +94,7 @@ def build_parser() -> argparse.ArgumentParser:
     doctor.set_defaults(run=_run_doctor)
     vault = commands.add_parser("vault", help="look at your notes: --health reports on them, --draft drafts a folder's definition")
     what = vault.add_mutually_exclusive_group()
-    what.add_argument("--health", action="store_true", help="report empty notes, links to no note, titles that are not the file name and files that are not notes (changes nothing)")
+    what.add_argument("--health", action="store_true", help="report empty notes, links to no note, titles that are not the file name and files that are not notes (changes a note only if you say yes to an offered fix)")
     what.add_argument("--draft", metavar="FOLDER", help="draft the definition note of a folder, show it, and write it only if you say yes")
     vault.add_argument("--persona", metavar="HANDLE", help="read what this persona can read (default: the default persona)")
     vault.set_defaults(run=_run_vault, vault_parser=vault)

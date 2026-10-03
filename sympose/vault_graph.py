@@ -9,7 +9,7 @@ a grounding source; quoted content always comes from the note itself.
 import os
 from typing import Any
 
-from sympose import vault_manifest_build, vault_paths, vault_tree
+from sympose import folder_looks, vault_manifest_build, vault_paths, vault_tree
 from sympose.vault_defaults import IGNORE_FOLDERS, NOTE_EXTENSIONS
 from sympose.vault_snapshot import get_vault_snapshot
 
@@ -94,11 +94,18 @@ def get_vault_tree(profile: dict[str, Any]) -> list[dict[str, Any]]:
     mv, allowed_dirs = scope
 
     prefixes = _scope_prefixes(mv, allowed_dirs)
-    manifest = vault_manifest_build.build(mv, get_vault_snapshot(mv, allowed_dirs))
+    notes = get_vault_snapshot(mv, allowed_dirs)
+    manifest = vault_manifest_build.build(mv, notes)
     real_folders = _list_real_folders(mv, allowed_dirs)
-    return vault_tree.build_tree(
+    tree = vault_tree.build_tree(
         manifest.get("nodes", []), prefixes, real_folders, manifest.get("links", [])
     )
+    # A top-level folder's own look (ADR 064) rides on its node: the icon, and the colour the nebula uses.
+    looks = folder_looks.looks(notes)
+    for node in tree:
+        if node["type"] == "folder":
+            node.update(looks.get(node["name"], {}))
+    return tree
 
 
 def _label(n: dict[str, Any]) -> str:
@@ -125,7 +132,9 @@ def get_vault_graph(profile: dict[str, Any]) -> dict[str, Any]:
     if scope is None:
         return {"nodes": [], "links": []}
     mv, allowed_dirs = scope
-    manifest = vault_manifest_build.build(mv, get_vault_snapshot(mv, allowed_dirs))
+    notes = get_vault_snapshot(mv, allowed_dirs)
+    manifest = vault_manifest_build.build(mv, notes)
+    looks = folder_looks.looks(notes)
     all_nodes = manifest.get("nodes", [])
     links = manifest.get("links", [])
 
@@ -154,6 +163,8 @@ def get_vault_graph(profile: dict[str, Any]) -> dict[str, Any]:
             "tags": n.get("tags", []),
             "val": degree.get(n["id"], 0) + 1,
             "exists": n.get("exists", True),
+            # The folder's colour from its definition (ADR 064), when it sets one.
+            **{k: v for k, v in looks.get(n["folder"], {}).items() if k != "icon"},
         }
         for n in all_nodes
     ]

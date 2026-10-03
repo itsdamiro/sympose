@@ -20,9 +20,10 @@ const say = (message: string) => toast.success(message)
 /**
  * The Settings footer's two check pills, "Doctor" and "Vault health" (docs/decisions/063). Nothing runs until a
  * pill is clicked. A clean result is a notification; a finding opens a dialog, where the doctor offers Fix or
- * Decline and the vault health only Close.
+ * Decline and the vault health Close; an offer to add a folder's icon has its own Add button (ADR 064), and
+ * `onChanged` says a note was changed.
  */
-export function SettingsChecks({ className }: { className?: string }) {
+export function SettingsChecks({ className, onChanged }: { className?: string; onChanged?: () => void }) {
   const [running, setRunning] = React.useState<Running>(null)
   const [dialog, setDialog] = React.useState<CheckDialogState | null>(null)
 
@@ -40,7 +41,8 @@ export function SettingsChecks({ className }: { className?: string }) {
     const result = await fetchHealth()
     setRunning(null)
     if (!result.ok) return notify.error(`Vault health: ${result.error}`)
-    if (result.report.problems === 0) return say(`Vault health: nothing wrong in ${result.report.notes} notes.`)
+    const offered = result.report.checks.some((c) => c.findings.some((f) => f.adds.length > 0))
+    if (result.report.problems === 0 && !offered) return say(`Vault health: nothing wrong in ${result.report.notes} notes.`)
     setDialog({ kind: "health", report: result.report })
   }
 
@@ -81,6 +83,7 @@ export function SettingsChecks({ className }: { className?: string }) {
         fixableCount={dialog?.kind === "doctor" ? fixable(dialog.report).length : 0}
         onFix={() => void fix()}
         onClose={() => setDialog(null)}
+        onChanged={() => onChanged?.()}
       />
     </div>
   )

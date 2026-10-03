@@ -175,7 +175,7 @@ export function VaultFolderView({
                 pinnedNodes={pinnedNodes}
                 pinnedShowPath={pinnedShowPath}
                 listLabel={activeLabel ? `Notes in ${activeLabel}` : undefined}
-                listIcon={folderIconFor(activeLabel)}
+                listIcon={folderIconFor(activeLabel, activeRootFolder?.icon)}
                 defaultExpanded={
                   vaultSearchQuery
                     ? collectFolderPaths(searchedPanelNodes)

@@ -86,6 +86,13 @@ class DefinitionsSwitch(BaseModel):
     show: bool
 
 
+class FolderIcon(BaseModel):
+    """Body of `POST /api/vault/health/icon` — the vault health's offer to add the built-in icon and colours to the
+    definition note of the top-level folder `folder` (docs/decisions/064)."""
+
+    folder: str = Field(..., min_length=1)
+
+
 class FolderDefinition(BaseModel):
     """Body of `POST /api/vault/folder/definition` — write the definition note of the top-level folder `path` from
     what the user typed: an optional `purpose` and the property lines of the folder's `template`

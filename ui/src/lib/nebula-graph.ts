@@ -24,6 +24,10 @@ export interface NebulaNode {
    * only" filter drops these.
    */
   exists?: boolean
+  /** The folder's colour from its definition note (docs/decisions/064), light and dark; set only when it sets one.
+   *  It wins over the built-in table, and `accent` stands in for dark when `accent_dark` is missing. */
+  accent?: string
+  accent_dark?: string
 }
 
 export interface NebulaLink {
@@ -87,21 +91,32 @@ const UNKNOWN_FOLDER_COLOR_LIGHT = "#334155"
 const GHOST_COLOR = "#4b5563"
 const GHOST_COLOR_LIGHT = "#94a3b8"
 
-/** Resolve a node's render colour from its folder / existence and active theme. */
+/** Resolve a node's render colour from its folder / existence and active theme: its folder's own colour (from the
+ *  definition note), else the built-in one, else the neutral one. */
 export function nodeColor(node: NebulaNode, isLight = false): string {
   if (isLight) {
     if (node.exists === false) return GHOST_COLOR_LIGHT
-    return FOLDER_COLORS_LIGHT[node.folder] ?? UNKNOWN_FOLDER_COLOR_LIGHT
+    return node.accent ?? FOLDER_COLORS_LIGHT[node.folder] ?? UNKNOWN_FOLDER_COLOR_LIGHT
   }
   if (node.exists === false) return GHOST_COLOR
-  return FOLDER_COLORS[node.folder] ?? UNKNOWN_FOLDER_COLOR
+  return node.accent_dark ?? node.accent ?? FOLDER_COLORS[node.folder] ?? UNKNOWN_FOLDER_COLOR
 }
 
-/** Distinct folders present in a graph, in `VAULT_FOLDERS`-ish display order. */
-export function foldersInGraph(graph: NebulaGraph): string[] {
-  const seen = new Set<string>()
-  for (const n of graph.nodes) if (n.folder) seen.add(n.folder)
-  return Object.keys(FOLDER_COLORS).filter((f) => seen.has(f))
+/** The legend: each folder present in the graph that has a colour of its own (set by its definition note, or in the
+ *  built-in table), with that colour. The built-in ones come first in the table's order, then the others by name. */
+export function folderLegend(graph: NebulaGraph, isLight = false): { folder: string; color: string }[] {
+  const byFolder = new Map<string, NebulaNode>()
+  for (const n of graph.nodes) {
+    if (!n.folder || n.exists === false) continue
+    const held = byFolder.get(n.folder)
+    if (!held || (n.accent && !held.accent)) byFolder.set(n.folder, n)
+  }
+  const builtIn = Object.keys(FOLDER_COLORS)
+  const rank = (f: string) => (builtIn.includes(f) ? builtIn.indexOf(f) : builtIn.length)
+  return [...byFolder.entries()]
+    .filter(([folder, n]) => n.accent || folder in FOLDER_COLORS)
+    .sort(([a], [b]) => rank(a) - rank(b) || a.localeCompare(b))
+    .map(([folder, n]) => ({ folder, color: nodeColor(n, isLight) }))
 }
 
 /**
