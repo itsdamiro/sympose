@@ -1,19 +1,15 @@
 import * as React from "react"
-import { File01Icon, Folder01Icon, Note01Icon } from "@hugeicons/core-free-icons"
+import { File01Icon, Note01Icon } from "@hugeicons/core-free-icons"
 
 import type { MainMenuItem, VaultNode } from "@/components/sympose"
 import { stripMdExtension } from "@/lib/utils"
-import { VAULT_FOLDERS } from "@/lib/vault-folders"
-
-/** Curated name → icon map, so known folders keep their glyph when the menu is
- *  driven by the live vault instead of the static `VAULT_FOLDERS` list. */
-const FOLDER_ICONS = new Map(VAULT_FOLDERS.map((f) => [f.name, f.icon]))
+import { folderIconFor } from "@/lib/vault-folders"
 
 /** Icon for a top-level vault entry surfaced on the main menu. */
 function menuIconFor(node: VaultNode) {
   if (node.type === "note")
     return node.name.endsWith(".md") ? Note01Icon : File01Icon
-  return FOLDER_ICONS.get(node.name) ?? Folder01Icon
+  return folderIconFor(node.name)
 }
 
 /**

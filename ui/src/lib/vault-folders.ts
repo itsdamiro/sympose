@@ -43,3 +43,11 @@ export const VAULT_FOLDERS: VaultFolder[] = [
   { name: "Templates", icon: Copy01Icon },
   { name: "Writing", icon: PencilEdit02Icon },
 ]
+
+const FOLDER_ICONS = new Map(VAULT_FOLDERS.map((f) => [f.name, f.icon]))
+
+/** The glyph for a folder by name: its curated one, else the generic folder. The main menu and the list's "Notes in …"
+ *  caption both draw the folder with this, so they always agree. */
+export function folderIconFor(name: string): IconSvgElement {
+  return FOLDER_ICONS.get(name) ?? Folder01Icon
+}

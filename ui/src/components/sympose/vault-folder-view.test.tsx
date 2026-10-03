@@ -4,6 +4,7 @@ import * as React from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import type { VaultSearchResult } from "@/lib/vault-search-api"
+import { folderIconFor } from "@/lib/vault-folders"
 import { VaultFolderView } from "./vault-folder-view"
 import type { VaultNode } from "./vault-tree"
 
@@ -164,6 +165,14 @@ describe("VaultFolderView: the tree", () => {
     expect(p.recentNodes).toBe(recent)
     expect(p.pinnedShowPath).toBe(true)
     expect(p.persona).toBe("samantha")
+  })
+
+  it("has the tree caption its plain list \"Notes in\" the folder, with the folder's own icon", () => {
+    setup({ activeLabel: "Movies", recentNodes: [note("Other/r.md")] })
+    const p = treeProps.at(-1)!
+    expect(p.listLabel).toBe("Notes in Movies")
+    expect(p.listIcon).toBe(folderIconFor("Movies"))
+    expect(p.listIcon).not.toBe(folderIconFor("Unknown"))
   })
 
   it("shows the tree for recent notes alone", () => {

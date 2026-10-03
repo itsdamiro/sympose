@@ -53,13 +53,13 @@ describe("ConversationList", () => {
   it("separates pinned from recent conversations with the folder list's captions, only when there are both", () => {
     setup([row("a", { pinned_at: "2026-10-01T00:00:00Z" }), row("b"), row("c")])
     const captions = Array.from(document.querySelectorAll('[data-slot="group-caption"]')).map((c) => c.textContent)
-    expect(captions).toEqual(["Pinned", "Recent"])
+    expect(captions).toEqual(["Pinned", "All conversations"])
     cleanup()
     setup([row("a"), row("b")])
     expect(document.querySelectorAll('[data-slot="group-caption"]')).toHaveLength(0)
     cleanup()
     setup([row("a", { pinned_at: "2026-10-01T00:00:00Z" })]) // nothing recent to separate it from
-    expect(screen.queryByText("Recent")).toBeNull()
+    expect(screen.queryByText("All conversations")).toBeNull()
   })
 
   it("sets the recent conversations well apart from the pinned: about three times the space between two rows", () => {

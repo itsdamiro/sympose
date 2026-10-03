@@ -1,5 +1,6 @@
 import * as React from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
+import type { IconSvgElement } from "@hugeicons/react"
 import {
   ArrowRight01Icon,
   Calendar03Icon,
@@ -310,6 +311,11 @@ interface VaultTreeProps
   /** Empty the whole Recent history — the "Recent" group caption's
    *  "Clear recents". */
   onClearRecents?: () => void
+  /** The caption over the plain tree when Pinned or Recent sits above it ("Notes in Movies"): it says the rows below
+   *  are the folder's own, not more of Recent. Defaults to "All notes". */
+  listLabel?: string
+  /** The caption's icon: the folder's own. */
+  listIcon?: IconSvgElement
 }
 
 function VaultTree({
@@ -334,6 +340,8 @@ function VaultTree({
   recentNodes = NO_CHILDREN,
   onRemoveFromRecents,
   onClearRecents,
+  listLabel = "All notes",
+  listIcon = Folder01Icon,
   ...props
 }: VaultTreeProps) {
   const [expanded, setExpanded] = React.useState<Set<string>>(() => {
@@ -437,7 +445,12 @@ function VaultTree({
       )}
 
       {(pinnedNodes.length > 0 || recentNodes.length > 0) &&
-        display.length > 0 && <div className="h-3" aria-hidden="true" />}
+        display.length > 0 && (
+          <>
+            <div className="h-3" aria-hidden="true" />
+            <GroupCaption icon={listIcon} label={listLabel} paddingLeft={0} />
+          </>
+        )}
 
       {display.map(({ node, closing }) => (
         <VaultTreeRow

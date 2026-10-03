@@ -4,6 +4,7 @@ import { Folder01Icon, Search01Icon } from "@hugeicons/core-free-icons"
 import { EmptyState } from "@/components/sympose/empty-state"
 import { cn, stripMdExtension } from "@/lib/utils"
 import { vaultScopedKey } from "@/lib/cookies"
+import { folderIconFor } from "@/lib/vault-folders"
 import { useBinPreferences } from "@/lib/use-bin-section-preference"
 import { isNoteDrag, readNoteDrag } from "@/lib/vault-drag"
 import type { VaultSearchResult } from "@/lib/vault-search-api"
@@ -178,6 +179,8 @@ export function VaultFolderView({
                 pinnedNodes={pinnedNodes}
                 pinnedShowPath={pinnedShowPath}
                 recentNodes={recentNodes}
+                listLabel={activeLabel ? `Notes in ${activeLabel}` : undefined}
+                listIcon={folderIconFor(activeLabel)}
                 defaultExpanded={
                   vaultSearchQuery
                     ? collectFolderPaths(searchedPanelNodes)
@@ -196,7 +199,7 @@ export function VaultFolderView({
             )}
             {vaultSearchQuery && contentMatches.length > 0 && (
               <div className="mt-4">
-                <p className="mb-1.5 text-xs font-medium text-fg-muted">
+                <p className="mb-1.5 text-xs font-medium tracking-wide text-fg-muted uppercase">
                   Also found in {activeLabel}
                 </p>
                 <ul className="flex flex-col gap-0.5">
@@ -220,7 +223,7 @@ export function VaultFolderView({
             )}
             {vaultSearchQuery && beyondFolderMatches.length > 0 && (
               <div className="mt-4">
-                <p className="mb-1.5 text-xs font-medium text-fg-muted">
+                <p className="mb-1.5 text-xs font-medium tracking-wide text-fg-muted uppercase">
                   {beyondFolderMatches.length} match
                   {beyondFolderMatches.length === 1 ? "" : "es"} beyond{" "}
                   {activeLabel}

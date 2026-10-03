@@ -1,7 +1,6 @@
 import * as React from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  Clock01Icon,
   Delete02Icon,
   Edit01Icon,
   Message01Icon,
@@ -170,8 +169,8 @@ function ConversationRow({
 }
 
 /** The rows, pinned first. When there are both pinned and recent ones they are set apart by the folder list's own
- *  captions ("Pinned", "Recent"); with only one kind there is nothing to set apart. Its rows are two lines each, ten
- *  pixels apart, so "Recent" takes 32 px above it (a folder list's groups, of single-line rows, are 12 apart): wide
+ *  captions ("Pinned", "All conversations"); with only one kind there is nothing to set apart. Its rows are two lines each, ten
+ *  pixels apart, so "All conversations" takes 32 px above it (a folder list's groups, of single-line rows, are 12 apart): wide
  *  enough to read as a break and not as one more row. */
 function ConversationGroups({
   sessions,
@@ -194,7 +193,7 @@ function ConversationGroups({
     <div className="flex flex-col">
       <GroupCaption icon={PinIcon} label="Pinned" paddingLeft={0} />
       {list(pinned)}
-      <GroupCaption icon={Clock01Icon} label="Recent" paddingLeft={0} className="pt-8" />
+      <GroupCaption icon={Message01Icon} label="All conversations" paddingLeft={0} className="pt-8" />
       {list(recent)}
     </div>
   )
