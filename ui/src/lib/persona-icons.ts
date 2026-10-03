@@ -115,5 +115,6 @@ export const ICON_SET: Record<string, IconSvgElement> = {
 
 /** The icon a persona file names, or `undefined` when it names none or one the set does not have. */
 export function iconByName(name: string | null | undefined): IconSvgElement | undefined {
-  return name ? ICON_SET[name.toLowerCase()] : undefined
+  const key = name?.toLowerCase()
+  return key && Object.hasOwn(ICON_SET, key) ? ICON_SET[key] : undefined
 }

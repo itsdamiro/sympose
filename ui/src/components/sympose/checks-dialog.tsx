@@ -73,7 +73,7 @@ function HealthBody({ report, onChanged }: { report: HealthReport; onChanged: ()
               <li key={`${f.note}:${f.message}`} className="flex items-start justify-between gap-3 text-xs text-muted-foreground">
                 <span>
                   <span className="text-foreground">{f.note}</span>: {f.message}
-                  {failed[f.folder] && <span className="block text-destructive">{failed[f.folder]}</span>}
+                  {f.adds.length > 0 && failed[f.folder] && <span className="block text-destructive">{failed[f.folder]}</span>}
                 </span>
                 {f.adds.length > 0 &&
                   (added.has(f.folder) ? (

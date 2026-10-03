@@ -50,4 +50,16 @@ describe("folderLegend", () => {
     expect(folderLegend(graph, true)).toEqual([{ folder: "Movies", color: "#111111" }])
     expect(folderLegend(graph, false)).toEqual([{ folder: "Movies", color: "#eeeeee" }])
   })
+
+  it("lists, and colours in the dark, a folder that sets only its dark colour", () => {
+    const graph = { nodes: [node("Garden", { accent_dark: "#88cc88" })], links: [] }
+    expect(folderLegend(graph, false)).toEqual([{ folder: "Garden", color: "#88cc88" }])
+  })
+
+  it("never takes a name of the object prototype for a folder in a table", () => {
+    const graph = { nodes: [node("constructor"), node("toString", { accent: "#123456" })], links: [] }
+    expect(folderLegend(graph).map((e) => e.folder)).toEqual(["toString"])
+    expect(nodeColor(node("constructor"), false)).toBe("#8b93a7")
+    expect(nodeColor(node("constructor"), true)).toBe("#334155")
+  })
 })

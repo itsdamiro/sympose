@@ -154,7 +154,7 @@ def check_titles(scope: Scope) -> list[Finding]:
 
 CHECKS: list[Check] = [
     Check("Folders due a definition", check_due_folders, problem=False, per_folder=False),
-    Check("Folder definitions with no icon", check_definition_icons, problem=False, per_folder=False),
+    Check("Folder definitions with no icon", check_definition_icons, problem=False, of_notes=False),
     Check("Empty notes", check_empty_notes),
     Check("Links to no note", check_broken_links),
     Check("Titles that are not the file name", check_titles),

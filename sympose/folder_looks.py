@@ -1,13 +1,17 @@
 """A top-level folder's look, read from its definition note's own properties (docs/decisions/064): `icon` (the
 name of an icon in the app's set) and `accent` / `accent_dark` (its colour in the Knowledge Nebula, light and
-dark). The same keys and the same checks as a persona's look (ADR 062). Read-only: nothing here writes a note."""
+dark). The same keys as a persona's look (ADR 062), but a colour here is a six-digit hex only: it comes from a note
+(which may be from a shared vault, not a file the user owns) and the nebula's renderers parse a hex. Read-only:
+nothing here writes a note."""
 
+import re
 from typing import Any
 
 from sympose import folder_definitions as defs
 from sympose import look
 
-KEYS = {"icon": look.ICON_NAME, "accent": look.COLOR, "accent_dark": look.COLOR}
+HEX_COLOR = re.compile(r"#[0-9a-fA-F]{6}")
+KEYS = {"icon": look.ICON_NAME, "accent": HEX_COLOR, "accent_dark": HEX_COLOR}
 
 
 def of_note(meta: dict[str, Any]) -> dict[str, str]:
@@ -18,13 +22,12 @@ def of_note(meta: dict[str, Any]) -> dict[str, str]:
 
 
 def _is_definition(note: dict[str, Any], folder: str) -> bool:
-    parts = (note.get("rel_path") or "").replace("\\", "/").split("/")
-    return len(parts) == 2 and parts[0] == folder and parts[1].lower() == f"{folder.lower()}.md"
+    return (note.get("rel_path") or "").replace("\\", "/") == defs.definition_path(folder)
 
 
 def looks(notes: list[dict[str, Any]]) -> dict[str, dict[str, str]]:
-    """`{folder: look}` for each top-level folder whose definition note (`<Folder>/<Folder>.md`, the case of the
-    name ignored) is among `notes` and sets at least one look key."""
+    """`{folder: look}` for each top-level folder whose definition note (`<Folder>/<Folder>.md`) is among `notes`
+    and sets at least one look key."""
     found = {}
     for note in notes:
         folder = defs.top_folder(note.get("rel_path") or "")
@@ -61,7 +64,7 @@ def offer(folder: str, notes: list[dict[str, Any]]) -> list[str]:
     the note already has an `icon` property (whatever it holds: a chosen icon is never changed, ADR 064)."""
     built_in = BUILT_IN.get(folder)
     definition = next((n for n in notes if _is_definition(n, folder)), None)
-    if built_in is None or definition is None:
+    if built_in is None or not defs.can_have_definition(folder) or definition is None:
         return []
     meta = definition.get("meta") or {}
     if "icon" in meta:

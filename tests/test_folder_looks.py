@@ -45,6 +45,12 @@ def test_a_value_of_an_unsafe_shape_is_the_same_as_none():
     assert folder_looks.looks(notes) == {}
 
 
+@pytest.mark.parametrize("colour", ["red", "#f00", "rgb(200,30,30)", "oklch(0.5 0.1 20)", "url(//evil.example/p.png)", "#12345g", "#1234567"])
+def test_a_colour_that_is_not_a_six_digit_hex_is_none(colour):
+    """The nebula's renderers parse a hex, and the value comes from a note, which may be from a shared vault."""
+    assert folder_looks.looks([_note("Movies/Movies.md", accent=colour, accent_dark=colour)]) == {}
+
+
 def test_a_note_that_is_not_the_folders_definition_has_no_say():
     notes = [
         _note("Movies/Alien.md", icon="film-roll"),  # an ordinary note
@@ -54,8 +60,11 @@ def test_a_note_that_is_not_the_folders_definition_has_no_say():
     assert folder_looks.looks(notes) == {}
 
 
-def test_the_case_of_the_definitions_name_is_ignored():
-    assert folder_looks.looks([_note("Movies/movies.md", icon="film-roll")]) == {"Movies": {"icon": "film-roll"}}
+def test_the_definition_is_the_note_named_exactly_like_its_folder():
+    """The same file `defs.definition_path` names, so a look that is read is a note the fix can find too."""
+    notes = [_note("Movies/movies.md", icon="film-roll")]
+    assert folder_looks.looks(notes) == {}
+    assert folder_looks.offer("Movies", notes) == []
 
 
 def test_a_folder_that_cannot_have_a_definition_gets_no_look():
@@ -114,3 +123,8 @@ def test_a_note_below_a_folder_called_like_the_definition_is_not_the_definition(
     notes = [_note("Movies/Movies.md/Alien.md", icon="film-roll")]
     assert folder_looks.looks(notes) == {}
     assert folder_looks.offer("Movies", notes) == []
+
+
+@pytest.mark.parametrize("folder", ["Templates", "Drawings"])
+def test_a_folder_that_cannot_have_a_definition_is_never_offered_one(folder):
+    assert folder_looks.offer(folder, [{"rel_path": f"{folder}/{folder}.md", "meta": {}}]) == []

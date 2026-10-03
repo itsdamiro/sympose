@@ -91,16 +91,22 @@ const UNKNOWN_FOLDER_COLOR_LIGHT = "#334155"
 const GHOST_COLOR = "#4b5563"
 const GHOST_COLOR_LIGHT = "#94a3b8"
 
+/** A table's own entry for `key`: a folder is named by the user, so `constructor` must not find `Object`'s. */
+const own = (table: Record<string, string>, key: string): string | undefined =>
+  Object.hasOwn(table, key) ? table[key] : undefined
+
 /** Resolve a node's render colour from its folder / existence and active theme: its folder's own colour (from the
  *  definition note), else the built-in one, else the neutral one. */
 export function nodeColor(node: NebulaNode, isLight = false): string {
   if (isLight) {
     if (node.exists === false) return GHOST_COLOR_LIGHT
-    return node.accent ?? FOLDER_COLORS_LIGHT[node.folder] ?? UNKNOWN_FOLDER_COLOR_LIGHT
+    return node.accent ?? own(FOLDER_COLORS_LIGHT, node.folder) ?? UNKNOWN_FOLDER_COLOR_LIGHT
   }
   if (node.exists === false) return GHOST_COLOR
-  return node.accent_dark ?? node.accent ?? FOLDER_COLORS[node.folder] ?? UNKNOWN_FOLDER_COLOR
+  return node.accent_dark ?? node.accent ?? own(FOLDER_COLORS, node.folder) ?? UNKNOWN_FOLDER_COLOR
 }
+
+const hasOwnColor = (n: NebulaNode) => Boolean(n.accent || n.accent_dark)
 
 /** The legend: each folder present in the graph that has a colour of its own (set by its definition note, or in the
  *  built-in table), with that colour. The built-in ones come first in the table's order, then the others by name. */
@@ -109,12 +115,12 @@ export function folderLegend(graph: NebulaGraph, isLight = false): { folder: str
   for (const n of graph.nodes) {
     if (!n.folder || n.exists === false) continue
     const held = byFolder.get(n.folder)
-    if (!held || (n.accent && !held.accent)) byFolder.set(n.folder, n)
+    if (!held || (hasOwnColor(n) && !hasOwnColor(held))) byFolder.set(n.folder, n)
   }
   const builtIn = Object.keys(FOLDER_COLORS)
   const rank = (f: string) => (builtIn.includes(f) ? builtIn.indexOf(f) : builtIn.length)
   return [...byFolder.entries()]
-    .filter(([folder, n]) => n.accent || folder in FOLDER_COLORS)
+    .filter(([folder, n]) => hasOwnColor(n) || Object.hasOwn(FOLDER_COLORS, folder))
     .sort(([a], [b]) => rank(a) - rank(b) || a.localeCompare(b))
     .map(([folder, n]) => ({ folder, color: nodeColor(n, isLight) }))
 }

@@ -117,6 +117,11 @@ describe("SettingsChecks", () => {
               { note: "People/People.md", message: "has no icon", folder: "People", adds: ["icon: users"] },
             ],
           },
+          {
+            heading: "Empty notes",
+            problem: true,
+            findings: [{ note: "Movies/Alien.md", message: "has no text", folder: "Movies", adds: [] }],
+          },
         ],
       },
     }
@@ -148,6 +153,7 @@ describe("SettingsChecks", () => {
       await screen.findByRole("dialog")
       fireEvent.click(screen.getAllByRole("button", { name: "Add" })[0])
       await screen.findByText(/changed while it was being read/)
+      expect(screen.getAllByText(/changed while it was being read/)).toHaveLength(1) // not under the other Movies finding
       expect(changed).not.toHaveBeenCalled()
       expect(screen.getAllByRole("button", { name: "Add" })).toHaveLength(2)
     })

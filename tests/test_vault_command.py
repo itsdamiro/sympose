@@ -234,3 +234,19 @@ def test_an_end_of_input_while_asked_stops_the_offers_without_writing(scratch):
 
     run(vault_command.health, ask=eof)
     assert "icon:" not in open(os.path.join(scratch, "Movies/Movies.md"), encoding="utf-8").read()
+
+
+def test_health_does_not_prompt_when_its_output_is_not_a_terminal(scratch, monkeypatch):
+    """`sympose vault --health | less` or `> file` must not block on a prompt nobody can see."""
+    movies(scratch)
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True, raising=False)
+    asked = []
+    monkeypatch.setattr("builtins.input", lambda prompt="": asked.append(prompt) or "y")
+    run(vault_command.health)  # `out` is a StringIO, so not a terminal
+    assert asked == []
+    assert "icon:" not in open(os.path.join(scratch, "Movies/Movies.md"), encoding="utf-8").read()
+
+
+def test_the_report_names_the_note_an_offer_is_about(scratch):
+    movies(scratch)
+    assert "Movies/Movies.md: has no icon" in run(vault_command.health)[1]

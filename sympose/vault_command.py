@@ -20,8 +20,8 @@ def _profile(persona: str | None, out: TextIO) -> dict[str, Any] | None:
 
 def health(persona: str | None = None, out: TextIO | None = None, ask: Callable[[str], str] | None = None) -> int:
     """Prints the report; 0 when no problem was found, else 1 (a folder offered a definition or an icon is not a
-    problem). A fix the report offers (ADR 064) is asked about one folder at a time, and only at a terminal (or
-    when `ask` is given): a yes writes it, anything else leaves the note as it is."""
+    problem). A fix the report offers (ADR 064) is asked about one folder at a time, and only when both input and
+    output are a terminal (or when `ask` is given): a yes writes it, anything else leaves the note as it is."""
     out = out or sys.stdout
     found = _profile(persona, out)
     if found is None:
@@ -32,7 +32,7 @@ def health(persona: str | None = None, out: TextIO | None = None, ask: Callable[
         return 1
     scope, results = scanned
     print("\n".join(vault_health_report.render(scope, results)), file=out)
-    if ask is None and sys.stdin.isatty():
+    if ask is None and sys.stdin.isatty() and out.isatty():  # not into a pipe or a file, where a prompt would hang unseen
         ask = input
     if ask is not None:
         _offer_fixes(found, [f for _, findings in results for f in findings if f.fix], out, ask)
