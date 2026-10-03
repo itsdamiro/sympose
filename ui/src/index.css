@@ -833,8 +833,8 @@
   margin-bottom: 0 !important;
 }
 
-/* ONE frosted surface for every menu in the app — the Sympose dropdowns and
-   pointer-anchored context menu (`components/ui/dropdown-menu` + `context-menu`)
+/* ONE frosted surface for every menu and hover/info popup in the app — the Sympose dropdowns,
+   tooltip, popover and pointer-anchored context menu (`components/ui/dropdown-menu` + `context-menu`)
    and stylo's editor right-click menu / URL input / selection bar / link
    tooltip. They used to paint their own backgrounds separately: the React side
    via Tailwind's `bg-panel/88` (an oklab mix that read noticeably more
@@ -845,6 +845,8 @@
 [data-slot="dropdown-menu-content"],
 [data-slot="dropdown-menu-sub-content"],
 [data-slot="context-menu-content"],
+[data-slot="tooltip-content"],
+[data-slot="popover-content"],
 [data-slot="markdown-panel"] .cm-inplace-menu-panel,
 [data-slot="markdown-panel"] .cm-inplace-menu-input,
 [data-slot="markdown-panel"] .cm-inplace-selbar,

@@ -1,0 +1,48 @@
+# 060 — One quiet row under a reply, and floating info in the app's own surface
+
+> **Status: Accepted (2026-10-03), designed with damiro; to be built in the order below.** Builds on ADR 025 (what is recorded about a reply), ADR 031 (what a cloud model may receive), ADR 040 and 041 (the persona looks up and remembers), ADR 044 (the web chat), ADR 056 (earlier conversations). The pre-#21 review found the web chat showing less than the terminal's `/grounded`; this is the fix, and the design of how the web shows it.
+
+## Context
+
+Under a persona's reply the web chat draws two separate lines: "Based on Atlas" (the notes it drew on; clickable into the editor) and, for a cloud model only, "Sent: recaps, vault_map · Held back: memory" (what left the machine and what was withheld, ADR 031). They answer different questions, one for a user checking her references and one for a user checking what was shared, and they are drawn as two unrelated rows in different words.
+
+The web also shows less than the record holds. The reply's `sent` record carries the earlier-conversation exchanges, what she looked up herself in `ask` mode, the recaps and memory files that reached her, how many older turns were left out and, when `ask` could not be used, that Sympose searched for her instead. The terminal's `/grounded` lists all of it; the web reads only the notes, so a reply built from her memory, her recaps or her own lookups shows nothing, and a reply with only a cloud summary shows a separate, differently worded line. Terminal and web are meant to offer the same.
+
+Two things must not grow with this: the line must not drown the conversation (several files, a narrow panel, a long list), and a new floating surface must not look like a different app. The context meter's hover is already the stock inverted pill (`bg-foreground`, `rounded-2xl`, an arrow) while every menu uses the frosted panel surface, the panels' `--radius-lg` corner, a soft shadow and a hairline ring (`menuPopupClass`, one `index.css` rule for the frosted background).
+
+## Decision
+
+**One row, two ends.** Under a persona's reply there is at most one row. Its left end is the references, as one collapsible; its right end is a small cloud icon, on a cloud model's replies only.
+
+**The left end is a disclosure that is one line when closed, however much is behind it.** It reads the way the line does today ("Based on Atlas", "Based on 3 notes") and adds the rest in the same breath: "Based on Atlas and 2 earlier exchanges". It shrinks and truncates with an ellipsis; the counts after the first name are kept, so it never wraps. It is one button (`aria-expanded`); a click, Enter or Space opens the list below it. It is closed when a reply first appears, and its open state is not remembered.
+
+**It appears only when something specific to the reply was used:** a note, an earlier exchange, a lookup she made, or the fallback notice. The standing context (her memory files, the recaps, how many older turns were left out, the follow-up query) is listed inside the opened row and never makes a row by itself, so a local reply that used none of the specific things stays clean. When the row is open the list is in small groups: *Used* (notes, one entry per passage with its full path as today, each clickable into the markdown editor; earlier exchanges as a count, "word for word"), *Looked up* (each lookup as the terminal words it), and *Also in her context* (the standing items and the follow-up query). It wraps and is capped at about eight rows' height, then scrolls, so a reply that used thirty passages cannot push the conversation away; the passages of one note count once in the closed line, as they do now.
+
+**The cloud end is an icon with the privacy summary behind it.** The icon sits at the far right of the row (on its own, when the left end has nothing), muted, with a small amber dot when anything was held back, so the case that matters shows without opening it. Its popup lists what was sent and what was held back, in plain words ("vault map", "earlier conversations", "note properties", not `vault_map`, `chats`, `properties`). It opens on hover and on keyboard focus, and on a tap on a touch screen (a long press on a small icon fights text selection and the browser's own press menu, so a tap is the touch way; a long press can be added if wanted). It is one Base UI popover with `openOnHover`, so the three ways to open it are one component.
+
+**The knobs.** `showGrounding` keeps hiding only the left end. A new web display choice, `showCloudSent` (cookie `sympose:chat.showCloudSent`, default on, labelled "What a cloud reply was sent" in Settings → Chat beside the others; not "cloud notice", which is the notice above the message box), hides the icon. Neither changes what is sent: that is `/share` (ADR 031), and hiding an indicator is the user's own call about their own screen. The terminal keeps its own `show_grounding`, and its `/grounded` is unchanged (it is the reference for what the web now shows).
+
+**Floating info follows the menu surface.** The shared tooltip (`ui/src/components/ui/tooltip.tsx`) and the new popover take the menus' surface from the one place it already lives: the frosted tint and blur by adding their slots to the `index.css` rule, and the shape by the same `--radius-lg` corner, shadow and hairline ring (and the muted text weight the menus use); the arrow goes, since no menu has one. The context meter's hover changes with it, with no change of its own code. Corners and sizes come from the theme's tokens, never new values.
+
+**The record.** `SentRecord` in the web gains `chats`, `recaps`, `memory`, `lookups`, `mode`, `chats_mode` and `history_dropped`, the fields the backend already returns for a live reply and for a resumed one. Nothing about the backend changes.
+
+## Consequences
+
+- A user can always find out, in one place and in the same words as the terminal, what a reply was given, and open the notes from it; the cost is one line that is usually closed.
+- On the default settings a local reply that used only her memory shows no row, and the memory files are visible only inside a row that is already there. This is deliberate (they go in every turn); the terminal's `/grounded` still lists them.
+- The cloud summary moves from visible text to an icon. A user who read it at a glance now hovers or taps; the amber dot keeps the held-back case visible. It stays visible by default and is a choice the user makes in Settings, not hidden for them.
+- Every hover or info popup in the app shares one surface, so a later one cannot drift as the meter's did.
+- Layout-dependent behaviour (truncation, the narrow-panel wrap, corners, blur, both themes) is checked in a real headless Chrome as well as in jsdom.
+
+## Not built
+
+- A long press to open the cloud popup on touch (a tap does).
+- Showing the lookups of a resumed conversation beyond what was recorded.
+
+## Alternatives rejected
+
+- **Two lines kept, restyled.** Two rows of small grey text per reply is the clutter this removes, and they would still be worded differently.
+- **A three-level knob (off, specific only, everything).** A single quiet row makes the middle level unnecessary; the standing items are inside the opened row, where they cost nothing.
+- **The cloud summary as visible text on the row.** It repeats on every cloud reply, so it would be read once and then be noise; an icon with a dot says "something was held back" without words.
+- **A tooltip for the cloud popup.** A tooltip does not open on touch; the popover does, and keeps the same look.
+- **Merging the cloud names into the references list.** They answer a different question (what left the machine), and a user checking one should not have to read the other.
