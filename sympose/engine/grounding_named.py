@@ -3,7 +3,9 @@
 A short message that names a note ("tell me about Annie", an alias) scores low against it by meaning, and
 `auto` searches the user's notes by meaning alone. So when the search attached nothing and the message says
 a note's whole title, file name or alias, that note is attached. The names are in the index: no search and no
-embedding is involved, and it changes nothing when the search found a note."""
+embedding is involved. When the search did find notes it changes nothing, except that a note the message names in
+full and whose title reads the same as a found note's (a twin: "Workspace" and "Workspaces") is added after them
+(docs/decisions/068)."""
 
 from typing import Any
 
@@ -66,10 +68,11 @@ def rescue(
     index: Index, message: str, hits: list[dict[str, Any]], address: frozenset[str] = frozenset(), max_results: int = 5
 ) -> list[dict[str, Any]]:
     """`hits` as they are when the search attached anything (or the knob is `keywords`, which stays today's
-    search); otherwise the first passages of the notes the message names in full, then the first passage of
+    search), plus the twins of its notes that the message names in full (docs/decisions/068), after them;
+    otherwise the first passages of the notes the message names in full, then the first passage of
     the notes a property value in it names (docs/decisions/030, "Property values as names"), at most
     `max_results` passages."""
-    if hits or not index.names or embeddings.mode() == embeddings.KEYWORDS:  # (a note with values has a name too)
+    if not index.names or embeddings.mode() == embeddings.KEYWORDS:  # (a note with values has a name too)
         return hits
     said = tuple(index_terms(message))
     name_matches = _matches(index.names, said, index, address, _MAX_NOTES_PER_NAME)
@@ -78,6 +81,16 @@ def rescue(
     unexplained = len(set(said) - covered)
     named = _ordered_paths(name_matches, unexplained)
     valued = [path for path in _ordered_paths(value_matches, unexplained) if path not in named]
+    if hits:  # the search found notes: only a missed note named in full and titled like one it found (a twin) joins them
+        found_paths = {h["rel_path"] for h in hits}
+        found_titles = {frozenset(index_terms(h["title"])) for h in hits}
+        twins = [
+            index.passages_by_path[p][0] for p in named
+            if p not in found_paths and index.passages_by_path.get(p)
+            and frozenset(index_terms(index.passages_by_path[p][0].title)) in found_titles
+        ]
+        merged = hits + [hit(passage, 0.0, "name") for passage in twins]
+        return [{**h, "index": n} for n, h in enumerate(merged[:max_results], start=1)] if twins else hits
     if not named and not valued:
         return hits
     by_path = {path: index.passages_by_path.get(path, []) for path in named + valued}

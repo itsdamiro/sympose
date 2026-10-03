@@ -79,6 +79,30 @@ def test_a_note_the_search_found_is_not_joined_by_a_note_that_is_named(vault):
     assert _found("check the budget") == ["Budget.md"]  # nothing found by meaning: the name does
 
 
+def test_a_twin_of_a_note_the_search_found_joins_it_when_the_message_names_the_twin(vault):
+    # docs/decisions/068: the search found "Flights" (its text is about flights); the message names "Flight" in full,
+    # and the two titles read the same once the other number is dropped, so the one it named is attached too, after.
+    _write(vault, "Flights.md", "Flights to Lisbon in May.")
+    _write(vault, "Flight.md", "One window seat for the long haul.")
+    _write(vault, "Trip.md", "Packing list for the trip.")
+
+    assert _found("what does the Flight note say about flights?") == ["Flights.md", "Flight.md"]
+
+
+def test_a_title_that_reads_the_same_is_ambiguous_so_either_spelling_attaches_both(vault):
+    _write(vault, "Flights.md", "Flights to Lisbon in May.")
+    _write(vault, "Flight.md", "One window seat for the long haul.")
+
+    assert _found("when are the flights?") == ["Flights.md", "Flight.md"]  # the index cannot tell which was meant
+
+
+def test_a_note_named_in_full_whose_title_is_unlike_a_found_note_is_still_not_added(vault):
+    _write(vault, "Flights.md", "Flights to Lisbon in May.")
+    _write(vault, "Budget.md", "The spend was over plan by a tenth in March.")
+
+    assert _found("when are the flights, and the budget?") == ["Flights.md"]  # only a twin joins a found note
+
+
 def test_two_notes_with_one_name_are_both_attached_and_three_are_none(vault):
     _write(vault, "A/Atlas.md", "The first Atlas plan.")
     _write(vault, "B/Atlas.md", "The second Atlas plan.")
