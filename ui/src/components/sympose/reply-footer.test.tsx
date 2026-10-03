@@ -56,26 +56,35 @@ describe("ReplyFooter: the references", () => {
     expect(screen.getByText("Sympose/Settings.md")).toBeTruthy()
   })
 
-  it("shows a reply built only from earlier conversations, and says how many exchanges, word for word", () => {
+  it("shows a reply built only from earlier conversations, and says how many exchanges, word for word", async () => {
     render(<ReplyFooter sent={chatsOnly} />)
-    fireEvent.click(screen.getByRole("button", { name: /Based on 2 earlier exchanges/ }))
-    expect(screen.getByText("2 exchanges from earlier conversations, word for word")).toBeTruthy()
+    expect(screen.getByText(/Based on 2 earlier exchanges/)).toBeTruthy()
+    fireEvent.click(screen.getByRole("button", { name: "More about what she used" }))
+    expect(await screen.findByText("2 exchanges from earlier conversations, word for word")).toBeTruthy()
   })
 
-  it("lists what she looked up herself, and names a row that found nothing by what she did", () => {
+  it("lists what she looked up herself, and names a row that found nothing by what she did", async () => {
     const sent: SentRecord = { notes: [], mode: "ask", lookups: [{ tool: "search_notes", query: "atlas", found: 0 }] }
     render(<ReplyFooter sent={sent} />)
-    fireEvent.click(screen.getByRole("button", { name: /Looked up one thing/ }))
-    expect(screen.getByText('searched "atlas" (0 found)')).toBeTruthy()
+    expect(screen.getByText(/Looked up one thing/)).toBeTruthy()
+    fireEvent.click(screen.getByRole("button", { name: "More about what she used" }))
+    expect(await screen.findByText('searched "atlas" (0 found)')).toBeTruthy()
   })
 
-  it("lists the standing context, and the follow-up query, only inside a row that is already there", () => {
+  it("keeps the standing context, and the follow-up query, behind the info icon, off the opened notes", async () => {
     render(<ReplyFooter sent={{ ...two, recaps: ["s1", "s2"], memory: ["profile"], history_dropped: 1 }} />)
     fireEvent.click(screen.getByRole("button", { name: /Based on 2 notes/ }))
-    expect(screen.getByText("Searched for “atlas database”")).toBeTruthy()
+    expect(screen.queryByText("her memory (profile.md)")).toBeNull()
+    fireEvent.click(screen.getByRole("button", { name: "More about what she used" }))
+    expect(await screen.findByText("Searched for “atlas database”")).toBeTruthy()
     expect(screen.getByText("2 earlier-conversation recaps")).toBeTruthy()
     expect(screen.getByText("her memory (profile.md)")).toBeTruthy()
     expect(screen.getByText("1 older turn left out of context")).toBeTruthy()
+  })
+
+  it("draws no info icon when there is nothing but notes", () => {
+    render(<ReplyFooter sent={one} />)
+    expect(screen.queryByRole("button", { name: "More about what she used" })).toBeNull()
   })
 
   it("keeps the closed line to one line however many notes: it truncates and never wraps", () => {

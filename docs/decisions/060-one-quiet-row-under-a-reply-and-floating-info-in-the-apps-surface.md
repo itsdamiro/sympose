@@ -67,3 +67,7 @@ damiro asked that the cloud indicator take the place of the model name beside th
 
 **The list.** The title line and the New button are gone (a new conversation starts from the icon under the message box); the list is named for a screen reader only. The gap was measured in a real browser, not judged: a folder list's groups are 12 px apart (single-line, tight rows), search results' sections 24 px, and the profile page's were 20 px, but its rows are two lines and 10 px apart, so 20 px was only twice the row spacing. "Recent" now takes 32 px above it (`pt-8` on that caption, which `GroupCaption` accepts as an override), about three times the row spacing and wider than both references. The folder list keeps its own, since its rows are tight.
 
+## Amendment (2026-10-03): the information behind an info icon, the notes in the row
+
+An opened row listed notes, earlier exchanges, lookups and the standing context together, which made it tall enough to scroll the conversation. Now an info icon sits before the "Based on" line and opens (on hover, focus or a tap, as the cloud icon does) a popup with everything that is only information: the earlier exchanges ("word for word"), *Looked up* and *Also in her context*. The line itself opens only the notes, the part a user can act on (the vault's open into the editor; the reference library's are listed, not clickable). The icon is drawn only when there is something behind it, and a row with no notes is plain text without a chevron.
+
