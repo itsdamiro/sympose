@@ -79,3 +79,7 @@ The header's cloud icon replaced the model chip, but the ask was to repurpose th
 
 The Bin's rows carried two always-reserved buttons (Restore, Delete) where the folder list, the search results and the conversation list open a row menu from a `⋯` button and from a right click or a long press; the notes half of the Bin also drew its rows in a mono font of its own. Both halves now draw every row, a note, a folder deleted as a unit, a conversation, through `BinRow`: the shared `ResultText` (icon, title, detail), the shared `RowActionsTrigger` and the shared menu surface, with Restore and Delete permanently (destructive, still always confirmed) in one list that serves both triggers; a deleted folder's row offers Restore folder and still opens on a click to show its files. Measured in Chrome, light and dark: icons at x = 288, flush with the Bin heading.
 
+## Amendment (2026-10-03): the app's own lines are cards, not plain text
+
+The app's lines between the turns (a confirmation, an error, a notice, the condensed notes) were plain muted text in the persona column's width, and damiro took the condensed notes for part of a reply. `ChatSystemLine` is now a small bordered card with an icon by kind (the danger tint for an error), and a passage with a `title` (the notes that stand for condensed turns: "The turns above are condensed into these notes", "The notes", "The notes now") has a heading over its text, in prose rather than mono. The terminal is unchanged.
+

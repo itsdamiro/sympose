@@ -76,7 +76,7 @@ function turnsFromPage(handle: string, page: SessionPage): ChatTurn[] {
     // Where the notes of a compaction (ADR 055) take over from the turns above, so they can be read there.
     const marker: ChatTurn[] =
       notes && saved.index === notes.through
-        ? [{ id: `saved-${page.session_id}-notes`, role: "system", kind: "output", body: `The turns above are condensed into these notes: ${notes.text}` }]
+        ? [{ id: `saved-${page.session_id}-notes`, role: "system", kind: "output", title: "The turns above are condensed into these notes", body: notes.text }]
         : []
     return [
       ...marker,
@@ -313,7 +313,7 @@ export function useChat(persona: string) {
       const { status, covered, text, before, after } = out.result
       if (status === "done") {
         const said = addTo(done, { role: "system", kind: "confirmation", body: `Condensed the first ${covered} turns into notes (${before} to ${after} tokens):` })
-        return { ...addTo(said, { role: "system", kind: "output", body: text }), condensed: covered, context: undefined }
+        return { ...addTo(said, { role: "system", kind: "output", title: "The notes", body: text }), condensed: covered, context: undefined }
       }
       const reason = {
         nothing: "Nothing to condense yet: the newest turns always stay as they are.",
@@ -322,7 +322,7 @@ export function useChat(persona: string) {
         busy: "Already condensing this conversation: try again in a moment.",
       }[status]
       const said = addTo(done, { role: "system", kind: status === "failed" ? "error" : "notice", body: reason })
-      return status === "nothing" && text ? addTo(said, { role: "system", kind: "output", body: `The notes now: ${text}` }) : said
+      return status === "nothing" && text ? addTo(said, { role: "system", kind: "output", title: "The notes now", body: text }) : said
     })
   }, [convo.sessionId, convo.compacting, activeKey, persona, update, addTo])
 

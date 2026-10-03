@@ -71,6 +71,8 @@ export interface ChatTurn {
   role: "user" | "persona" | "system"
   /** `role: "system"` only. */
   kind?: SystemKind
+  /** `role: "system"` only: a heading for a longer passage (the notes that stand in for condensed turns), so it is not mistaken for a reply. */
+  title?: string
   /** Persona handle — `role: "persona"` only. */
   handle?: string
   body: string

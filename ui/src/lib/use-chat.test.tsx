@@ -534,7 +534,7 @@ describe("useChat condensing (ADR 055)", () => {
     api.fetchChatSession.mockResolvedValue({ ...pageOf([saved(4), saved(5)], 4, true, "s7"), compaction: { through: 5, text: "The user likes SQLite." } })
     const { result } = renderHook(() => useChat("samantha"))
     await waitFor(() => expect(result.current.turns).toHaveLength(5))
-    expect(result.current.turns.map((t) => [t.role, t.kind, t.body])).toEqual([
+    expect(result.current.turns.map((t) => [t.role, t.kind, t.title ? `${t.title}: ${t.body}` : t.body])).toEqual([
       ["user", undefined, "question 4"],
       ["persona", undefined, "answer 4"],
       ["system", "output", "The turns above are condensed into these notes: The user likes SQLite."],
@@ -562,9 +562,9 @@ describe("useChat condensing (ADR 055)", () => {
     })
     expect(api.compactChatSession).toHaveBeenCalledWith("samantha", "s1")
     const lines = result.current.turns.filter((t) => t.role === "system")
-    expect(lines.map((t) => [t.kind, t.body])).toEqual([
+    expect(lines.map((t) => [t.kind, t.title ? `${t.title}: ${t.body}` : t.body])).toEqual([
       ["confirmation", "Condensed the first 11 turns into notes (600 to 120 tokens):"],
-      ["output", "The user is building Pantry."],
+      ["output", "The notes: The user is building Pantry."],
     ])
     expect(result.current.context).toBeUndefined()
     expect(result.current.compacting).toBe(false)
@@ -587,7 +587,7 @@ describe("useChat condensing (ADR 055)", () => {
     await act(async () => {
       await result.current.compact()
     })
-    const lines = result.current.turns.filter((t) => t.role === "system").map((t) => [t.kind, t.body])
+    const lines = result.current.turns.filter((t) => t.role === "system").map((t) => [t.kind, t.title ? `${t.title}: ${t.body}` : t.body])
     expect(lines).toEqual([
       ["notice", "Nothing to condense yet: the newest turns always stay as they are."],
       ["output", "The notes now: Earlier notes."],

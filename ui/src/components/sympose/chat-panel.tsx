@@ -269,7 +269,7 @@ function ChatPanel({
           ) : (
             turns.map((turn) =>
               turn.role === "system" ? (
-                <ChatSystemLine key={turn.id} kind={turn.kind ?? "notice"}>
+                <ChatSystemLine key={turn.id} kind={turn.kind ?? "notice"} title={turn.title}>
                   {turn.body}
                 </ChatSystemLine>
               ) : turn.role === "user" ? (
