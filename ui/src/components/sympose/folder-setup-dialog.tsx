@@ -22,12 +22,15 @@ const FIELD =
 function SetupForm({
   folder,
   template: start,
+  manual,
   persona,
   onClose,
   onCreated,
 }: {
   folder: string
   template: NoteTemplate
+  /** Opened from "Define folder" on a folder that already exists, not as the step after creating one. */
+  manual: boolean
   persona: string
   onClose: () => void
   onCreated: () => void
@@ -62,11 +65,11 @@ function SetupForm({
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Set up {folder}</DialogTitle>
+        <DialogTitle>{manual ? `Define ${folder}` : `Set up ${folder}`}</DialogTitle>
         <DialogDescription>
-          Optional. Say what this folder is for and which properties its notes
-          start with; both are saved in {folder}/{folder}.md. Skip writes
-          nothing.
+          {manual ? "Say" : "Optional. Say"} what this folder is for and which properties its notes
+          start with; both are saved in {folder}/{folder}.md.{" "}
+          {manual ? "Cancel" : "Skip"} writes nothing.
         </DialogDescription>
       </DialogHeader>
       <div className="grid gap-4">
@@ -103,13 +106,13 @@ function SetupForm({
       </div>
       <DialogFooter>
         <DialogClose render={<Button variant="outline" disabled={busy} />}>
-          Skip
+          {manual ? "Cancel" : "Skip"}
         </DialogClose>
         <Button
           disabled={busy || nothingToWrite}
           onClick={() => void create()}
         >
-          Create the definition
+          {manual ? "Save" : "Create the definition"}
         </Button>
       </DialogFooter>
     </>
@@ -130,7 +133,7 @@ export function FolderSetupDialog({
   onClose,
   onCreated,
 }: {
-  setup: { folder: string; template: NoteTemplate } | null
+  setup: { folder: string; template: NoteTemplate; manual?: boolean } | null
   persona: string
   onClose: () => void
   /** Called after the definition note was written, so the tree can refresh. */
@@ -144,6 +147,7 @@ export function FolderSetupDialog({
             key={setup.folder}
             folder={setup.folder}
             template={setup.template}
+            manual={setup.manual === true}
             persona={persona}
             onClose={onClose}
             onCreated={onCreated}

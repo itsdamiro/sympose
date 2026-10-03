@@ -6,6 +6,10 @@ import {
   Settings01Icon,
   SidebarLeft01Icon,
   ViewOffIcon,
+  Delete02Icon,
+  FolderAddIcon,
+  NoteAddIcon,
+  FolderEditIcon,
 } from "@hugeicons/core-free-icons"
 
 import { cn } from "@/lib/utils"
@@ -107,6 +111,15 @@ interface MainMenuProps extends Omit<React.ComponentProps<"nav">, "onSelect"> {
    */
   onHideItem?: (item: MainMenuItem) => void
   /**
+   * A note or a folder at the vault root, from a right-click or long-press on the rail's empty space (or the
+   * rows' own menu). The shell asks for a name and creates it.
+   */
+  onCreateRoot?: (kind: "note" | "folder") => void
+  /** Delete a root folder, from its row's menu (a confirmation, and to the bin, are the shell's). */
+  onDeleteItem?: (item: MainMenuItem) => void
+  /** Define a root folder by hand, from its row's menu: the shell opens the setup dialog. */
+  onDefineItem?: (item: MainMenuItem) => void
+  /**
    * Account row: label plus, when the active persona is known, its icon and
    * accent for the avatar (falls back to the first letter on `bg-accent`).
    */
@@ -188,6 +201,9 @@ function MainMenu({
   onSelectTrash,
   onDropNote,
   onHideItem,
+  onCreateRoot,
+  onDeleteItem,
+  onDefineItem,
   account = { name: "Persona" },
   vaults = EMPTY_VAULTS,
   activeVault = null,
@@ -246,6 +262,105 @@ function MainMenu({
     commit(collapsedProp ? MENU_MIN : lastExpanded.current)
   }, [collapsedProp, commit])
 
+  const folderList = (
+    <ul
+      className={cn(
+        "flex min-h-0 flex-1 flex-col gap-1 overflow-x-hidden overflow-y-auto py-2",
+        hideChrome && "pt-3"
+      )}
+    >
+      {items.map((item) => {
+        const active = item.id === activeId
+        const dropTarget = onDropNote && item.type !== "note"
+        const row = (
+          <button
+            type="button"
+            onClick={() => onSelectItem?.(item)}
+            aria-current={active ? "page" : undefined}
+            title={collapsed ? item.label : undefined}
+            className={cn(
+              ROW,
+              active ? ROW_ACTIVE : ROW_MUTED,
+              dragOverId === item.id &&
+                "rounded-md bg-accent/60 text-foreground ring-1 ring-brand/60 ring-inset"
+            )}
+            onDragOver={
+              dropTarget
+                ? (e) => {
+                    if (!isNoteDrag(e)) return
+                    e.preventDefault()
+                    e.dataTransfer.dropEffect = "move"
+                  }
+                : undefined
+            }
+            onDragEnter={
+              dropTarget
+                ? (e) => {
+                    if (!isNoteDrag(e)) return
+                    setDragOverId(item.id)
+                  }
+                : undefined
+            }
+            onDragLeave={dropTarget ? () => setDragOverId(null) : undefined}
+            onDrop={
+              dropTarget
+                ? (e) => {
+                    const path = readNoteDrag(e)
+                    if (!path) return
+                    e.preventDefault()
+                    setDragOverId(null)
+                    onDropNote(path, item.id)
+                  }
+                : undefined
+            }
+          >
+            <span className={SLOT}>
+              <HugeiconsIcon icon={item.icon} className="size-4.5" />
+            </span>
+            <span className={LABEL}>{item.label}</span>
+          </button>
+        )
+        const isFolder = item.type !== "note"
+        const hasMenu =
+          onHideItem || (isFolder && (onDeleteItem || onDefineItem))
+        return (
+          <li key={item.id}>
+            {hasMenu ? (
+              <ContextMenu>
+                <ContextMenuTrigger className="block">{row}</ContextMenuTrigger>
+                <ContextMenuContent className="duration-thumb ease-snappy">
+                  {isFolder && onDefineItem && (
+                    <DropdownMenuItem onClick={() => onDefineItem(item)}>
+                      <HugeiconsIcon icon={FolderEditIcon} />
+                      Define folder
+                    </DropdownMenuItem>
+                  )}
+                  {onHideItem && (
+                    <DropdownMenuItem onClick={() => onHideItem(item)}>
+                      <HugeiconsIcon icon={ViewOffIcon} />
+                      Hide from view
+                    </DropdownMenuItem>
+                  )}
+                  {isFolder && onDeleteItem && (
+                    <DropdownMenuItem
+                      variant="destructive"
+                      onClick={() => onDeleteItem(item)}
+                    >
+                      <HugeiconsIcon icon={Delete02Icon} />
+                      Delete folder
+                    </DropdownMenuItem>
+                  )}
+                </ContextMenuContent>
+              </ContextMenu>
+            ) : (
+              row
+            )}
+          </li>
+        )
+      })}
+    </ul>
+  )
+
   return (
     <nav
       data-slot="main-menu"
@@ -300,85 +415,26 @@ function MainMenu({
         </WorkspaceSwitcher>
       )}
 
-      {/* folders */}
-      <ul
-        className={cn(
-          "flex min-h-0 flex-1 flex-col gap-1 overflow-x-hidden overflow-y-auto py-2",
-          hideChrome && "pt-3"
-        )}
-      >
-        {items.map((item) => {
-          const active = item.id === activeId
-          const dropTarget = onDropNote && item.type !== "note"
-          const row = (
-              <button
-                type="button"
-                onClick={() => onSelectItem?.(item)}
-                aria-current={active ? "page" : undefined}
-                title={collapsed ? item.label : undefined}
-                className={cn(
-                  ROW,
-                  active ? ROW_ACTIVE : ROW_MUTED,
-                  dragOverId === item.id &&
-                    "rounded-md bg-accent/60 text-foreground ring-1 ring-inset ring-brand/60"
-                )}
-                onDragOver={
-                  dropTarget
-                    ? (e) => {
-                        if (!isNoteDrag(e)) return
-                        e.preventDefault()
-                        e.dataTransfer.dropEffect = "move"
-                      }
-                    : undefined
-                }
-                onDragEnter={
-                  dropTarget
-                    ? (e) => {
-                        if (!isNoteDrag(e)) return
-                        setDragOverId(item.id)
-                      }
-                    : undefined
-                }
-                onDragLeave={
-                  dropTarget ? () => setDragOverId(null) : undefined
-                }
-                onDrop={
-                  dropTarget
-                    ? (e) => {
-                        const path = readNoteDrag(e)
-                        if (!path) return
-                        e.preventDefault()
-                        setDragOverId(null)
-                        onDropNote(path, item.id)
-                      }
-                    : undefined
-                }
-              >
-                <span className={SLOT}>
-                  <HugeiconsIcon icon={item.icon} className="size-4.5" />
-                </span>
-                <span className={LABEL}>{item.label}</span>
-              </button>
-          )
-          return (
-            <li key={item.id}>
-              {onHideItem ? (
-                <ContextMenu>
-                  <ContextMenuTrigger className="block">{row}</ContextMenuTrigger>
-                  <ContextMenuContent className="duration-thumb ease-snappy">
-                    <DropdownMenuItem onClick={() => onHideItem(item)}>
-                      <HugeiconsIcon icon={ViewOffIcon} />
-                      Hide from view
-                    </DropdownMenuItem>
-                  </ContextMenuContent>
-                </ContextMenu>
-              ) : (
-                row
-              )}
-            </li>
-          )
-        })}
-      </ul>
+      {/* folders — a right-click or long-press on the empty space makes a note or folder at the vault root */}
+      {onCreateRoot ? (
+        <ContextMenu>
+          <ContextMenuTrigger className="flex min-h-0 flex-1 flex-col">
+            {folderList}
+          </ContextMenuTrigger>
+          <ContextMenuContent className="duration-thumb ease-snappy">
+            <DropdownMenuItem onClick={() => onCreateRoot("note")}>
+              <HugeiconsIcon icon={NoteAddIcon} />
+              New note
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onCreateRoot("folder")}>
+              <HugeiconsIcon icon={FolderAddIcon} />
+              New folder
+            </DropdownMenuItem>
+          </ContextMenuContent>
+        </ContextMenu>
+      ) : (
+        folderList
+      )}
 
       {/* footer — collapse · settings · account. On phone (`hideChrome`) the
           Collapse row stays and works exactly as elsewhere (rail ↔ labels);

@@ -14,7 +14,10 @@ import { useShellNavigation } from "@/lib/use-shell-navigation"
 import { SECTION_LABELS } from "@/lib/shell-sections"
 import { useSectionHistory } from "@/lib/use-section-history"
 import { useVaultRefresh } from "@/lib/use-vault-refresh"
-import { useCreateField, useCreateSubmit } from "@/lib/use-create-flow"
+import { useCreateField, useCreateSubmit, type CreateKind } from "@/lib/use-create-flow"
+import { confirm } from "@/lib/confirm-store"
+import { notify } from "@/lib/notify"
+import { deleteVaultFolder } from "@/lib/vault-note-api"
 import { useChatSession } from "@/lib/use-chat-session"
 import { useSessionList } from "@/lib/use-session-list"
 import { usePersonaRoster } from "@/lib/use-persona-roster"
@@ -47,6 +50,7 @@ import {
   CloudNotice,
   ModelPicker,
   FolderSetupDialog,
+  RootCreateDialog,
   MainMenu,
   MarkdownPanel,
   MENU_ACCOUNT_ID,
@@ -326,7 +330,7 @@ export function AppShell() {
     hideExtension: editorPrefs.hideExtension === "on",
   })
 
-  const { submitCreate, folderSetup, closeFolderSetup } = useCreateSubmit({
+  const { submitCreate, createAtRoot, openDefinition, folderSetup, closeFolderSetup } = useCreateSubmit({
     field: { pendingCreate, createName, creating, setCreating, closeCreate },
     folder: activeNode?.type === "folder" ? resolvedActive : "",
     activePersona,
@@ -334,6 +338,29 @@ export function AppShell() {
     selectNote,
     openEditor: () => panels.open("editor"),
   })
+
+  // The main menu's own menu: a note or folder at the vault root (named in a dialog), and a root folder deleted
+  // (to the bin, after a confirmation unless it is empty) or defined by hand.
+  const [rootCreate, setRootCreate] = React.useState<CreateKind | null>(null)
+  const deleteRootFolder = (item: { id: string; label: string }) => {
+    const run = async () => {
+      const res = await deleteVaultFolder(item.id, activePersona)
+      if (res.ok) {
+        vaultTreeActions.onDeleted(item.id)
+        notify.success(res.detail)
+      } else {
+        notify.error(res.error)
+      }
+    }
+    const node = vaultTree.find((n) => n.path === item.id)
+    if ((node?.children?.length ?? 0) === 0) return void run()
+    confirm({
+      message: `Delete “${item.label}” and everything inside it?`,
+      description: "Any notes inside will move to the vault bin.",
+      confirmLabel: "Delete folder",
+      onConfirm: run,
+    })
+  }
 
   // The brand-mark wordmark: the fixed product name, or the active vault's
   // name when the Workspace setting asks for it (falling back to the name
@@ -550,6 +577,9 @@ export function AppShell() {
           onSelectTrash={() => selectSection(MENU_TRASH_ID)}
           onDropNote={moveNote}
           onHideItem={(item) => hideFromView(item.id)}
+          onCreateRoot={setRootCreate}
+          onDeleteItem={deleteRootFolder}
+          onDefineItem={(item) => void openDefinition(item.id)}
           vaults={vaultsState.vaults}
           activeVault={vaultsState.active}
           onSwitchVault={handleSwitchVault}
@@ -654,6 +684,8 @@ export function AppShell() {
             fill={editorFill}
             phone={isPhone}
           />
+
+          <RootCreateDialog kind={rootCreate} onCreate={createAtRoot} onClose={() => setRootCreate(null)} />
 
           <FolderSetupDialog
             setup={folderSetup}

@@ -70,6 +70,9 @@
     0.967 0.001 286.375
   ); /* raised working surface — distinct from --background in both modes (--card is not, in light) */
   --panel-foreground: oklch(0.141 0.005 285.823);
+  /* The frontmatter card's fill: a touch darker than --panel (0.967), which --muted equals in light mode, so the
+     card read as the same surface as the panel it sits in. Dark mode keeps --muted, already a step lighter. */
+  --frontmatter-panel: oklch(0.945 0.002 286.375);
 }
 
 .dark {
@@ -121,6 +124,7 @@
     0.21 0.006 285.885
   ); /* raised working surface (matches the approved dark shade) */
   --panel-foreground: oklch(0.985 0 0);
+  --frontmatter-panel: var(--muted);
 }
 
 @theme inline {
@@ -387,8 +391,8 @@
    CSS-initial values (transparent, currentcolor) and `color` fell back to
    whatever ambient text color it happened to inherit from Settings — never
    Sympose's palette, never a considered choice. `--stylo-bg: var(--muted)` —
-   the same fill `.sy-frontmatter-panel` uses for the frontmatter card's own
-   raised block — is deliberate: there's no separate wrapping card here, so
+   the fill `.sy-frontmatter-panel` uses for the frontmatter card's own
+   raised block in dark mode (in light the card takes `--frontmatter-panel`, a little darker) — is deliberate: there's no separate wrapping card here, so
    this *is* the fill for the two "On the bar" / "Available" boxes stylo
    renders on its own (`._col_18hcd_17`), and it reads as the same kind of
    raised block against the Settings page's `--background` that the
@@ -1046,7 +1050,7 @@
 .sy-frontmatter-panel {
   background-color: color-mix(
     in srgb,
-    var(--muted) calc(var(--sy-panel-opacity, 1) * 100%),
+    var(--frontmatter-panel) calc(var(--sy-panel-opacity, 1) * 100%),
     transparent
   );
 }

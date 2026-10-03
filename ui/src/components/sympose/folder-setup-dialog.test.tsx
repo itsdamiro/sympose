@@ -144,4 +144,12 @@ describe("FolderSetupDialog", () => {
     expect(api.createFolderDefinition).not.toHaveBeenCalled()
     expect(onCreated).not.toHaveBeenCalled()
   })
+
+  it("reads Define, Cancel and Save when opened by hand from a folder's menu", () => {
+    render(<FolderSetupDialog setup={{ folder: "Books", template: SETTINGS, manual: true }} persona="samantha" onClose={vi.fn()} onCreated={vi.fn()} />)
+    expect(screen.getByText("Define Books")).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Save" })).toBeTruthy()
+    expect(screen.queryByRole("button", { name: "Skip" })).toBeNull()
+  })
 })

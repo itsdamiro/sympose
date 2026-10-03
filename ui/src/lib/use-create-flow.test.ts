@@ -7,13 +7,13 @@ import { useCreateField, useCreateSubmit } from "./use-create-flow"
 const createVaultNote = vi.fn()
 const createVaultFolder = vi.fn()
 const fetchNoteTemplate = vi.fn()
-const notify = { error: vi.fn(), success: vi.fn() }
+const notify = { error: vi.fn(), success: vi.fn(), info: vi.fn() }
 vi.mock("./vault-note-api", () => ({
   createVaultNote: (...a: unknown[]) => createVaultNote(...a),
   createVaultFolder: (...a: unknown[]) => createVaultFolder(...a),
 }))
 vi.mock("./vault-definition-api", () => ({ fetchNoteTemplate: (...a: unknown[]) => fetchNoteTemplate(...a) }))
-vi.mock("./notify", () => ({ notify: { error: (...a: unknown[]) => notify.error(...a), success: (...a: unknown[]) => notify.success(...a) } }))
+vi.mock("./notify", () => ({ notify: { error: (...a: unknown[]) => notify.error(...a), success: (...a: unknown[]) => notify.success(...a), info: (...a: unknown[]) => notify.info(...a) } }))
 
 beforeEach(() => {
   vi.resetAllMocks()
@@ -212,5 +212,66 @@ describe("useCreateSubmit: a folder", () => {
     const failed = setup({ kind: "folder", name: "Projects", folder: "" })
     await act(async () => failed.result.current.submitCreate())
     expect(fetchNoteTemplate).not.toHaveBeenCalled()
+  })
+})
+
+describe("useCreateSubmit: from the main menu's own menu", () => {
+  it("makes a note at the vault root whatever folder is in view, and opens it", async () => {
+    const s = setup({ folder: "Notes" })
+    let ok = false
+    await act(async () => {
+      ok = await s.result.current.createAtRoot("note", " Ideas.md ")
+    })
+    expect(ok).toBe(true)
+    expect(createVaultNote).toHaveBeenCalledWith("Ideas", "samantha")
+    expect(s.selectNote).toHaveBeenCalledWith("Ideas.md")
+    expect(s.openEditor).toHaveBeenCalled()
+  })
+
+  it("makes a folder at the root and offers its setup, and reports a refusal without closing", async () => {
+    const template = { lines: ["title:"], source: "settings", definable: true }
+    fetchNoteTemplate.mockResolvedValue(template)
+    const s = setup({ folder: "Notes" })
+    await act(async () => {
+      await s.result.current.createAtRoot("folder", "Projects")
+    })
+    expect(createVaultFolder).toHaveBeenCalledWith("Projects", "samantha")
+    expect(s.result.current.folderSetup).toEqual({ folder: "Projects", template })
+    createVaultFolder.mockResolvedValue({ ok: false, error: "exists" })
+    let ok = true
+    await act(async () => {
+      ok = await s.result.current.createAtRoot("folder", "Projects")
+    })
+    expect(ok).toBe(false)
+    expect(notify.error).toHaveBeenCalledWith("exists")
+  })
+
+  it("does nothing for a blank name", async () => {
+    const s = setup()
+    await act(async () => {
+      expect(await s.result.current.createAtRoot("note", "  ")).toBe(false)
+    })
+    expect(createVaultNote).not.toHaveBeenCalled()
+  })
+})
+
+describe("useCreateSubmit: define a folder by hand", () => {
+  it("opens the setup dialog by hand for a folder that can be defined", async () => {
+    const template = { lines: ["title:"], source: "settings", definable: true }
+    fetchNoteTemplate.mockResolvedValue(template)
+    const s = setup()
+    await act(async () => s.result.current.openDefinition("People"))
+    expect(s.result.current.folderSetup).toEqual({ folder: "People", template, manual: true })
+  })
+
+  it("says so, and opens nothing, for a folder that has one or cannot have one, or when it cannot be read", async () => {
+    const s = setup()
+    fetchNoteTemplate.mockResolvedValue({ lines: [], source: "settings", definable: false })
+    await act(async () => s.result.current.openDefinition("Movies"))
+    expect(notify.info).toHaveBeenCalledWith(expect.stringContaining("Movies cannot be given a definition"))
+    fetchNoteTemplate.mockResolvedValue(null)
+    await act(async () => s.result.current.openDefinition("Movies"))
+    expect(notify.error).toHaveBeenCalled()
+    expect(s.result.current.folderSetup).toBeNull()
   })
 })
