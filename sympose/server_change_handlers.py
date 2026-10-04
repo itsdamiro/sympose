@@ -18,6 +18,15 @@ def _handle(persona: str | None) -> str:
     return require_profile(persona)["handle"]
 
 
+def _key(path: str) -> str:
+    """The note's path in the one form changes are kept under (`A/Note` and `A/Note.md` are one note); a path that
+    leaves the vault is a bad request, not a server error."""
+    try:
+        return store.key(path)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+
+
 def _on_disk(path: str, persona: str | None) -> tuple[bool, str, float | None]:
     """`(exists, text, mtime)` of the note; a new note a persona proposed is not on disk yet."""
     try:
@@ -35,6 +44,7 @@ def list_drafts(persona: str | None) -> dict[str, Any]:
 
 def get_changes(path: str, persona: str | None) -> dict[str, Any]:
     handle = _handle(persona)
+    path = _key(path)
     exists, text, mtime = _on_disk(path, persona)
     entry = store.read(handle, path)
     return {
@@ -48,45 +58,49 @@ def get_changes(path: str, persona: str | None) -> dict[str, Any]:
 
 def resolve_changes(body: ChangesResolve) -> dict[str, Any]:
     handle = _handle(body.persona)
-    entry = store.read(handle, body.path)
+    path = _key(body.path)
+    entry = store.read(handle, path)
     ids = [p["id"] for p in entry["proposals"]] if body.all else body.ids
     gone = []
     for proposal_id in ids:
         try:
-            nc.discard_proposal(handle, body.path, proposal_id)
+            nc.discard_proposal(handle, path, proposal_id)
             gone.append(proposal_id)
         except KeyError:
             pass  # already forgotten (the other window got there first): not an error
     if not body.all and not gone and body.ids:
         raise HTTPException(status_code=404, detail="No such pending change.")
-    return {"path": body.path, "resolved": gone}
+    return {"path": path, "resolved": gone}
 
 
 def add_annotation(body: AnnotationCreate) -> dict[str, Any]:
     handle = _handle(body.persona)
-    exists, text, _ = _on_disk(body.path, body.persona)
+    path = _key(body.path)
+    exists, text, _ = _on_disk(path, body.persona)
     if not exists:
-        raise HTTPException(status_code=404, detail=f"Note `{body.path}` not found.")
+        raise HTTPException(status_code=404, detail=f"Note `{path}` not found.")
     try:
-        return nc.annotate(handle, body.path, text, quote=body.quote, text=body.text, author="user", reply_to=body.reply_to, start=body.start)
+        return nc.annotate(handle, path, text, quote=body.quote, text=body.text, author="user", reply_to=body.reply_to, start=body.start)
     except nc.CannotAnchor as error:
         raise HTTPException(status_code=422, detail=str(error))
 
 
 def change_annotation(body: AnnotationChange) -> dict[str, Any]:
     handle = _handle(body.persona)
+    path = _key(body.path)
     if body.state is None and body.text is None:
         raise HTTPException(status_code=400, detail="Nothing to change: give a state or a text.")
     try:
-        nc.change_annotation(handle, body.path, body.id, text=body.text, state=body.state)
+        nc.change_annotation(handle, path, body.id, text=body.text, state=body.state)
     except KeyError:
         raise HTTPException(status_code=404, detail="No such comment.")
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error))
-    return {"path": body.path, "id": body.id}
+    return {"path": path, "id": body.id}
 
 
 def delete_annotation(path: str, annotation_id: str, persona: str | None) -> dict[str, Any]:
+    path = _key(path)
     try:
         nc.delete_annotation(_handle(persona), path, annotation_id)
     except KeyError:

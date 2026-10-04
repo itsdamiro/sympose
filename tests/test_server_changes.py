@@ -323,3 +323,95 @@ def test_emptying_the_bin_keeps_the_changes_of_a_note_that_exists_again(env):
     assert client.post("/api/vault/trash/empty", json={"persona": "samantha"}).status_code == 200
 
     assert len(changes_for(client, "Garden plan.md")["proposals"]) == 1
+
+
+@pytest.mark.parametrize("form", ["Garden plan", "Garden plan.md", " Garden plan ", "./Garden plan.md"])
+def test_every_spelling_of_a_notes_path_reaches_the_same_changes_and_reports_one_path(env, form):
+    client, _ = env
+    nc.propose_edit("samantha", "Garden plan.md", NOTE, find="three times", replace="four times", say="")
+
+    body = changes_for(client, form)
+
+    assert body["path"] == "Garden plan.md" and body["exists"] is True and len(body["proposals"]) == 1
+
+
+def test_a_comment_added_under_one_spelling_is_seen_under_another_and_resolves_under_a_third(env):
+    client, _ = env
+    made = client.post("/api/vault/annotations", json={"path": "Garden plan", "quote": "raised", "text": "q", "persona": "samantha"})
+    nc.propose_edit("samantha", "./Garden plan.md", NOTE, find="three times", replace="four times", say="")
+
+    seen = changes_for(client, "Garden plan.md")
+    cleared = client.post("/api/vault/changes/resolve", json={"path": " Garden plan ", "all": True, "persona": "samantha"}).json()
+
+    assert made.json()["id"] in [a["id"] for a in seen["annotations"]] and len(seen["proposals"]) == 1
+    assert cleared["path"] == "Garden plan.md" and len(cleared["resolved"]) == 1
+
+
+def test_a_path_that_leaves_the_vault_is_a_bad_request_on_every_route_not_a_server_error(env):
+    client, _ = env
+    calls = [
+        client.get("/api/vault/changes", params={"path": "../../etc/passwd", "persona": "samantha"}),
+        client.post("/api/vault/changes/resolve", json={"path": "../x", "all": True, "persona": "samantha"}),
+        client.post("/api/vault/annotations", json={"path": "../x", "quote": "q", "persona": "samantha"}),
+        client.patch("/api/vault/annotations", json={"path": "../x", "id": "a", "state": "open", "persona": "samantha"}),
+        client.delete("/api/vault/annotations", params={"path": "../x", "id": "a", "persona": "samantha"}),
+    ]
+
+    assert [c.status_code for c in calls] == [400] * 5
+
+
+def test_renaming_with_an_extensionless_old_path_still_carries_the_changes(env):
+    client, _ = env
+    nc.propose_edit("samantha", "Garden plan.md", NOTE, find="three times", replace="four times", say="")
+
+    client.patch("/api/vault/note", json={"path": "Garden plan", "new_path": "Allotment", "persona": "samantha"})
+
+    assert len(changes_for(client, "Allotment.md")["proposals"]) == 1
+
+
+def folder_env(client, vault):
+    (vault / "Garden").mkdir()
+    (vault / "Garden" / "Beds.md").write_text(NOTE)
+    (vault / "Garden" / "Deep").mkdir()
+    (vault / "Garden" / "Deep" / "Seeds.md").write_text(NOTE)
+    nc.propose_edit("samantha", "Garden/Beds.md", NOTE, find="three times", replace="four times", say="")
+    nc.propose_edit("samantha", "Garden/Deep/Seeds.md", NOTE, find="raised", replace="sunken", say="")
+
+
+def test_deleting_a_folder_keeps_the_changes_of_the_notes_in_it_and_restoring_it_brings_them_back(env):
+    client, vault = env
+    folder_env(client, vault)
+
+    assert client.delete("/api/vault/folder", params={"path": "Garden", "persona": "samantha"}).status_code == 200
+    assert not (vault / "Garden").exists()
+    assert len(changes_for(client, "Garden/Beds.md")["proposals"]) == 1
+
+    bin_folder = next(i for i in client.get("/api/vault/trash", params={"persona": "samantha"}).json()["items"] if i["original_path"] == "Garden/Beds.md")
+    restored = client.post("/api/vault/trash/restore-folder", json={"path": bin_folder["folder"], "persona": "samantha"})
+
+    assert restored.status_code == 200
+    for note in ("Garden/Beds.md", "Garden/Deep/Seeds.md"):
+        body = changes_for(client, note)
+        assert body["exists"] is True and [p["status"] for p in body["proposals"]] == ["pending"]
+
+
+def test_emptying_the_bin_after_a_folder_was_deleted_forgets_the_changes_of_every_note_in_it(env):
+    client, vault = env
+    folder_env(client, vault)
+    client.delete("/api/vault/folder", params={"path": "Garden", "persona": "samantha"})
+
+    assert client.post("/api/vault/trash/empty", json={"persona": "samantha"}).status_code == 200
+
+    assert changes_for(client, "Garden/Beds.md")["proposals"] == []
+    assert changes_for(client, "Garden/Deep/Seeds.md")["proposals"] == []
+    assert nc.drafts("samantha") == []
+
+
+def test_changing_and_deleting_a_comment_report_the_canonical_path(env):
+    client, _ = env
+    cid = client.post("/api/vault/annotations", json={"path": "Garden plan", "quote": "raised", "persona": "samantha"}).json()["id"]
+
+    patched = client.patch("/api/vault/annotations", json={"path": " ./Garden plan ", "id": cid, "state": "resolved", "persona": "samantha"})
+    deleted = client.delete("/api/vault/annotations", params={"path": "Garden plan", "id": cid, "persona": "samantha"})
+
+    assert patched.json()["path"] == "Garden plan.md" and deleted.json()["path"] == "Garden plan.md"

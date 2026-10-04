@@ -214,11 +214,53 @@ def test_forgetting_a_note_removes_its_entry():
     assert files() == []
 
 
-def test_a_path_with_slashes_and_dots_stays_one_file_inside_the_notes_folder():
-    nc.propose_edit(H, "../../etc/Sub folder/x.md", NOTE, find="three times", replace="four times", say="")
+def test_a_path_with_folders_stays_one_file_inside_the_notes_folder():
+    nc.propose_edit(H, "Sub folder/Deeper/x.md", NOTE, find="three times", replace="four times", say="")
 
     assert len(files()) == 1
-    assert store.read(H, "../../etc/Sub folder/x.md")["path"] == "../../etc/Sub folder/x.md"
+    assert store.read(H, "Sub folder/Deeper/x.md")["path"] == "Sub folder/Deeper/x.md"
+
+
+@pytest.mark.parametrize("escaping", ["../x.md", "../../etc/passwd", "/abs/x.md", "A/../../x.md", "", "   ", ".", ".md", "A/.md", '""', "Garden plan.md/"])
+def test_a_path_that_leaves_the_vault_or_names_no_note_is_refused_and_nothing_is_stored(escaping):
+    with pytest.raises(ValueError):
+        nc.propose_create(H, escaping, "# x\n", say="")
+
+    assert files() == []
+
+
+@pytest.mark.parametrize("form", ["Garden plan.md", "Garden plan", " Garden plan.md ", '"Garden plan"', "'Garden plan.md'", "./Garden plan.md", "Sub/../Garden plan.md"])
+def test_every_way_of_writing_a_notes_path_is_the_same_entry(form):
+    nc.propose_edit(H, "Garden plan.md", NOTE, find="three times", replace="four times", say="")
+
+    assert store.key(form) == "Garden plan.md"
+    assert [p["find"] for p in store.read(H, form)["proposals"]] == ["three times"]
+    assert len(files()) == 1
+
+
+def test_a_proposal_written_one_way_and_a_comment_written_another_share_one_entry():
+    nc.propose_edit(H, "Sub/Note", NOTE, find="three times", replace="four times", say="")
+    nc.annotate(H, "./Sub/Note.md", NOTE, quote="raised", text="q", author="user")
+
+    entry = store.read(H, "Sub/Note.md")
+
+    assert len(files()) == 1 and entry["path"] == "Sub/Note.md"
+    assert len(entry["proposals"]) == 1 and len(entry["annotations"]) == 1
+
+
+def test_renaming_and_forgetting_work_whichever_form_names_the_note():
+    nc.propose_edit(H, "old.md", NOTE, find="three times", replace="four times", say="")
+
+    nc.rename(H, "old", "Sub/new")
+    assert [d["path"] for d in nc.drafts(H)] == ["Sub/new.md"]
+
+    nc.forget(H, "./Sub/new.md")
+    assert files() == []
+
+
+def test_a_name_with_dots_inside_it_keeps_them():
+    assert store.key("v1.2 plan") == "v1.2 plan.md"
+    assert store.key("notes/2026.10.04.md") == "notes/2026.10.04.md"
 
 
 def test_a_very_long_path_still_gets_a_usable_file_name():
@@ -403,3 +445,8 @@ def test_changing_only_the_text_leaves_the_state_and_changing_nothing_is_allowed
 
     stored = store.read(H, "n.md")["annotations"][0]
     assert (stored["text"], stored["state"]) == ("edited", "resolved")
+
+
+def test_reading_a_note_with_no_entry_reports_the_canonical_path_whatever_was_asked():
+    assert store.read(H, "Nope")["path"] == "Nope.md"
+    assert store.read(H, " ./Sub/Nope ")["path"] == "Sub/Nope.md"

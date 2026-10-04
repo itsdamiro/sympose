@@ -23,6 +23,8 @@ They are one idea seen twice: something attached to a note, saved quietly, that 
 
 **A new note she proposes** is held only in this store until it is accepted. The editor opens it as if it were a note, from the Drafts section, under its working name; the file is created only on accept. A proposal for a new note is listed in Drafts by its working name and is not searchable, not in the vault tree, the nebula or the map (nothing reads this store but the Drafts listing and the editor).
 
+**One key for a note.** The vault accepts `A/Note` and `A/Note.md`, stray quotes and spaces, `./A/Note` and `A/../A/Note` for the same note, so the store normalizes every path to one key (the path from the vault root, with `.md`, no `./` or `..`) at its single entrance; routes, the rename and purge hooks and the persona's tool all go through it, and the routes report that key back. A path that leaves the vault or names no note is refused (a bad request on the routes). Letter case is not folded: the tree and the search both supply a note's real name, and the vault itself resolves a path exactly.
+
 **Rename, move and delete follow the note.** The vault's rename and move already carry pinned notes and the trash index with them; they carry this entry too, by renaming its file and the path kept inside it. When a note changes outside Sympose, so its entry no longer matches any note, the entry is shown as detached, never silently dropped. Deleting a note to the bin keeps its entry (restoring the note restores its drafts); emptying the bin from the Bin removes the entry with the note.
 
 **Per persona.** The store lives in each persona's folder, so two personas' drafts and comments for the same note are separate, and the Drafts section shows the active persona's. Each persona proposes in her own voice.
@@ -36,6 +38,8 @@ They are one idea seen twice: something attached to a note, saved quietly, that 
 - The chat request carries the open note's path; the engine reads that note's open annotations (ADR 069) and, for the persona's own proposals, writes them through one tool (ADR 042, to be recorded in its own record with the prompt).
 
 None of these routes writes a vault file, and none reaches `purge` or `empty_trash`.
+
+**Folders.** The app has no folder rename or move, so no hook for one exists, and a feature that adds one must carry the entries under that folder's path. What exists today is checked: deleting a folder keeps the entries of the notes in it, restoring the folder brings them back, and emptying the bin forgets them.
 
 ## Consequences
 

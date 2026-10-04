@@ -9,6 +9,7 @@ lose each other's change; an entry with nothing left in it is removed rather tha
 import hashlib
 import json
 import os
+import posixpath
 from collections.abc import Callable
 from typing import Any
 from urllib.parse import quote
@@ -26,9 +27,21 @@ def _folder(handle: str) -> str:
     return os.path.join(persona_dir(handle), NOTES_DIR)
 
 
+def key(note_path: str) -> str:
+    """The one form a note's path is kept under, whichever way it was written: the vault accepts `A/Note` and
+    `A/Note.md`, stray quotes and spaces, `./A/Note` and `A/../A/Note` for the same note, and two forms must not make
+    two entries. A path that leaves the vault, or names nothing, is refused."""
+    clean = note_path.strip().strip("\"'")
+    if not clean.endswith(".md"):
+        clean += ".md"
+    clean = posixpath.normpath(clean)
+    if clean in (".", ".md") or clean.startswith(("/", "..")) or clean.endswith("/.md"):
+        raise ValueError(f"Not a path to a note in the vault: {note_path!r}")
+    return clean
+
+
 def _file(handle: str, note_path: str) -> str:
-    if not note_path:
-        raise ValueError("A note's path cannot be empty")
+    note_path = key(note_path)
     name = quote(note_path, safe="")  # one component: a slash becomes %2F, so the path cannot leave the folder
     if len(name) > _NAME_LIMIT:
         name = quote(note_path[-30:], safe="")[:60] + "-" + hashlib.sha1(note_path.encode("utf-8")).hexdigest()[:16]
@@ -68,13 +81,13 @@ def _save(file: str, entry: dict[str, Any]) -> None:
 
 
 def read(handle: str, note_path: str) -> dict[str, Any]:
-    return _load(_file(handle, note_path), note_path)
+    return _load(_file(handle, note_path), key(note_path))
 
 
 def update(handle: str, note_path: str, change: Callable[[dict[str, Any]], Any]) -> Any:
     """Runs `change(entry)` on the note's entry under its lock and saves the result; what `change` returns is
     returned. If `change` raises, nothing is saved."""
-    file = _file(handle, note_path)
+    file, note_path = _file(handle, note_path), key(note_path)
     with get_file_lock(file):
         entry = _load(file, note_path)
         result = change(entry)
@@ -100,7 +113,7 @@ def entries(handle: str) -> list[dict[str, Any]]:
 
 def move(handle: str, old: str, new: str) -> None:
     """A note was renamed or moved: its entry follows it (joining any entry already at the new path)."""
-    old_file, new_file = _file(handle, old), _file(handle, new)
+    old_file, new_file, old, new = _file(handle, old), _file(handle, new), key(old), key(new)
     if old_file == new_file:
         return
     with get_file_locks(old_file, new_file):
@@ -116,6 +129,6 @@ def move(handle: str, old: str, new: str) -> None:
 
 
 def drop(handle: str, note_path: str) -> None:
-    file = _file(handle, note_path)
+    file, note_path = _file(handle, note_path), key(note_path)
     with get_file_lock(file):
         _save(file, _empty(note_path))
