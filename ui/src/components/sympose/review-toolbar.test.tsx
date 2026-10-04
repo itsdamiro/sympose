@@ -7,7 +7,7 @@ import { captureContext } from "@/lib/passage-finder"
 import type { Proposal } from "@/lib/persona-changes-api"
 import { reviewExtensions } from "@/lib/review-extensions"
 
-import { commentToolbarItem, reviewToolbarItems } from "./review-toolbar"
+import { commentMenuItem, commentToolbarItem, reviewToolbarItems } from "./review-toolbar"
 
 // jsdom does no layout, so a range has no rectangles; CodeMirror asks for them to find where a position is on screen.
 beforeAll(() => {
@@ -105,5 +105,34 @@ describe("commentToolbarItem", () => {
     item.run(view)
     expect(onCompose).toHaveBeenCalledTimes(1)
     expect(onCompose.mock.calls[0][0].quote).toBe(NOTE.slice(2, 5))
+  })
+})
+
+describe("commentMenuItem", () => {
+  it("is the right-click menu's Comment: shown only with a selection, and usable while reading", () => {
+    const item = commentMenuItem(() => {})
+
+    expect(item.title).toBe("Comment")
+    expect(item.when).toBe("selection")
+    expect(item.readOnlySafe).toBe(true)
+  })
+
+  it("hands the selection over to be commented on, as the toolbar button does", () => {
+    const onCompose = vi.fn()
+    const view = mount([])
+    view.dispatch({ selection: { anchor: 2, head: 5 } })
+
+    commentMenuItem(onCompose).run(view)
+
+    expect(onCompose).toHaveBeenCalledTimes(1)
+    expect(onCompose.mock.calls[0][0].quote).toBe(NOTE.slice(2, 5))
+  })
+
+  it("does nothing without a selection", () => {
+    const onCompose = vi.fn()
+
+    commentMenuItem(onCompose).run(mount([]))
+
+    expect(onCompose).not.toHaveBeenCalled()
   })
 })

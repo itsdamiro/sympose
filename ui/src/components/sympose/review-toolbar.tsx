@@ -1,5 +1,5 @@
 import type { EditorView } from "@codemirror/view"
-import type { ToolbarCustomItem } from "@damiro/stylo"
+import type { InPlaceConfig, ToolbarCustomItem } from "@damiro/stylo"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { CancelCircleIcon, CheckmarkCircle02Icon, Comment01Icon } from "@hugeicons/core-free-icons"
 
@@ -53,5 +53,27 @@ export function commentToolbarItem(onCompose: (target: CommentTarget) => void): 
       if (target) onCompose(target)
     },
     disabled: (state) => state.selection.main.empty,
+  }
+}
+
+/** One entry of the editor's right-click menu (stylo does not export the type by name). */
+type ContextMenuItem = NonNullable<Exclude<InPlaceConfig["contextMenu"], boolean | undefined>["items"]>[number]
+
+/**
+ * The right-click menu's "Comment" (docs/decisions/069), the same as the toolbar's button but where the user's hand
+ * already is: it shows only when words are selected, and also in a note being read, since a comment is kept apart
+ * from the text.
+ */
+export function commentMenuItem(onCompose: (target: CommentTarget) => void): ContextMenuItem {
+  return {
+    id: "review-comment",
+    title: "Comment",
+    icon: <HugeiconsIcon icon={Comment01Icon} className="size-4" />,
+    when: "selection",
+    readOnlySafe: true,
+    run: (view: EditorView) => {
+      const target = selectionTarget(view)
+      if (target) onCompose(target)
+    },
   }
 }

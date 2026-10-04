@@ -19,6 +19,7 @@ vi.mock("@damiro/stylo", async () => {
     mode?: string
     extensions?: import("@codemirror/state").Extension[]
     toolbar?: { items?: (string | Item)[] }
+    inPlace?: { contextMenu?: boolean | { items?: (Item & { when?: string; readOnlySafe?: boolean })[] } }
     canvasHeader?: (ctx: { view: unknown }) => React.ReactNode
   }
   const Stylo = React.forwardRef<unknown, Props>(function Stylo(props, ref) {
@@ -63,6 +64,11 @@ vi.mock("@damiro/stylo", async () => {
               <button key={item.id} aria-label={item.title} disabled={view ? item.disabled?.(view.state) : true} onClick={() => item.run(view)} />
             )
           )}
+        </div>
+        <div role="menu" aria-label="right-click menu">
+          {(typeof props.inPlace?.contextMenu === "object" ? props.inPlace.contextMenu.items ?? [] : []).map((item) => (
+            <button key={item.id} role="menuitem" onClick={() => item.run(view)}>{item.title}</button>
+          ))}
         </div>
         <div ref={host} data-testid="cm" />
       </div>
@@ -297,6 +303,24 @@ describe("MarkdownPanel with the persona's suggested changes", () => {
     await act(async () => fireEvent.click(screen.getByTestId("cm").querySelector(".sy-comment-hl") as HTMLElement))
 
     expect((await screen.findByTestId("comment-thread")).textContent).toContain("Samantha")
+  })
+
+  it("offers Comment in the right-click menu and it opens the box on the selected words", async () => {
+    open()
+    await waitFor(() => expect(screen.getByTestId("cm").querySelector(".cm-content")).not.toBeNull())
+    const at = NOTE.indexOf("raised")
+    await act(async () => editorView().dispatch({ selection: { anchor: at, head: at + 6 } }))
+
+    await act(async () => fireEvent.click(screen.getByRole("menuitem", { name: "Comment" })))
+
+    expect((await screen.findByTestId("comment-compose")).textContent).toContain("raised")
+  })
+
+  it("has no comment in the right-click menu for a persona's own file", async () => {
+    const file = { load: vi.fn().mockResolvedValue({ content: NOTE, mtime: 1 }), save: vi.fn(), title: "soul.md" }
+    open({ path: "soul.md", file })
+    await screen.findByTestId("cm")
+    expect(screen.queryByRole("menuitem", { name: "Comment" })).toBeNull()
   })
 
   it("has no comment button for a persona's own file", async () => {

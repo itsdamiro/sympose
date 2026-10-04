@@ -25,15 +25,6 @@ sys.path.insert(0, os.path.join(HERE, ".."))
 
 from live_patch_cases import CASES, GARDEN, correct  # noqa: E402
 
-EDIT_RULES = (
-    "The note open in the editor is below. When the user asks you to change it, do not rewrite it: say in a sentence "
-    "what you will change, then add one line for each change, exactly in this form: "
-    '<!-- propose_edit: {"find": "...", "replace": "...", "say": "..."} --> '
-    '"find" is copied from the note exactly, character for character, and appears in the note exactly once '
-    "(include a neighbouring word if it does not on its own); write line breaks in strings as \\n. The user reviews "
-    "each change before anything is saved. If the request needs information that is neither in the note nor in the "
-    "request, propose nothing and say what you need. If the user is only asking or talking, propose nothing."
-)
 NO_PROPOSAL = [
     ("question", GARDEN, "Which vegetables are in the beds?"),
     ("thanks", GARDEN, "Thanks, that looks good."),
@@ -42,19 +33,17 @@ NO_PROPOSAL = [
 _MARKER = re.compile(r"<!--\s*propose_edit:\s*(\{.*?\})\s*-->", re.S)
 
 
-# Where the instructions sit, and how firmly they are put (the soul's chattiness outweighed them in `A`):
-#   A rules, note, request      B note, request, rules (nearest the question)      C B, and the request framed as a task
-#   D C, and a line in the system prompt saying a requested change is made by proposing it
-VARIANT = os.environ.get("EDIT_VARIANT", "A")
-TASK = "This is a task on the note, not a chat: answer it by doing it as described below, with no questions and no remarks about the garden."
-SYSTEM_LINE = "When the user asks you to change the note open in the editor, you make the change by proposing it, as the message describes; you do not only talk about it."
+# The text is the product's own (`edit_turn.message`), so what is measured is what ships. EDIT_MODE picks the wording
+# (manual, accept: the plain one; auto: the one that also invites a change she notices); EDIT_TOOL=1 is not measured here
+# (this script reads the marker shape, the one a model without tools must use).
+MODE = os.environ.get("EDIT_MODE", "manual")
 
 
 def user_turn(note: str, request: str) -> str:
-    if VARIANT == "A":
-        return f"{EDIT_RULES}\n\nThe open note, Garden plan.md:\n\n````\n{note}````\n\n{request}"
-    head = f"The open note, Garden plan.md:\n\n````\n{note}````\n\nThe user's request: {request}\n\n"
-    return head + (f"{TASK}\n\n" if VARIANT in "CD" else "") + EDIT_RULES
+    from sympose.engine import edit_turn
+
+    edit = edit_turn.Edit(MODE, False, edit_turn.OpenNote("Garden plan.md", note))
+    return edit_turn.message(edit, request)
 
 
 def patches(reply: str) -> tuple[bool, list[tuple[str, str]]]:
@@ -86,8 +75,7 @@ def system_prompt() -> str:
     from sympose import profile
     from sympose.engine import prompt
 
-    text = prompt.build_system_prompt(profile.get_profile("samantha"))
-    return f"{text}\n\n{SYSTEM_LINE}" if VARIANT == "D" else text
+    return prompt.build_system_prompt(profile.get_profile("samantha"))
 
 
 def run(model: str, runs: int, verbose: bool) -> None:
@@ -116,7 +104,7 @@ def run(model: str, runs: int, verbose: bool) -> None:
             totals[i] += sum(s[i] for s in scores)
         print(f"  edit     {cid:12} parsed {sum(s[0] for s in scores)}/{runs}  matched {sum(s[1] for s in scores)}/{runs}  correct {sum(s[2] for s in scores)}/{runs}", flush=True)
     n = runs * len(CASES)
-    print(f"{model} [{VARIANT}] edits: parsed {totals[0]}/{n}  matched {totals[1]}/{n}  correct {totals[2]}/{n}", flush=True)
+    print(f"{model} [{MODE}] edits: parsed {totals[0]}/{n}  matched {totals[1]}/{n}  correct {totals[2]}/{n}", flush=True)
 
     quiet = 0
     for cid, note, request in NO_PROPOSAL:
@@ -129,7 +117,7 @@ def run(model: str, runs: int, verbose: bool) -> None:
                 print(f"      [{cid}] proposed unasked: {reply[:300]!r}", flush=True)
         quiet += none
         print(f"  quiet    {cid:12} no proposal {none}/{runs}", flush=True)
-    print(f"{model} [{VARIANT}] no unasked proposal: {quiet}/{runs * len(NO_PROPOSAL)}\n", flush=True)
+    print(f"{model} [{MODE}] no unasked proposal: {quiet}/{runs * len(NO_PROPOSAL)}\n", flush=True)
 
 
 if __name__ == "__main__":

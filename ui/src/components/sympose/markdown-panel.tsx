@@ -29,7 +29,7 @@ import { usePersonaChanges } from "@/lib/use-persona-changes"
 import { classify, reviewExtensions, setReviewData, type ReviewData } from "@/lib/review-extensions"
 import { OutdatedChanges } from "@/components/sympose/outdated-changes"
 import { CommentPopover, type CommentBox } from "@/components/sympose/comment-popover"
-import { commentToolbarItem, reviewToolbarItems } from "@/components/sympose/review-toolbar"
+import { commentMenuItem, commentToolbarItem, reviewToolbarItems } from "@/components/sympose/review-toolbar"
 import type { EditorPreferences } from "@/lib/use-editor-preferences"
 import { FrontmatterCard } from "@/components/sympose/frontmatter-card"
 import { NoteActionsMenu } from "@/components/sympose/note-actions-menu"
@@ -307,6 +307,7 @@ function MarkdownPanel({
   }, [])
   const declineNote = React.useCallback(() => void resolveRef.current("all"), [])
   const commentItem = React.useMemo(() => commentToolbarItem((target) => setCommentBox({ kind: "compose", target })), [])
+  const commentMenu = React.useMemo(() => [commentMenuItem((target) => setCommentBox({ kind: "compose", target }))], [])
   const toolbarWithReview = React.useMemo<ToolbarItem[]>(
     () => [
       ...toolbarItems,
@@ -497,7 +498,7 @@ function MarkdownPanel({
       onTaskToggle={handleTaskToggle}
       mode={readOnly ? "preview" : surface}
       softBreaks
-      inPlace={{ reveal, selectionUI, table: tableEditing }}
+      inPlace={{ reveal, selectionUI, table: tableEditing, ...(file ? {} : { contextMenu: { items: commentMenu } }) }}
       canvasHeader={readOnly ? undefined : canvasHeader}
       extensions={readOnly || file ? undefined : reviewExt}
       toolbar={{
