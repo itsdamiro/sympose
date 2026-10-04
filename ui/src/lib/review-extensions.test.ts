@@ -240,6 +240,28 @@ describe("accepting and declining", () => {
     expect(pendingIds(view.state)).toEqual(["b"])
   })
 
+  it("applies one of two proposals on the same passage and leaves the other waiting", () => {
+    const { view, onResolve } = mount({
+      proposals: [edit("a", "three times", "four times"), edit("b", "three times", "five times")],
+      annotations: [],
+    })
+
+    expect(acceptChanges(view, ["a", "b"])).toEqual(["a"])
+
+    expect(view.state.doc.toString()).toBe(NOTE.replace("three times", "four times"))
+    expect(onResolve).toHaveBeenCalledWith(["a"])
+  })
+
+  it("applies the earlier of two proposals whose passages overlap", () => {
+    const { view } = mount({
+      proposals: [edit("a", "run three times", "walk"), edit("b", "three times a week", "daily")],
+      annotations: [],
+    })
+
+    expect(acceptChanges(view, ["a", "b"])).toEqual(["a"])
+    expect(view.state.doc.toString()).toBe(NOTE.replace("run three times", "walk"))
+  })
+
   it("accepts nothing and says nothing when none can be placed", () => {
     const { view, onResolve } = mount(NO_REVIEW)
     expect(acceptChanges(view, ["x"])).toEqual([])

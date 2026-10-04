@@ -138,7 +138,11 @@ const resolveFacet = Facet.define<(ids: string[]) => void, ((ids: string[]) => v
 /** Applies these proposals to the text, in one change the user can undo, and tells the panel to forget them. */
 export function acceptChanges(view: EditorView, ids: string[]): string[] {
   const { placed } = classify(view.state.doc.toString(), view.state.field(reviewField).proposals)
-  const chosen = placed.filter((p) => ids.includes(p.proposal.id))
+  // Two proposals on one passage cannot both be applied: the earlier one is, the other stays waiting (ADR 070).
+  const chosen: Placed[] = []
+  for (const p of placed) {
+    if (ids.includes(p.proposal.id) && !chosen.some((c) => p.from < c.to && c.from < p.to)) chosen.push(p)
+  }
   if (chosen.length === 0) return []
   view.dispatch({
     changes: chosen.map((p) => ({ from: p.from, to: p.to, insert: p.proposal.replace ?? "" })),
