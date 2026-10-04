@@ -717,6 +717,7 @@ export function AppShell() {
             file={panelFile}
             reloadToken={fileEditor.reloadToken}
             persona={activePersona}
+            personaName={activePersonaName}
             vaultPath={vaultsState.active}
             onWikiLinkClick={openWikilink}
             wikiLinkSource={wikiLinkSource}

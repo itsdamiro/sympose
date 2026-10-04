@@ -96,3 +96,44 @@ export async function resolveChanges(path: string, persona: string, which: strin
     return { ok: false, error: "the Sympose backend is not reachable" }
   }
 }
+
+export type CommentResult = { ok: true; comment?: Annotation } | { ok: false; error: string }
+
+async function sendComment(method: "POST" | "PATCH", body: Record<string, unknown>): Promise<CommentResult> {
+  try {
+    const res = await fetch("/api/vault/annotations", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+    if (!res.ok) return { ok: false, error: (await detailOf(res)) || `HTTP ${res.status}` }
+    return { ok: true, comment: method === "POST" ? ((await res.json()) as Annotation) : undefined }
+  } catch {
+    return { ok: false, error: "the Sympose backend is not reachable" }
+  }
+}
+
+/**
+ * `POST /api/vault/annotations`: a new comment on a passage. `before` and `after` are the text just around it in the
+ * editor's own text, which can be ahead of the file on disk, so the backend keeps them instead of searching the file.
+ */
+export function addComment(args: { path: string; persona: string; quote: string; before: string; after: string; text: string }): Promise<CommentResult> {
+  return sendComment("POST", args)
+}
+
+/** `POST /api/vault/annotations` with `reply_to`: an answer under a comment, about the same passage. */
+export function replyToComment(args: { path: string; persona: string; replyTo: string; text: string }): Promise<CommentResult> {
+  return sendComment("POST", { path: args.path, persona: args.persona, reply_to: args.replyTo, text: args.text })
+}
+
+/** `PATCH /api/vault/annotations`: resolve or reopen a comment (its answers with it), and/or change its text. */
+export function changeComment(args: { path: string; persona: string; id: string; state?: "open" | "resolved"; text?: string }): Promise<CommentResult> {
+  return sendComment("PATCH", args)
+}
+
+/** `DELETE /api/vault/annotations`: a comment and the answers under it. */
+export async function deleteComment(path: string, persona: string, id: string): Promise<CommentResult> {
+  try {
+    const res = await fetch(`/api/vault/annotations?path=${encodeURIComponent(path)}&id=${encodeURIComponent(id)}&persona=${encodeURIComponent(persona)}`, { method: "DELETE" })
+    if (!res.ok) return { ok: false, error: (await detailOf(res)) || `HTTP ${res.status}` }
+    return { ok: true }
+  } catch {
+    return { ok: false, error: "the Sympose backend is not reachable" }
+  }
+}

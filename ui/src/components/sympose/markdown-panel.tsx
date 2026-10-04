@@ -28,7 +28,8 @@ import type { Proposal } from "@/lib/persona-changes-api"
 import { usePersonaChanges } from "@/lib/use-persona-changes"
 import { classify, reviewExtensions, setReviewData, type ReviewData } from "@/lib/review-extensions"
 import { OutdatedChanges } from "@/components/sympose/outdated-changes"
-import { reviewToolbarItems } from "@/components/sympose/review-toolbar"
+import { CommentPopover, type CommentBox } from "@/components/sympose/comment-popover"
+import { commentToolbarItem, reviewToolbarItems } from "@/components/sympose/review-toolbar"
 import type { EditorPreferences } from "@/lib/use-editor-preferences"
 import { FrontmatterCard } from "@/components/sympose/frontmatter-card"
 import { NoteActionsMenu } from "@/components/sympose/note-actions-menu"
@@ -48,6 +49,8 @@ interface MarkdownPanelProps extends React.ComponentProps<"div"> {
   path?: string
   /** Persona handle to scope the `/api/vault/note` request to. */
   persona?: string
+  /** What the persona is called where her comments are shown (a thread under a comment); the handle when omitted. */
+  personaName?: string
   /** The active vault's absolute path — not resolved against, just compared
    *  against its own previous value, to tell "the active vault changed"
    *  apart from an ordinary note switch when this panel's `path` closes
@@ -184,6 +187,7 @@ function MarkdownPanel({
   storageKey,
   path,
   persona = "samantha",
+  personaName,
   vaultPath = null,
   onWikiLinkClick,
   wikiLinkSource,
@@ -254,7 +258,14 @@ function MarkdownPanel({
   // A persona's own file has none. The extensions array is memoized (stylo reconfigures the live editor when it
   // changes, so a new array per render would redo that every keystroke); what they read is kept in refs.
   const styloRef = React.useRef<StyloHandle>(null)
-  const { changes, resolve: resolveChanges } = usePersonaChanges({ path, persona, enabled: !file })
+  const { changes, resolve: resolveChanges, refresh: refreshChanges } = usePersonaChanges({ path, persona, enabled: !file })
+  const [commentBox, setCommentBox] = React.useState<CommentBox | null>(null)
+  // A box opened on one note is closed when another is opened, or a comment written for one could be saved onto the other.
+  const [commentBoxPath, setCommentBoxPath] = React.useState(path)
+  if (commentBoxPath !== path) {
+    setCommentBoxPath(path)
+    setCommentBox(null)
+  }
   const reviewData = React.useMemo<ReviewData>(
     () => ({ proposals: changes?.proposals ?? [], annotations: changes?.annotations ?? [] }),
     [changes]
@@ -272,6 +283,7 @@ function MarkdownPanel({
       reviewExtensions({
         initial: () => reviewDataRef.current,
         onResolve: (ids) => void resolveRef.current(ids),
+        onOpenComment: (id, rect) => setCommentBox({ kind: "thread", id, rect }),
         gutter: showMargin,
       }),
     [showMargin]
@@ -294,13 +306,16 @@ function MarkdownPanel({
     saveAfterAcceptRef.current = true
   }, [])
   const declineNote = React.useCallback(() => void resolveRef.current("all"), [])
+  const commentItem = React.useMemo(() => commentToolbarItem((target) => setCommentBox({ kind: "compose", target })), [])
   const toolbarWithReview = React.useMemo<ToolbarItem[]>(
-    () =>
-      hasProposals
-        ? // eslint-disable-next-line react-hooks/refs -- the two callbacks run when a toolbar button is pressed, never during render
-          [...toolbarItems, "|", ...reviewToolbarItems({ onAcceptNote: acceptNote, onDeclineNote: declineNote })]
-        : toolbarItems,
-    [toolbarItems, hasProposals, acceptNote, declineNote]
+    () => [
+      ...toolbarItems,
+      "|",
+      commentItem,
+      // eslint-disable-next-line react-hooks/refs -- the two callbacks run when a toolbar button is pressed, never during render
+      ...(hasProposals ? ["|" as const, ...reviewToolbarItems({ onAcceptNote: acceptNote, onDeclineNote: declineNote })] : []),
+    ],
+    [toolbarItems, commentItem, hasProposals, acceptNote, declineNote]
   )
 
   // stylo's `canvasHeader` (>=0.11.0) is read once, at mount — same contract
@@ -504,7 +519,7 @@ function MarkdownPanel({
           // `_ENTER`) and the note-switch wrapper (`slideExitClassName`/
           // `slideEnterClassName`) respectively, via scoped descendant
           // selectors — the same one marker serves both animations.
-          <div className={cn("min-h-9.25 border-b border-border", onCollapse && "ps-7.5")}>
+          <div className={cn("min-h-9.25 border-b border-border", onCollapse && "ps-7.5", path && "pe-24")}>
             <div className="sy-note-chrome">{bar}</div>
           </div>
         ),
@@ -788,6 +803,20 @@ function MarkdownPanel({
         >
           <span className="absolute inset-y-0 right-0 w-px bg-transparent transition-colors group-hover/md-handle:bg-border group-focus-visible/md-handle:bg-brand group-data-dragging/md:bg-brand" />
         </div>
+      )}
+      {/* comments on the open note (docs/decisions/069): opens on the selected words or on a highlighted passage; a
+          persona's own file has none */}
+      {path && !file && (
+        <CommentPopover
+          key={path}
+          box={commentBox}
+          annotations={reviewData.annotations}
+          personaName={personaName ?? persona.charAt(0).toUpperCase() + persona.slice(1)}
+          path={path}
+          persona={persona}
+          onClose={() => setCommentBox(null)}
+          onChanged={refreshChanges}
+        />
       )}
     </div>
   )

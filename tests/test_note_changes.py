@@ -450,3 +450,72 @@ def test_changing_only_the_text_leaves_the_state_and_changing_nothing_is_allowed
 def test_reading_a_note_with_no_entry_reports_the_canonical_path_whatever_was_asked():
     assert store.read(H, "Nope")["path"] == "Nope.md"
     assert store.read(H, " ./Sub/Nope ")["path"] == "Sub/Nope.md"
+
+
+def test_a_comment_given_its_own_context_keeps_it_and_needs_no_passage_on_disk():
+    a = nc.annotate(H, "n.md", "nothing here", quote="the unsaved words", text="q", author="user", context=("typed just ", " now"))
+
+    assert (a["before"], a["after"], a["quote"]) == ("typed just ", " now", "the unsaved words")
+    assert store.read(H, "n.md")["annotations"][0]["before"] == "typed just "
+
+
+def test_a_comment_with_no_passage_is_refused_even_with_context():
+    with pytest.raises(nc.CannotAnchor):
+        nc.annotate(H, "n.md", NOTE, quote="", text="q", author="user", context=("a", "b"))
+    assert files() == []
+
+
+def test_a_reply_is_about_the_same_passage_as_the_comment_it_answers():
+    root = nc.annotate(H, "n.md", NOTE, quote="raised", text="why raised?", author="user")
+
+    answer = nc.reply(H, "n.md", root["id"], text="Drainage.", author="persona")
+
+    assert (answer["reply_to"], answer["quote"], answer["before"], answer["after"], answer["author"], answer["state"]) == (
+        root["id"], "raised", root["before"], root["after"], "persona", "open")
+
+
+def test_a_reply_to_a_reply_goes_under_the_comment_it_is_in():
+    root = nc.annotate(H, "n.md", NOTE, quote="raised", text="q", author="user")
+    first = nc.reply(H, "n.md", root["id"], text="a", author="persona")
+
+    second = nc.reply(H, "n.md", first["id"], text="b", author="user")
+
+    assert second["reply_to"] == root["id"]
+
+
+def test_a_reply_to_an_unknown_comment_is_an_error_and_saves_nothing():
+    nc.annotate(H, "n.md", NOTE, quote="raised", text="q", author="user")
+
+    with pytest.raises(KeyError):
+        nc.reply(H, "n.md", "nope", text="a", author="persona")
+    assert len(store.read(H, "n.md")["annotations"]) == 1
+
+
+def test_a_reply_to_a_resolved_comment_is_resolved_too():
+    root = nc.annotate(H, "n.md", NOTE, quote="raised", text="q", author="user")
+    nc.set_annotation_state(H, "n.md", root["id"], "resolved")
+
+    assert nc.reply(H, "n.md", root["id"], text="late", author="persona")["state"] == "resolved"
+
+
+def test_resolving_or_reopening_a_comment_does_the_same_to_the_answers_under_it_and_to_nothing_else():
+    root = nc.annotate(H, "n.md", NOTE, quote="raised", text="q", author="user")
+    answer = nc.reply(H, "n.md", root["id"], text="a", author="persona")
+    other = nc.annotate(H, "n.md", NOTE, quote="beds", text="o", author="user")
+
+    nc.set_annotation_state(H, "n.md", root["id"], "resolved")
+    states = {x["id"]: x["state"] for x in store.read(H, "n.md")["annotations"]}
+    assert states == {root["id"]: "resolved", answer["id"]: "resolved", other["id"]: "open"}
+
+    nc.set_annotation_state(H, "n.md", root["id"], "open")
+    assert {x["state"] for x in store.read(H, "n.md")["annotations"]} == {"open"}
+
+
+def test_resolving_one_answer_leaves_the_comment_it_is_under_open():
+    root = nc.annotate(H, "n.md", NOTE, quote="raised", text="q", author="user")
+    answer = nc.reply(H, "n.md", root["id"], text="a", author="persona")
+
+    nc.set_annotation_state(H, "n.md", answer["id"], "resolved")
+
+    states = {x["id"]: x["state"] for x in store.read(H, "n.md")["annotations"]}
+    assert states == {root["id"]: "open", answer["id"]: "resolved"}

@@ -80,7 +80,14 @@ def add_annotation(body: AnnotationCreate) -> dict[str, Any]:
     if not exists:
         raise HTTPException(status_code=404, detail=f"Note `{path}` not found.")
     try:
-        return nc.annotate(handle, path, text, quote=body.quote, text=body.text, author="user", reply_to=body.reply_to, start=body.start)
+        if body.reply_to:
+            return nc.reply(handle, path, body.reply_to, text=body.text, author="user")
+        if not body.quote:
+            raise HTTPException(status_code=400, detail="Give the passage to comment on, or the comment it answers.")
+        context = (body.before, body.after) if body.before is not None and body.after is not None else None
+        return nc.annotate(handle, path, text, quote=body.quote, text=body.text, author="user", start=body.start, context=context)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="No such comment.")
     except nc.CannotAnchor as error:
         raise HTTPException(status_code=422, detail=str(error))
 

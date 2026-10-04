@@ -28,6 +28,18 @@ Constraints that shape the design, from the project's own rules:
 
 **Cloud models.** Annotations are vault-derived (the passage and the user's own words about it), so they are a new category in `cloud_share` (ADR 031), named `annotations`, off until the user approves it; a local model receives them freely. With the category withheld the persona is told they were not sent and how to allow them, the same way the other categories do.
 
+## Built (2026-10-04, #21 slice 3b): the editor side
+
+The user selects words and presses the toolbar's Comment button (greyed while nothing is selected), and a box opens on the selection; clicking a highlighted passage opens its thread on the passage. In a thread the user answers, resolves (the answers go with it) or deletes (after a confirmation that says the replies go too). Details settled in the build:
+
+- **The editor sends the text around the selection.** It has the text as the user sees it, which can be ahead of the file and is the note's body only (the frontmatter is not in it), so offsets would not match the file. The request carries the quoted words and the text just before and after them, and the backend keeps that as the anchor without looking for the words in the file; with only half the context it falls back to finding the passage in the note.
+- **A reply is about its comment's passage.** `reply_to` names the comment and the passage and context are copied from it; a reply to a reply goes under the comment it is in. Resolving or reopening a comment does the same to the replies under it.
+- **One highlight per comment.** Replies share their comment's passage, so only the comment is drawn and counted for the margin dot.
+- **Resolved comments are not drawn.** There is no screen yet to see or reopen a resolved one.
+- **The persona's name** in a thread is the active persona's display name.
+- **Closing on a note change.** A box opened on one note closes when another opens, so a comment written for one is never saved onto the other.
+- **The toolbar reserves room for the panel's floating controls** (frontmatter, read and edit, the note menu), which were drawn over the end of the toolbar row and hid its last buttons, Save among them, at the default panel width; the buttons now wrap onto a second row instead.
+
 ## Consequences
 
 - A new store in the persona's data folder and a small API for the editor to read and write annotations; the chat request carries the open note's path so the engine can attach its open annotations.

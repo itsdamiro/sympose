@@ -16,13 +16,16 @@ class ChangesResolve(BaseModel):
 
 
 class AnnotationCreate(BaseModel):
-    """Body of `POST /api/vault/annotations` — a highlight with a comment on `quote`, from the user. `start` is where
-    in the note the passage begins, needed when the same words occur more than once. `reply_to` is a comment this
-    answers."""
+    """Body of `POST /api/vault/annotations` — a comment from the user. Either a new highlight on `quote`, with the
+    text just `before` and `after` it as the editor sees it (else the note is searched for the passage, and `start` says
+    where when the same words occur more than once), or an answer: `reply_to` names the comment it is under and the
+    passage is that comment's."""
 
     path: str = Field(..., min_length=1)
-    quote: str = Field(..., min_length=1)
+    quote: str | None = None
     text: str = ""
+    before: str | None = Field(None, max_length=2000)
+    after: str | None = Field(None, max_length=2000)
     start: int | None = Field(None, ge=0)
     reply_to: str | None = None
     persona: str | None = None

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest"
 import { EditorState } from "@codemirror/state"
 import { EditorView } from "@codemirror/view"
 import { history, undo } from "@codemirror/commands"
@@ -15,9 +15,17 @@ import {
   hasPending,
   pendingIds,
   reviewExtensions,
+  selectionTarget,
   setReviewData,
   type ReviewData,
 } from "./review-extensions"
+
+// jsdom does no layout, so a range has no rectangles; CodeMirror asks for them to find where a position is on screen.
+beforeAll(() => {
+  const none = Object.assign([] as unknown as DOMRectList, { item: () => null })
+  Range.prototype.getClientRects = () => none
+  Range.prototype.getBoundingClientRect = () => new DOMRect(0, 0, 0, 0)
+})
 
 const NOTE = "I run three times a week. The beds are raised.\n\n- Pack charger\n- Phone\n\n- Pack charger\n"
 
@@ -34,9 +42,12 @@ function comment(id: string, quote: string, state: "open" | "resolved" = "open",
 }
 
 const views: EditorView[] = []
-function mount(data: ReviewData, { doc = NOTE, gutter = false, onResolve = vi.fn() }: { doc?: string; gutter?: boolean; onResolve?: (ids: string[]) => void } = {}) {
+function mount(
+  data: ReviewData,
+  { doc = NOTE, gutter = false, onResolve = vi.fn(), onOpenComment }: { doc?: string; gutter?: boolean; onResolve?: (ids: string[]) => void; onOpenComment?: (id: string, rect: DOMRect) => void } = {}
+) {
   const view = new EditorView({
-    state: EditorState.create({ doc, extensions: [history(), reviewExtensions({ initial: () => data, onResolve, gutter })] }),
+    state: EditorState.create({ doc, extensions: [history(), reviewExtensions({ initial: () => data, onResolve, onOpenComment, gutter })] }),
     parent: document.body,
   })
   views.push(view)
@@ -252,5 +263,62 @@ describe("accepting and declining", () => {
     expect(pendingIds(view.state)).toEqual(["a"])
 
     expect(hasPending(EditorState.create({ doc: "x" }))).toBe(false) // an editor without the extension has none
+  })
+})
+
+
+describe("comments in the text", () => {
+  it("highlights a comment once however many answers it has, and tags the highlight with its id", () => {
+    const root = comment("c1", "raised")
+    const answer: Annotation = { ...root, id: "c2", author: "persona", reply_to: "c1", text: "because" }
+    const { view } = mount({ proposals: [], annotations: [root, answer] }, { gutter: true })
+
+    const marks = [...view.dom.querySelectorAll(".sy-comment-hl")]
+    expect(marks.map((m) => (m as HTMLElement).dataset.commentId)).toEqual(["c1"])
+    expect(view.dom.querySelectorAll(".sy-comment-dot")).toHaveLength(1)
+    expect(attachedComments(NOTE, [root, answer]).map((f) => f.annotation.id)).toEqual(["c1"])
+  })
+
+  it("tells who clicked which comment, and where the passage is, and still lets the click through", () => {
+    const onOpenComment = vi.fn()
+    const { view } = mount({ proposals: [], annotations: [comment("c1", "raised")] }, { onOpenComment })
+    const mark = view.dom.querySelector(".sy-comment-hl") as HTMLElement
+    const click = new MouseEvent("click", { bubbles: true, cancelable: true })
+
+    mark.dispatchEvent(click)
+
+    expect(onOpenComment).toHaveBeenCalledTimes(1)
+    expect(onOpenComment.mock.calls[0][0]).toBe("c1")
+    expect(onOpenComment.mock.calls[0][1]).toHaveProperty("width")
+    expect(click.defaultPrevented).toBe(false)
+  })
+
+  it("says nothing for a click elsewhere in the text, or when nobody is listening", () => {
+    const onOpenComment = vi.fn()
+    const { view } = mount({ proposals: [], annotations: [comment("c1", "raised")] }, { onOpenComment })
+    ;(view.dom.querySelector(".cm-line") as HTMLElement).dispatchEvent(new MouseEvent("click", { bubbles: true }))
+    expect(onOpenComment).not.toHaveBeenCalled()
+
+    const quiet = mount({ proposals: [], annotations: [comment("c1", "raised")] }).view
+    expect(() => (quiet.dom.querySelector(".sy-comment-hl") as HTMLElement).dispatchEvent(new MouseEvent("click", { bubbles: true }))).not.toThrow()
+  })
+})
+
+describe("selectionTarget", () => {
+  it("is the selected words with the text around them", () => {
+    const { view } = mount(NO_REVIEW)
+    const at = NOTE.indexOf("raised")
+    view.dispatch({ selection: { anchor: at, head: at + 6 } })
+
+    const target = selectionTarget(view)
+
+    expect(target?.quote).toBe("raised")
+    expect(target?.before).toBe(NOTE.slice(0, at))
+    expect(target?.after).toBe(NOTE.slice(at + 6, at + 6 + 40))
+    expect(target?.rect).toBeTruthy()
+  })
+
+  it("is nothing when nothing is selected", () => {
+    expect(selectionTarget(mount(NO_REVIEW).view)).toBeNull()
   })
 })

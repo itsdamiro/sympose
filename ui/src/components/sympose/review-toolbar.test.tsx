@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest"
 import { EditorState } from "@codemirror/state"
 import { EditorView } from "@codemirror/view"
 
@@ -7,7 +7,14 @@ import { captureContext } from "@/lib/passage-finder"
 import type { Proposal } from "@/lib/persona-changes-api"
 import { reviewExtensions } from "@/lib/review-extensions"
 
-import { reviewToolbarItems } from "./review-toolbar"
+import { commentToolbarItem, reviewToolbarItems } from "./review-toolbar"
+
+// jsdom does no layout, so a range has no rectangles; CodeMirror asks for them to find where a position is on screen.
+beforeAll(() => {
+  const none = Object.assign([] as unknown as DOMRectList, { item: () => null })
+  Range.prototype.getClientRects = () => none
+  Range.prototype.getBoundingClientRect = () => new DOMRect(0, 0, 0, 0)
+})
 
 const NOTE = "I run three times a week. The beds are raised.\n"
 const edit = (id: string, find: string, replace: string): Proposal => {
@@ -71,5 +78,32 @@ describe("reviewToolbarItems", () => {
     expect(decline.disabled?.(mount([]).state)).toBe(true)
     // An outdated suggestion can still be declined, though it cannot be accepted.
     expect(decline.disabled?.(mount([edit("a", "three times", "four times")], NOTE.replace("three times", "five times")).state)).toBe(false)
+  })
+})
+
+describe("commentToolbarItem", () => {
+  it("is named for what it does and greyed while nothing is selected", () => {
+    const item = commentToolbarItem(() => {})
+    const view = mount([])
+
+    expect(item.id).toBe("review-comment")
+    expect(item.title).toMatch(/comment/i)
+    expect(item.disabled?.(view.state)).toBe(true)
+    view.dispatch({ selection: { anchor: 2, head: 5 } })
+    expect(item.disabled?.(view.state)).toBe(false)
+  })
+
+  it("hands the selection over to be commented on, and does nothing without one", () => {
+    const onCompose = vi.fn()
+    const item = commentToolbarItem(onCompose)
+    const view = mount([])
+
+    item.run(view)
+    expect(onCompose).not.toHaveBeenCalled()
+
+    view.dispatch({ selection: { anchor: 2, head: 5 } })
+    item.run(view)
+    expect(onCompose).toHaveBeenCalledTimes(1)
+    expect(onCompose.mock.calls[0][0].quote).toBe(NOTE.slice(2, 5))
   })
 })

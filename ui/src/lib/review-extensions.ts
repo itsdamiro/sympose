@@ -2,7 +2,7 @@ import { Decoration, EditorView, GutterMarker, WidgetType, gutter, type Decorati
 import { Facet, StateEffect, StateField, type EditorState, type Extension, type Range } from "@codemirror/state"
 import { Cancel01Icon, Tick02Icon } from "@hugeicons/core-free-icons"
 
-import { locate } from "@/lib/passage-finder"
+import { captureContext, locate } from "@/lib/passage-finder"
 import type { Annotation, Proposal } from "@/lib/persona-changes-api"
 
 /**
@@ -39,11 +39,11 @@ export function classify(text: string, proposals: Proposal[]): { placed: Placed[
   return { placed, outdated }
 }
 
-/** The open comments whose passage is still in the text, with where it is. */
+/** The open comments whose passage is still in the text, with where it is. Answers are not listed: they share their comment's passage. */
 export function attachedComments(text: string, annotations: Annotation[]): { annotation: Annotation; from: number; to: number }[] {
   const found: { annotation: Annotation; from: number; to: number }[] = []
   for (const annotation of annotations) {
-    if (annotation.state !== "open") continue
+    if (annotation.state !== "open" || annotation.reply_to) continue
     const at = locate(text, annotation.quote, annotation.before, annotation.after)
     if (at.status === "one") found.push({ annotation, from: at.start, to: at.end })
   }
@@ -57,6 +57,8 @@ export interface ReviewOptions {
   initial: () => ReviewData
   /** Told which proposals were just accepted or declined from the text, to forget them on the server. */
   onResolve: (ids: string[]) => void
+  /** Told when the user clicks a highlighted passage: the comment's id and where the passage is on screen. */
+  onOpenComment?: (id: string, rect: DOMRect) => void
   /** A dot in the margin beside a line with a comment; leave out where no note has comments, so no margin is spent. */
   gutter: boolean
 }
@@ -124,6 +126,10 @@ class ChangeWidget extends WidgetType {
   }
 }
 
+const openCommentFacet = Facet.define<(id: string, rect: DOMRect) => void, ((id: string, rect: DOMRect) => void) | undefined>({
+  combine: (values) => values[0],
+})
+
 // Who is told when proposals are accepted or declined from the text; one per editor, set by `reviewExtensions`.
 const resolveFacet = Facet.define<(ids: string[]) => void, ((ids: string[]) => void) | undefined>({
   combine: (values) => values[0],
@@ -157,6 +163,27 @@ export function proposalCount(state: EditorState): number {
   return state.field(reviewField, false)?.proposals.length ?? 0
 }
 
+/** What the user has selected, for a new comment: the words, the text around them and where they are on screen. */
+export interface CommentTarget {
+  quote: string
+  before: string
+  after: string
+  rect: DOMRect
+}
+
+/** The selection as a comment target, or `null` when nothing is selected. */
+export function selectionTarget(view: EditorView): CommentTarget | null {
+  const { from, to } = view.state.selection.main
+  if (from === to) return null
+  const text = view.state.doc.toString()
+  const [before, after] = captureContext(text, from, to)
+  const start = view.coordsAtPos(from)
+  const end = view.coordsAtPos(to)
+  const box = view.dom.getBoundingClientRect()
+  const rect = start && end ? new DOMRect(Math.min(start.left, end.left), start.top, Math.abs(end.right - start.left) || 1, end.bottom - start.top) : box
+  return { quote: text.slice(from, to), before, after, rect }
+}
+
 export function hasPending(state: EditorState): boolean {
   return state.field(reviewField, false) !== undefined && pendingIds(state).length > 0
 }
@@ -178,8 +205,8 @@ function decorate(state: EditorState): DecorationSet {
     ranges.push(Decoration.mark({ class: "sy-change-del" }).range(from, to))
     ranges.push(Decoration.widget({ widget: new ChangeWidget(proposal), side: 1 }).range(to))
   }
-  for (const { from, to } of attachedComments(text, data.annotations)) {
-    ranges.push(Decoration.mark({ class: "sy-comment-hl" }).range(from, to))
+  for (const { annotation, from, to } of attachedComments(text, data.annotations)) {
+    ranges.push(Decoration.mark({ class: "sy-comment-hl", attributes: { "data-comment-id": annotation.id } }).range(from, to))
   }
   return Decoration.set(ranges, true)
 }
@@ -224,7 +251,7 @@ const theme = EditorView.baseTheme({
 })
 
 /** The extensions for stylo's `extensions` prop. Memoize the array; it reconfigures the live editor when it changes. */
-export function reviewExtensions({ initial, onResolve, gutter: withGutter }: ReviewOptions): Extension[] {
+export function reviewExtensions({ initial, onResolve, onOpenComment, gutter: withGutter }: ReviewOptions): Extension[] {
   const decorations = EditorView.decorations.compute(["doc", reviewField], decorate)
   const margin = gutter({
     class: "sy-comment-gutter",
@@ -241,6 +268,16 @@ export function reviewExtensions({ initial, onResolve, gutter: withGutter }: Rev
     decorations,
     theme,
     resolveFacet.of(onResolve),
+    ...(onOpenComment ? [openCommentFacet.of(onOpenComment)] : []),
+    EditorView.domEventHandlers({
+      click(event, view) {
+        const hit = (event.target as HTMLElement | null)?.closest?.<HTMLElement>(".sy-comment-hl")
+        const id = hit?.dataset.commentId
+        if (!hit || !id) return false
+        view.state.facet(openCommentFacet)?.(id, hit.getBoundingClientRect())
+        return false // the click still places the caret
+      },
+    }),
     ...(withGutter ? [margin] : []),
   ]
 }

@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
+import { EditorView } from "@codemirror/view"
 
 const api = vi.hoisted(() => ({ fetchVaultNote: vi.fn(), saveVaultNote: vi.fn() }))
-const changesApi = vi.hoisted(() => ({ fetchChanges: vi.fn(), resolveChanges: vi.fn() }))
+const changesApi = vi.hoisted(() => ({ fetchChanges: vi.fn(), resolveChanges: vi.fn(), addComment: vi.fn(), replyToComment: vi.fn(), changeComment: vi.fn(), deleteComment: vi.fn() }))
 
 // A stand-in for stylo that mounts a real CodeMirror view with the `extensions` it is given, draws the custom toolbar
 // buttons and the canvas header, and reports edits through `onChange`: enough to run the panel's review wiring for real.
@@ -82,6 +83,13 @@ import type { Proposal } from "@/lib/persona-changes-api"
 import type { EditorPreferences } from "@/lib/use-editor-preferences"
 import { MarkdownPanel } from "./markdown-panel"
 
+// jsdom does no layout, so a range has no rectangles; CodeMirror asks for them to find where a position is on screen.
+beforeAll(() => {
+  const none = Object.assign([] as unknown as DOMRectList, { item: () => null })
+  Range.prototype.getClientRects = () => none
+  Range.prototype.getBoundingClientRect = () => new DOMRect(0, 0, 0, 0)
+})
+
 const PREFERENCES = { surface: "in-place", reveal: "never", selectionUI: "bar", tableEditing: "source", focusOutline: "on", autosave: "off", hideExtension: "on" } as EditorPreferences
 const NOTE = "I run three times a week. The beds are raised.\n"
 const edit = (id: string, find: string, replace: string): Proposal => {
@@ -97,6 +105,7 @@ beforeEach(() => {
   api.saveVaultNote.mockResolvedValue({ ok: true, mtime: 200 })
   changesApi.fetchChanges.mockResolvedValue(changes([]))
   changesApi.resolveChanges.mockResolvedValue({ ok: true, resolved: [] })
+  for (const fn of [changesApi.addComment, changesApi.replyToComment, changesApi.changeComment, changesApi.deleteComment]) fn.mockResolvedValue({ ok: true })
 })
 afterEach(() => {
   document.cookie = "sympose:pref.noteReadOnly=; max-age=0"
@@ -107,6 +116,8 @@ afterEach(() => {
 
 const open = (props: Partial<React.ComponentProps<typeof MarkdownPanel>> = {}) =>
   render(<MarkdownPanel path="Garden plan.md" persona="samantha" preferences={PREFERENCES} toolbarItems={["undo"]} {...props} />)
+const editorView = () => EditorView.findFromDOM(screen.getByTestId("cm").querySelector(".cm-editor") as HTMLElement) as EditorView
+const commentButton = () => document.querySelector('button[aria-label="Comment on the selected text"]') as HTMLButtonElement | null
 const doc = () => (screen.getByTestId("cm").querySelector(".cm-content") as HTMLElement).textContent
 
 describe("MarkdownPanel with the persona's suggested changes", () => {
@@ -218,6 +229,81 @@ describe("MarkdownPanel with the persona's suggested changes", () => {
     expect(screen.getByTestId("cm").querySelector(".cm-content")).not.toBeNull()
     expect(screen.getByTestId("cm").querySelector(".sy-comment-gutter")).toBeNull()
     expect(screen.getByTestId("cm").querySelector(".sy-comment-hl")).toBeNull()
+  })
+
+  it("comments on selected words: the button wakes up with a selection, opens a box on them, and saves with the editor's own context", async () => {
+    open()
+    await waitFor(() => expect(screen.getByTestId("cm").querySelector(".cm-content")).not.toBeNull())
+    await waitFor(() => expect(commentButton()).not.toBeNull())
+    expect(commentButton()?.disabled).toBe(true)
+
+    const at = NOTE.indexOf("raised")
+    await act(async () => editorView().dispatch({ selection: { anchor: at, head: at + 6 } }))
+    await waitFor(() => expect(commentButton()?.disabled).toBe(false))
+    await act(async () => fireEvent.click(commentButton() as HTMLButtonElement))
+
+    const box = await screen.findByTestId("comment-compose")
+    expect(box.textContent).toContain("raised")
+    fireEvent.change(screen.getByLabelText("Comment"), { target: { value: "why raised?" } })
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Comment" })))
+
+    expect(changesApi.addComment).toHaveBeenCalledWith({ path: "Garden plan.md", persona: "samantha", quote: "raised", before: NOTE.slice(0, at), after: NOTE.trimEnd().slice(at + 6, at + 46), text: "why raised?" })
+    await waitFor(() => expect(changesApi.fetchChanges).toHaveBeenCalledTimes(2)) // the changes are read again to show it
+    await waitFor(() => expect(screen.queryByTestId("comment-compose")).toBeNull())
+  })
+
+  it("closes the box when another note is opened, so a comment is never saved onto the wrong note", async () => {
+    const view = open()
+    await waitFor(() => expect(screen.getByTestId("cm").querySelector(".cm-content")).not.toBeNull())
+    const at = NOTE.indexOf("raised")
+    await act(async () => editorView().dispatch({ selection: { anchor: at, head: at + 6 } }))
+    await waitFor(() => expect(commentButton()?.disabled).toBe(false))
+    await act(async () => fireEvent.click(commentButton() as HTMLButtonElement))
+    await screen.findByTestId("comment-compose")
+
+    api.fetchVaultNote.mockResolvedValue({ path: "Other.md", content: "other note", mtime: 1 })
+    view.rerender(<MarkdownPanel path="Other.md" persona="samantha" preferences={PREFERENCES} toolbarItems={["undo"]} />)
+
+    await waitFor(() => expect(screen.queryByTestId("comment-compose")).toBeNull())
+    expect(changesApi.addComment).not.toHaveBeenCalled()
+  })
+
+  it("opens a comment's thread when its highlighted passage is clicked, and an answer is saved under it", async () => {
+    const at = NOTE.indexOf("raised")
+    const comment = { id: "c1", time: "2026-10-04T10:00:00+00:00", author: "user", quote: "raised", before: NOTE.slice(0, at), after: NOTE.slice(at + 6, at + 46), text: "why raised?", state: "open", reply_to: null, status: "attached" }
+    const answer = { ...comment, id: "r1", author: "persona", reply_to: "c1", text: "Drainage.", time: "2026-10-04T10:05:00+00:00" }
+    changesApi.fetchChanges.mockResolvedValue(changes([], [comment, answer]))
+    open({ personaName: "Samantha" })
+    await waitFor(() => expect(screen.getByTestId("cm").querySelector(".sy-comment-hl")).not.toBeNull())
+
+    await act(async () => fireEvent.click(screen.getByTestId("cm").querySelector(".sy-comment-hl") as HTMLElement))
+
+    const thread = await screen.findByTestId("comment-thread")
+    expect(thread.textContent).toContain("why raised?")
+    expect(thread.textContent).toContain("Samantha")
+    expect(thread.textContent).toContain("Drainage.")
+    fireEvent.change(screen.getByLabelText("Reply"), { target: { value: "thanks" } })
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Reply" })))
+    expect(changesApi.replyToComment).toHaveBeenCalledWith({ path: "Garden plan.md", persona: "samantha", replyTo: "c1", text: "thanks" })
+    await waitFor(() => expect(changesApi.fetchChanges).toHaveBeenCalledTimes(2))
+  })
+
+  it("names the persona by her handle when it is not told her name", async () => {
+    const comment = { id: "c1", time: "t", author: "persona", quote: "raised", before: "", after: "", text: "hi", state: "open", reply_to: null, status: "attached" }
+    changesApi.fetchChanges.mockResolvedValue(changes([], [comment]))
+    open()
+    await waitFor(() => expect(screen.getByTestId("cm").querySelector(".sy-comment-hl")).not.toBeNull())
+
+    await act(async () => fireEvent.click(screen.getByTestId("cm").querySelector(".sy-comment-hl") as HTMLElement))
+
+    expect((await screen.findByTestId("comment-thread")).textContent).toContain("Samantha")
+  })
+
+  it("has no comment button for a persona's own file", async () => {
+    const file = { load: vi.fn().mockResolvedValue({ content: NOTE, mtime: 1 }), save: vi.fn(), title: "soul.md" }
+    open({ path: "soul.md", file })
+    await screen.findByTestId("cm")
+    expect(commentButton()).toBeNull()
   })
 
   it("draws nothing for a persona's own file, and does not ask for its changes", async () => {

@@ -82,11 +82,27 @@ def status(proposal: dict[str, Any], note_text: str) -> str:
     return PENDING if found.status == finder.ONE else OUTDATED
 
 
-def annotate(handle: str, note_path: str, note_text: str, *, quote: str, text: str, author: str, reply_to: str | None = None, start: int | None = None) -> dict[str, Any]:
-    before, after = _anchor(note_text, quote, start)
+def annotate(handle: str, note_path: str, note_text: str, *, quote: str, text: str, author: str, reply_to: str | None = None, start: int | None = None, context: tuple[str, str] | None = None) -> dict[str, Any]:
+    """A comment on `quote`. The text around it is `context` (before, after) when the caller has it, as an editor
+    does from its own text, which can be ahead of the file; else it is taken from where the passage is in `note_text`."""
+    if not quote:
+        raise CannotAnchor("There is no passage to comment on.")
+    before, after = context if context is not None else _anchor(note_text, quote, start)
     annotation = {"id": _id(), "time": _now(), "author": author, "quote": quote, "before": before, "after": after, "text": text, "state": OPEN, "reply_to": reply_to}
     store.update(handle, note_path, lambda entry: entry["annotations"].append(annotation))
     return annotation
+
+
+def reply(handle: str, note_path: str, comment_id: str, *, text: str, author: str) -> dict[str, Any]:
+    """An answer under a comment, about the same passage. A reply to a reply goes under the comment it is in."""
+    def add(entry: dict[str, Any]) -> dict[str, Any]:
+        asked = _pick(entry["annotations"], comment_id)
+        root = _pick(entry["annotations"], asked["reply_to"]) if asked.get("reply_to") else asked
+        answer = {"id": _id(), "time": _now(), "author": author, "quote": root["quote"], "before": root["before"], "after": root["after"], "text": text, "state": root["state"], "reply_to": root["id"]}
+        entry["annotations"].append(answer)
+        return answer
+
+    return store.update(handle, note_path, add)
 
 
 def annotation_status(annotation: dict[str, Any], note_text: str) -> str:
@@ -117,6 +133,10 @@ def change_annotation(handle: str, note_path: str, annotation_id: str, *, text: 
             annotation["text"] = text
         if state is not None:
             annotation["state"] = state
+            if not annotation.get("reply_to"):  # a comment and the answers under it are open or resolved together
+                for answer in entry["annotations"]:
+                    if answer.get("reply_to") == annotation_id:
+                        answer["state"] = state
 
     store.update(handle, note_path, apply)
 

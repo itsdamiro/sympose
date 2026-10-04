@@ -415,3 +415,51 @@ def test_changing_and_deleting_a_comment_report_the_canonical_path(env):
     deleted = client.delete("/api/vault/annotations", params={"path": "Garden plan", "id": cid, "persona": "samantha"})
 
     assert patched.json()["path"] == "Garden plan.md" and deleted.json()["path"] == "Garden plan.md"
+
+
+def test_a_comment_can_carry_the_editors_own_context_for_words_not_yet_saved(env):
+    client, _ = env
+
+    made = client.post("/api/vault/annotations", json={"path": "Garden plan.md", "quote": "newly typed", "before": "I just ", "after": " words", "text": "check", "persona": "samantha"})
+
+    assert made.status_code == 201
+    (a,) = changes_for(client, "Garden plan.md")["annotations"]
+    assert (a["quote"], a["before"], a["after"], a["status"]) == ("newly typed", "I just ", " words", "detached")
+
+
+def test_an_answer_names_the_comment_it_is_under_and_takes_its_passage(env):
+    client, _ = env
+    root = client.post("/api/vault/annotations", json={"path": "Garden plan.md", "quote": "raised", "text": "why?", "persona": "samantha"}).json()
+
+    answer = client.post("/api/vault/annotations", json={"path": "Garden plan.md", "reply_to": root["id"], "text": "because", "persona": "samantha"})
+
+    assert answer.status_code == 201
+    assert (answer.json()["reply_to"], answer.json()["quote"], answer.json()["author"]) == (root["id"], "raised", "user")
+
+
+def test_an_answer_to_an_unknown_comment_and_a_comment_with_nothing_to_comment_on_are_refused(env):
+    client, _ = env
+    base = {"path": "Garden plan.md", "persona": "samantha"}
+
+    assert client.post("/api/vault/annotations", json={**base, "reply_to": "nope", "text": "x"}).status_code == 404
+    assert client.post("/api/vault/annotations", json={**base, "text": "x"}).status_code == 400
+    assert changes_for(client, "Garden plan.md")["annotations"] == []
+
+
+def test_resolving_a_comment_through_the_route_resolves_its_answers(env):
+    client, _ = env
+    root = client.post("/api/vault/annotations", json={"path": "Garden plan.md", "quote": "raised", "text": "why?", "persona": "samantha"}).json()
+    client.post("/api/vault/annotations", json={"path": "Garden plan.md", "reply_to": root["id"], "text": "because", "persona": "samantha"})
+
+    client.patch("/api/vault/annotations", json={"path": "Garden plan.md", "id": root["id"], "state": "resolved", "persona": "samantha"})
+
+    assert {a["state"] for a in changes_for(client, "Garden plan.md")["annotations"]} == {"resolved"}
+
+
+def test_half_a_context_is_not_used_the_passage_is_found_in_the_note_instead(env):
+    client, _ = env
+
+    made = client.post("/api/vault/annotations", json={"path": "Garden plan.md", "quote": "raised", "before": "only this half", "text": "c", "persona": "samantha"})
+
+    assert made.status_code == 201
+    assert made.json()["before"].endswith("The beds are ") and made.json()["after"].startswith(".")
