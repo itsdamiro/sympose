@@ -1,0 +1,121 @@
+"""The file behind a note's pending changes (docs/decisions/070): one JSON file per note, in the persona's own
+folder (`profiles/<handle>/notes/`), never in the vault the user browses.
+
+A note's entry holds that persona's proposals and annotations for it, and the note's path is kept inside the file
+as well as in its name, so a name that had to be shortened still says which note it is. A whole load-change-save
+cycle runs under one lock (the same per-path lock the vault writes use), so two writers at the same moment cannot
+lose each other's change; an entry with nothing left in it is removed rather than kept empty."""
+
+import hashlib
+import json
+import os
+from collections.abc import Callable
+from typing import Any
+from urllib.parse import quote
+
+from sympose.atomic_write import write_atomic_text
+from sympose.persona_files import persona_dir
+from sympose.vault_write import get_file_lock, get_file_locks
+
+NOTES_DIR = "notes"
+VERSION = 1
+_NAME_LIMIT = 180  # a file name is limited to 255 bytes on most file systems; stay well under
+
+
+def _folder(handle: str) -> str:
+    return os.path.join(persona_dir(handle), NOTES_DIR)
+
+
+def _file(handle: str, note_path: str) -> str:
+    if not note_path:
+        raise ValueError("A note's path cannot be empty")
+    name = quote(note_path, safe="")  # one component: a slash becomes %2F, so the path cannot leave the folder
+    if len(name) > _NAME_LIMIT:
+        name = quote(note_path[-30:], safe="")[:60] + "-" + hashlib.sha1(note_path.encode("utf-8")).hexdigest()[:16]
+    return os.path.join(_folder(handle), name + ".json")
+
+
+def _empty(note_path: str) -> dict[str, Any]:
+    return {"version": VERSION, "path": note_path, "proposals": [], "annotations": []}
+
+
+def _load(file: str, note_path: str) -> dict[str, Any]:
+    """The entry in `file`; an entry with nothing in it when the file is missing or damaged."""
+    entry = _empty(note_path)
+    try:
+        with open(file, encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        return entry
+    if isinstance(data, dict):
+        if isinstance(data.get("path"), str) and data["path"]:
+            entry["path"] = data["path"]
+        for key in ("proposals", "annotations"):
+            if isinstance(data.get(key), list):
+                entry[key] = [item for item in data[key] if isinstance(item, dict)]
+    return entry
+
+
+def _save(file: str, entry: dict[str, Any]) -> None:
+    if not (entry["proposals"] or entry["annotations"]):
+        try:
+            os.unlink(file)
+        except FileNotFoundError:
+            pass
+        return
+    os.makedirs(os.path.dirname(file), exist_ok=True)
+    write_atomic_text(file, json.dumps(entry, ensure_ascii=False, indent=1) + "\n")
+
+
+def read(handle: str, note_path: str) -> dict[str, Any]:
+    return _load(_file(handle, note_path), note_path)
+
+
+def update(handle: str, note_path: str, change: Callable[[dict[str, Any]], Any]) -> Any:
+    """Runs `change(entry)` on the note's entry under its lock and saves the result; what `change` returns is
+    returned. If `change` raises, nothing is saved."""
+    file = _file(handle, note_path)
+    with get_file_lock(file):
+        entry = _load(file, note_path)
+        result = change(entry)
+        _save(file, entry)
+        return result
+
+
+def entries(handle: str) -> list[dict[str, Any]]:
+    """Every note's entry for this persona, skipping any file that cannot be read."""
+    folder = _folder(handle)
+    try:
+        names = sorted(os.listdir(folder))
+    except OSError:
+        return []
+    found = []
+    for name in names:
+        if name.endswith(".json"):
+            entry = _load(os.path.join(folder, name), "")
+            if entry["path"] and (entry["proposals"] or entry["annotations"]):
+                found.append(entry)
+    return found
+
+
+def move(handle: str, old: str, new: str) -> None:
+    """A note was renamed or moved: its entry follows it (joining any entry already at the new path)."""
+    old_file, new_file = _file(handle, old), _file(handle, new)
+    if old_file == new_file:
+        return
+    with get_file_locks(old_file, new_file):
+        if not os.path.exists(old_file):
+            return
+        moved = _load(old_file, old)
+        target = _load(new_file, new)
+        target["path"] = new
+        target["proposals"] += moved["proposals"]
+        target["annotations"] += moved["annotations"]
+        _save(new_file, target)
+        os.unlink(old_file)
+
+
+def drop(handle: str, note_path: str) -> None:
+    file = _file(handle, note_path)
+    with get_file_lock(file):
+        _save(file, _empty(note_path))

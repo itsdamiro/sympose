@@ -1,0 +1,149 @@
+"""A persona's proposals and annotations for notes (docs/decisions/070, 042 and 069).
+
+A proposal is a change she suggests and the user has not yet accepted: an edit (the passage she quoted, what
+replaces it) or a whole new note. An annotation is a comment on a passage, from the user or from her. Both are
+attached to a note by the passage they are about and the text around it, found again by `passage_finder`; whether
+a proposal is still pending, or outdated because its passage was rewritten, is worked out from the note's current
+text each time and never stored. Nothing here writes the vault: accepting a proposal is a vault write done by the
+caller, through the ordinary note functions."""
+
+import re
+import uuid
+from datetime import datetime, timezone
+from typing import Any
+
+from sympose import note_changes_store as store
+from sympose import passage_finder as finder
+
+PENDING, OUTDATED = "pending", "outdated"
+ATTACHED, DETACHED = "attached", "detached"
+OPEN, RESOLVED = "open", "resolved"
+_NAME_WORDS = 5
+
+
+class CannotAnchor(ValueError):
+    """The passage cannot be tied to one place in the note, so nothing was saved."""
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def _id() -> str:
+    return uuid.uuid4().hex[:12]
+
+
+def _anchor(note_text: str, quote: str, start: int | None) -> tuple[str, str]:
+    """The text before and after `quote`: at `start` when the caller knows where, else where it is found, which
+    must be the only place."""
+    if start is not None:
+        if note_text[start:start + len(quote)] != quote or not quote:
+            raise CannotAnchor("That passage is not in the note where it was said to be.")
+        return finder.capture_context(note_text, start, start + len(quote))
+    found = finder.locate(note_text, quote)
+    if found.status == finder.NONE:
+        raise CannotAnchor("That passage is not in the note.")
+    if found.status == finder.MANY:
+        raise CannotAnchor("That passage is in the note more than once; quote more of it.")
+    return finder.capture_context(note_text, found.start, found.end)
+
+
+def propose_edit(handle: str, note_path: str, note_text: str, *, find: str, replace: str, say: str) -> dict[str, Any]:
+    before, after = _anchor(note_text, find, None)
+    proposal = {"id": _id(), "time": _now(), "kind": "edit", "find": find, "replace": replace, "before": before, "after": after, "say": say}
+    store.update(handle, note_path, lambda entry: entry["proposals"].append(proposal))
+    return proposal
+
+
+def working_name(text: str, title: str | None = None) -> str:
+    """What a new note is called until it has a file name: her own title if she gave one, else its first
+    heading, else its first words (docs/decisions/042)."""
+    if title and title.strip():
+        return title.strip()
+    heading = re.search(r"^#{1,6}[ \t]+(.+?)[ \t#]*$", text, re.M)
+    words = (heading.group(1) if heading else text).split()
+    return " ".join(words[:_NAME_WORDS]) or "Untitled"
+
+
+def propose_create(handle: str, note_path: str, text: str, *, say: str, title: str | None = None) -> dict[str, Any]:
+    proposal = {"id": _id(), "time": _now(), "kind": "create", "text": text, "name": working_name(text, title), "say": say}
+    store.update(handle, note_path, lambda entry: entry["proposals"].append(proposal))
+    return proposal
+
+
+def status(proposal: dict[str, Any], note_text: str) -> str:
+    """`pending` while the passage is in the note exactly once (it follows the text); `outdated` once it was
+    rewritten or can no longer be told from another. A new note has nothing to go stale."""
+    if proposal.get("kind") == "create":
+        return PENDING
+    found = finder.locate(note_text, proposal["find"], proposal.get("before", ""), proposal.get("after", ""))
+    return PENDING if found.status == finder.ONE else OUTDATED
+
+
+def annotate(handle: str, note_path: str, note_text: str, *, quote: str, text: str, author: str, reply_to: str | None = None, start: int | None = None) -> dict[str, Any]:
+    before, after = _anchor(note_text, quote, start)
+    annotation = {"id": _id(), "time": _now(), "author": author, "quote": quote, "before": before, "after": after, "text": text, "state": OPEN, "reply_to": reply_to}
+    store.update(handle, note_path, lambda entry: entry["annotations"].append(annotation))
+    return annotation
+
+
+def annotation_status(annotation: dict[str, Any], note_text: str) -> str:
+    found = finder.locate(note_text, annotation["quote"], annotation.get("before", ""), annotation.get("after", ""))
+    return ATTACHED if found.status == finder.ONE else DETACHED
+
+
+def _pick(items: list[dict[str, Any]], item_id: str) -> dict[str, Any]:
+    for item in items:
+        if item.get("id") == item_id:
+            return item
+    raise KeyError(item_id)
+
+
+def set_annotation_state(handle: str, note_path: str, annotation_id: str, state: str) -> None:
+    if state not in (OPEN, RESOLVED):
+        raise ValueError(f"An annotation is {OPEN} or {RESOLVED}, not {state!r}")
+    store.update(handle, note_path, lambda entry: _pick(entry["annotations"], annotation_id).update(state=state))
+
+
+def delete_annotation(handle: str, note_path: str, annotation_id: str) -> None:
+    """Removes the comment and the replies to it."""
+    def remove(entry: dict[str, Any]) -> None:
+        _pick(entry["annotations"], annotation_id)
+        entry["annotations"] = [a for a in entry["annotations"] if a.get("id") != annotation_id and a.get("reply_to") != annotation_id]
+
+    store.update(handle, note_path, remove)
+
+
+def discard_proposal(handle: str, note_path: str, proposal_id: str) -> None:
+    def remove(entry: dict[str, Any]) -> None:
+        _pick(entry["proposals"], proposal_id)
+        entry["proposals"] = [p for p in entry["proposals"] if p.get("id") != proposal_id]
+
+    store.update(handle, note_path, remove)
+
+
+def drafts(handle: str) -> list[dict[str, Any]]:
+    """The notes with a proposal waiting, newest first: what the Drafts section lists. A note that only has
+    comments is not a draft."""
+    found = []
+    for entry in store.entries(handle):
+        proposals = entry["proposals"]
+        if not proposals:
+            continue
+        creates = [p for p in proposals if p.get("kind") == "create"]
+        found.append({
+            "path": entry["path"],
+            "name": creates[0].get("name") if creates else None,
+            "is_new": bool(creates),
+            "count": len(proposals),
+            "time": max(str(p.get("time", "")) for p in proposals),
+        })
+    return sorted(found, key=lambda d: d["time"], reverse=True)
+
+
+def rename(handle: str, old: str, new: str) -> None:
+    store.move(handle, old, new)
+
+
+def forget(handle: str, note_path: str) -> None:
+    store.drop(handle, note_path)
