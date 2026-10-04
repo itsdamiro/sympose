@@ -2,6 +2,7 @@ import * as React from "react"
 import {
   Stylo,
   type EmbedSource,
+  type StyloHandle,
   type TagSource,
   type TaskToggleInfo,
   type ToolbarItem,
@@ -23,6 +24,11 @@ import { extractWikilinks } from "@/lib/extract-wikilinks"
 import { openMarkdownLink } from "@/lib/open-markdown-link"
 import { usePanelSizing } from "@/lib/use-panel-sizing"
 import { useNoteDocument, type PanelFile } from "@/lib/use-note-document"
+import type { Proposal } from "@/lib/persona-changes-api"
+import { usePersonaChanges } from "@/lib/use-persona-changes"
+import { classify, reviewExtensions, setReviewData, type ReviewData } from "@/lib/review-extensions"
+import { OutdatedChanges } from "@/components/sympose/outdated-changes"
+import { reviewToolbarItems } from "@/components/sympose/review-toolbar"
 import type { EditorPreferences } from "@/lib/use-editor-preferences"
 import { FrontmatterCard } from "@/components/sympose/frontmatter-card"
 import { NoteActionsMenu } from "@/components/sympose/note-actions-menu"
@@ -243,6 +249,60 @@ function MarkdownPanel({
   } = useReadOnlyToggle(readOnly, setReadOnly)
   const { surface, reveal, selectionUI, tableEditing, focusOutline } = preferences
 
+  // The persona's suggested changes and the user's comments on this note (docs/decisions/070): drawn in the text by
+  // extensions handed to stylo, with each change's own Accept and Decline there and the whole note's on the toolbar.
+  // A persona's own file has none. The extensions array is memoized (stylo reconfigures the live editor when it
+  // changes, so a new array per render would redo that every keystroke); what they read is kept in refs.
+  const styloRef = React.useRef<StyloHandle>(null)
+  const { changes, resolve: resolveChanges } = usePersonaChanges({ path, persona, enabled: !file })
+  const reviewData = React.useMemo<ReviewData>(
+    () => ({ proposals: changes?.proposals ?? [], annotations: changes?.annotations ?? [] }),
+    [changes]
+  )
+  const reviewDataRef = React.useRef(reviewData)
+  const resolveRef = React.useRef(resolveChanges)
+  React.useEffect(() => {
+    reviewDataRef.current = reviewData
+    resolveRef.current = resolveChanges
+  })
+  const showMargin = reviewData.annotations.some((a) => a.state === "open")
+  const reviewExt = React.useMemo(
+    () =>
+      // eslint-disable-next-line react-hooks/refs -- the two callbacks run when the editor is made and when a change is accepted or declined, never during render
+      reviewExtensions({
+        initial: () => reviewDataRef.current,
+        onResolve: (ids) => void resolveRef.current(ids),
+        gutter: showMargin,
+      }),
+    [showMargin]
+  )
+  // New data reaches an editor that is already open; one that opens later starts from `initial`.
+  React.useEffect(() => {
+    styloRef.current?.getView()?.dispatch({ effects: setReviewData.of(reviewData) })
+  }, [reviewData, reviewExt])
+  const outdatedProposals = React.useMemo(() => classify(body, reviewData.proposals).outdated, [body, reviewData])
+  // Accepting the whole note changes the text, and the save writes what the text is by then: it waits for the
+  // change to reach `body` (`saveNote` closes over it) instead of saving the text from before.
+  const saveAfterAcceptRef = React.useRef(false)
+  React.useEffect(() => {
+    if (!saveAfterAcceptRef.current) return
+    saveAfterAcceptRef.current = false
+    void saveNote()
+  }, [body, saveNote])
+  const hasProposals = reviewData.proposals.length > 0
+  const acceptNote = React.useCallback(() => {
+    saveAfterAcceptRef.current = true
+  }, [])
+  const declineNote = React.useCallback(() => void resolveRef.current("all"), [])
+  const toolbarWithReview = React.useMemo<ToolbarItem[]>(
+    () =>
+      hasProposals
+        ? // eslint-disable-next-line react-hooks/refs -- the two callbacks run when a toolbar button is pressed, never during render
+          [...toolbarItems, "|", ...reviewToolbarItems({ onAcceptNote: acceptNote, onDeclineNote: declineNote })]
+        : toolbarItems,
+    [toolbarItems, hasProposals, acceptNote, declineNote]
+  )
+
   // stylo's `canvasHeader` (>=0.11.0) is read once, at mount — same contract
   // as `inPlace`/`wikiLinkSource` (see `wikiLinkSource` prop doc above). The
   // function identity handed to `<Stylo>` has to survive `frontmatter`/
@@ -255,6 +315,8 @@ function MarkdownPanel({
     frontmatterVisible,
     readOnly,
     banner: file?.banner,
+    outdated: [] as Proposal[],
+    onDecline: (() => {}) as (ids: string[]) => void,
   })
   // Deliberately synchronous, not effect-deferred: `canvasHeader()` below is
   // invoked directly in this component's own render (the read-only branch
@@ -268,40 +330,47 @@ function MarkdownPanel({
     frontmatterVisible,
     readOnly,
     banner: file?.banner,
+    outdated: readOnly || file ? [] : outdatedProposals,
+    onDecline: (ids: string[]) => void resolveChanges(ids),
   }
   const canvasHeader = React.useCallback(() => {
-    const { frontmatter, onWikiLinkClick, phone, frontmatterVisible, readOnly, banner } =
+    const { frontmatter, onWikiLinkClick, phone, frontmatterVisible, readOnly, banner, outdated, onDecline } =
       frontmatterCardStateRef.current
     // A persona's file has no frontmatter card; what is particular to it (docs/decisions/061) takes the place.
     if (banner) return <div className={cn("mt-2", phone ? "px-2" : "px-4 sm:px-6")}>{banner}</div>
-    if (frontmatter === null) return null
+    const outdatedStrip =
+      outdated.length > 0 ? <OutdatedChanges proposals={outdated} onDecline={onDecline} className={cn("mt-2", phone ? "mx-2" : "mx-4 sm:mx-6")} /> : null
+    if (frontmatter === null) return outdatedStrip
+    // Animate via `grid-template-rows` rather than `max-height` — it tweens
+    // to the card's real content height with no guessed cap, and (unlike a
+    // hardcoded `max-height`) never needs revisiting if the card's content
+    // grows a row. The `overflow-hidden` inner wrapper is what actually
+    // clips it; the outer grid is what animates.
     return (
-      // Animate via `grid-template-rows` rather than `max-height` — it tweens
-      // to the card's real content height with no guessed cap, and (unlike a
-      // hardcoded `max-height`) never needs revisiting if the card's content
-      // grows a row. The `overflow-hidden` inner wrapper is what actually
-      // clips it; the outer grid is what animates.
-      <div
-        className={cn(
-          "grid transition-[grid-template-rows] duration-mode ease-mode",
-          frontmatterVisible ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-        )}
-      >
-        <div className="overflow-hidden">
-          <FrontmatterCard
-            raw={frontmatter}
-            onChange={(raw) => {
-              // A real card edit — from here on the block is re-serialised on
-              // save rather than kept verbatim.
-              frontmatterEditedRef.current = true
-              setFrontmatter(raw)
-            }}
-            onLinkClick={onWikiLinkClick}
-            readOnly={readOnly}
-            className={cn("mt-2", phone ? "px-2" : "px-4 sm:px-6")}
-          />
+      <>
+        <div
+          className={cn(
+            "grid transition-[grid-template-rows] duration-mode ease-mode",
+            frontmatterVisible ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+          )}
+        >
+          <div className="overflow-hidden">
+            <FrontmatterCard
+              raw={frontmatter}
+              onChange={(raw) => {
+                // A real card edit — from here on the block is re-serialised on
+                // save rather than kept verbatim.
+                frontmatterEditedRef.current = true
+                setFrontmatter(raw)
+              }}
+              onLinkClick={onWikiLinkClick}
+              readOnly={readOnly}
+              className={cn("mt-2", phone ? "px-2" : "px-4 sm:px-6")}
+            />
+          </div>
         </div>
-      </div>
+        {outdatedStrip}
+      </>
     )
   }, [frontmatterEditedRef, setFrontmatter])
 
@@ -400,6 +469,7 @@ function MarkdownPanel({
   // long prop list.
   const styloElement = (
     <Stylo
+      ref={styloRef}
       key={`${path}:${surface}:${reveal}:${selectionUI}:${tableEditing}:${readOnly}`}
       value={body}
       onChange={setBody}
@@ -414,8 +484,9 @@ function MarkdownPanel({
       softBreaks
       inPlace={{ reveal, selectionUI, table: tableEditing }}
       canvasHeader={readOnly ? undefined : canvasHeader}
+      extensions={readOnly || file ? undefined : reviewExt}
       toolbar={{
-        items: toolbarItems,
+        items: readOnly || file ? toolbarItems : toolbarWithReview,
         render: (bar) => (
           // stylo's toolbar row. The note-actions overlay used to live here
           // too; it's now the fixed sibling above, so this only ever wraps
