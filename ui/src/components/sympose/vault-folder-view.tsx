@@ -2,6 +2,8 @@ import * as React from "react"
 import { Folder01Icon, Search01Icon } from "@hugeicons/core-free-icons"
 
 import { EmptyState } from "@/components/sympose/empty-state"
+import { DraftsSection } from "@/components/sympose/drafts-section"
+import type { Draft } from "@/lib/persona-changes-api"
 import { cn, stripMdExtension } from "@/lib/utils"
 import { vaultScopedKey } from "@/lib/cookies"
 import { folderIconFor } from "@/lib/vault-folders"
@@ -50,6 +52,9 @@ export function VaultFolderView({
   beyondFolderMatches,
   pinnedNodes,
   pinnedShowPath,
+  drafts,
+  draftSelectedPath,
+  onOpenDraft,
   vaultTreeActions,
   unhideFromView,
   selectNote,
@@ -76,6 +81,11 @@ export function VaultFolderView({
   beyondFolderMatches: VaultSearchResult[]
   pinnedNodes: VaultNode[]
   pinnedShowPath: boolean
+  /** The persona's drafts, for the Drafts section above the notes (docs/decisions/071). */
+  drafts: Draft[]
+  /** The path of the draft open in the editor, if one is. */
+  draftSelectedPath?: string
+  onOpenDraft: (draft: Draft) => void
   vaultTreeActions: Omit<
     React.ComponentProps<typeof VaultTree>,
     "nodes" | "pinnedNodes" | "pinnedShowPath" | "defaultExpanded" | "storageKey"
@@ -133,6 +143,9 @@ export function VaultFolderView({
         </h2>
         {trashView && <BinSectionPills section={bin.section} onChange={(next) => setBin("section", next)} />}
         </div>
+        {!trashView && !vaultSearchQuery && (
+          <DraftsSection drafts={drafts} selectedPath={draftSelectedPath} onOpen={onOpenDraft} hideExtension={!!vaultTreeActions.hideExtension} />
+        )}
         {trashView ? (
           <BinView
             persona={activePersona}

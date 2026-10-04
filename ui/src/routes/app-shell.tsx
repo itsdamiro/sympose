@@ -6,6 +6,8 @@ import { usePanels } from "@/lib/use-panels"
 import { useNebulaStage } from "@/lib/use-nebula-stage"
 import { useSelectedNote } from "@/lib/use-selected-note"
 import { usePersonaFileEditor } from "@/lib/use-persona-file-editor"
+import { useDraftEditor } from "@/lib/use-draft-editor"
+import { useDrafts } from "@/lib/use-drafts"
 import { usePersonaFiles } from "@/lib/use-persona-files"
 import { useVaults, useVaultSwitching } from "@/lib/use-vaults"
 import { useMenuCollapse } from "@/lib/use-menu-collapse"
@@ -42,6 +44,7 @@ import {
   ConversationList,
   PersonaCard,
   PersonaFileBanner,
+  DraftBanner,
   ChatActionGroup,
   ContentPanel,
   ContentSlot,
@@ -209,6 +212,18 @@ export function AppShell() {
     refreshFiles: personaFiles.refresh,
   })
   const { close: closePersonaFile } = fileEditor
+  // The persona's drafts (docs/decisions/071), and the draft of a new note open in the editor, which has no file yet.
+  const drafts = useDrafts(activePersona, vaultRefreshKey)
+  const draftEditor = useDraftEditor({
+    handle: activePersona,
+    personaName: activePersonaName,
+    onAccepted: (path) => {
+      refreshVault()
+      selectNote(path)
+      panels.open("editor")
+    },
+  })
+  const { close: closeDraft } = draftEditor
   const { selectedNote, setSelectedNote, openableNote, selectNote: selectVaultNote, noteRenamed } =
     useSelectedNote({
       vaultPath: vaultsState.active,
@@ -220,11 +235,19 @@ export function AppShell() {
   const selectNote = React.useCallback(
     (path: string) => {
       closePersonaFile()
+      closeDraft()
       selectVaultNote(path)
     },
-    [closePersonaFile, selectVaultNote]
+    [closePersonaFile, closeDraft, selectVaultNote]
   )
+  const openDraft = (draft: { path: string; is_new: boolean }) => {
+    if (!draft.is_new) return selectNote(draft.path)
+    closePersonaFile()
+    draftEditor.open(draft.path)
+    panels.open("editor")
+  }
   const openPersonaFile = (name: string) => {
+    closeDraft()
     fileEditor.open(name)
     panels.open("editor")
   }
@@ -235,8 +258,18 @@ export function AppShell() {
   }
   // What the editor is told about a persona file: its load and save, and the strip that names the file and says what
   // is particular to it (docs/decisions/061).
-  const panelFile =
-    fileEditor.file && fileEditor.current
+  const panelFile = draftEditor.file && draftEditor.current
+    ? {
+        ...draftEditor.file,
+        banner: (
+          <DraftBanner
+            name={draftEditor.current.path}
+            onAccept={() => void draftEditor.accept()}
+            onDecline={() => void draftEditor.decline()}
+          />
+        ),
+      }
+    : fileEditor.file && fileEditor.current
       ? {
           ...fileEditor.file,
           banner: (
@@ -517,6 +550,9 @@ export function AppShell() {
         beyondFolderMatches={beyondFolderMatches}
         pinnedNodes={pinnedNodes}
         pinnedShowPath={pinnedShowPath}
+        drafts={drafts}
+        draftSelectedPath={draftEditor.current?.path ?? openableNote}
+        onOpenDraft={openDraft}
         vaultTreeActions={vaultTreeActions}
         unhideFromView={unhideFromView}
         selectNote={selectNote}
@@ -713,7 +749,7 @@ export function AppShell() {
           <MarkdownPanel
             onCollapse={isPhone ? undefined : () => panels.close("editor")}
             storageKey="sympose:shell.md"
-            path={fileEditor.path ?? openableNote}
+            path={draftEditor.path ?? fileEditor.path ?? openableNote}
             file={panelFile}
             reloadToken={fileEditor.reloadToken}
             persona={activePersona}

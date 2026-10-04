@@ -2,6 +2,7 @@ import * as React from "react"
 
 import { notify } from "@/lib/notify"
 import { fetchChanges, resolveChanges, type NoteChanges } from "@/lib/persona-changes-api"
+import { announceDraftsChanged } from "@/lib/use-drafts"
 
 /**
  * The open note's pending changes and comments from the persona (docs/decisions/070): fetched when a note is opened,
@@ -43,6 +44,7 @@ export function usePersonaChanges({ path, persona, enabled = true }: { path?: st
           : s
       )
       const result = await resolveChanges(path, persona, which)
+      announceDraftsChanged() // the note may no longer be a draft
       if (!result.ok) {
         notify.error(result.error)
         setReloadKey((k) => k + 1)

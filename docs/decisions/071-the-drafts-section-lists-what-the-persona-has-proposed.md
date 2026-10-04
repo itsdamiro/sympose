@@ -1,6 +1,6 @@
 # 071 — The Drafts section lists what the persona has proposed, and a new-note draft opens in the editor before any file exists
 
-> **Status: Proposed (2026-10-04).** Not built. The notes-panel half of #21, after ADR 070 (what is stored, and the routes) and ADR 042's amendment (the review in the editor). Web app only; turn-based.
+> **Status: Accepted, built (2026-10-04).** The notes-panel half of #21, after ADR 070 (what is stored, and the routes) and ADR 042's amendment (the review in the editor). Web app only; turn-based.
 
 ## Context
 
@@ -26,10 +26,14 @@ A persona's proposals are kept per note in her own folder (ADR 070) and drawn as
 - The vault stays untouched until an Accept; the tree, search, the nebula and the map do not know drafts exist.
 - Until slice 5 (her tool) proposals exist only when made in code or by tests, so the section is checked with seeded entries.
 
-## Open questions
+## What was built, and how the open questions were settled
 
-- How the editor holds a note that has no file: whether the panel's load and save path takes a "draft" source like the persona's own files do (`file` in `MarkdownPanel`), or the create happens as the first save. The first looks smaller; it is settled when the code is read, and this record is amended with the answer.
-- Whether a draft that only has outdated changes (every passage rewritten) still belongs in the list. This record lists it, since the user may want to decline it.
+- **The editor holds a note with no file through the editor's `file` seam,** the one a persona's own file uses (`useDraftEditor`, `DraftBanner`): the text comes from the proposal, and the editor's key for it is `draft:<handle>/<path>`, never a vault path. The first alternative, making the first save create the file, was rejected: autosave and the flush on leaving a note both save without being asked, so an edit would have made the note without the user accepting it.
+- **Saving a draft only keeps the edit, for the session.** The button, `⌘/Ctrl-S`, autosave and leaving the draft store the text in the hook; reopening the draft shows it; Decline and Accept forget it. Known limit: the editor's "Saved" notice appears on `⌘/Ctrl-S` in a draft though nothing is written to the vault, and the edit is lost on a reload of the page.
+- **Accept** flushes the editor, then creates the note (the ordinary create, which refuses a name in use and leaves the draft), writes the text over the stub the create makes, forgets the proposal and opens the note. If the write fails after the create, the empty note stays and the draft is kept, with the reason shown. **Decline** flushes (so an unsaved edit is not sent to a path that is not a note), forgets the proposal and creates nothing.
+- **A draft with only outdated changes is listed,** so it can be declined.
+- **The list is read** on mount, on a persona change, when the vault is refreshed, when the window is focused and when a change is resolved or a draft accepted or declined (`announceDraftsChanged`). The end of a chat turn is not wired yet: until the persona's tool exists (slice 5) nothing proposes during a turn; slice 5 adds it.
+- **A draft row has no menu and no reserved room for one:** the shared note row now keeps the room on the right for a `⋯` button only when it has one, so the end label (the count or "new") does not move when the row is focused.
 
 ## Alternatives rejected
 

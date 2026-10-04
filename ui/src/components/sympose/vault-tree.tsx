@@ -639,7 +639,8 @@ export function VaultTreeRow({
           style={{ paddingLeft: `${basePad + (depth > 0 ? 20 : 0)}px` }}
           className={cn(
             "flex min-w-0 flex-1 items-center gap-1.5 py-1 pr-0 text-left transition-[color,padding-right] duration-thumb ease-snappy",
-            "group-hover/row:pr-8 group-focus-within/row:pr-8 group-has-data-popup-open/row:pr-8",
+            // Room for the row's `⋯` button, which only a row with a menu has.
+            menuReady && "group-hover/row:pr-8 group-focus-within/row:pr-8 group-has-data-popup-open/row:pr-8",
             "focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none",
             isSelected
               ? "text-entity"

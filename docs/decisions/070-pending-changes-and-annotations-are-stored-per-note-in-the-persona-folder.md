@@ -53,6 +53,7 @@ None of these routes writes a vault file, and none reaches `purge` or `empty_tra
 - How much context is kept before and after a passage (a fixed number of characters or the surrounding sentence), to be set from a measurement on edited notes.
 - Whether declined and accepted proposals are kept as history for a time or removed at once; the first version removes them.
 - Whether the note-level Accept saves once when some proposals are outdated (it applies the pending ones and leaves the outdated ones for the user), which is the default here.
+- **Two proposals on one passage (found 2026-10-04, not fixed).** Two proposals quoting the same passage (the same change proposed twice, or two different replacements for it) are each found exactly once in the note, so both read as pending, and the note-level Accept applies both: the text came out doubled ("Plenty of textPlenty of text"). Settle in slice 5, with her tool: `propose_edit` refuses, or replaces, a proposal whose passage overlaps one already waiting, and the editor's Accept all skips a change whose range was already changed by another in the same pass. Needs a test for each side.
 
 ## Alternatives rejected
 

@@ -166,4 +166,20 @@ describe("usePersonaChanges", () => {
     })
     expect(api.resolveChanges).not.toHaveBeenCalled()
   })
+
+  it("tells the Drafts list when changes were resolved, since the note may no longer be a draft", async () => {
+    api.fetchChanges.mockResolvedValue(noteChanges("a.md", ["1"]))
+    api.resolveChanges.mockResolvedValue({ ok: true, resolved: ["1"] })
+    const heard = vi.fn()
+    window.addEventListener("sympose:drafts-changed", heard)
+    const { result } = renderHook(() => usePersonaChanges({ path: "a.md", persona: "samantha" }))
+    await waitFor(() => expect(result.current.changes).not.toBeNull())
+
+    await act(async () => {
+      await result.current.resolve(["1"])
+    })
+
+    expect(heard).toHaveBeenCalledTimes(1)
+    window.removeEventListener("sympose:drafts-changed", heard)
+  })
 })

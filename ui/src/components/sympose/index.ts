@@ -43,6 +43,7 @@ export { NotificationsSection } from "./notifications-section"
 export { ModelChip } from "./model-chip"
 export { PersonaCard } from "./persona-card"
 export { PersonaFileBanner } from "./persona-file-banner"
+export { DraftBanner } from "./draft-banner"
 export { PersonaSwitcher } from "./persona-switcher"
 export {
   RecentNotesPreferencesSection,

@@ -58,6 +58,7 @@ function setup(over: Partial<React.ComponentProps<typeof VaultFolderView>> = {})
     unhideFromView: vi.fn(),
     selectNote: vi.fn(),
     openEditor: vi.fn(),
+    onOpenDraft: vi.fn(),
   }
   const props: React.ComponentProps<typeof VaultFolderView> = {
     trashView: false,
@@ -76,6 +77,7 @@ function setup(over: Partial<React.ComponentProps<typeof VaultFolderView>> = {})
     beyondFolderMatches: [],
     pinnedNodes: [],
     pinnedShowPath: false,
+    drafts: [],
     vaultTreeActions: { persona: "samantha" } as React.ComponentProps<typeof VaultFolderView>["vaultTreeActions"],
     ...spies,
     ...over,
@@ -324,5 +326,31 @@ describe("VaultFolderView: dropping a note on the heading", () => {
     fireEvent.dragEnter(heading(), dragData("Daily/x.md"))
     expect(s.moveNote).not.toHaveBeenCalled()
     expect(heading().className).not.toContain("ring-brand")
+  })
+})
+
+describe("VaultFolderView: the Drafts section", () => {
+  const draft = { path: "Ideas/New plan.md", name: "New plan", is_new: true, count: 1, time: "t" }
+
+  it("lists the drafts above the notes, and opens one when its row is chosen", () => {
+    const s = setup({ drafts: [draft], vaultTreeActions: { persona: "samantha", hideExtension: true } as React.ComponentProps<typeof VaultFolderView>["vaultTreeActions"] })
+    expect(screen.getByText("Drafts")).toBeTruthy()
+    fireEvent.click(screen.getByText("New plan"))
+    expect(s.onOpenDraft).toHaveBeenCalledWith(draft)
+    const section = document.querySelector('[data-slot="drafts-section"]')!
+    expect(section.compareDocumentPosition(screen.getByTestId("tree")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it("is not shown on the Bin or while searching, where nothing lists drafts", () => {
+    setup({ drafts: [draft], trashView: true })
+    expect(screen.queryByText("Drafts")).toBeNull()
+    cleanup()
+    setup({ drafts: [draft], vaultSearchQuery: "plan" })
+    expect(screen.queryByText("Drafts")).toBeNull()
+  })
+
+  it("shows nothing when there are no drafts", () => {
+    setup({ drafts: [] })
+    expect(document.querySelector('[data-slot="drafts-section"]')).toBeNull()
   })
 })
