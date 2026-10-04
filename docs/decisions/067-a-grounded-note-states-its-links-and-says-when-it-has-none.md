@@ -23,6 +23,8 @@ The last sentence is left out when a direction was cut off at its cap, since a n
 
 **A pointer when the note also has neighbours by meaning (added after the first measurement, see Measured).** "No links" is the whole answer to a question about links, and a question about what is *connected* has more to say. When the same note carries a "possibly related" line (ADR 066), the links line ends with "Notes close in meaning to X, which are not links, are listed below as possibly related." It adds nothing when there are no neighbours.
 
+**A second passage of a note says so.** A note found through two passages was printed as two bullets under one identical label ("Marathon Training Log (Marathon Training Log.md)"), and she read them as two notes: "you've got Marathon Training Log listed twice", "linked to itself". The second and later passages of a note are labelled "another passage of the same note".
+
 **Stated once per note.** The line (and "Also connected") is carried by a note's first passage only, not repeated under each passage of the same note, where the lines of two notes with alike titles interleaved. It also counts the note once, not once per passage, when a cloud model has not been allowed them.
 
 It is present for every grounded note, including one with no links at all, so that "none" is a statement she can quote instead of an absence she must guess from.
@@ -53,6 +55,8 @@ The first wording was no better than nothing: the bare "it" and a `;` that separ
 **A cost found:** asked "which notes are connected to my marathon training log?", a note with no links but a note close in meaning (ADR 066) now gets "it has no links, nothing links to it" in most replies (4 of 6 at n=6, against 0 of 6 before) and the neighbour is left unmentioned, where before she offered it. The answer is true; it is less helpful. The "possibly related" line is right beside it in the prompt.
 
 **The pointer (n=6 per case, `tests/live_related_cases.py`).** Asked "which notes are connected to my marathon training log?", the reply names the neighbour by meaning 2 of 6 before the pointer (8 of 9 and 5 of 6 in the two runs before ADR 067) and 3 of 6 and 4 of 6 with it; "what is related to my sourdough starter" 6 of 6, the link-trap case 6 of 6, the line-off control 0 of 6. Two of the three remaining misses are a different fault: the same note appears as two bullets with the same title (two passages), and she says it is "listed twice". Safety, 32 replies each to the two Workspaces yes/no questions with and without the pointer, read by hand: 5 to 6 wrong without, 5 to 7 with; no sign it makes her state a link that is not there.
+
+**Another passage of the same note (n=12, the connected-to-marathon question).** The misreading as two notes with one title was 1 of 12 before (2 of 6 in an earlier run) and 0 of 12 after; naming the neighbour by meaning 5 of 12 before, 7 of 12 after. The misses left are replies that truthfully say there are no links and do not mention the neighbour.
 
 ## Consequences
 

@@ -623,6 +623,19 @@ def test_a_hubs_links_name_five_and_count_the_rest_without_claiming_the_others_a
     assert "has no link with a note" not in text  # three more are linked, so an unnamed note may be
 
 
+def test_a_second_passage_of_one_note_says_it_is_another_passage_of_the_same_note():
+    # docs/decisions/067: two bullets under one identical label were read as two notes ("listed twice").
+    first = _grounding_result(snippet="The plan.")
+    second = _grounding_result(snippet="The knee.")
+    other = _grounding_result(title="Budget", rel_path="Budget.md", snippet="The spend.")
+
+    lines = prompt.build_user_turn("who?", [first, other, second]).splitlines()
+
+    assert "- Typography (Typography.md): The plan." in lines
+    assert "- Budget (Budget.md): The spend." in lines  # a note shown once is labelled as before
+    assert "- Typography (Typography.md, another passage of the same note): The knee." in lines
+
+
 def test_a_note_with_neighbours_by_meaning_points_from_its_links_line_to_them():
     # docs/decisions/067: "no links" answers a question about links; a question about what is connected has more to say.
     result = {**_grounding_result(), "links": _links(), "related": ["Cara"]}

@@ -171,11 +171,15 @@ def notes_block(
         )
         return "\n".join(reasons) or NO_NOTES
     lines = ["Notes found in the vault for this message:"]
+    seen: set[tuple[str, str]] = set()
     for result in grounding_results:
         heading = result.get("heading")
         where = result["rel_path"]
         if heading and heading != result["title"]:
             where += f" › {heading}"
+        if (result["title"], where) in seen:  # two passages under one label read as two notes (docs/decisions/067)
+            where += ", another passage of the same note"
+        seen.add((result["title"], where))
         lines.append(f"- {result['title']} ({where}): {passage_text(result)}")
     if omitted:
         lines.append(f"({omitted} more matching passages were left out to fit the context window.)")
