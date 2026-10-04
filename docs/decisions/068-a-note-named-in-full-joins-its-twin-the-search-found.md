@@ -36,7 +36,7 @@ No labelled message in any set exercises a twin, so the sets show the rule costs
 - A question about a note whose title differs from another's by a letter is answered from the note it names.
 - A message that names one of two twins brings both, one extra passage.
 - ADR 030's promise that the rescue "changes nothing when the search found a note" now has this one exception.
-- The model's own confusion between two near-identical titles when both are in the prompt (the yes/no questions) is still there, at the rate ADR 067 measured.
+- The model's own confusion between two near-identical titles when both are in the prompt (the yes/no questions) is still there, at the rate ADR 067 measured. On Gemini Flash (a cloud model, the English Obsidian help docs, 8 replies per direction) the two questions were answered correctly 16 of 16, so the confusion belongs to the small local model.
 
 ## Alternatives rejected
 

@@ -24,13 +24,18 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 CASES: list[tuple[str, LiveCase]] = [
     ("auto", LiveCase("related-to-starter", ("what else in my notes is related to my sourdough starter?",), expect=(r"Weekend Bread Baking",), forbid=(r"(?<!not )(?<!n't )\blinks? to\b", r"is linked (?:to|with) (?!no\b)"))),
     ("auto", LiveCase("related-to-marathon", ("which notes are connected to my marathon training log?",), expect=(r"Trail Running Routes",), forbid=(r"is linked (?:to|with) (?!no\b)",))),
-    ("auto", LiveCase("similar-trap", ("does my marathon training log link to the trail running routes note?",), forbid=(r"(?<!not )(?<!n't )(?<!no )\blinks? to\b.*trail running", r"yes[,.]? (?:it )?(?:is )?link",))),
+    ("auto", LiveCase("similar-trap", ("does my marathon training log link to the trail running routes note?",), forbid=(r"(?<!not )(?<!n't )(?<!no )(?<!directly )(?<!any )\blinks? to\b.*trail running", r"yes[,.]? (?:it )?(?:is )?link",))),
     ("off", LiveCase("related-to-starter-off", ("what else in my notes is related to my sourdough starter?",), expect=(r"Weekend Bread Baking",))),
 ]
 
 
 def main(runs: int, only: list[str]) -> None:
     tmp = live.setup_scratch()
+    if model := os.environ.get("RELATED_MODEL"):
+        # A cloud model gets only this invented vault: the approval is written to the scratch settings file alone.
+        from sympose import settings_store as _s
+        _s.set("chat_model", model)
+        _s.set("cloud_share", ["notes", "properties", "connections", "vault_map"])
     os.environ["VAULT_PATHS"] = os.path.join(HERE, "fixtures", "related_vault")
     from sympose import settings_store
     from sympose.engine import grounding, semantic_refresh
