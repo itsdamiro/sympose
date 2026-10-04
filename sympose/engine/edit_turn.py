@@ -28,6 +28,7 @@ class Edit:
     tool: bool  # a tool call (a model that can call tools) rather than a marker in the reply
     note: OpenNote | None = None  # what she is shown, within the cap
     cut: bool = False  # the note was longer than the cap
+    withheld: bool = False  # a note is open but the model may not have its text (a cloud model, ADR 031)
     source: OpenNote | None = None  # the whole open note, which a change is placed in (she is shown `note`, within the cap)
 
     @property
@@ -49,7 +50,7 @@ def _within(text: str, limit: int) -> tuple[str, bool]:
     return (head[:newline] if newline > limit // 2 else head), True
 
 
-def resolve(persona: dict, can_call_tools: bool, open_note: OpenNote | None) -> Edit:
+def resolve(persona: dict, can_call_tools: bool, open_note: OpenNote | None, may_see: bool = True) -> Edit:
     """What this turn gives her. In `plan` she is given no tool and no note; otherwise the tool or the marker, and
     the open note when there is one, cut to the cap."""
     mode = edit_mode.for_persona(persona)
@@ -57,8 +58,10 @@ def resolve(persona: dict, can_call_tools: bool, open_note: OpenNote | None) -> 
         return Edit(mode, False)
     if open_note is None:
         return Edit(mode, can_call_tools)
+    if not may_see:
+        return Edit(mode, can_call_tools, withheld=True)
     text, cut = _within(open_note.text, cap())
-    return Edit(mode, can_call_tools, OpenNote(open_note.path, text), cut, open_note)
+    return Edit(mode, can_call_tools, OpenNote(open_note.path, text), cut, source=open_note)
 
 
 _EDIT_TOOL = (
@@ -91,6 +94,10 @@ _PLAN = (
     "In this conversation you cannot change notes: talk about a change if it helps, and the user will make it "
     "themselves. Do not write any block that proposes one."
 )
+_WITHHELD = (
+    "A note is open in the editor, but the user has not allowed its text to be sent to this model, so you cannot see it "
+    "or change it; if asked to change it, say so."
+)
 _CUT = "The note is longer than what is shown: only the first {n} characters are, so propose changes only to those."
 
 
@@ -100,7 +107,8 @@ def message(edit: Edit, user_message: str) -> str:
         return f"{user_message}\n\n{_PLAN}"
     new_note = _NOTE_TOOL if edit.tool else _NOTE_MARKER
     if edit.note is None:
-        return f"{user_message}\n\n{new_note} {_REVIEW}"
+        held = f"{_WITHHELD} " if edit.withheld else ""
+        return f"{user_message}\n\n{held}{new_note} {_REVIEW}"
     rules = [_EDIT_TOOL if edit.tool else _EDIT_MARKER, new_note, _REVIEW]
     if edit.cut:
         rules.append(_CUT.format(n=len(edit.note.text)))

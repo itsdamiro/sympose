@@ -133,3 +133,17 @@ def test_a_note_with_a_longer_run_of_backticks_gets_a_longer_fence():
     text = edit_turn.message(edit_turn.resolve(SAMANTHA, False, tricky), "x")
 
     assert "`````\n````\ninner" in text
+
+
+def test_a_note_the_model_may_not_have_is_not_sent_and_she_is_told_it_is_withheld():
+    edit = edit_turn.resolve(SAMANTHA, False, NOTE, may_see=False)
+    text = edit_turn.message(edit, "make it four")
+
+    assert edit.note is None and edit.source is None and edit.withheld
+    assert "three times" not in text and "Garden plan.md" not in text
+    assert "not allowed" in text and "make it four" in text
+    assert "propose_edit" not in text
+
+
+def test_a_note_that_may_be_seen_is_not_withheld():
+    assert not edit_turn.resolve(SAMANTHA, False, NOTE).withheld

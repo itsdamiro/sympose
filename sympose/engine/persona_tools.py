@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from sympose import vault_paths
-from sympose.engine import chat_tools, edit_mode, edit_tools, edit_turn, lookup, lookup_tools, memory, memory_tools, past_chats, tool_support
+from sympose.engine import chat_tools, edit_mode, edit_tools, edit_turn, lookup, lookup_tools, memory, memory_tools, past_chats, sharing, tool_support
 
 
 @dataclass(frozen=True)
@@ -34,7 +34,7 @@ def resolve(
     chose_chats = past_chats.chooses_ask()
     wants_edit = (edits or open_note is not None) and edit_mode.for_persona(persona) != edit_mode.PLAN
     can_call_tools = (chose_ask or chose_chats or wants_edit or memory.remember_enabled()) and tool_support.can_call_tools(target_model)
-    edit = edit_turn.resolve(persona, can_call_tools, open_note) if edits or open_note is not None else None
+    edit = edit_turn.resolve(persona, can_call_tools, open_note, sharing.OPEN_NOTE in sharing.allowed(target_model)) if edits or open_note is not None else None
     return Modes(
         ask=chose_ask and can_call_tools,
         chose_ask=chose_ask,

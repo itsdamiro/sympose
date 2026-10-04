@@ -136,6 +136,7 @@ describe("grounded notes", () => {
     expect(cloudWords(["notes", "vault_map", "chats", "properties", "connections", "memory", "recaps"])).toEqual([
       "notes", "vault map", "earlier conversations", "note properties", "note connections", "her memory", "recaps",
     ])
+    expect(cloudWords(["open_note"])).toEqual(["the open note"])
     expect(cloudWords(["something_new"])).toEqual(["something new"])
     expect(cloudWords(undefined)).toEqual([])
   })

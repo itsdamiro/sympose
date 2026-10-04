@@ -6,7 +6,7 @@ import pytest
 from helpers import write_persona
 
 from sympose import note_changes, settings_store
-from sympose.engine import edit_mode, edit_tools, tool_support, turn
+from sympose.engine import edit_mode, edit_tools, sharing, tool_support, turn
 from sympose.engine.edit_turn import OpenNote
 from sympose.engine.model import ModelReply
 from sympose.engine.model_tools import ToolCall
@@ -77,6 +77,7 @@ def test_a_marker_from_a_model_that_cannot_call_tools_becomes_a_proposal_and_lea
 
 
 def test_a_model_that_can_call_tools_is_given_the_pair_and_the_call_makes_a_proposal(monkeypatch):
+    sharing.set_approved(sharing.OPEN_NOTE, True)
     call = ToolCall("c1", "propose_edit", '{"find": "three times", "replace": "four times", "say": "s"}')
     seen = model_that(monkeypatch, ModelReply("", None, tool_calls=(call,)), ModelReply("Proposed it.", 5))
 
@@ -118,6 +119,7 @@ def test_edits_on_with_no_note_open_offers_a_new_note_only(monkeypatch):
 
 
 def test_when_the_tools_are_refused_the_turn_is_retried_with_the_marker(monkeypatch):
+    sharing.set_approved(sharing.OPEN_NOTE, True)
     from sympose.engine import lookup
     calls = {"n": 0}
 
@@ -133,3 +135,22 @@ def test_when_the_tools_are_refused_the_turn_is_retried_with_the_marker(monkeypa
     result = turn.run_turn("samantha", "make it four", model=CLOUD, open_note=NOTE)
 
     assert len(waiting()) == 1 and result.reply == "ok"
+
+
+def test_a_cloud_model_is_not_sent_the_open_note_until_the_user_approves_it(monkeypatch):
+    seen = model_that(monkeypatch, ModelReply("I cannot see it.", 5))
+
+    result = turn.run_turn("samantha", "make it four", model=CLOUD, open_note=NOTE)
+
+    assert "three times" not in seen[0]["messages"][-1]["content"] and not waiting()
+    assert result.sent["withheld"] == [sharing.OPEN_NOTE] and sharing.OPEN_NOTE not in result.sent["cloud"]
+
+
+def test_an_approved_cloud_model_is_sent_the_open_note_and_the_turn_says_so(monkeypatch):
+    sharing.set_approved(sharing.OPEN_NOTE, True)
+    seen = model_that(monkeypatch, ModelReply("ok", 5), ModelReply("ok", 5))
+
+    result = turn.run_turn("samantha", "make it four", model=CLOUD, open_note=NOTE)
+
+    assert "three times" in seen[0]["messages"][-1]["content"]
+    assert sharing.OPEN_NOTE in result.sent["cloud"] and result.sent["withheld"] == []

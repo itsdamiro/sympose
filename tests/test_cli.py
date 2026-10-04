@@ -2992,8 +2992,9 @@ def test_switching_from_cloud_to_local_says_nothing_leaves_the_computer(profiles
 
 def test_no_question_when_everything_is_already_allowed(profiles):
     from sympose import settings_store
+    from sympose.engine import sharing
 
-    settings_store.set("cloud_share", ["notes", "properties", "recaps", "chats", "vault_map", "connections", "memory"])
+    settings_store.set("cloud_share", list(sharing.CATEGORIES))
 
     async def scenario():
         app = SymposeCLI()

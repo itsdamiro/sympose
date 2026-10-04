@@ -267,3 +267,16 @@ def test_a_settings_file_that_cannot_be_written_says_so(tmp_path, monkeypatch):
 
 def test_every_category_has_a_description_for_the_question_asked_of_the_user():
     assert set(sharing.DESCRIPTIONS) == set(sharing.CATEGORIES)
+
+
+def test_the_open_note_is_a_category_a_cloud_model_does_not_get_until_approved():
+    assert sharing.OPEN_NOTE in sharing.CATEGORIES
+    assert sharing.OPEN_NOTE not in sharing.allowed("gemini/gemini-flash-latest")
+    sharing.set_approved(sharing.OPEN_NOTE, True)
+    assert sharing.OPEN_NOTE in sharing.allowed("gemini/gemini-flash-latest")
+    assert sharing.OPEN_NOTE in sharing.allowed("ollama_chat/gemma2:9b")
+
+
+def test_a_turn_that_sent_the_open_note_names_the_category():
+    assert sharing.categories_of([], [], open_note=True) == [sharing.OPEN_NOTE]
+    assert sharing.categories_of([], []) == []
