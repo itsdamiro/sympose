@@ -61,6 +61,8 @@ A design talk replaced the chat card and the separate review queue with a collab
 - **Web app only.** Reviewing, accepting and commenting are editor surfaces and are not built for the terminal, which is not expected to create or edit notes. In a terminal chat the persona can say a change is waiting and point to the web app.
 - **Stylo.** Custom toolbar buttons are supported today (the note-level Accept and Decline). The inline marks, per-change buttons, margin markers and comment popovers are not in stylo's public props; stylo exposes the CodeMirror view through `getView()`, an escape hatch with no stability promise. A spike checks that extensions added to the live view coexist with stylo's in-place canvas; a lasting version needs a capability request to stylo, written as a document, since stylo is not edited from here.
 
+**Amended again (2026-10-04, ADR 072):** the reserved second tier (direct writing, per persona and per folder) is not pursued: in every mode the user has the last say by clicking Accept. How much she does before that is the user's choice among four modes (plan, manual, accept, auto), set out in ADR 072.
+
 ## Open questions
 
 - **The write-faithfulness bar, Tier 1.** First measurement made (see Measured, 2026-10-04); the bar itself is still for the user to agree. A larger set of notes and a second small model are the open part.
