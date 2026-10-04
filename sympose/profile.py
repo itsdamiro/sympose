@@ -121,13 +121,14 @@ def get_profile(handle: str) -> dict[str, Any] | None:
         return None
     if not isinstance(data, dict):
         return None
-    local_model = _local_model(os.path.join(os.path.dirname(path), PERSONA_LOCAL_FILENAME))
-    return _normalize({**data, "model": local_model} if local_model else data, handle)
+    local = os.path.join(os.path.dirname(path), PERSONA_LOCAL_FILENAME)
+    overrides = {key: value for key in ("model", "edit_mode") if (value := _local_value(local, key))}
+    return _normalize({**data, **overrides}, handle)
 
 
-def _local_model(path: str) -> str | None:
-    """The model the user picked (docs/decisions/046), from the untracked override beside the shipped
-    file. An absent, unreadable or invalid file gives `None`: it never costs the persona its place."""
+def _local_value(path: str, key: str) -> str | None:
+    """A text value the user set in the untracked override beside the shipped file (the model, docs/decisions/046; the
+    edit mode, docs/decisions/072). An absent, unreadable or invalid file gives `None`: it never costs the persona her place."""
     if not os.path.isfile(path):
         return None
     try:
@@ -136,8 +137,8 @@ def _local_model(path: str) -> str | None:
     except (OSError, UnicodeDecodeError, yaml.YAMLError) as e:
         log.warning("Ignoring %s: %s", path, e)
         return None
-    model = data.get("model") if isinstance(data, dict) else None
-    return model if isinstance(model, str) and model.strip() else None
+    value = data.get(key) if isinstance(data, dict) else None
+    return value if isinstance(value, str) and value.strip() else None
 
 
 def resolve_profile(persona: str | None) -> dict[str, Any] | None:

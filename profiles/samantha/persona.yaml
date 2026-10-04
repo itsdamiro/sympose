@@ -9,5 +9,9 @@ icon: 'brain'
 accent: 'oklch(0.55 0.13 233)'
 accent_dark: 'oklch(0.78 0.13 220)'
 
+# What she does on your notes before your Accept (docs/decisions/072): plan, manual, accept or auto. Your own choice,
+# made in the app, is kept in persona.local.yaml and wins over this.
+edit_mode: 'manual'
+
 # "*" = full vault access.
 vault_folders: '*'

@@ -6,7 +6,7 @@ channel's own (the terminal's are in `cli/display_settings.py`)."""
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from sympose.engine import budget, compaction, embeddings, followup, history_cap, lookup, memory, memory_refresh, model_wait, parallel, past_chats, recap, related
+from sympose.engine import budget, compaction, edit_mode, embeddings, followup, history_cap, lookup, memory, memory_refresh, model_wait, parallel, past_chats, recap, related
 
 TOGGLE, CHOICE, NUMBER = "toggle", "choice", "number"
 ON, OFF = "on", "off"
@@ -32,8 +32,8 @@ def toggle(key: str, summary: str, current: Callable[[], bool], default: bool = 
     return Setting(key, TOGGLE, summary, current, lambda: default, group=group)
 
 
-CONTEXT, SEARCH, LOOKUP, MEMORY, CONVERSATIONS = "Context", "Search", "Note lookup", "Memory", "Conversations"
-GROUPS = (CONTEXT, SEARCH, LOOKUP, MEMORY, CONVERSATIONS)
+CONTEXT, SEARCH, LOOKUP, MEMORY, CONVERSATIONS, EDITING = "Context", "Search", "Note lookup", "Memory", "Conversations", "Editing"
+GROUPS = (CONTEXT, SEARCH, LOOKUP, MEMORY, CONVERSATIONS, EDITING)
 
 SETTINGS: list[Setting] = [
     Setting(
@@ -124,6 +124,10 @@ SETTINGS: list[Setting] = [
     Setting(
         parallel.SETTING, CHOICE, "replies in several conversations at once",
         parallel.mode, lambda: parallel.AUTO, choices=(parallel.AUTO, parallel.ON, parallel.OFF), group=CONVERSATIONS,
+    ),
+    Setting(
+        edit_mode.SETTING, CHOICE, "what she does on notes before your Accept",
+        edit_mode.mode, lambda: edit_mode.DEFAULT, choices=edit_mode.MODES, group=EDITING,
     ),
 ]
 

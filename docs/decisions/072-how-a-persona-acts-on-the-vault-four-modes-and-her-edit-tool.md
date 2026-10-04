@@ -10,7 +10,9 @@ The user wants how much she does on her own to be their choice, set the way Clau
 
 ## Decision
 
-**Four modes, one setting per persona** (`edit_mode`, kept with her other settings, not a literal in code). They differ in how much she does before the user's Accept, never in whether the Accept is needed:
+**Four modes, set per persona with a global fallback** (`edit_mode`). A persona's own `edit_mode` is the setting that counts, read from the user's untracked `persona.local.yaml` first (the same override file the chosen model lives in, ADR 046, so a user's choice never edits a shipped file) and then from the shipped `persona.yaml`; the global `edit_mode` in the settings registry (listed in both channels like every other setting) applies only to a persona with neither. Both ship as `manual`: shipped Samantha has `edit_mode: manual` written in her file, a persona created in the app gets it written at creation, and the global setting is the fallback for hand-made files, so no persona can inherit a more autonomous mode she was not given on purpose. Neither value is a literal in code beyond the one default (ADR rule on settings). The warning below is shown when a user chooses `accept` or `auto` for a persona or globally, and names the model the persona uses. The earlier idea, inheriting a global mode only when the persona's model was measured as faithful, was dropped as a rule the engine would guess at; the explicit value in the file replaces it.
+
+**The four modes** (they differ in how much she does before the user's Accept, never in whether it is needed):
 
 | Mode | What she does before the user's Accept |
 |---|---|
@@ -54,6 +56,32 @@ It is information, not a block: the user can choose `auto` with any model. The s
 - **How faithful the marker shape is against the tool shape**, on `gemma2:9b` and Gemini Flash, with the real prompt (not Spike B's), which is the measurement slice 5 starts with; and whether the figures above hold on a longer note.
 - **Where the note table lives and how a model gets an entry** (a measurement script and a row, like `lookup.MEASURED`).
 - **`accept` mode and an applied edit the user then edits over:** the same outdated rule as a pending change, or just a text change; settled when built.
+
+## Measured (2026-10-04): the marker with the real prompt, on `gemma2:9b`
+
+`tests/live_edit_cases.py`: Samantha's real system prompt, the open note and the instructions in the user turn, the marker shape (`<!-- propose_edit: {...} -->`), Spike B's nine edit requests, plus three messages where nothing should be proposed (a question about the note, thanks, "would it be better to..."). Invented notes only. Two runs per case (18 replies per variant), so these are directions, not rates. Spike B's bare prompt had 29 of 36 right for the same model.
+
+| Where the instructions sit | Edits right | No proposal when none asked |
+|---|---|---|
+| A: before the note and the request (one run) | 3 of 9 | 3 of 3 |
+| B: after the request, last in the message | 11 of 18 | 6 of 6 |
+| C: B plus "this is a task, not a chat" | 4 of 18 | 6 of 6 |
+| D: C plus a system-prompt line "you make the change by proposing it" | 12 of 18 | 2 of 6 |
+
+What the replies show:
+
+- **The persona costs about 20 points.** With Samantha's soul the model often chats about the note ("do you want me to try a rewrite?") instead of proposing; instructions placed last (B) help, as ADR 020 predicts for small models, and a firmer "task, not a chat" (C) made it worse.
+- **A push to act causes unasked proposals.** D proposed a typo fix after "thanks" and a change after a "would it be better" question (4 of 6 messages). That is the behaviour `manual` must not have and `auto` is for: the wording of D belongs to `auto` only, B's to `manual`.
+- **A passage that is not unique is refused, in the open:** "change the first Pack charger line" quoted a passage found twice, 0 of 2 matched, and the user would be told a change could not be placed, not shown a wrong one.
+- **Some wrong patches are applied:** asked to add a bullet it wrote the new line without the list marker, and asked to add a section at the end it put an empty heading after "Schedule". Both are patches that find their passage and are wrong, the case a person must catch at Accept.
+- **Her one-sentence explanation can misdescribe the patch:** for the section it said "added a Notes section at the end" over a patch that did not. The explanation shown beside a change is her claim, not a description of the diff; the diff is what the user reviews.
+- **Not measured yet:** the tool-call shape; a longer note; more runs on `gemma2:9b`.
+
+**Gemini Flash (`gemini/gemini-flash-latest`), same script, variants B and D, four runs per case (36 edit replies and 12 quiet replies each; the user approved a scratch cloud run, invented notes and Samantha's shipped prompt only):** 36 of 36 edits right and 12 of 12 quiet in both. The persona did not cost it anything, the pushier wording of D did not make it propose unasked, and it did not hit any of the failures above (it quoted a unique passage for the "first Pack charger" line, wrote the bullet marker, put the new section at the end). So the difference between the two models is large and the wording matters only for the small one; the table of what to show beside `auto` and `accept` (above) holds as written, with Flash's own figure now measured through the real prompt as well as Spike B's bare one.
+
+## Built so far (2026-10-05): the setting and the warning (step 1)
+
+`engine/edit_mode.py` (the four modes, the global `edit_mode` setting defaulting to `manual`, `for_persona`, and `note(mode, model)`, the measured figures by model); `profile` now reads `edit_mode` as well as `model` from the untracked `persona.local.yaml`, over the shipped `persona.yaml`; the row is in the settings registry under a new group "Editing", so both channels list it (the web Settings page draws groups generically); shipped Samantha has `edit_mode: 'manual'`. Not built yet: the persona page's own control and the note shown beside `accept` and `auto`, the marker parser and tool pair, the prompt wording per mode, the `open_note` and `annotations` share categories, `accept`'s behaviour in the editor, the duplicate-proposal fix.
 
 ## Alternatives rejected
 
