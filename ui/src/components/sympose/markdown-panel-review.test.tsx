@@ -76,6 +76,7 @@ vi.mock("@/lib/vault-note-api", () => api)
 vi.mock("@/lib/persona-changes-api", () => changesApi)
 const notify = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }))
 vi.mock("@/lib/notify", () => ({ notify }))
+vi.mock("@/components/sympose/note-actions-menu", () => ({ NoteActionsMenu: () => null }))
 
 import { captureContext } from "@/lib/passage-finder"
 import type { Proposal } from "@/lib/persona-changes-api"
@@ -116,18 +117,7 @@ afterEach(() => {
 const open = (props: Partial<React.ComponentProps<typeof MarkdownPanel>> = {}) =>
   render(<MarkdownPanel path="Garden plan.md" persona="samantha" preferences={PREFERENCES} toolbarItems={["undo"]} {...props} />)
 const editorView = () => EditorView.findFromDOM(screen.getByTestId("cm").querySelector(".cm-editor") as HTMLElement) as EditorView
-// The review buttons are the first entries of the note's `⋯` menu; whether an item is greyed is worked out when
-// the menu opens, so each look closes it and opens it again.
-const reviewItem = (name: RegExp | string) => {
-  const trigger = screen.getByRole("button", { name: "Note actions" })
-  if (trigger.getAttribute("aria-expanded") === "true") fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" })
-  fireEvent.mouseDown(trigger)
-  fireEvent.mouseUp(trigger)
-  fireEvent.click(trigger)
-  return screen.queryByRole("menuitem", { name })
-}
-const isOff = (el: HTMLElement | null) => el?.getAttribute("aria-disabled") === "true"
-const commentButton = () => reviewItem("Comment on the selected text")
+const commentButton = () => document.querySelector('button[aria-label="Comment on the selected text"]') as HTMLButtonElement | null
 const doc = () => (screen.getByTestId("cm").querySelector(".cm-content") as HTMLElement).textContent
 
 describe("MarkdownPanel with the persona's suggested changes", () => {
@@ -168,8 +158,8 @@ describe("MarkdownPanel with the persona's suggested changes", () => {
   it("accepts the whole note from the toolbar: every change applied, forgotten, and the note saved with them", async () => {
     changesApi.fetchChanges.mockResolvedValue(changes([edit("p1", "three times", "four times"), edit("p2", "raised", "sunken")]))
     open()
-    await waitFor(() => expect(isOff(reviewItem(/accept all suggested changes/i))).toBe(false))
-    const accept = reviewItem(/accept all suggested changes/i) as HTMLElement
+    const accept = await screen.findByRole("button", { name: /accept all suggested changes/i })
+    await waitFor(() => expect((accept as HTMLButtonElement).disabled).toBe(false))
 
     await act(async () => fireEvent.click(accept))
 
@@ -182,8 +172,8 @@ describe("MarkdownPanel with the persona's suggested changes", () => {
     changesApi.fetchChanges.mockResolvedValue(changes([edit("p1", "three times", "four times")]))
     open()
 
-    await waitFor(() => expect(isOff(reviewItem(/decline all suggested changes/i))).toBe(false))
-    const decline = reviewItem(/decline all suggested changes/i) as HTMLElement
+    const decline = await screen.findByRole("button", { name: /decline all suggested changes/i })
+    await waitFor(() => expect((decline as HTMLButtonElement).disabled).toBe(false))
 
     await act(async () => fireEvent.click(decline))
 
@@ -192,17 +182,16 @@ describe("MarkdownPanel with the persona's suggested changes", () => {
     expect(api.saveVaultNote).not.toHaveBeenCalled()
   })
 
-  it("adds the accept and decline items to the review menu only while the note has suggestions", async () => {
+  it("adds the two toolbar buttons only while the note has suggestions", async () => {
     open()
     await waitFor(() => expect(changesApi.fetchChanges).toHaveBeenCalled())
-    expect(reviewItem(/suggested changes/i)).toBeNull()
-    expect(reviewItem("Comment on the selected text")).toBeTruthy()
+    expect(screen.queryByRole("button", { name: /suggested changes/i })).toBeNull()
 
     cleanup()
     changesApi.fetchChanges.mockResolvedValue(changes([edit("p1", "three times", "four times")]))
     open()
-    await waitFor(() => expect(reviewItem(/accept all suggested changes/i)).toBeTruthy())
-    expect(reviewItem(/decline all suggested changes/i)).toBeTruthy()
+    expect(await screen.findByRole("button", { name: /accept all suggested changes/i })).toBeTruthy()
+    expect(screen.getByRole("button", { name: /decline all suggested changes/i })).toBeTruthy()
   })
 
   it("shows a suggestion whose passage was rewritten in a strip, not in the text, and declines it from there", async () => {
@@ -246,12 +235,12 @@ describe("MarkdownPanel with the persona's suggested changes", () => {
     open()
     await waitFor(() => expect(screen.getByTestId("cm").querySelector(".cm-content")).not.toBeNull())
     await waitFor(() => expect(commentButton()).not.toBeNull())
-    expect(isOff(commentButton())).toBe(true)
+    expect(commentButton()?.disabled).toBe(true)
 
     const at = NOTE.indexOf("raised")
     await act(async () => editorView().dispatch({ selection: { anchor: at, head: at + 6 } }))
-    await waitFor(() => expect(isOff(commentButton())).toBe(false))
-    await act(async () => fireEvent.click(commentButton() as HTMLElement))
+    await waitFor(() => expect(commentButton()?.disabled).toBe(false))
+    await act(async () => fireEvent.click(commentButton() as HTMLButtonElement))
 
     const box = await screen.findByTestId("comment-compose")
     expect(box.textContent).toContain("raised")
@@ -268,8 +257,8 @@ describe("MarkdownPanel with the persona's suggested changes", () => {
     await waitFor(() => expect(screen.getByTestId("cm").querySelector(".cm-content")).not.toBeNull())
     const at = NOTE.indexOf("raised")
     await act(async () => editorView().dispatch({ selection: { anchor: at, head: at + 6 } }))
-    await waitFor(() => expect(isOff(commentButton())).toBe(false))
-    await act(async () => fireEvent.click(commentButton() as HTMLElement))
+    await waitFor(() => expect(commentButton()?.disabled).toBe(false))
+    await act(async () => fireEvent.click(commentButton() as HTMLButtonElement))
     await screen.findByTestId("comment-compose")
 
     api.fetchVaultNote.mockResolvedValue({ path: "Other.md", content: "other note", mtime: 1 })
@@ -310,11 +299,11 @@ describe("MarkdownPanel with the persona's suggested changes", () => {
     expect((await screen.findByTestId("comment-thread")).textContent).toContain("Samantha")
   })
 
-  it("has no review entries for a persona's own file", async () => {
+  it("has no comment button for a persona's own file", async () => {
     const file = { load: vi.fn().mockResolvedValue({ content: NOTE, mtime: 1 }), save: vi.fn(), title: "soul.md" }
     open({ path: "soul.md", file })
     await screen.findByTestId("cm")
-    expect(screen.queryByRole("button", { name: "Note actions" })).toBeNull()
+    expect(commentButton()).toBeNull()
   })
 
   it("draws nothing for a persona's own file, and does not ask for its changes", async () => {
@@ -336,16 +325,5 @@ describe("MarkdownPanel with the persona's suggested changes", () => {
     await waitFor(() => expect(changesApi.fetchChanges).toHaveBeenCalled())
     expect(screen.getByTestId("cm").parentElement?.getAttribute("data-extensions")).toBe("no")
     expect(screen.getByTestId("cm").querySelector(".sy-change")).toBeNull()
-  })
-
-  it("keeps the review entries out of the note's menu in read mode, where there is no editor to act on", async () => {
-    document.cookie = "sympose:pref.noteReadOnly=1"
-    changesApi.fetchChanges.mockResolvedValue(changes([edit("p1", "three times", "four times")]))
-
-    open()
-
-    await waitFor(() => expect(changesApi.fetchChanges).toHaveBeenCalled())
-    expect(reviewItem("Rename")).toBeTruthy()
-    expect(screen.queryByRole("menuitem", { name: /suggested changes|selected text/i })).toBeNull()
   })
 })
