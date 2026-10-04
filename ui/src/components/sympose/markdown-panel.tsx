@@ -5,6 +5,7 @@ import {
   type StyloHandle,
   type TagSource,
   type TaskToggleInfo,
+  type ToolbarCustomItem,
   type ToolbarItem,
   type WikiLinkSource,
 } from "@damiro/stylo"
@@ -307,15 +308,15 @@ function MarkdownPanel({
   }, [])
   const declineNote = React.useCallback(() => void resolveRef.current("all"), [])
   const commentItem = React.useMemo(() => commentToolbarItem((target) => setCommentBox({ kind: "compose", target })), [])
-  const toolbarWithReview = React.useMemo<ToolbarItem[]>(
+  // The review buttons live in `useReviewMenu`, in the note's `⋯` menu, until stylo can fold toolbar buttons that
+  // do not fit into an overflow button; then they return to `toolbar.items` (review-menu.tsx).
+  const reviewItems = React.useMemo<ToolbarCustomItem[]>(
     () => [
-      ...toolbarItems,
-      "|",
       commentItem,
-      // eslint-disable-next-line react-hooks/refs -- the two callbacks run when a toolbar button is pressed, never during render
-      ...(hasProposals ? ["|" as const, ...reviewToolbarItems({ onAcceptNote: acceptNote, onDeclineNote: declineNote })] : []),
+      // eslint-disable-next-line react-hooks/refs -- the two callbacks run when a menu item is chosen, never during render
+      ...(hasProposals ? reviewToolbarItems({ onAcceptNote: acceptNote, onDeclineNote: declineNote }) : []),
     ],
-    [toolbarItems, commentItem, hasProposals, acceptNote, declineNote]
+    [commentItem, hasProposals, acceptNote, declineNote]
   )
 
   // stylo's `canvasHeader` (>=0.11.0) is read once, at mount — same contract
@@ -452,6 +453,8 @@ function MarkdownPanel({
           }}
           pinned={!!isPinned?.(path)}
           onTogglePin={onTogglePin}
+          reviewItems={readOnly ? undefined : reviewItems}
+          getView={() => styloRef.current?.getView()}
         />
       )}
     </>
@@ -501,7 +504,7 @@ function MarkdownPanel({
       canvasHeader={readOnly ? undefined : canvasHeader}
       extensions={readOnly || file ? undefined : reviewExt}
       toolbar={{
-        items: readOnly || file ? toolbarItems : toolbarWithReview,
+        items: toolbarItems,
         render: (bar) => (
           // stylo's toolbar row. The note-actions overlay used to live here
           // too; it's now the fixed sibling above, so this only ever wraps

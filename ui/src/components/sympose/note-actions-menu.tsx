@@ -13,6 +13,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import type { EditorView } from "@codemirror/view"
+import type { ToolbarCustomItem } from "@damiro/stylo"
+import { useReviewMenu } from "@/components/sympose/review-menu"
 import { confirm } from "@/lib/confirm-store"
 import { useVaultNoteActions } from "@/lib/use-vault-note-actions"
 
@@ -32,6 +35,8 @@ function NoteActionsMenu({
   onDeleted,
   pinned = false,
   onTogglePin,
+  reviewItems,
+  getView,
 }: {
   /** Vault-relative path of the open note. */
   path: string
@@ -44,7 +49,11 @@ function NoteActionsMenu({
   pinned?: boolean
   /** Toggle the open note's pinned state. Omit to hide the row. */
   onTogglePin?: (path: string) => void
+  /** The editor's review buttons (comment, accept all, decline all), listed first in the menu; omit in read mode. */
+  reviewItems?: ToolbarCustomItem[]
+  getView?: () => EditorView | null | undefined
 }) {
+  const review = useReviewMenu(reviewItems, () => getView?.())
   const stem = React.useMemo(() => {
     const base = path.split("/").pop() ?? path
     return base.replace(/\.md$/i, "")
@@ -81,7 +90,7 @@ function NoteActionsMenu({
 
   return (
     <>
-      <DropdownMenu modal={false} onOpenChangeComplete={onMenuOpenChangeComplete}>
+      <DropdownMenu modal={false} onOpenChange={review.onOpenChange} onOpenChangeComplete={onMenuOpenChangeComplete}>
         <DropdownMenuTrigger
           aria-label="Note actions"
           className="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground data-popup-open:bg-accent data-popup-open:text-foreground"
@@ -89,6 +98,7 @@ function NoteActionsMenu({
           <HugeiconsIcon icon={MoreHorizontalIcon} className="size-4" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="duration-thumb ease-snappy">
+          {review.entries}
           {onTogglePin && (
             <DropdownMenuItem onClick={() => onTogglePin(path)}>
               <HugeiconsIcon icon={pinned ? PinOffIcon : PinIcon} />
