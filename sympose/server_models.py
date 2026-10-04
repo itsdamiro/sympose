@@ -172,6 +172,12 @@ class ModelChoice(BaseModel):
     model: str | None = None
 
 
+class EditModeChoice(BaseModel):
+    """Body of `PUT /api/personas/{handle}/edit-mode` — the persona's own edit mode, or `null` to clear it."""
+
+    mode: str | None = None
+
+
 class PersonaFileWrite(BaseModel):
     """Body of `PUT /api/personas/{handle}/files/{name}` (docs/decisions/061): the editor saving one of a persona's
     own files. `expected_mtime` is the mtime it was opened at, so a change made meanwhile is a 409, not overwritten."""

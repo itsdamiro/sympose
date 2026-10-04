@@ -48,4 +48,12 @@ describe("PersonaCard", () => {
     render(<PersonaCard personas={personas} active="samantha" notice={<div>may receive</div>} />)
     expect(screen.getByText("may receive")).toBeTruthy()
   })
+
+  it("shows the edit-mode chip it is given just before the FILES chip, on the same row as the model chip", () => {
+    render(<PersonaCard personas={personas} active="samantha" files={files} editModeSlot={<button type="button">MODE CHIP</button>} />)
+    const mode = screen.getByText("MODE CHIP")
+    const filesChip = screen.getByRole("button", { name: "Persona files" })
+    expect(mode.compareDocumentPosition(filesChip) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(mode.parentElement).toBe(filesChip.parentElement)
+  })
 })

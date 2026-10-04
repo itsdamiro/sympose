@@ -27,6 +27,8 @@ interface PersonaCardProps {
   /** Replaces the plain model chip with the model picker, the same one as in the chat's footer, so the model can be
    *  changed here too (ADR 044, 046); the plain chip stays until the backend has said which models there are. */
   modelSlot?: React.ReactNode
+  /** The chip for what she may do on the notes (ADR 072), beside the files chip. */
+  editModeSlot?: React.ReactNode
   /** The cloud notice (what a cloud model may receive), shown under the model row when the model was picked here. */
   notice?: React.ReactNode
   /** The persona's conversations (ADR 057), shown under the model row. */
@@ -51,6 +53,7 @@ function PersonaCard({
   files = [],
   onOpenFile,
   modelSlot,
+  editModeSlot,
   notice,
   conversations,
   className,
@@ -117,7 +120,10 @@ function PersonaCard({
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         {modelSlot ?? <ModelChip model={current.model} />}
-        <PersonaFilesMenu files={files} onOpen={(name) => onOpenFile?.(name)} />
+        <div className="flex items-center gap-2">
+          {editModeSlot}
+          <PersonaFilesMenu files={files} onOpen={(name) => onOpenFile?.(name)} />
+        </div>
       </div>
 
       {notice}

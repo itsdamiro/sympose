@@ -7,6 +7,7 @@ import { useNebulaStage } from "@/lib/use-nebula-stage"
 import { useSelectedNote } from "@/lib/use-selected-note"
 import { usePersonaFileEditor } from "@/lib/use-persona-file-editor"
 import { useDraftEditor } from "@/lib/use-draft-editor"
+import { useEditMode } from "@/lib/use-edit-mode"
 import { useDrafts } from "@/lib/use-drafts"
 import { usePersonaFiles } from "@/lib/use-persona-files"
 import { useVaults, useVaultSwitching } from "@/lib/use-vaults"
@@ -44,6 +45,7 @@ import {
   ConversationList,
   PersonaCard,
   PersonaFileBanner,
+  PersonaEditMenu,
   DraftBanner,
   ChatActionGroup,
   ContentPanel,
@@ -462,6 +464,7 @@ export function AppShell() {
   // cloud notice, with its switches, shows in the panel the picker was used from: `noticeAt` is where it was last asked
   // for, and the other panel's picker offers to bring it there.
   const [noticeAt, setNoticeAt] = React.useState<"chat" | "persona">("chat")
+  const editMode = useEditMode(activePersona, activePersonaName)
   const noticeIn = (panel: "chat" | "persona") => cloudNotice.open && noticeAt === panel
   const cloudNoticeBox = (
     <CloudNotice state={sharingState} onChange={setShared} onClose={cloudNotice.close} />
@@ -491,6 +494,7 @@ export function AppShell() {
         files={personaFiles.files}
         onOpenFile={openPersonaFile}
         modelSlot={modelPicker("persona")}
+        editModeSlot={<PersonaEditMenu info={editMode.info} onChoose={editMode.choose} />}
         notice={noticeIn("persona") ? cloudNoticeBox : undefined}
         conversations={
           <ConversationList

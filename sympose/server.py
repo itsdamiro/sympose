@@ -26,6 +26,7 @@ from sympose import server_definition_handlers as dh
 from sympose import server_origin
 from sympose import server_handlers as h
 from sympose import server_hidden_handlers as hh
+from sympose import server_edit_mode_handlers as emh
 from sympose import server_model_handlers as mh
 from sympose import server_persona_file_handlers as pfh
 from sympose import server_persona_handlers as ph
@@ -37,7 +38,7 @@ from sympose import server_trash_handlers as th
 from sympose import server_vault_handlers as vh
 from sympose import vault_paths
 from sympose.server_change_models import AnnotationChange, AnnotationCreate, ChangesResolve
-from sympose.server_models import ChatBinAction, ChatCancel, ChatCompact, ChatSessionStart, ChatSessionUpdate, ChatTurn, DefinitionsSwitch, FolderDefinition, FolderIcon, HiddenPath, ModelChoice, PersonaFileWrite, SettingChange, SharingChange, TrashEmpty, TrashRestore, VaultActivate
+from sympose.server_models import ChatBinAction, ChatCancel, ChatCompact, ChatSessionStart, ChatSessionUpdate, ChatTurn, DefinitionsSwitch, EditModeChoice, FolderDefinition, FolderIcon, HiddenPath, ModelChoice, PersonaFileWrite, SettingChange, SharingChange, TrashEmpty, TrashRestore, VaultActivate
 
 
 def create_app() -> FastAPI:
@@ -176,6 +177,14 @@ def create_app() -> FastAPI:
     @app.put("/api/personas/{handle}/model")
     def put_persona_model(handle: str, body: ModelChoice) -> dict[str, Any]:
         return mh.put_persona_model(handle, body)
+
+    @app.get("/api/personas/{handle}/edit-mode")
+    def get_persona_edit_mode(handle: str) -> dict[str, Any]:
+        return emh.get_edit_mode(handle)
+
+    @app.put("/api/personas/{handle}/edit-mode")
+    def put_persona_edit_mode(handle: str, body: EditModeChoice) -> dict[str, Any]:
+        return emh.put_edit_mode(handle, body)
 
     @app.get("/api/personas")
     def get_personas() -> dict[str, Any]:

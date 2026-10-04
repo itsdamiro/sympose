@@ -19,6 +19,13 @@ PLAN, MANUAL, ACCEPT, AUTO = "plan", "manual", "accept", "auto"
 MODES = (PLAN, MANUAL, ACCEPT, AUTO)
 DEFAULT = MANUAL
 
+# One line each, for a screen that lists the modes (the persona page, docs/decisions/072).
+SUMMARIES = {
+    PLAN: "She talks about a change and proposes nothing.",
+    MANUAL: "She proposes changes when you ask, and you accept or decline each.",
+    ACCEPT: "Her edits are applied in the editor as she makes them; your save is what keeps them.",
+    AUTO: "She acts on her own initiative; everything waits for your Accept.",
+}
 _READ_EACH = "Read each change before you accept it."
 _GEMMA = (
     "On this model, measured on invented notes, a change was right 29 times out of 36 and wrong but still "
