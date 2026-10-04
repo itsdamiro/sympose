@@ -25,7 +25,7 @@ const edit = (id: string, find: string, replace: string): Proposal => {
 const views: EditorView[] = []
 const mount = (proposals: Proposal[], doc = NOTE) => {
   const view = new EditorView({
-    state: EditorState.create({ doc, extensions: [reviewExtensions({ initial: () => ({ proposals, annotations: [] }), onResolve: () => {}, gutter: false })] }),
+    state: EditorState.create({ doc, extensions: [reviewExtensions({ initial: () => ({ proposals, annotations: [] }), onResolve: () => {} })] }),
     parent: document.body,
   })
   views.push(view)

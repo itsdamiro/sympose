@@ -223,7 +223,7 @@ describe("MarkdownPanel with the persona's suggested changes", () => {
     open()
 
     await waitFor(() => expect(screen.getByTestId("cm").querySelector(".sy-comment-hl")?.textContent).toBe("raised"))
-    await waitFor(() => expect(screen.getByTestId("cm").querySelectorAll(".sy-comment-dot")).toHaveLength(1))
+    await waitFor(() => expect(screen.getByTestId("cm").querySelectorAll(".sy-comment-line")).toHaveLength(1))
 
     cleanup()
     changesApi.fetchChanges.mockResolvedValue(changes([], [{ ...comment, state: "resolved" }]))
@@ -233,7 +233,7 @@ describe("MarkdownPanel with the persona's suggested changes", () => {
     await waitFor(() => expect(screen.getByTestId("cm").querySelector(".cm-content")).not.toBeNull())
     await act(async () => {})
     expect(screen.getByTestId("cm").querySelector(".cm-content")).not.toBeNull()
-    expect(screen.getByTestId("cm").querySelector(".sy-comment-gutter")).toBeNull()
+    expect(screen.getByTestId("cm").querySelector(".sy-comment-line")).toBeNull()
     expect(screen.getByTestId("cm").querySelector(".sy-comment-hl")).toBeNull()
   })
 

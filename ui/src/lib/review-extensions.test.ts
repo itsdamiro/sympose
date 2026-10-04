@@ -44,10 +44,10 @@ function comment(id: string, quote: string, state: "open" | "resolved" = "open",
 const views: EditorView[] = []
 function mount(
   data: ReviewData,
-  { doc = NOTE, gutter = false, onResolve = vi.fn(), onOpenComment }: { doc?: string; gutter?: boolean; onResolve?: (ids: string[]) => void; onOpenComment?: (id: string, rect: DOMRect) => void } = {}
+  { doc = NOTE, onResolve = vi.fn(), onOpenComment }: { doc?: string; onResolve?: (ids: string[]) => void; onOpenComment?: (id: string, rect: DOMRect) => void } = {}
 ) {
   const view = new EditorView({
-    state: EditorState.create({ doc, extensions: [history(), reviewExtensions({ initial: () => data, onResolve, onOpenComment, gutter })] }),
+    state: EditorState.create({ doc, extensions: [history(), reviewExtensions({ initial: () => data, onResolve, onOpenComment })] }),
     parent: document.body,
   })
   views.push(view)
@@ -135,17 +135,24 @@ describe("the drawn changes", () => {
     expect([...view.dom.querySelectorAll(".sy-comment-hl")].map((e) => e.textContent)).toEqual(["raised"])
   })
 
-  it("puts a dot in the margin beside a commented line only when the margin is asked for", () => {
-    const data = { proposals: [], annotations: [comment("a", "raised")] }
-    expect(mount(data, { gutter: true }).view.dom.querySelectorAll(".sy-comment-dot")).toHaveLength(1)
-    expect(mount(data, { gutter: false }).view.dom.querySelector(".sy-comment-gutter")).toBeNull()
+  it("marks a commented line for a dot drawn in its own left space, not in a column that changes the editor's width", () => {
+    const { view } = mount({ proposals: [], annotations: [comment("a", "raised")] })
+    expect(view.dom.querySelectorAll(".sy-comment-line")).toHaveLength(1)
+    expect(view.dom.querySelector(".cm-gutters")).toBeNull()
+  })
+
+  it("marks every line a comment's passage runs over", () => {
+    const doc = "one two\nthree four\nfive\n"
+    const spanning: Annotation = { ...comment("a", "raised"), quote: "one two\nthree", before: "", after: "" }
+    const { view } = mount({ proposals: [], annotations: [spanning] }, { doc })
+    expect(view.dom.querySelectorAll(".sy-comment-line")).toHaveLength(2)
   })
 
   it("refreshes the margin when comments change", () => {
-    const { view } = mount(NO_REVIEW, { gutter: true })
-    expect(view.dom.querySelectorAll(".sy-comment-dot")).toHaveLength(0)
+    const { view } = mount(NO_REVIEW)
+    expect(view.dom.querySelectorAll(".sy-comment-line")).toHaveLength(0)
     view.dispatch({ effects: setReviewData.of({ proposals: [], annotations: [comment("a", "raised")] }) })
-    expect(view.dom.querySelectorAll(".sy-comment-dot")).toHaveLength(1)
+    expect(view.dom.querySelectorAll(".sy-comment-line")).toHaveLength(1)
   })
 })
 
@@ -175,11 +182,11 @@ describe("drawing details", () => {
   })
 
   it("takes the margin dot away when typing removes the commented passage", () => {
-    const { view } = mount({ proposals: [], annotations: [comment("a", "raised")] }, { gutter: true })
-    expect(view.dom.querySelectorAll(".sy-comment-dot")).toHaveLength(1)
+    const { view } = mount({ proposals: [], annotations: [comment("a", "raised")] })
+    expect(view.dom.querySelectorAll(".sy-comment-line")).toHaveLength(1)
     const at = view.state.doc.toString().indexOf("raised")
     view.dispatch({ changes: { from: at, to: at + 6, insert: "dug" } })
-    expect(view.dom.querySelectorAll(".sy-comment-dot")).toHaveLength(0)
+    expect(view.dom.querySelectorAll(".sy-comment-line")).toHaveLength(0)
   })
 })
 
@@ -293,11 +300,11 @@ describe("comments in the text", () => {
   it("highlights a comment once however many answers it has, and tags the highlight with its id", () => {
     const root = comment("c1", "raised")
     const answer: Annotation = { ...root, id: "c2", author: "persona", reply_to: "c1", text: "because" }
-    const { view } = mount({ proposals: [], annotations: [root, answer] }, { gutter: true })
+    const { view } = mount({ proposals: [], annotations: [root, answer] })
 
     const marks = [...view.dom.querySelectorAll(".sy-comment-hl")]
     expect(marks.map((m) => (m as HTMLElement).dataset.commentId)).toEqual(["c1"])
-    expect(view.dom.querySelectorAll(".sy-comment-dot")).toHaveLength(1)
+    expect(view.dom.querySelectorAll(".sy-comment-line")).toHaveLength(1)
     expect(attachedComments(NOTE, [root, answer]).map((f) => f.annotation.id)).toEqual(["c1"])
   })
 

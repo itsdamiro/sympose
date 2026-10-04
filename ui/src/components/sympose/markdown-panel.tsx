@@ -276,7 +276,6 @@ function MarkdownPanel({
     reviewDataRef.current = reviewData
     resolveRef.current = resolveChanges
   })
-  const showMargin = reviewData.annotations.some((a) => a.state === "open")
   const reviewExt = React.useMemo(
     () =>
       // eslint-disable-next-line react-hooks/refs -- the two callbacks run when the editor is made and when a change is accepted or declined, never during render
@@ -284,9 +283,8 @@ function MarkdownPanel({
         initial: () => reviewDataRef.current,
         onResolve: (ids) => void resolveRef.current(ids),
         onOpenComment: (id, rect) => setCommentBox({ kind: "thread", id, rect }),
-        gutter: showMargin,
       }),
-    [showMargin]
+    []
   )
   // New data reaches an editor that is already open; one that opens later starts from `initial`.
   React.useEffect(() => {
