@@ -114,13 +114,24 @@ class ChatCancel(BaseModel):
     unnamed: bool = False  # only a reply whose first message named no conversation: the web's, before its id is known
 
 
+class OpenNoteBody(BaseModel):
+    """The note open in the editor, as the editor holds it (docs/decisions/072): its path and its current text,
+    which can be ahead of the file."""
+
+    path: str = Field(..., min_length=1)
+    text: str
+
+
 class ChatTurn(BaseModel):
     """Body of `POST /api/chat/turn` — one message to a persona. `session_id` continues a conversation;
-    omitted, a new one starts and its id comes back in the reply."""
+    omitted, a new one starts and its id comes back in the reply. `edits` says the screen can show a proposal
+    (the web app does; the terminal does not), and `open_note` is the note open in the editor, if one is."""
 
     message: str = Field(..., min_length=1)
     persona: str | None = None
     session_id: str | None = None
+    edits: bool = False
+    open_note: OpenNoteBody | None = None
 
 
 class ChatCompact(BaseModel):

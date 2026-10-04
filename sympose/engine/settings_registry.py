@@ -6,7 +6,7 @@ channel's own (the terminal's are in `cli/display_settings.py`)."""
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from sympose.engine import budget, compaction, edit_mode, embeddings, followup, history_cap, lookup, memory, memory_refresh, model_wait, parallel, past_chats, recap, related
+from sympose.engine import budget, compaction, edit_mode, edit_turn, embeddings, followup, history_cap, lookup, memory, memory_refresh, model_wait, parallel, past_chats, recap, related
 
 TOGGLE, CHOICE, NUMBER = "toggle", "choice", "number"
 ON, OFF = "on", "off"
@@ -128,6 +128,10 @@ SETTINGS: list[Setting] = [
     Setting(
         edit_mode.SETTING, CHOICE, "what she does on notes before your Accept",
         edit_mode.mode, lambda: edit_mode.DEFAULT, choices=edit_mode.MODES, group=EDITING,
+    ),
+    Setting(
+        edit_turn.CAP_SETTING, NUMBER, "how much of the open note she sees", edit_turn.cap,
+        lambda: edit_turn.DEFAULT_CAP, hint=f"characters, {edit_turn.MIN_CAP} or more", whole=True, group=EDITING,
     ),
 ]
 

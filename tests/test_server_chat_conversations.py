@@ -41,7 +41,7 @@ class Replies:
         monkeypatch.setattr(turn, "run_turn", self.run)
         monkeypatch.setattr(ch.turn, "run_turn", self.run)
 
-    def run(self, handle, message, session_id=None, model=None):
+    def run(self, handle, message, session_id=None, model=None, **_):
         self.started.append(f"{session_id}:{message}")
         self.began[session_id].set()
         self.release[session_id].wait(5)

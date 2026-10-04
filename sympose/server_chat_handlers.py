@@ -15,6 +15,7 @@ from sympose.engine import (
     compaction, context_estimate, model as model_mod, recap_refresh, semantic_refresh, session,
     session_compaction, status_phrases, turn, turn_status,
 )
+from sympose.engine.edit_turn import OpenNote
 from sympose.engine.turn_cancel import request as cancel_requested
 from sympose.server_handlers import require_profile
 from sympose.server_models import ChatCancel, ChatCompact, ChatSessionStart, ChatTurn
@@ -27,7 +28,8 @@ def send_turn(body: ChatTurn) -> dict[str, Any]:
         return {"cancelled": True}  # stopped while it waited for the other conversation's reply
     try:
         try:
-            result = turn.run_turn(handle, body.message, body.session_id)
+            opened = OpenNote(body.open_note.path, body.open_note.text) if body.open_note else None
+            result = turn.run_turn(handle, body.message, body.session_id, open_note=opened, edits=body.edits)
         except turn.PersonaNotFoundError as e:
             raise HTTPException(status_code=404, detail=str(e))
         except turn.EngineModelError as e:

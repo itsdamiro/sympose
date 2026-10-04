@@ -88,6 +88,13 @@ What the replies show:
 - **Checked** in headless Chrome on a scratch copy: the chip and menu, the dialog with the `gemma2:9b` figures, no file before confirming, `edit_mode: auto` written only to the local file, "Use the default" deleting it.
 - **Not built yet:** the marker parser and tool pair, the prompt wording per mode, the `open_note` and `annotations` share categories, `accept`'s behaviour in the editor, the duplicate-proposal fix, and the note beside the global setting on the Settings page (its row shows the mode only).
 
+## Built so far (2026-10-05): the edit tool and its turn (step 3, backend)
+
+- **The tool pair, one parser.** `engine/edit_tools.py`: `propose_edit` and `propose_note` as tool calls, the same arguments as a marked block in the reply for a model that cannot call tools; a marker is filed and removed from what is shown, and one that cannot be placed (bad JSON, a missing field, a passage found twice, no open note) is told to the user in the reply and recorded as not saved.
+- **The turn.** `engine/edit_turn.py` resolves what she is given from her mode (`plan`: no tool and no note, and a line saying she cannot change notes; the others: the tool or the marker, and the open note when there is one). The note, the request and the rules reach the model last in the user's turn (the note in a fence longer than any run of backticks inside it); the conversation stores only what the user said. The note is cut to a cap, the `open_note_cap` setting (12000 characters; a cut note says so, and she is told to propose only within what she sees); a change is still placed in the whole note. `run_turn` takes `open_note` and `edits`: only the web app sets them, so the terminal never gives her the tool. `POST /api/chat/turn` accepts `edits` and `open_note {path, text}`. A turn whose tools are refused is retried with the marker. `auto` differs from `manual` by wording only for now ("even if the user did not ask").
+- **The duplicate-proposal bug is closed** on both sides (ADR 070).
+- **Not built, and not yet safe to wire to the screen:** the note is sent to a cloud model without the `open_note` category of `/share` (ADR 031), which is the next step; the comments (`annotations`); the screen sending `open_note`; `accept`'s behaviour in the editor; the refresh of the Drafts list at the end of a turn; the per-mode wording measured again with this exact text (the figures above are for the script's wording).
+
 ## Alternatives rejected
 
 - **A mode that writes the vault without the user's Accept (ADR 042's reserved second tier).** Rejected by the user: the last say is theirs in every mode. It also removes the need for a write-faithfulness bar as a gate, an `expected_mtime` of its own and an undo store.

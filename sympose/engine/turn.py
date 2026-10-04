@@ -7,11 +7,12 @@ no in-progress generation to check for new input against, so the seam this
 docstring used to point at (between the model call returning and the turn
 persisting) was never exercised — see ADR 008."""
 
+from dataclasses import replace
 from typing import Any
 
 from sympose import profile as profile_mod
 from sympose.engine import (
-    budget, compaction, history_cap, lookup, memory, memory_tools, past_chats, persona_tools, reference, session,
+    budget, compaction, edit_tools, edit_turn, history_cap, lookup, memory, memory_tools, past_chats, persona_tools, reference, session,
     session_compaction, sharing, tool_support, turn_cancel, turn_evidence, turn_status,
 )
 from sympose.engine import model as model_mod
@@ -39,7 +40,11 @@ def run_turn(
     user_message: str,
     session_id: str | None = None,
     model: str | None = None,
+    open_note: edit_turn.OpenNote | None = None,
+    edits: bool = False,
 ) -> TurnResult:
+    """`open_note` is the note open in the editor, and `edits` says the caller can show a proposal at all (the web
+    app); the terminal passes neither, so a persona there is never given the edit tool (docs/decisions/072)."""
     persona = profile_mod.resolve_profile(handle)
     if persona is None:
         raise PersonaNotFoundError(f"No profile found for persona '{handle}'.")
@@ -60,7 +65,7 @@ def run_turn(
     # `ask` (docs/decisions/040) and `remember` (docs/decisions/041) are independent settings, each
     # checked against what this model can actually do and, for `ask`, whether the persona has a
     # vault to look up at all -- see `persona_tools.resolve`.
-    modes = persona_tools.resolve(persona, target_model)
+    modes = persona_tools.resolve(persona, target_model, open_note, edits)
     # Cleared in `finally`, not just on the normal path: an exception from `_run` (a raised
     # `EngineModelError`, or anything else) must not leave the busy indicator (docs/decisions/043)
     # showing a phase forever for a turn that's already over. `_run` narrows this further (searching,
@@ -79,11 +84,15 @@ def run_turn(
             retry_remember = memory.MARKER if memory.remember_enabled() else None
             result = _run(
                 persona, handle, user_message, sid, existing, history, target_model,
-                persona_tools.Modes(False, modes.chose_ask, retry_remember, False, modes.chose_chats), capped,
+                persona_tools.Modes(
+                    False, modes.chose_ask, retry_remember, False, modes.chose_chats,
+                    replace(modes.edit, tool=False) if modes.edit else None,
+                ),
+                capped,
             )
             tool_support.note_refusal(target_model)
             return result
-        if modes.ask or modes.chats or modes.remember == memory.TOOL:
+        if modes.ask or modes.chats or modes.remember == memory.TOOL or (modes.edit and modes.edit.tool):
             tool_support.note_success(target_model)
         return result
     finally:
@@ -110,7 +119,9 @@ def _run(
     found = turn_evidence.gather(persona, handle, sid, user_message, history, target_model, limits, modes, existing)
     grounding_results, recaps_found, chats_found, withheld = found.grounding, found.recaps, found.chats, found.withheld
     mem, notes = found.mem, found.notes
-    build = turn_evidence.prompt_builder(persona, user_message, found, modes)
+    # The note and the rules go with the message to the model; the conversation keeps only what the user said.
+    asked = edit_turn.message(modes.edit, user_message) if modes.edit else user_message
+    build = turn_evidence.prompt_builder(persona, asked, found, modes)
 
     prompt_tokens = 0
     recaps_sent, chats_sent = recaps_found, chats_found
@@ -130,7 +141,7 @@ def _run(
         decisions_sent = fitted.decisions
     dropped += capped  # the turns `history_tokens` left out count with the ones the window's own fitting dropped
     lookups: list[dict[str, Any]] = []
-    tools = persona_tools.for_turn(ask, remember == memory.TOOL, modes.chats, sid)
+    tools = persona_tools.for_turn(ask, remember == memory.TOOL, modes.chats, sid, modes.edit)
     if tools:
         tool_list, run_tool = tools
         done = lookup.converse(
@@ -159,6 +170,12 @@ def _run(
     if remember == memory.MARKER:
         reply_text, marker_lookups = memory_tools.apply_marker(handle, reply_text)
         lookups += marker_lookups
+    if modes.edit and modes.edit.active and not modes.edit.tool:  # the same for a proposal (docs/decisions/072)
+        opened = modes.edit.source
+        reply_text, edit_lookups = edit_tools.apply_marker(
+            handle, opened.path if opened else None, opened.text if opened else None, reply_text,
+        )
+        lookups += edit_lookups
 
     searched_used = found.searched if any(h.get("source") != reference.SOURCE for h in grounding_results) else None
     memory_sent = memory.sent_names(mem.profile, mem.context, decisions_sent)

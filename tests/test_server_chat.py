@@ -458,3 +458,30 @@ def test_a_conversation_held_in_the_web_chat_has_its_recap_the_next_time_the_cha
     assert recap_refresh.wait_for_refresh("samantha", 10)
 
     assert recap.load("samantha", OLD) == (3, "Talked about a film project.")
+
+
+def test_the_open_note_sent_with_a_message_reaches_the_persona_and_a_marker_comes_back_as_a_proposal(client, monkeypatch):
+    seen = []
+    marker = '<!-- propose_edit: {"find": "three", "replace": "four", "say": "Changed it."} -->'
+
+    def call_model(messages, model=None, **_):
+        seen.append(messages[-1]["content"])
+        return ModelReply(f"Ok.\n{marker}", 12)
+
+    monkeypatch.setattr(turn.model_mod, "call_model", call_model)
+    body = {"message": "make it four", "persona": "samantha", "open_note": {"path": "a.md", "text": "I run three times."}}
+
+    reply = client.post("/api/chat/turn", json=body).json()
+
+    assert "I run three times." in seen[0] and reply["reply"] == "Ok."
+    drafts = client.get("/api/vault/changes", params={"path": "a.md"}).json()
+    assert len(drafts["proposals"]) == 1
+
+
+def test_a_message_that_sends_no_note_and_no_edits_flag_is_sent_as_it_was(client, monkeypatch):
+    seen = []
+    monkeypatch.setattr(turn.model_mod, "call_model", lambda messages, model=None, **_: seen.append(messages[-1]["content"]) or ModelReply("Hi", 1))
+
+    client.post("/api/chat/turn", json={"message": "hi", "persona": "samantha"})
+
+    assert "propose_" not in seen[0]
