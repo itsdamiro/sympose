@@ -58,12 +58,14 @@ The first wording was no better than nothing: the bare "it" and a `;` that separ
 
 **Another passage of the same note (n=12, the connected-to-marathon question).** The misreading as two notes with one title was 1 of 12 before (2 of 6 in an earlier run) and 0 of 12 after; naming the neighbour by meaning 5 of 12 before, 7 of 12 after. The misses left are replies that truthfully say there are no links and do not mention the neighbour.
 
+**A stronger pointer (n=12 per run, the connected-to-marathon question).** The pointer now tells her what to do, not only where the line is: "If asked what is connected to {title}, also name the notes listed below as possibly related, saying they are a guess from the text and not links." Naming the neighbour by meaning went from 8 of 12 (the same run, old wording, measured just before) to 11 of 12 and 10 of 12. Safety, 12 replies each to the sourdough question and the link-trap question, read by hand: no reply states a link that is not there; the one reply to the starter question that missed the neighbour named none, and the trap-case misses flagged by the loose `forbid` pattern are all correct "no link" answers it does not recognise ("doesn't directly link to").
+
 ## Consequences
 
 - A few tokens per grounded note (about 20 to 40), always present; the prompt-fitting loop drops the line with its note, as it does `connections`.
 - A question of the form "does A link to B" has a literal answer in the prompt, true or false.
 - The "Connected to" line becomes "Also connected", shorter and no longer readable as links.
-- A question about "connected" notes is answered about links first; the pointer brings the neighbour by meaning back about half the time (Measured), not always.
+- A question about "connected" notes is answered about links first; the pointer brings the neighbour by meaning back most of the time (about 10 of 12 with the stronger wording, Measured), not always.
 - A grounding gap remains for list questions about a note whose title is nearly another's (Measured); a structural answer is the second option below, if it is wanted.
 - A vault whose links cannot be read (no link graph) says "no note" for both, which would be wrong; the graph is rebuilt from the snapshot the notes already come from, so this cannot happen without the note itself missing.
 

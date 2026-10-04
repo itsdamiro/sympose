@@ -642,7 +642,7 @@ def test_a_note_with_neighbours_by_meaning_points_from_its_links_line_to_them():
 
     text = prompt.build_user_turn("who is Anna?", [result])
 
-    assert "Notes close in meaning to Typography, which are not links, are listed below as possibly related." in text
+    assert "If asked what is connected to Typography, also name the notes listed below as possibly related, saying they are a guess from the text and not links." in text
     assert text.index("listed below as possibly related") < text.index(prompt.RELATED_TO.format(names="Cara"))
 
 

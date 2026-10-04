@@ -209,7 +209,7 @@ LINKS_NO_NOTE = "no note"
 LINKS_COMPLETE = " {title} has no link with a note not named here, however alike the titles."
 # Said after a links line when the same note also has neighbours by meaning (docs/decisions/067): "no links" is the whole
 # answer to a question about links, and a question about what is connected has more to say, in the line below.
-LINKS_SEE_RELATED = " Notes close in meaning to {title}, which are not links, are listed below as possibly related."
+LINKS_SEE_RELATED = " If asked what is connected to {title}, also name the notes listed below as possibly related, saying they are a guess from the text and not links."
 # The notes close in meaning to a grounded note (docs/decisions/066): a guess made from what the notes say, so it is
 # said as one and never as a link.
 RELATED_TO = "Possibly related (close in meaning, a guess from the text, not a link; never say they are linked): {names}"
