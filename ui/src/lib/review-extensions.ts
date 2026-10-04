@@ -199,10 +199,11 @@ function decorate(state: EditorState): DecorationSet {
     ranges.push(Decoration.widget({ widget: new ChangeWidget(proposal), side: 1 }).range(to))
   }
   for (const { annotation, from, to } of attachedComments(text, data.annotations)) {
-    ranges.push(Decoration.mark({ class: "sy-comment-hl", attributes: { "data-comment-id": annotation.id } }).range(from, to))
+    const by = annotation.author === "persona" ? "sy-by-persona" : "sy-by-user"
+    ranges.push(Decoration.mark({ class: `sy-comment-hl ${by}`, attributes: { "data-comment-id": annotation.id } }).range(from, to))
     // A dot beside each line the comment touches, drawn in the line's own left space so the editor never changes width.
     for (let line = state.doc.lineAt(from); ; line = state.doc.line(line.number + 1)) {
-      ranges.push(Decoration.line({ class: "sy-comment-line" }).range(line.from))
+      ranges.push(Decoration.line({ class: `sy-comment-line ${by}` }).range(line.from))
       if (line.to >= to) break
     }
   }
@@ -238,13 +239,18 @@ const theme = EditorView.baseTheme({
   ".sy-change-accept:hover": { color: "var(--ok)", borderColor: "var(--ok)" },
   ".sy-change-decline:hover": { color: "var(--danger)", borderColor: "var(--danger)" },
   // A light tint, so the text stays readable on it (measured: 14% keeps the note's text above 4.2:1 in light and 5.7:1 in dark);
-  // the underline carries what the tint no longer does.
+  // the underline carries what the tint no longer does. The user's comments are amber, hers the brand blue.
   ".sy-comment-hl": {
     backgroundColor: "color-mix(in srgb, var(--chip-foreground) 14%, transparent)",
     boxShadow: "inset 0 -1.5px 0 color-mix(in srgb, var(--chip-foreground) 60%, transparent)",
   },
+  ".sy-comment-hl.sy-by-persona": {
+    backgroundColor: "color-mix(in srgb, var(--brand) 14%, transparent)",
+    boxShadow: "inset 0 -1.5px 0 color-mix(in srgb, var(--brand) 60%, transparent)",
+  },
+  // The dot beside a commented line is drawn in the line's own left space; a line holding both authors shows two.
   ".cm-line.sy-comment-line": { position: "relative" },
-  ".sy-comment-line::before": {
+  ".sy-by-user::before, .sy-by-persona::after": {
     content: '""',
     position: "absolute",
     insetInlineStart: "-0.7rem",
@@ -252,8 +258,10 @@ const theme = EditorView.baseTheme({
     width: "0.4rem",
     height: "0.4rem",
     borderRadius: "50%",
-    backgroundColor: "var(--chip-foreground)",
   },
+  ".sy-by-user::before": { backgroundColor: "var(--chip-foreground)" },
+  ".sy-by-persona::after": { backgroundColor: "var(--brand)" },
+  ".sy-by-user.sy-by-persona::before": { insetInlineStart: "-1.2rem" },
 })
 
 /** The extensions for stylo's `extensions` prop. Memoize the array; it reconfigures the live editor when it changes. */

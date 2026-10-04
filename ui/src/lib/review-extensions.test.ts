@@ -141,6 +141,26 @@ describe("the drawn changes", () => {
     expect(view.dom.querySelector(".cm-gutters")).toBeNull()
   })
 
+  it("tells a comment of hers from one of the user's, on the passage and on its line", () => {
+    const hers: Annotation = { ...comment("p", "Phone"), author: "persona" }
+    const { view } = mount({ proposals: [], annotations: [comment("u", "raised"), hers] })
+
+    expect(view.dom.querySelector('[data-comment-id="p"]')?.classList.contains("sy-by-persona")).toBe(true)
+    expect(view.dom.querySelector('[data-comment-id="u"]')?.classList.contains("sy-by-persona")).toBe(false)
+    const lines = [...view.dom.querySelectorAll(".sy-comment-line")]
+    expect(lines.filter((l) => l.classList.contains("sy-by-persona"))).toHaveLength(1)
+    expect(lines.filter((l) => l.classList.contains("sy-by-user"))).toHaveLength(1)
+  })
+
+  it("gives a line holding both hers and the user's both marks", () => {
+    const hers: Annotation = { ...comment("p", "beds"), author: "persona" }
+    const { view } = mount({ proposals: [], annotations: [comment("u", "raised"), hers] })
+
+    const [line] = [...view.dom.querySelectorAll(".sy-comment-line")]
+    expect(view.dom.querySelectorAll(".sy-comment-line")).toHaveLength(1)
+    expect(line.classList.contains("sy-by-user") && line.classList.contains("sy-by-persona")).toBe(true)
+  })
+
   it("marks every line a comment's passage runs over", () => {
     const doc = "one two\nthree four\nfive\n"
     const spanning: Annotation = { ...comment("a", "raised"), quote: "one two\nthree", before: "", after: "" }

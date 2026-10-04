@@ -4,9 +4,11 @@ and for one that cannot, the same arguments as a marked block in its reply,
 
     <!-- propose_edit: {"find": "...", "replace": "...", "say": "..."} -->
     <!-- propose_note: {"text": "...", "title": "...", "say": "..."} -->
+    <!-- comment_on: {"find": "...", "text": "..."} -->
 
-which is read, filed and removed from what is shown. Both end in `note_changes.propose_edit` / `propose_create`
-(ADR 070), which refuse a passage not found exactly once. Nothing here writes the vault: a proposal waits for the
+which is read, filed and removed from what is shown. They end in `note_changes.propose_edit` / `propose_create` /
+`annotate` (ADR 070, 069), which refuse a passage not found exactly once. A comment is hers on a passage, kept apart
+from the note's text like the user's own. Nothing here writes the vault: a proposal waits for the
 user's Accept. A change that could not be placed is told to the user, in the open, never dropped silently."""
 
 import json
@@ -16,10 +18,10 @@ from typing import Any
 from sympose import note_changes
 from sympose.engine.lookup_result import Result
 
-EDIT, NOTE = "propose_edit", "propose_note"
+EDIT, NOTE, COMMENT = "propose_edit", "propose_note", "comment_on"
 _NO_NOTE = "No note is open in the editor, so there is nothing to change; ask the user to open it."
 _BAD = "The arguments of {name} could not be read: give {fields} as text."
-_FIELDS = {EDIT: ("find", "replace", "say"), NOTE: ("text", "say")}
+_FIELDS = {EDIT: ("find", "replace", "say"), NOTE: ("text", "say"), COMMENT: ("find", "text")}
 
 
 def _tool(name: str, description: str, properties: dict[str, str], required: list[str]) -> dict[str, Any]:
@@ -45,9 +47,17 @@ TOOLS: list[dict[str, Any]] = [
         {"text": "The whole text of the new note.", "title": "A name of three to five words.", "say": "One sentence telling the user what it is."},
         ["text", "say"],
     ),
+    _tool(
+        COMMENT,
+        "Leave a comment on one passage of the note open in the editor, without changing it: a question, a doubt or a "
+        "pointer the user should see beside those words. It is kept apart from the note's text.",
+        {"find": "The passage, copied from the note exactly, and found in it exactly once (add a neighbouring word if it is not).",
+         "text": "What you want to say about it, in a sentence or two."},
+        ["find", "text"],
+    ),
 ]
 
-_MARKER = re.compile(r"<!--\s*(propose_edit|propose_note):\s*(\{.*?\})\s*-->", re.IGNORECASE | re.DOTALL)
+_MARKER = re.compile(r"<!--\s*(propose_edit|propose_note|comment_on):\s*(\{.*?\})\s*-->", re.IGNORECASE | re.DOTALL)
 
 
 def _arguments(name: str, raw: str | dict[str, Any] | None) -> dict[str, str] | None:
@@ -67,7 +77,11 @@ def _propose(handle: str, path: str | None, text: str | None, name: str, raw: st
     if args is None:
         return False, _BAD.format(name=name, fields=", ".join(_FIELDS[name]))
     try:
-        if name == NOTE:
+        if name == COMMENT:
+            if path is None or text is None:
+                return False, _NO_NOTE
+            note_changes.annotate(handle, path, text, quote=args["find"], text=args["text"], author="persona")
+        elif name == NOTE:
             note_changes.propose_create(handle, f"new/{note_changes._id()}", args["text"], say=args["say"], title=args["title"] or None)
         elif path is None or text is None:
             return False, _NO_NOTE
@@ -75,12 +89,12 @@ def _propose(handle: str, path: str | None, text: str | None, name: str, raw: st
             note_changes.propose_edit(handle, path, text, find=args["find"], replace=args["replace"], say=args["say"])
     except note_changes.CannotAnchor as error:
         return False, str(error)
-    return True, "Proposed; the user decides."
+    return True, "Commented." if name == COMMENT else "Proposed; the user decides."
 
 
 def run(handle: str, note_path: str | None, note_text: str | None, name: str, raw: str | dict[str, Any] | None) -> Result | None:
     """The tool's result, or `None` for a name that is not ours so it composes in `persona_tools`."""
-    if name not in (EDIT, NOTE):
+    if name not in _FIELDS:
         return None
     saved, said = _propose(handle, note_path, note_text, name, raw)
     return Result(said, lookup={"tool": name, "saved": saved})
@@ -104,7 +118,7 @@ def apply_marker(handle: str, note_path: str | None, note_text: str | None, repl
         records.append(record)
     shown = re.sub(r"\n{3,}", "\n\n", _MARKER.sub("", reply)).strip()
     if not shown and len(failures) < len(matches):
-        shown = next((m for m in (_say(f.group(2)) for f in matches) if m), "Proposed.")
+        shown = next((m for m in (_say(f.group(2)) for f in matches) if m), "Commented." if all(f.group(1).lower() == COMMENT for f in matches) else "Proposed.")
     if failures:
         shown = "\n\n".join(filter(None, [shown, *(f"A change could not be placed: {why}" for why in failures)]))
     return shown, records

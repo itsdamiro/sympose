@@ -154,3 +154,23 @@ def test_an_approved_cloud_model_is_sent_the_open_note_and_the_turn_says_so(monk
 
     assert "three times" in seen[0]["messages"][-1]["content"]
     assert sharing.OPEN_NOTE in result.sent["cloud"] and result.sent["withheld"] == []
+
+
+def test_a_comment_marker_in_a_turn_becomes_her_comment_on_the_open_note(monkeypatch):
+    marker = '<!-- comment_on: {"find": "three times", "text": "Is that every week?"} -->'
+    model_that(monkeypatch, ModelReply(f"One question.\n{marker}", 5))
+
+    result = turn.run_turn("samantha", "what do you think?", model=LOCAL, open_note=NOTE)
+
+    entry = store.read("samantha", NOTE.path)
+    assert result.reply == "One question." and entry["annotations"][0]["author"] == "persona"
+    assert result.lookups == [{"tool": "comment_on", "saved": True}]
+
+
+def test_with_no_note_open_she_is_not_given_the_comment_tool(monkeypatch):
+    seen = model_that(monkeypatch, ModelReply("ok", 5))
+    sharing.set_approved(sharing.OPEN_NOTE, True)
+
+    turn.run_turn("samantha", "hi", model=CLOUD, edits=True)
+
+    assert [t["function"]["name"] for t in seen[0]["tools"]] == ["propose_note"]

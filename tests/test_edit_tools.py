@@ -127,5 +127,64 @@ def test_another_tool_name_is_not_ours():
 def test_the_tools_are_the_pair_and_the_descriptions_carry_no_marker_text():
     names = [t["function"]["name"] for t in et.TOOLS]
 
-    assert names == ["propose_edit", "propose_note"]
+    assert names == ["propose_edit", "propose_note", "comment_on"]
     assert "<!--" not in json.dumps(et.TOOLS)
+
+
+def comments() -> list[dict]:
+    entry = store.read(H, PATH)
+    return entry["annotations"] if entry else []
+
+
+def comment_marker(**fields) -> str:
+    return f"<!-- comment_on: {json.dumps(fields)} -->"
+
+
+def test_a_comment_marker_files_a_comment_of_hers_on_the_passage_and_leaves_the_reply():
+    reply = "A thought on the count.\n" + comment_marker(find="three times", text="Is this still true in winter?")
+
+    shown, records = et.apply_marker(H, PATH, NOTE, reply)
+
+    assert shown == "A thought on the count."
+    (c,) = comments()
+    assert (c["author"], c["quote"], c["text"], c["state"]) == ("persona", "three times", "Is this still true in winter?", "open")
+    assert records == [{"tool": "comment_on", "saved": True}] and proposals() == []
+
+
+def test_a_comment_on_a_passage_found_twice_is_refused_and_told():
+    shown, records = et.apply_marker(H, PATH, NOTE, "Hm.\n" + comment_marker(find="- Pack charger", text="Twice?"))
+
+    assert comments() == [] and records[0]["saved"] is False
+    assert "could not be placed" in shown and "more than once" in shown
+
+
+def test_a_comment_with_no_open_note_is_refused():
+    _, records = et.apply_marker(H, None, None, comment_marker(find="a", text="b"))
+
+    assert records[0]["saved"] is False and "no note is open" in records[0]["reason"].lower()
+
+
+def test_a_comment_marker_only_reply_is_never_blank():
+    shown, _ = et.apply_marker(H, PATH, NOTE, comment_marker(find="three times", text="Still true?"))
+
+    assert shown == "Commented."
+
+
+def test_a_comment_missing_its_text_is_refused():
+    _, records = et.apply_marker(H, PATH, NOTE, comment_marker(find="three times"))
+
+    assert records[0]["saved"] is False and comments() == []
+
+
+def test_a_tool_call_comments_the_same_way():
+    result = et.run(H, PATH, NOTE, "comment_on", {"find": "three times", "text": "Still true?"})
+
+    assert result.lookup == {"tool": "comment_on", "saved": True} and comments()[0]["author"] == "persona"
+
+
+def test_a_comment_and_a_change_in_one_reply_are_both_made():
+    reply = comment_marker(find="three times", text="Why three?") + "\n" + marker(find="- Phone", replace="- Phone, keys", say="b")
+
+    _, records = et.apply_marker(H, PATH, NOTE, reply)
+
+    assert [r["saved"] for r in records] == [True, True] and len(comments()) == 1 and len(proposals()) == 1

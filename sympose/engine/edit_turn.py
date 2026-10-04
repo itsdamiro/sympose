@@ -80,6 +80,14 @@ _NOTE_MARKER = (
     "To suggest a new note, add one line in this form: "
     '<!-- propose_note: {"text": "...", "title": "three to five words", "say": "..."} --> write line breaks in strings as \\n.'
 )
+_COMMENT_TOOL = (
+    "To comment on a passage without changing it (a question or a doubt for the user, when they ask for one), call "
+    "comment_on with find, copied from the note exactly and found in it once, and text."
+)
+_COMMENT_MARKER = (
+    "To comment on a passage without changing it (a question or a doubt for the user, when they ask for one), add one "
+    'line: <!-- comment_on: {"find": "...", "text": "..."} --> with find copied from the note exactly and found in it once.'
+)
 _REVIEW = "The user reviews each change before anything is saved. Do not rewrite the note."
 _ASKED = (
     "If the request needs information that is neither in the note nor in the request, propose nothing and say what you "
@@ -109,7 +117,7 @@ def message(edit: Edit, user_message: str) -> str:
     if edit.note is None:
         held = f"{_WITHHELD} " if edit.withheld else ""
         return f"{user_message}\n\n{held}{new_note} {_REVIEW}"
-    rules = [_EDIT_TOOL if edit.tool else _EDIT_MARKER, new_note, _REVIEW]
+    rules = [_EDIT_TOOL if edit.tool else _EDIT_MARKER, new_note, _COMMENT_TOOL if edit.tool else _COMMENT_MARKER, _REVIEW]
     if edit.cut:
         rules.append(_CUT.format(n=len(edit.note.text)))
     rules.append(_UNASKED if edit.mode == edit_mode.AUTO else _ASKED)
