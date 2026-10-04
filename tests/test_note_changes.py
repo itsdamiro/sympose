@@ -519,3 +519,36 @@ def test_resolving_one_answer_leaves_the_comment_it_is_under_open():
 
     states = {x["id"]: x["state"] for x in store.read(H, "n.md")["annotations"]}
     assert states == {root["id"]: "open", answer["id"]: "resolved"}
+
+
+def test_a_second_proposal_on_the_same_passage_is_refused_and_the_first_stays():
+    nc.propose_edit(H, "n.md", NOTE, find="three times", replace="four times", say="a")
+
+    with pytest.raises(nc.CannotAnchor, match="already waiting"):
+        nc.propose_edit(H, "n.md", NOTE, find="three times", replace="five times", say="b")
+
+    (p,) = store.read(H, "n.md")["proposals"]
+    assert p["replace"] == "four times"
+
+
+def test_a_proposal_that_overlaps_a_waiting_one_is_refused():
+    nc.propose_edit(H, "n.md", NOTE, find="run three times", replace="walk", say="a")
+
+    with pytest.raises(nc.CannotAnchor, match="already waiting"):
+        nc.propose_edit(H, "n.md", NOTE, find="three times a week", replace="daily", say="b")
+
+
+def test_a_proposal_beside_a_waiting_one_is_kept_too():
+    nc.propose_edit(H, "n.md", NOTE, find="three times", replace="four times", say="a")
+    nc.propose_edit(H, "n.md", NOTE, find="The beds are raised.", replace="The beds are low.", say="b")
+
+    assert len(store.read(H, "n.md")["proposals"]) == 2
+
+
+def test_an_outdated_proposal_does_not_block_a_new_one_on_that_passage():
+    nc.propose_edit(H, "n.md", NOTE, find="three times", replace="four times", say="a")
+    rewritten = NOTE.replace("three times", "often")
+
+    nc.propose_edit(H, "n.md", rewritten, find="often", replace="daily", say="b")
+
+    assert len(store.read(H, "n.md")["proposals"]) == 2

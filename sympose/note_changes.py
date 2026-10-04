@@ -53,8 +53,23 @@ def _anchor(note_text: str, quote: str, start: int | None) -> tuple[str, str]:
 def propose_edit(handle: str, note_path: str, note_text: str, *, find: str, replace: str, say: str) -> dict[str, Any]:
     before, after = _anchor(note_text, find, None)
     proposal = {"id": _id(), "time": _now(), "kind": "edit", "find": find, "replace": replace, "before": before, "after": after, "say": say}
-    store.update(handle, note_path, lambda entry: entry["proposals"].append(proposal))
+    start = finder.locate(note_text, find, before, after).start
+
+    def add(entry: dict[str, Any]) -> None:
+        if any(_overlaps(waiting, note_text, start, start + len(find)) for waiting in entry["proposals"]):
+            raise CannotAnchor("A change to that passage is already waiting; the user decides it first.")
+        entry["proposals"].append(proposal)
+
+    store.update(handle, note_path, add)
     return proposal
+
+
+def _overlaps(waiting: dict[str, Any], note_text: str, start: int, end: int) -> bool:
+    """Whether a proposal still pending covers any of `start:end` (one that went outdated covers nothing)."""
+    if waiting.get("kind") != "edit":
+        return False
+    found = finder.locate(note_text, waiting["find"], waiting.get("before", ""), waiting.get("after", ""))
+    return found.status == finder.ONE and found.start < end and start < found.end
 
 
 def working_name(text: str, title: str | None = None) -> str:
