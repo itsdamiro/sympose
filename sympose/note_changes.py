@@ -7,6 +7,7 @@ a proposal is still pending, or outdated because its passage was rewritten, is w
 text each time and never stored. Nothing here writes the vault: accepting a proposal is a vault write done by the
 caller, through the ordinary note functions."""
 
+import os
 import re
 import uuid
 from datetime import datetime, timezone
@@ -14,6 +15,7 @@ from typing import Any
 
 from sympose import note_changes_store as store
 from sympose import passage_finder as finder
+from sympose.persona_files import profiles_dir
 
 PENDING, OUTDATED = "pending", "outdated"
 ATTACHED, DETACHED = "attached", "detached"
@@ -100,9 +102,23 @@ def _pick(items: list[dict[str, Any]], item_id: str) -> dict[str, Any]:
 
 
 def set_annotation_state(handle: str, note_path: str, annotation_id: str, state: str) -> None:
-    if state not in (OPEN, RESOLVED):
+    change_annotation(handle, note_path, annotation_id, state=state)
+
+
+def change_annotation(handle: str, note_path: str, annotation_id: str, *, text: str | None = None, state: str | None = None) -> None:
+    """Changes a comment's text and/or state in one save: a state that is not allowed changes nothing, not even the
+    text that came with it."""
+    if state is not None and state not in (OPEN, RESOLVED):
         raise ValueError(f"An annotation is {OPEN} or {RESOLVED}, not {state!r}")
-    store.update(handle, note_path, lambda entry: _pick(entry["annotations"], annotation_id).update(state=state))
+
+    def apply(entry: dict[str, Any]) -> None:
+        annotation = _pick(entry["annotations"], annotation_id)
+        if text is not None:
+            annotation["text"] = text
+        if state is not None:
+            annotation["state"] = state
+
+    store.update(handle, note_path, apply)
 
 
 def delete_annotation(handle: str, note_path: str, annotation_id: str) -> None:
@@ -147,3 +163,24 @@ def rename(handle: str, old: str, new: str) -> None:
 
 def forget(handle: str, note_path: str) -> None:
     store.drop(handle, note_path)
+
+
+def _handles() -> list[str]:
+    """Every persona that has a folder: a note belongs to the vault, so a change to it reaches each persona's entry."""
+    base = profiles_dir()
+    try:
+        return sorted(name for name in os.listdir(base) if os.path.isdir(os.path.join(base, name)))
+    except OSError:
+        return []
+
+
+def rename_everywhere(old: str, new: str) -> None:
+    """A note was renamed or moved: every persona's entry for it follows."""
+    for handle in _handles():
+        rename(handle, old, new)
+
+
+def forget_everywhere(note_path: str) -> None:
+    """A note was deleted for good: no persona keeps an entry for it."""
+    for handle in _handles():
+        forget(handle, note_path)

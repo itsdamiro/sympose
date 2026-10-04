@@ -19,7 +19,7 @@ They are one idea seen twice: something attached to a note, saved quietly, that 
 
 **How a proposal knows it has gone outdated.** No version numbers or modification times: the stored `find` plus its `context` is the anchor. When the note is opened, and again after each edit, the editor looks for `find` in the note with its context. Found once, the proposal is pending and follows the text as the user edits. Not found, because the user rewrote those words, it is `outdated` and drawn greyed with a short note that the note changed there since it was written; the user declines it or asks her to redo it. Found more than once with the context unable to tell which, it is also `outdated` rather than applied to a guess. Annotations use the same finder and show as detached when their passage is gone.
 
-**Accepting.** An edit is applied to the note's current text by replacing `find` exactly once, then written through the existing `overwrite_note` with its `expected_mtime`, so a save conflict is reported the way it is today (`NOTE_CONFLICT`). A `create` is written through `create_note`, which refuses an existing path (`NOTE_EXISTS`). Declining changes the proposal's state only; nothing is written. Accepting the note from the toolbar accepts every pending proposal in it and saves once.
+**Accepting.** The editor applies an accepted change to its own text, as an ordinary edit the user can undo (the passage replaced once, as the finder located it), and the note is saved by the ordinary save: `overwrite_note` with its `expected_mtime`, so a save conflict is reported the way it is today (`NOTE_CONFLICT`). A new note is created by the ordinary create (`create_note`, which refuses an existing path, `NOTE_EXISTS`). The server then forgets the proposal. Declining only forgets it. Accepting the note from the toolbar applies every pending proposal in it, saves once and forgets them; the outdated ones are left for the user. No route in this record writes a vault file.
 
 **A new note she proposes** is held only in this store until it is accepted. The editor opens it as if it were a note, from the Drafts section, under its working name; the file is created only on accept. A proposal for a new note is listed in Drafts by its working name and is not searchable, not in the vault tree, the nebula or the map (nothing reads this store but the Drafts listing and the editor).
 
@@ -27,16 +27,15 @@ They are one idea seen twice: something attached to a note, saved quietly, that 
 
 **Per persona.** The store lives in each persona's folder, so two personas' drafts and comments for the same note are separate, and the Drafts section shows the active persona's. Each persona proposes in her own voice.
 
-**The API** (web app only, resolved against the active persona like the other `/api` routes):
+**The API** (web app only, resolved against the active persona like the other `/api` routes; a note's path is a query parameter, as in `/api/vault/note`):
 
-- `GET /api/drafts` — the notes with at least one pending or outdated proposal, each with its path (or working name), counts and the time of the latest; what the Drafts section lists.
-- `GET /api/notes/<path>/changes` — one note's proposals and annotations, what the editor draws.
-- `POST /api/notes/<path>/changes/<id>/accept` and `/decline` — act on one proposal.
-- `POST /api/notes/<path>/changes/accept` and `/decline` — the note-level toolbar action on every pending proposal.
-- `POST /api/notes/<path>/annotations`, `PATCH .../annotations/<id>` (edit or resolve) and `DELETE` — the user's highlights and comments.
+- `GET /api/vault/drafts` — the notes with at least one proposal, each with its path, whether it is a new note, its working name, a count and the time of the latest; what the Drafts section lists.
+- `GET /api/vault/changes?path=` — one note's proposals and annotations, each with its status worked out against the note on disk now (`pending` or `outdated`; `attached` or `detached`), whether the note exists yet, and its modification time.
+- `POST /api/vault/changes/resolve` — forget named proposals, or all of the note's, once they are accepted or declined; the comments are kept.
+- `POST /api/vault/annotations`, `PATCH /api/vault/annotations` (the text and/or the state, in one save) and `DELETE /api/vault/annotations?path=&id=` — the user's highlights and comments; a highlight on words that occur more than once says where it starts.
 - The chat request carries the open note's path; the engine reads that note's open annotations (ADR 069) and, for the persona's own proposals, writes them through one tool (ADR 042, to be recorded in its own record with the prompt).
 
-Every route that writes a vault file goes through `overwrite_note` or `create_note`; no route writes the vault from this store directly, and none reaches `purge` or `empty_trash`.
+None of these routes writes a vault file, and none reaches `purge` or `empty_trash`.
 
 ## Consequences
 

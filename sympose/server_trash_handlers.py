@@ -3,11 +3,12 @@ Trash-recovery route handlers — split out of `server_handlers.py` (project's
 200-LOC-per-file guideline).
 """
 
+import os
 from typing import Any
 
 from fastapi import HTTPException
 
-from sympose import vault_paths, vault_trash, vault_trash_unit
+from sympose import note_changes, vault_paths, vault_trash, vault_trash_index, vault_trash_unit
 from sympose.server_handlers import require_profile, sandbox_denied, translate_vault_result
 from sympose.server_models import TrashEmpty, TrashRestore
 
@@ -29,6 +30,17 @@ def _require_trash_scope(persona: str | None) -> tuple[str, list[str]]:
     if not mv or not allowed_dirs:
         raise HTTPException(status_code=403, detail="No vault configured for this persona.")
     return mv, allowed_dirs
+
+
+def _forget_if_gone(mv: str, allowed_dirs: list[str], original: str) -> None:
+    """A note was purged for good, so its pending changes go (docs/decisions/070), unless the name is still in use:
+    a note was made again at that path, or another deleted copy of it is still in the bin (a name that was deleted
+    twice sits in the bin twice)."""
+    if os.path.exists(os.path.join(mv, original)):
+        return
+    if any(row["original_path"] == original for row in vault_trash.list_trashed(mv, allowed_dirs)):
+        return
+    note_changes.forget_everywhere(original)
 
 
 def list_trash(persona: str | None) -> dict[str, Any]:
@@ -68,18 +80,23 @@ def restore_trash_folder(body: TrashRestore) -> dict[str, Any]:
 
 def purge_trash(path: str, persona: str | None) -> dict[str, Any]:
     mv, allowed_dirs = _require_trash_scope(persona)
+    original = vault_trash_index.original_relpath(os.path.join(mv, vault_trash.TRASH_DIRNAME), path)
     result = vault_trash.purge(mv, allowed_dirs, path)
     translate_vault_result(
         result,
         not_found=_not_in_bin(path),
         denied=sandbox_denied(path),
     )
+    _forget_if_gone(mv, allowed_dirs, original)
     return {"path": path, "detail": "Deleted permanently."}
 
 
 def empty_trash(body: TrashEmpty) -> dict[str, Any]:
     mv, allowed_dirs = _require_trash_scope(body.persona)
+    gone = [row["original_path"] for row in vault_trash.list_trashed(mv, allowed_dirs)]
     count = vault_trash.purge_all(mv, allowed_dirs)
+    for original in gone:
+        _forget_if_gone(mv, allowed_dirs, original)
     return {
         "count": count,
         "detail": f"Emptied the bin ({count} item{'' if count == 1 else 's'}).",

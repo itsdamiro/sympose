@@ -381,3 +381,25 @@ def test_a_new_note_in_the_drafts_carries_its_working_name():
     drafts = {d["path"]: d for d in nc.drafts(H)}
 
     assert drafts["New.md"]["name"] == "Compost heap plan" and drafts["a.md"]["name"] is None
+
+
+def test_a_comment_changes_its_text_and_state_together_or_not_at_all():
+    a = nc.annotate(H, "n.md", NOTE, quote="raised", text="keep", author="user")
+
+    nc.change_annotation(H, "n.md", a["id"], text="new", state="resolved")
+    assert (store.read(H, "n.md")["annotations"][0]["text"], store.read(H, "n.md")["annotations"][0]["state"]) == ("new", "resolved")
+
+    with pytest.raises(ValueError):
+        nc.change_annotation(H, "n.md", a["id"], text="lost", state="pending")
+    assert store.read(H, "n.md")["annotations"][0]["text"] == "new"
+
+
+def test_changing_only_the_text_leaves_the_state_and_changing_nothing_is_allowed():
+    a = nc.annotate(H, "n.md", NOTE, quote="raised", text="keep", author="user")
+    nc.set_annotation_state(H, "n.md", a["id"], "resolved")
+
+    nc.change_annotation(H, "n.md", a["id"], text="edited")
+    nc.change_annotation(H, "n.md", a["id"])
+
+    stored = store.read(H, "n.md")["annotations"][0]
+    assert (stored["text"], stored["state"]) == ("edited", "resolved")

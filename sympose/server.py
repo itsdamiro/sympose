@@ -19,6 +19,7 @@ from typing import Any
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 
+from sympose import server_change_handlers as chg
 from sympose import server_chat_handlers as ch
 from sympose import server_check_handlers as ckh
 from sympose import server_definition_handlers as dh
@@ -35,6 +36,7 @@ from sympose import server_session_handlers as sess
 from sympose import server_trash_handlers as th
 from sympose import server_vault_handlers as vh
 from sympose import vault_paths
+from sympose.server_change_models import AnnotationChange, AnnotationCreate, ChangesResolve
 from sympose.server_models import ChatBinAction, ChatCancel, ChatCompact, ChatSessionStart, ChatSessionUpdate, ChatTurn, DefinitionsSwitch, FolderDefinition, FolderIcon, HiddenPath, ModelChoice, PersonaFileWrite, SettingChange, SharingChange, TrashEmpty, TrashRestore, VaultActivate
 
 
@@ -296,6 +298,37 @@ def create_app() -> FastAPI:
         persona: str | None = Query(None),
     ) -> dict[str, Any]:
         return h.delete_folder(path, persona)
+
+    @app.get("/api/vault/drafts")
+    def list_drafts(persona: str | None = Query(None)) -> dict[str, Any]:
+        return chg.list_drafts(persona)
+
+    @app.get("/api/vault/changes")
+    def get_changes(
+        path: str = Query(..., description="Relative path of the note"),
+        persona: str | None = Query(None),
+    ) -> dict[str, Any]:
+        return chg.get_changes(path, persona)
+
+    @app.post("/api/vault/changes/resolve")
+    def resolve_changes(body: ChangesResolve) -> dict[str, Any]:
+        return chg.resolve_changes(body)
+
+    @app.post("/api/vault/annotations", status_code=201)
+    def add_annotation(body: AnnotationCreate) -> dict[str, Any]:
+        return chg.add_annotation(body)
+
+    @app.patch("/api/vault/annotations")
+    def change_annotation(body: AnnotationChange) -> dict[str, Any]:
+        return chg.change_annotation(body)
+
+    @app.delete("/api/vault/annotations")
+    def delete_annotation(
+        path: str = Query(..., description="Relative path of the note"),
+        id: str = Query(..., description="The comment's id"),
+        persona: str | None = Query(None),
+    ) -> dict[str, Any]:
+        return chg.delete_annotation(path, id, persona)
 
     @app.get("/api/vault/trash")
     def list_trash(persona: str | None = Query(None)) -> dict[str, Any]:

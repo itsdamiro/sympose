@@ -25,6 +25,7 @@ from sympose import (
     vault_write_rename,
 )
 from sympose.profile import resolve_default_persona, resolve_profile
+from sympose import note_changes
 from sympose.server_models import FolderCreate, NoteCreate, NoteRename, NoteWrite
 from sympose.vault_write_concurrency import NOTE_CONFLICT, current_mtime
 from sympose.vault_write_resolve import resolve_existing_note
@@ -182,6 +183,8 @@ def rename_note(body: NoteRename) -> dict[str, Any]:
         denied=sandbox_denied(body.new_path),
         invalid_name="New name can't contain `[`, `]`, `|`, or `#` — those break wikilink syntax.",
     )
+    if new_path:
+        note_changes.rename_everywhere(body.path, new_path)  # a persona's pending changes follow the note (docs/decisions/070)
     return {"path": new_path, "detail": result}
 
 
