@@ -63,12 +63,27 @@ A design talk replaced the chat card and the separate review queue with a collab
 
 ## Open questions
 
-- **The write-faithfulness bar, Tier 1.** Unmeasured. The measurement asks a model for a patch against fixture notes and scores whether the quoted passage matches exactly and nothing else changes, on a small local model and a cloud model, replies read by hand.
+- **The write-faithfulness bar, Tier 1.** First measurement made (see Measured, 2026-10-04); the bar itself is still for the user to agree. A larger set of notes and a second small model are the open part.
 - **The Tier 2 bar and consent screen.** Higher and later; the shape of the consent screen follows `/share`.
 - **Extensions on a live stylo view.** Whether decorations, widgets and a gutter added through `getView()` survive stylo's in-place decorations, undo, scroll and both `in-place` and `source` modes, or the feature waits for a stylo hook.
 - **Keeping proposals out of search, the nebula and the map.** A pending proposal is held in the persona's data folder, not in the vault, so it cannot be found by anything that reads the vault; confirm this holds for the Drafts listing and for a note that exists only as a proposal.
 - **How a pending proposal is stored and keyed** (by the note's vault path, with the text it was written against so an outdated change can be detected), shaped like `vault_trash_index.py`, and which API the editor and the Drafts section read.
 - **How a proposal is requested in chat** and whether it is a tool call in the `vault_lookup` loop (ADR 040) or a structured part of the reply.
+
+## Measured (2026-10-04): how faithfully a model edits a note
+
+`tests/live_patch_cases.py`, on invented notes only (nothing of anyone's vault), nine requests (change a phrase, add a bullet, fix a typo, edit a line that appears twice, keep a wikilink, delete a bullet, a formal rewrite, add a section, and a request that needs a fact the note lacks) asked four times each in three shapes: a JSON patch (the passage to find and its replacement), SEARCH/REPLACE blocks, and the whole new note. A reply is scored by applying it: the passage must be found exactly once, and the resulting note must be what was asked with nothing else changed and no invented fact. 36 replies per cell, so every figure is about that model and this set only.
+
+| Shape | `gemma2:9b` correct | applied but wrong | Gemini Flash correct |
+|---|---|---|---|
+| JSON patch | 29 of 36 | 2 | 36 of 36 |
+| SEARCH/REPLACE | 27 of 36 | 1 | 36 of 36 |
+| Whole note | 27 of 36 | 9 | 32 of 36 (all four are a correct refusal the scorer read as a note) |
+
+- **A patch fails in the open.** The small model's misses in the two patch shapes are mostly a quoted passage that could not be applied: a line that appears twice (0 of 4 in both shapes) and a new section anchored on the prompt's own end marker (0 of 4 in blocks, so a framing marker must not look like note text). The app can refuse such a patch and say so; nothing is changed. A whole-note rewrite that is wrong looks like any other rewrite: 9 of 36 replies were applied and wrong or unchanged, against 1 or 2 for a patch, which is the case for patches.
+- **Invented facts.** Asked for the exact price of the tomato seeds, `gemma2:9b` wrote a price into the note in 1 of 4 JSON replies while its own sentence said it needed the price. Gemini Flash made no change and asked for it, 4 of 4. A change that invents text is exactly what Accept and Decline is for, and it is a reason a proposal should show the model's own sentence beside the diff.
+- **One more mode in blocks.** Deleting a bullet by replacing it with lines already in the note duplicated them in 1 of 4 replies.
+- **Reading.** For Tier 1, where a bad proposal costs one Decline, a patch from a small local model is workable (about 80 percent correct here, most misses refused rather than applied); a cloud model had no miss. The Tier 2 bar, with no review, is not met by 80 percent and was not the question here.
 
 ## Alternatives rejected
 
