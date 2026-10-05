@@ -33,6 +33,8 @@ vi.mock("@damiro/stylo", async () => {
     React.useImperativeHandle(ref, () => ({ getView: () => viewRef.current, focus() {} }))
     const compartment = React.useRef(new Compartment())
     React.useEffect(() => {
+      // The real stylo makes its view after a lazy chunk loads; `lateView` stands in for that.
+      const make = () => {
       const view = new EditorView({
         state: EditorState.create({
           doc: props.value,
@@ -48,7 +50,14 @@ vi.mock("@damiro/stylo", async () => {
       })
       viewRef.current = view
       force()
-      return () => view.destroy()
+      }
+      const late = (globalThis as { lateView?: number }).lateView
+      if (!late) make()
+      const timer = late ? window.setTimeout(make, late) : undefined
+      return () => {
+        window.clearTimeout(timer)
+        viewRef.current?.destroy()
+      }
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
     // Like stylo 0.17: a changed `extensions` array reconfigures the live editor, no remount.
@@ -397,6 +406,21 @@ describe("MarkdownPanel in accept mode (docs/decisions/072)", () => {
     expect(screen.getByTestId("cm").querySelector(".sy-change")).toBeNull()
     expect(changesApi.resolveChanges).not.toHaveBeenCalled()
     expect(api.saveVaultNote).not.toHaveBeenCalled()
+  })
+
+  it("applies it even when the editor is made after the note, the mode and her edits have all arrived", async () => {
+    ;(globalThis as { lateView?: number }).lateView = 400
+    try {
+      open()
+      await waitFor(() => expect(changesApi.fetchChanges).toHaveBeenCalled())
+      await act(async () => new Promise((r) => setTimeout(r, 200)))
+      expect(screen.getByTestId("cm").querySelector(".cm-editor")).toBeNull()
+
+      await waitFor(() => expect(appliedMark()?.textContent).toBe("four times"), { timeout: 3000 })
+      expect(editorView().state.doc.toString()).toContain("four times a week")
+    } finally {
+      delete (globalThis as { lateView?: number }).lateView
+    }
   })
 
   it("does not apply it in manual mode", async () => {

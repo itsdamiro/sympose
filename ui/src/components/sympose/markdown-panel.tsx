@@ -299,6 +299,8 @@ function MarkdownPanel({
   }
   // Her edits already applied to the text are not waiting any more: they are drawn as applied, not as tracked changes,
   // and are not listed as outdated now that their old words are gone.
+  // Counts the editors made (stylo makes its editor after a lazy load, possibly after everything else has arrived).
+  const [editorMade, setEditorMade] = React.useState(0)
   const [applied, setApplied] = React.useState<{ path?: string; ids: string[] }>({ ids: [] })
   const appliedIds = applied.path === path ? applied.ids : NO_IDS
   const reviewData = React.useMemo<ReviewData>(
@@ -337,6 +339,7 @@ function MarkdownPanel({
       reviewExtensions({
         initial: () => reviewDataRef.current,
         onResolve: (ids) => void resolveRef.current(ids),
+        onReady: () => setEditorMade((n) => n + 1),
         onApplied: (ids, untouched) => {
           appliedRef.current = { ids, untouched }
           setApplied({ path: pathRef.current, ids })
@@ -349,14 +352,15 @@ function MarkdownPanel({
   React.useEffect(() => {
     styloRef.current?.getView()?.dispatch({ effects: setReviewData.of(reviewData) })
   }, [reviewData, reviewExt])
-  // `accept`: her placed, waiting edits go into the text as soon as they are here, once the editor holds the note.
+  // `accept`: her placed, waiting edits go into the text as soon as they are here, once the editor holds the note. Run
+  // when any of that changes, and when the editor itself is made (it can come last, after a lazy load).
   const { info: editInfo } = useEditMode(persona, persona)
   const acceptMode = editInfo?.mode === "accept" && !readOnly && !file
   React.useEffect(() => {
     const view = styloRef.current?.getView()
     if (!acceptMode || !view || note.status !== "ready" || loadedPathRef.current !== path) return
     applyProposals(view, pendingIds(view.state))
-  }, [acceptMode, note.status, path, loadedPathRef, reviewData, body])
+  }, [acceptMode, note.status, path, loadedPathRef, reviewData, body, editorMade])
   const outdatedProposals = React.useMemo(() => classify(body, reviewData.proposals).outdated, [body, reviewData])
   // Accepting the whole note changes the text, and the save writes what the text is by then: it waits for the
   // change to reach `body` (`saveNote` closes over it) instead of saving the text from before.

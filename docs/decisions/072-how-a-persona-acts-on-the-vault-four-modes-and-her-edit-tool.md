@@ -122,7 +122,7 @@ What the replies show:
 
 **Not applied:** a new note (still a draft), a change that cannot be placed (the reply footer says so), and any edit while the note is in read mode. A persona's own file never gets this.
 
-**Built (2026-10-05, not yet checked in a real browser):** `applyProposals`, `clearApplied`, `appliedState` and the mark with its Undo in `lib/review-extensions.ts`; the hold on automatic saves and `onSaved` in `lib/use-note-document.ts`; the panel applies waiting edits when the persona's mode is `accept` (`markdown-panel.tsx`). Known gap: the editor remounts on a read/edit toggle or a surface change, which ends the marks (the text stays and the proposal stays pending until a save); the hold's frontmatter-edit clause has no test (the stylo stand-in has no frontmatter).
+**Built (2026-10-05; checked in headless Chrome on a scratch server with `gemma2:9b`: applied on open and after a chat turn, reload and switching notes leave the file and the proposal alone, Undo restores her words, a save writes the file and forgets the proposal; that check found that stylo makes its editor after everything else has arrived, so the extension tells the panel when a view is made, `onReady`):** `applyProposals`, `clearApplied`, `appliedState` and the mark with its Undo in `lib/review-extensions.ts`; the hold on automatic saves and `onSaved` in `lib/use-note-document.ts`; the panel applies waiting edits when the persona's mode is `accept` (`markdown-panel.tsx`). Known gap: the editor remounts on a read/edit toggle or a surface change, which ends the marks (the text stays and the proposal stays pending until a save); the hold's frontmatter-edit clause has no test (the stylo stand-in has no frontmatter).
 
 ## Alternatives rejected
 

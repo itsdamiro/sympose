@@ -514,6 +514,21 @@ describe("applying her edits in accept mode (docs/decisions/072)", () => {
     expect(second.onResolve).toHaveBeenCalledWith(["b"])
   })
 
+  it("tells the panel once when the editor has been made, after the update, so it may then dispatch", async () => {
+    const onReady = vi.fn()
+    const view = new EditorView({
+      state: EditorState.create({ doc: NOTE, extensions: [reviewExtensions({ initial: () => NO_REVIEW, onResolve: vi.fn(), onReady })] }),
+      parent: document.body,
+    })
+    views.push(view)
+    expect(onReady).not.toHaveBeenCalled()
+
+    await Promise.resolve()
+
+    expect(onReady).toHaveBeenCalledTimes(1)
+    expect(onReady).toHaveBeenCalledWith(view)
+  })
+
   it("applying nothing changes nothing", () => {
     const { view } = mount(data(edit("a", "three times", "four times")))
     expect(applyProposals(view, ["nope"])).toEqual([])

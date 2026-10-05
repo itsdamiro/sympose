@@ -1,4 +1,4 @@
-import { Decoration, EditorView, WidgetType, type DecorationSet } from "@codemirror/view"
+import { Decoration, EditorView, ViewPlugin, WidgetType, type DecorationSet } from "@codemirror/view"
 import { Facet, StateEffect, StateField, type EditorState, type Extension, type Range } from "@codemirror/state"
 import { Cancel01Icon, Tick02Icon } from "@hugeicons/core-free-icons"
 
@@ -61,6 +61,9 @@ export interface ReviewOptions {
   onOpenComment?: (id: string, rect: DOMRect) => void
   /** Told when the set of her applied edits (`accept` mode) changes, and whether the user has touched the note since. */
   onApplied?: (ids: string[], untouched: boolean) => void
+  /** Told once when a view has been made with these extensions (after the current update, so it may dispatch): stylo
+   *  makes its editor after a lazy chunk loads, long after the note and her edits may have arrived. */
+  onReady?: (view: EditorView) => void
 }
 
 const reviewField = StateField.define<ReviewData>({
@@ -439,7 +442,7 @@ const theme = EditorView.baseTheme({
 })
 
 /** The extensions for stylo's `extensions` prop. Memoize the array; it reconfigures the live editor when it changes. */
-export function reviewExtensions({ initial, onResolve, onOpenComment, onApplied }: ReviewOptions): Extension[] {
+export function reviewExtensions({ initial, onResolve, onOpenComment, onApplied, onReady }: ReviewOptions): Extension[] {
   const decorations = EditorView.decorations.compute(["doc", reviewField, appliedField], decorate)
   return [
     reviewField.init(() => initial()),
@@ -449,6 +452,14 @@ export function reviewExtensions({ initial, onResolve, onOpenComment, onApplied 
     appliedField,
     appliedListener,
     ...(onApplied ? [appliedFacet.of(onApplied)] : []),
+    ...(onReady
+      ? [
+          ViewPlugin.define((view) => {
+            queueMicrotask(() => onReady(view))
+            return {}
+          }),
+        ]
+      : []),
     ...(onOpenComment ? [openCommentFacet.of(onOpenComment)] : []),
     EditorView.domEventHandlers({
       click(event, view) {
