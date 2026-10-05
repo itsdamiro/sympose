@@ -21,7 +21,7 @@ vi.mock("@damiro/stylo", async () => {
     mode?: string
     extensions?: import("@codemirror/state").Extension[]
     toolbar?: { items?: (string | Item)[] }
-    inPlace?: { contextMenu?: boolean | { items?: (Item & { when?: string; readOnlySafe?: boolean })[] }; cellMarks?: (state: unknown) => unknown[] }
+    inPlace?: { contextMenu?: boolean | { items?: (Item & { when?: string; readOnlySafe?: boolean })[] }; cellMarks?: (state: unknown) => unknown[]; cellWidgets?: (state: unknown) => unknown[] }
     canvasHeader?: (ctx: { view: unknown }) => React.ReactNode
   }
   const Stylo = React.forwardRef<unknown, Props>(function Stylo(props, ref) {
@@ -67,7 +67,7 @@ vi.mock("@damiro/stylo", async () => {
     const view = viewRef.current
     const items = props.toolbar?.items ?? []
     return (
-      <div data-mode={props.mode} data-extensions={props.extensions ? "yes" : "no"} data-cellmarks={view && props.inPlace?.cellMarks ? JSON.stringify(props.inPlace.cellMarks(view.state)) : "none"}>
+      <div data-mode={props.mode} data-extensions={props.extensions ? "yes" : "no"} data-cellmarks={view && props.inPlace?.cellMarks ? JSON.stringify(props.inPlace.cellMarks(view.state)) : "none"} data-cellwidgets={view && props.inPlace?.cellWidgets ? JSON.stringify(props.inPlace.cellWidgets(view.state).map((w) => ({ pos: (w as { pos: number }).pos, key: (w as { key: string }).key }))) : "none"}>
         {props.canvasHeader?.({ view })}
         <div role="toolbar">
           {items.map((item) =>
@@ -159,6 +159,25 @@ describe("MarkdownPanel with the persona's suggested changes", () => {
       const marks = JSON.parse(container.querySelector("[data-cellmarks]")!.getAttribute("data-cellmarks")!)
       expect(marks).toEqual([expect.objectContaining({ class: "sy-comment-hl", attributes: { "data-comment-id": "c1" } })])
     })
+  })
+
+  it("gives stylo the struck words and the replacement widget of a change, so one inside a table cell is drawn and can be accepted", async () => {
+    changesApi.fetchChanges.mockResolvedValue(changes([edit("p1", "three times", "four times")]))
+    const { container } = open()
+
+    await waitFor(() => {
+      const widgets = JSON.parse(container.querySelector("[data-cellwidgets]")!.getAttribute("data-cellwidgets")!)
+      expect(widgets).toEqual([{ pos: NOTE.indexOf("three times") + "three times".length, key: expect.stringContaining("four times") }])
+      const marks = JSON.parse(container.querySelector("[data-cellmarks]")!.getAttribute("data-cellmarks")!)
+      expect(marks).toEqual([expect.objectContaining({ class: "sy-change-del" })])
+    })
+  })
+
+  it("gives stylo no cell widgets for a persona's own file", async () => {
+    const file = { load: async () => ({ content: NOTE }), save: async () => ({ ok: true as const }), title: "soul.md" }
+    const { container } = open({ file })
+    await waitFor(() => expect(screen.getByTestId("cm").querySelector(".cm-content")).not.toBeNull())
+    expect(container.querySelector("[data-cellwidgets]")!.getAttribute("data-cellwidgets")).toBe("none")
   })
 
   it("gives stylo no cell marks for a persona's own file", async () => {

@@ -1,7 +1,7 @@
 import { Decoration, EditorView, ViewPlugin, WidgetType, type DecorationSet } from "@codemirror/view"
 import { Facet, StateEffect, StateField, type EditorState, type Extension, type Range } from "@codemirror/state"
 import { Cancel01Icon, Tick02Icon } from "@hugeicons/core-free-icons"
-import type { CellMark } from "@damiro/stylo"
+import type { CellMark, CellWidget } from "@damiro/stylo"
 
 import { captureContext, locate } from "@/lib/passage-finder"
 import type { Annotation, Proposal } from "@/lib/persona-changes-api"
@@ -373,14 +373,16 @@ export function hasPending(state: EditorState): boolean {
 
 /**
  * What stylo draws inside table cells (its `inPlace.cellMarks`, 0.20): the same highlights `decorate` gives words
- * outside a table (a decoration cannot reach a cell), as marks in document positions. Each open comment is marked with
- * its author's colour and its id (a click on it opens the thread) and its cell gets the author's dot; an edit she has
- * applied is marked as applied.
+ * outside a table (a decoration cannot reach a cell), as marks in document positions. The words of a change she
+ * proposed are struck (the replacement and its buttons are `cellWidgets`); each open comment is marked with its
+ * author's colour and its id (a click on it opens the thread) and its cell gets the author's dot; an edit she has
+ * applied is marked as applied. Stylo ignores a mark that is not inside a cell, where `decorate` has already drawn it.
  */
 export function cellMarks(state: EditorState): CellMark[] {
   const data = state.field(reviewField, false)
   if (!data) return []
   const text = state.doc.toString()
+  const struck: CellMark[] = classify(text, data.proposals).placed.map(({ from, to }) => ({ from, to, class: "sy-change-del" }))
   const marks: CellMark[] = attachedComments(text, data.annotations).map(({ annotation, from, to }) => {
     const by = annotation.author === "persona" ? "persona" : "user"
     // Not `sy-by-*`: that class also draws the margin dot of a line, which a cell must not get on every highlighted word.
@@ -389,7 +391,29 @@ export function cellMarks(state: EditorState): CellMark[] {
   for (const item of state.field(appliedField).items) {
     if (item.from < item.to) marks.push({ from: item.from, to: item.to, class: "sy-applied", ...(item.say ? { attributes: { title: item.say } } : {}) })
   }
-  return marks
+  return [...struck, ...marks]
+}
+
+/**
+ * The elements stylo draws inside table cells (its `inPlace.cellWidgets`, 0.21): what `decorate` gives a change outside
+ * a table as a widget, which a decoration cannot do in a cell. A pending change's replacement with its Accept and
+ * Decline, a change applied in `accept` mode with its Undo, each right after the words it belongs to. Positions are
+ * worked out from the state given, every time: typing in a table re-pads its columns and moves every position. The key
+ * is everything the element draws, since stylo repaints a cell only when it changes. Stylo ignores a position that is not
+ * inside a cell, where `decorate` has already put the widget; its buttons are hidden while the cell is being edited.
+ */
+export function cellWidgets(state: EditorState): CellWidget[] {
+  const data = state.field(reviewField, false)
+  if (!data) return []
+  const widgets: CellWidget[] = classify(state.doc.toString(), data.proposals).placed.map(({ proposal, to }) => ({
+    pos: to,
+    key: `change:${proposal.id}:${proposal.say}:${proposal.replace ?? ""}`,
+    toDOM: (view) => new ChangeWidget(proposal).toDOM(view),
+  }))
+  for (const item of state.field(appliedField).items) {
+    widgets.push({ pos: item.to, key: `applied:${item.id}:${item.say}`, toDOM: (view) => new UndoWidget(item).toDOM(view) })
+  }
+  return widgets
 }
 
 function decorate(state: EditorState): DecorationSet {

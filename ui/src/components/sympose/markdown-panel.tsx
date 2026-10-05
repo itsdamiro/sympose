@@ -27,7 +27,7 @@ import { useNoteDocument, type PanelFile } from "@/lib/use-note-document"
 import type { Proposal } from "@/lib/persona-changes-api"
 import { usePersonaChanges } from "@/lib/use-persona-changes"
 import { announceDraftsChanged } from "@/lib/use-drafts"
-import { applyProposals, cellMarks, classify, clearApplied, pendingIds, restoreAppliedMarks, reviewExtensions, setReviewData, type ReviewData } from "@/lib/review-extensions"
+import { applyProposals, cellMarks, cellWidgets, classify, clearApplied, pendingIds, restoreAppliedMarks, reviewExtensions, setReviewData, type ReviewData } from "@/lib/review-extensions"
 import { useEditMode } from "@/lib/use-edit-mode"
 import { OutdatedChanges } from "@/components/sympose/outdated-changes"
 import { CommentPopover, type CommentBox } from "@/components/sympose/comment-popover"
@@ -575,7 +575,7 @@ function MarkdownPanel({
       onTaskToggle={handleTaskToggle}
       mode={readOnly ? "preview" : surface}
       softBreaks
-      inPlace={{ reveal, selectionUI, table: tableEditing, ...(file ? {} : { contextMenu: { items: commentMenu }, cellMarks }) }}
+      inPlace={{ reveal, selectionUI, table: tableEditing, ...(file ? {} : { contextMenu: { items: commentMenu }, cellMarks, cellWidgets }) }}
       canvasHeader={readOnly ? undefined : canvasHeader}
       extensions={readOnly || file ? undefined : reviewExt}
       toolbar={{

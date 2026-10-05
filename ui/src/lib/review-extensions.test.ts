@@ -11,6 +11,7 @@ import {
   acceptChanges,
   appliedState,
   applyProposals,
+  cellWidgets,
   clearApplied,
   attachedComments,
   cellMarks,
@@ -652,5 +653,103 @@ describe("cellMarks (stylo's marks inside table cells)", () => {
 
   it("is empty for a state that has none of this", () => {
     expect(cellMarks(EditorState.create({ doc: NOTE }))).toEqual([])
+  })
+})
+
+
+describe("a change of hers inside a table cell (stylo's cellMarks and cellWidgets)", () => {
+  const TABLE_NOTE = "The beds are raised.\n\n| Item | Qty |\n|------|-----|\n| Carrots | 3 |\n"
+  const swap = () => edit("p", "Carrots", "Parsnips", TABLE_NOTE)
+  const inTable = (data: ReviewData) => mount(data, { doc: TABLE_NOTE }).view
+
+  it("strikes the words of a pending change as a cell mark, for the cell to show beside its replacement", () => {
+    const view = inTable({ proposals: [swap()], annotations: [] })
+
+    const marks = cellMarks(view.state)
+
+    expect(marks).toHaveLength(1)
+    expect(marks[0]).toMatchObject({ class: "sy-change-del" })
+    expect(view.state.doc.sliceString(marks[0].from, marks[0].to)).toBe("Carrots")
+  })
+
+  it("leaves out a change whose passage can no longer be told", () => {
+    const gone = edit("g", "Carrots", "Parsnips", TABLE_NOTE)
+    const view = mount({ proposals: [gone], annotations: [] }, { doc: TABLE_NOTE.replace("Carrots", "Turnips") }).view
+
+    expect(cellMarks(view.state)).toEqual([])
+    expect(cellWidgets(view.state)).toEqual([])
+  })
+
+  it("gives the replacement and its two buttons as a widget that follows the struck words, keyed by what it draws", () => {
+    const view = inTable({ proposals: [swap()], annotations: [] })
+
+    const widgets = cellWidgets(view.state)
+
+    expect(widgets).toHaveLength(1)
+    expect(widgets[0].pos).toBe(TABLE_NOTE.indexOf("Carrots") + "Carrots".length)
+    expect(widgets[0].key).toContain("p")
+    expect(widgets[0].key).toContain("Parsnips")
+    expect(widgets[0].key).toContain("say p")
+    const el = widgets[0].toDOM(view)
+    expect(el.querySelector(".sy-change-add")?.textContent).toBe("Parsnips")
+    expect(el.querySelector(".sy-change-accept")?.getAttribute("aria-label")).toBe("Accept this change")
+    expect(el.querySelector(".sy-change-decline")?.getAttribute("aria-label")).toBe("Decline this change")
+  })
+
+  it("changes the key when her replacement or her note changes, so the cell is repainted", () => {
+    const a = cellWidgets(inTable({ proposals: [swap()], annotations: [] }).state)[0].key
+    const b = cellWidgets(inTable({ proposals: [{ ...swap(), replace: "Leeks" }], annotations: [] }).state)[0].key
+    const c = cellWidgets(inTable({ proposals: [{ ...swap(), say: "other" }], annotations: [] }).state)[0].key
+
+    expect(new Set([a, b, c]).size).toBe(3)
+  })
+
+  it("works out the position from the state it is given, so it follows the words when the table is re-padded", () => {
+    const view = inTable({ proposals: [swap()], annotations: [] })
+    const before = cellWidgets(view.state)[0].pos
+
+    view.dispatch({ changes: { from: 0, insert: "A new first line.\n\n" } })
+
+    const after = cellWidgets(view.state)[0].pos
+    expect(after).toBe(before + "A new first line.\n\n".length)
+    expect(view.state.doc.sliceString(after - "Carrots".length, after)).toBe("Carrots")
+  })
+
+  it("accepts the change from the cell's own button: the words in the cell are replaced and nothing else", () => {
+    const view = inTable({ proposals: [swap()], annotations: [] })
+    const el = cellWidgets(view.state)[0].toDOM(view)
+
+    el.querySelector<HTMLButtonElement>(".sy-change-accept")!.click()
+
+    expect(view.state.doc.toString()).toBe(TABLE_NOTE.replace("Carrots", "Parsnips"))
+  })
+
+  it("declines the change from the cell's own button: the text stays and the server is told", () => {
+    const onResolve = vi.fn()
+    const { view } = mount({ proposals: [swap()], annotations: [] }, { doc: TABLE_NOTE, onResolve })
+    const el = cellWidgets(view.state)[0].toDOM(view)
+
+    el.querySelector<HTMLButtonElement>(".sy-change-decline")!.click()
+
+    expect(view.state.doc.toString()).toBe(TABLE_NOTE)
+    expect(onResolve).toHaveBeenCalledWith(["p"])
+  })
+
+  it("gives an applied edit's Undo button as a widget after the new words, and undoing from it puts the old words back", () => {
+    const view = inTable({ proposals: [swap()], annotations: [] })
+    applyProposals(view, ["p"])
+
+    const widgets = cellWidgets(view.state)
+
+    expect(widgets).toHaveLength(1)
+    expect(widgets[0].pos).toBe(view.state.doc.toString().indexOf("Parsnips") + "Parsnips".length)
+    const el = widgets[0].toDOM(view)
+    expect(el.getAttribute("aria-label")).toBe("Undo this change")
+    el.click()
+    expect(view.state.doc.toString()).toBe(TABLE_NOTE)
+  })
+
+  it("is empty for a state that has none of this", () => {
+    expect(cellWidgets(EditorState.create({ doc: NOTE }))).toEqual([])
   })
 })
