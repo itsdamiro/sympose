@@ -25,7 +25,7 @@ class MovePlan:
     definition: str | None  # "stops" or "starts" when a definition note's folder changes between top level and below
 
 
-def _clashes(src: str, target: str) -> tuple[str, ...]:
+def clashes(src: str, target: str) -> tuple[str, ...]:
     """What the folder holds that is already at `target`: a file where there is a file or a folder, a folder where there
     is a file. A folder in both is merged, not a clash. Hidden names are left out. Nothing is already at a `target`
     that is not there, so a move with no folder of that name has none."""
@@ -77,7 +77,7 @@ def plan_move(profile: dict[str, Any], path: str, destination: str) -> tuple[str
         destination=into,
         new_path=new,
         clash=clash,
-        note_clashes=_clashes(src, target),
+        note_clashes=clashes(src, target),
         reach=reach_changes(mv, old, new, notes_in(mv, src)),
         definition=_definition(mv, old, new),
     )
