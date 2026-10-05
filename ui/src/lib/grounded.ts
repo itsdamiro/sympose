@@ -88,11 +88,19 @@ const ASK_FALLBACK = "You chose ask, but this model can't call tools, so Sympose
 const CHATS_ASK_FALLBACK = "You chose ask for earlier conversations, but this model can't call tools, so Sympose searched for the message."
 
 const isRemember = (l: SentLookup) => l.tool === "remember"
-const searches = (sent: SentRecord | null | undefined) => (sent?.lookups ?? []).filter((l) => !isRemember(l))
+// What she did to a note (docs/decisions/072), in the footer's words: not lookups.
+const ACTS: Record<string, string> = {
+  propose_edit: "proposed a change",
+  propose_note: "proposed a new note",
+  comment_on: "left a comment",
+}
+const isAct = (l: SentLookup) => l.tool in ACTS
+const searches = (sent: SentRecord | null | undefined) => (sent?.lookups ?? []).filter((l) => !isRemember(l) && !isAct(l))
 const fellBack = (sent: SentRecord | null | undefined) => sent?.mode === "auto" || sent?.chats_mode === "auto"
 
 function lookupLine(l: SentLookup): string {
   if (isRemember(l)) return l.saved ? "remembered something" : "tried to remember something and could not save it"
+  if (isAct(l)) return l.saved ? ACTS[l.tool] : `tried to ${l.tool === "comment_on" ? "comment" : "propose a " + (l.tool === "propose_note" ? "new note" : "change")} and could not place it`
   return `${TOOL_LABELS[l.tool] ?? l.tool} "${l.query ?? l.path ?? l.id ?? ""}" (${l.found ?? 0} found)`
 }
 
@@ -130,6 +138,20 @@ export function hasFooterRow(sent: SentRecord | null | undefined): boolean {
   return groundedNotes(sent).length > 0 || groundedChats(sent) > 0 || (sent?.lookups?.length ?? 0) > 0 || fellBack(sent)
 }
 
+/** "Proposed 2 changes", "Proposed a change and left a comment", or that none could be placed. */
+function actsSummary(acts: SentLookup[]): string {
+  const done = acts.filter((l) => l.saved)
+  if (done.length === 0) return `Could not place ${acts.some((l) => l.tool === "comment_on") && acts.every((l) => l.tool === "comment_on") ? "a comment" : "a change"}`
+  const changes = done.filter((l) => l.tool === "propose_edit").length
+  const parts = [
+    changes > 0 ? (changes === 1 ? "proposed a change" : `proposed ${changes} changes`) : "",
+    done.some((l) => l.tool === "propose_note") ? "proposed a new note" : "",
+    done.some((l) => l.tool === "comment_on") ? "left a comment" : "",
+  ].filter(Boolean)
+  const text = parts.join(" and ")
+  return text.charAt(0).toUpperCase() + text.slice(1)
+}
+
 /** The closed row's text, or `null` when there is no row. By what the reply was based on; when it found nothing, by
  *  what she did. */
 export function rowSummary(sent: SentRecord | null | undefined): string | null {
@@ -139,6 +161,8 @@ export function rowSummary(sent: SentRecord | null | undefined): string | null {
   if (notes.length > 0 || chats > 0) return groundedSummary(notes, chats)
   const looked = searches(sent).length
   if (looked > 0) return `Looked up ${looked === 1 ? "one thing" : `${looked} things`}`
+  const acts = (sent?.lookups ?? []).filter(isAct)
+  if (acts.length > 0) return actsSummary(acts)
   const remembered = (sent?.lookups ?? []).filter(isRemember)
   if (remembered.length > 0) return remembered.some((l) => l.saved) ? "Remembered something" : "Tried to remember something"
   return "Sympose searched for the message"

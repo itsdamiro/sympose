@@ -87,6 +87,24 @@ describe("grounded notes", () => {
     ])
   })
 
+  it("says what she did to a note in words, not as a lookup", () => {
+    const sent = {
+      ...base,
+      lookups: [
+        { tool: "propose_edit", saved: true },
+        { tool: "propose_edit", saved: false },
+        { tool: "propose_note", saved: true },
+        { tool: "comment_on", saved: true },
+      ],
+    }
+    expect(groundedLookups(sent)).toEqual([
+      "proposed a change",
+      "tried to propose a change and could not place it",
+      "proposed a new note",
+      "left a comment",
+    ])
+  })
+
   it("says when ask could not be used and Sympose searched instead, for notes and for earlier conversations", () => {
     expect(groundedLookups({ ...base, mode: "auto" })).toEqual(["You chose ask, but this model can't call tools, so Sympose searched for the message."])
     expect(groundedLookups({ ...base, chats_mode: "auto" })).toEqual([
@@ -116,6 +134,7 @@ describe("grounded notes", () => {
     expect(hasFooterRow({ ...base, chats: [{ session: "s", turn: 1, how: "auto" }] })).toBe(true)
     expect(hasFooterRow({ ...base, lookups: [{ tool: "search_notes", query: "x", found: 0 }] })).toBe(true)
     expect(hasFooterRow({ ...base, lookups: [{ tool: "remember", saved: true }] })).toBe(true)
+    expect(hasFooterRow({ ...base, lookups: [{ tool: "propose_edit", saved: true }] })).toBe(true)
     expect(hasFooterRow({ ...base, mode: "auto" })).toBe(true)
     expect(hasFooterRow(null)).toBe(false)
   })
@@ -128,6 +147,12 @@ describe("grounded notes", () => {
     expect(rowSummary({ ...base, lookups: [{ tool: "search_notes", query: "x", found: 0 }] })).toBe("Looked up one thing")
     expect(rowSummary({ ...base, lookups: [{ tool: "remember", saved: true }] })).toBe("Remembered something")
     expect(rowSummary({ ...base, lookups: [{ tool: "remember", saved: false }] })).toBe("Tried to remember something")
+    expect(rowSummary({ ...base, lookups: [{ tool: "propose_edit", saved: true }] })).toBe("Proposed a change")
+    expect(rowSummary({ ...base, lookups: [{ tool: "propose_edit", saved: true }, { tool: "propose_edit", saved: true }] })).toBe("Proposed 2 changes")
+    expect(rowSummary({ ...base, lookups: [{ tool: "propose_edit", saved: true }, { tool: "comment_on", saved: true }] })).toBe("Proposed a change and left a comment")
+    expect(rowSummary({ ...base, lookups: [{ tool: "propose_edit", saved: false }] })).toBe("Could not place a change")
+    expect(rowSummary({ ...base, lookups: [{ tool: "comment_on", saved: true }] })).toBe("Left a comment")
+    expect(rowSummary({ ...base, lookups: [{ tool: "propose_note", saved: true }] })).toBe("Proposed a new note")
     expect(rowSummary({ ...base, mode: "auto" })).toBe("Sympose searched for the message")
     expect(rowSummary(base)).toBeNull()
   })
