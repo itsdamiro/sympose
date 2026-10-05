@@ -525,27 +525,17 @@ export function reviewExtensions({ initial, onResolve, onOpenComment, onApplied,
         ]
       : []),
     ...(onOpenComment ? [openCommentFacet.of(onOpenComment)] : []),
-    // Listeners on the editor's own element rather than `domEventHandlers`: a click inside a table cell (stylo's own
-    // contenteditable DOM) is not passed to the editor's handlers, but it still reaches the element around them. And in a
-    // cell the press repaints the cell as it takes focus, which replaces the pressed word, so the browser never sends the
-    // click; there the release opens the thread instead (unless words are being selected).
+    // A listener on the editor's own element rather than `domEventHandlers`: a click inside a table cell (stylo's own
+    // contenteditable DOM) is not passed to the editor's handlers, but it still reaches the element around them (stylo
+    // 0.20.1 keeps the pressed word in place until after the release, so the click is sent there too).
     ViewPlugin.define((view) => {
-      const open = (event: MouseEvent) => {
+      const click = (event: MouseEvent) => {
         const hit = (event.target as HTMLElement | null)?.closest?.<HTMLElement>(".sy-comment-hl")
         const id = hit?.dataset.commentId
         if (hit && id) view.state.facet(openCommentFacet)?.(id, hit.getBoundingClientRect()) // the click still places the caret
       }
-      const release = (event: MouseEvent) => {
-        if ((event.target as HTMLElement | null)?.closest?.(".cm-inplace-tcell") && window.getSelection()?.isCollapsed !== false) open(event)
-      }
-      view.dom.addEventListener("click", open)
-      view.dom.addEventListener("mouseup", release)
-      return {
-        destroy: () => {
-          view.dom.removeEventListener("click", open)
-          view.dom.removeEventListener("mouseup", release)
-        },
-      }
+      view.dom.addEventListener("click", click)
+      return { destroy: () => view.dom.removeEventListener("click", click) }
     }),
   ]
 }

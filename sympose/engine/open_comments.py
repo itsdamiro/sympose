@@ -11,6 +11,7 @@ from sympose import note_changes_store as store
 
 CAP_SETTING = "annotations_cap"
 DEFAULT_CAP, MIN_CAP = 20, 1  # comments carried with one message
+DECIDED_CAP = 10  # decisions on her comments told to her with one message
 
 
 @dataclass(frozen=True)
@@ -21,9 +22,20 @@ class Comment:
 
 
 @dataclass(frozen=True)
+class Decision:
+    """What the user decided on one of her comments since her last reply (ADR 069): `verdict` is `accepted` or `declined`,
+    `reason` the user's latest reply under it (what they wrote before declining)."""
+
+    quote: str
+    verdict: str
+    reason: str | None = None
+
+
+@dataclass(frozen=True)
 class Found:
     items: tuple[Comment, ...] = ()
     left_out: int = 0  # older ones the cap left behind
+    decided: tuple[Decision, ...] = ()
 
 
 def cap() -> int:
@@ -38,6 +50,19 @@ def _later(time: str, since: str) -> bool:
         return datetime.fromisoformat(time) > datetime.fromisoformat(since)
     except ValueError:
         return False
+
+
+def _decided(entry: dict, answers: dict[str, list[dict]], since: str | None) -> tuple[Decision, ...]:
+    """The verdicts given on her comments after `since`, oldest first, the newest within a small cap. Nothing when there
+    is no earlier turn (`since` is `None`): there is no reply of hers to have decided since."""
+    if since is None:
+        return ()
+    made = [a for a in entry["annotations"] if not a.get("reply_to") and a.get("verdict") and _later(str(a.get("decided", "")), since)]
+    made.sort(key=lambda a: str(a.get("decided", "")))
+    def reason(a: dict) -> str | None:
+        mine = sorted((x for x in answers.get(a["id"], []) if x.get("author") == "user"), key=lambda r: str(r.get("time", "")))
+        return mine[-1]["text"] if mine else None
+    return tuple(Decision(a["quote"], a["verdict"], reason(a)) for a in made[-DECIDED_CAP:])
 
 
 def gather(handle: str, note, since: str | None = None) -> Found:
@@ -63,16 +88,24 @@ def gather(handle: str, note, since: str | None = None) -> Found:
         fresh = None if since is None else any(_later(str(x.get("time", "")), since) for x in thread)
         return Comment(a["quote"], tuple((x["author"], x["text"]) for x in thread), fresh)
 
-    return Found(tuple(comment(a) for a in kept), len(roots) - len(kept))
+    return Found(tuple(comment(a) for a in kept), len(roots) - len(kept), _decided(entry, answers, since))
 
 
 def block(found: Found, persona_name: str) -> str:
-    """The comments as the model reads them, with where each is and who said what."""
-    lines = ["The user's open comments on this note:"]
-    for comment in found.items:
-        label = "" if comment.new is None else " (new since your last reply)" if comment.new else " (from before your last reply)"
-        lines.append(f"- On “{comment.quote}”{label}:")
-        lines.extend(f"    {persona_name if who == 'persona' else 'the user'}: {text}" for who, text in comment.thread)
-    if found.left_out:
-        lines.append(f"({found.left_out} older comments are left out.)")
-    return "\n".join(lines)
+    """The comments as the model reads them, with where each is and who said what, and what the user decided on hers."""
+    parts = []
+    if found.items:
+        lines = ["The user's open comments on this note:"]
+        for comment in found.items:
+            label = "" if comment.new is None else " (new since your last reply)" if comment.new else " (from before your last reply)"
+            lines.append(f"- On “{comment.quote}”{label}:")
+            lines.extend(f"    {persona_name if who == 'persona' else 'the user'}: {text}" for who, text in comment.thread)
+        if found.left_out:
+            lines.append(f"({found.left_out} older comments are left out.)")
+        parts.append("\n".join(lines))
+    if found.decided:
+        lines = ["Since your last reply the user decided on your comments:"]
+        for d in found.decided:
+            lines.append(f"- On “{d.quote}”: accepted." if d.verdict == "accepted" else f"- On “{d.quote}”: declined" + (f", the user wrote: {d.reason}" if d.reason else "") + ".")
+        parts.append("\n".join(lines))
+    return "\n\n".join(parts)

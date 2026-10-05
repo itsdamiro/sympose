@@ -577,3 +577,82 @@ def test_an_outdated_proposal_does_not_block_a_new_one_on_that_passage():
     nc.propose_edit(H, "n.md", rewritten, find="often", replace="daily", say="b")
 
     assert len(store.read(H, "n.md")["proposals"]) == 2
+
+
+# -- accept or decline one of her comments (docs/decisions/069, amended) ---------------------------------------------
+
+
+def hers(quote="three times", text="Is this still true?"):
+    return nc.annotate(H, "a.md", NOTE, quote=quote, text=text, author="persona")
+
+
+def entry_of(comment_id):
+    return next(a for a in store.read(H, "a.md")["annotations"] if a["id"] == comment_id)
+
+
+def test_accepting_her_comment_resolves_it_with_the_verdict_and_when():
+    root = hers()
+
+    nc.change_annotation(H, "a.md", root["id"], verdict=nc.ACCEPTED)
+
+    got = entry_of(root["id"])
+    assert (got["state"], got["verdict"]) == (nc.RESOLVED, nc.ACCEPTED) and got["decided"]
+
+
+def test_declining_needs_a_reply_from_the_user_first_and_changes_nothing_without_one():
+    root = hers()
+
+    with pytest.raises(ValueError, match="Reply first"):
+        nc.change_annotation(H, "a.md", root["id"], text="edited", verdict=nc.DECLINED)
+
+    got = entry_of(root["id"])
+    assert (got["state"], got["text"]) == (nc.OPEN, "Is this still true?") and "verdict" not in got
+
+
+def test_an_answer_from_her_does_not_count_as_the_users_reply():
+    root = hers()
+    nc.reply(H, "a.md", root["id"], text="Let me explain.", author="persona")
+
+    with pytest.raises(ValueError, match="Reply first"):
+        nc.change_annotation(H, "a.md", root["id"], verdict=nc.DECLINED)
+
+
+def test_declining_after_the_user_has_replied_resolves_it_declined():
+    root = hers()
+    nc.reply(H, "a.md", root["id"], text="No, I changed my mind.", author="user")
+
+    nc.change_annotation(H, "a.md", root["id"], verdict=nc.DECLINED)
+
+    got = entry_of(root["id"])
+    assert (got["state"], got["verdict"]) == (nc.RESOLVED, nc.DECLINED)
+
+
+def test_a_verdict_resolves_the_answers_with_it_and_reopening_clears_it():
+    root = hers()
+    answer = nc.reply(H, "a.md", root["id"], text="Agreed.", author="user")
+    nc.change_annotation(H, "a.md", root["id"], verdict=nc.ACCEPTED)
+    assert entry_of(answer["id"])["state"] == nc.RESOLVED
+
+    nc.change_annotation(H, "a.md", root["id"], state=nc.OPEN)
+
+    got = entry_of(root["id"])
+    assert got["state"] == nc.OPEN and "verdict" not in got and "decided" not in got
+    assert entry_of(answer["id"])["state"] == nc.OPEN
+
+
+def test_only_her_root_comments_can_be_given_a_verdict():
+    mine = nc.annotate(H, "a.md", NOTE, quote="raised", text="q", author="user")
+    answer = nc.reply(H, "a.md", hers()["id"], text="a", author="user")
+
+    for target in (mine["id"], answer["id"]):
+        with pytest.raises(ValueError, match="Only her comments"):
+            nc.change_annotation(H, "a.md", target, verdict=nc.ACCEPTED)
+
+
+def test_a_verdict_must_be_accepted_or_declined_and_cannot_come_with_a_reopen():
+    root = hers()
+    with pytest.raises(ValueError):
+        nc.change_annotation(H, "a.md", root["id"], verdict="maybe")
+    with pytest.raises(ValueError):
+        nc.change_annotation(H, "a.md", root["id"], state=nc.OPEN, verdict=nc.ACCEPTED)
+    assert "verdict" not in entry_of(root["id"])

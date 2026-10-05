@@ -32,6 +32,8 @@ export interface Annotation {
   after: string
   text: string
   state: "open" | "resolved"
+  /** The user's decision on one of her comments: they agreed, or (after replying) did not. */
+  verdict?: "accepted" | "declined"
   reply_to: string | null
   status: "attached" | "detached"
 }
@@ -144,7 +146,7 @@ export function replyToComment(args: { path: string; persona: string; replyTo: s
 }
 
 /** `PATCH /api/vault/annotations`: resolve or reopen a comment (its answers with it), and/or change its text. */
-export function changeComment(args: { path: string; persona: string; id: string; state?: "open" | "resolved"; text?: string }): Promise<CommentResult> {
+export function changeComment(args: { path: string; persona: string; id: string; state?: "open" | "resolved"; text?: string; verdict?: "accepted" | "declined" }): Promise<CommentResult> {
   return sendComment("PATCH", args)
 }
 

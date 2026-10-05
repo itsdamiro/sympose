@@ -23,7 +23,20 @@ function Quote({ text }: { text: string }) {
 }
 
 /** A text box that sends on ⌘/Ctrl-Enter as well as on its button. */
-function Entry({ label, submit, placeholder, onDone }: { label: string; submit: (text: string) => Promise<boolean>; placeholder: string; onDone?: () => void }) {
+function Entry({
+  label,
+  submit,
+  placeholder,
+  onDone,
+  actions,
+}: {
+  label: string
+  submit: (text: string) => Promise<boolean>
+  placeholder: string
+  onDone?: () => void
+  /** Replaces the box's own button row, to put other buttons beside the send button (the thread's one row). */
+  actions?: (send: { send: () => void; canSend: boolean }) => React.ReactNode
+}) {
   const [text, setText] = React.useState("")
   const [busy, setBusy] = React.useState(false)
   const send = async () => {
@@ -54,11 +67,15 @@ function Entry({ label, submit, placeholder, onDone }: { label: string; submit: 
           }
         }}
       />
-      <div className="flex justify-end">
-        <Button type="button" size="xs" disabled={!text.trim() || busy} onClick={() => void send()}>
-          {label}
-        </Button>
-      </div>
+      {actions ? (
+        actions({ send: () => void send(), canSend: !!text.trim() && !busy })
+      ) : (
+        <div className="flex justify-end">
+          <Button type="button" size="xs" disabled={!text.trim() || busy} onClick={() => void send()}>
+            {label}
+          </Button>
+        </div>
+      )}
     </div>
   )
 }
@@ -97,6 +114,11 @@ export function CommentPopover({
     else onChanged()
     return result.ok
   }
+  // Declining one of her comments needs the user's own reply first, saying why (docs/decisions/069).
+  const replied = answers.some((a) => a.author === "user")
+  const decide = async (verdict: "accepted" | "declined") => {
+    if (root && saved(await changeComment({ path, persona, id: root.id, verdict }))) onClose()
+  }
 
   let body: React.ReactNode = null
   if (box?.kind === "compose") {
@@ -126,37 +148,64 @@ export function CommentPopover({
             </li>
           ))}
         </ul>
-        <Entry label="Reply" placeholder="Reply" submit={async (text) => saved(await replyToComment({ path, persona, replyTo: root.id, text }))} />
-        <div className="flex justify-between">
-          <Button
-            type="button"
-            variant="ghost"
-            size="xs"
-            onClick={async () => {
-              if (saved(await changeComment({ path, persona, id: root.id, state: "resolved" }))) onClose()
-            }}
-          >
-            Resolve
-          </Button>
-          <Button
-            type="button"
-            variant="destructive"
-            size="xs"
-            onClick={() =>
-              confirm({
-                message: "Delete this comment?",
-                description: answers.length > 0 ? "Its replies are deleted with it." : undefined,
-                confirmLabel: "Delete",
-                permanent: true,
-                onConfirm: async () => {
-                  if (saved(await deleteComment(path, persona, root.id))) onClose()
-                },
-              })
-            }
-          >
-            Delete
-          </Button>
-        </div>
+        <Entry
+          label="Reply"
+          placeholder="Reply"
+          submit={async (text) => saved(await replyToComment({ path, persona, replyTo: root.id, text }))}
+          actions={({ send, canSend }) => (
+            <>
+              {root.author === "persona" && !replied && <p className="text-[11px] text-fg-muted">To decline, reply first, saying why you disagree.</p>}
+              <div className="flex items-center justify-between" data-testid="comment-thread-actions">
+                {root.author === "persona" ? (
+                  <span className="flex gap-1">
+                    <Button type="button" variant="ghost" size="xs" onClick={() => decide("accepted")}>
+                      Accept
+                    </Button>
+                    <Button type="button" variant="ghost" size="xs" disabled={!replied} onClick={() => decide("declined")}>
+                      Decline
+                    </Button>
+                  </span>
+                ) : (
+                  <span className="flex gap-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="xs"
+                      onClick={async () => {
+                        if (saved(await changeComment({ path, persona, id: root.id, state: "resolved" }))) onClose()
+                      }}
+                    >
+                      Resolve
+                    </Button>
+                  </span>
+                )}
+                <span className="flex gap-1">
+                  <Button type="button" size="xs" disabled={!canSend} onClick={send}>
+                    Reply
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="xs"
+                    onClick={() =>
+                      confirm({
+                        message: "Delete this comment?",
+                        description: answers.length > 0 ? "Its replies are deleted with it." : undefined,
+                        confirmLabel: "Delete",
+                        permanent: true,
+                        onConfirm: async () => {
+                          if (saved(await deleteComment(path, persona, root.id))) onClose()
+                        },
+                      })
+                    }
+                  >
+                    Delete
+                  </Button>
+                </span>
+              </div>
+            </>
+          )}
+        />
       </div>
     )
   }

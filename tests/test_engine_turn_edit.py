@@ -246,3 +246,32 @@ def test_the_label_is_relative_to_the_latest_message_not_the_first(monkeypatch):
 
     assert "(new since your last reply)" in seen[1]["messages"][-1]["content"]  # added after message one
     assert "(from before your last reply)" in seen[2]["messages"][-1]["content"]  # but not new at message three
+
+
+def test_a_decision_on_her_comment_is_told_to_her_in_the_next_message_once(monkeypatch):
+    from datetime import datetime, timezone
+
+    from sympose.engine import session
+
+    clock = iter(f"2026-10-05T{hour}:00:00+00:00" for hour in ("10", "12", "14"))
+
+    class Clock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime.fromisoformat(next(clock)).astimezone(tz or timezone.utc)
+
+    monkeypatch.setattr(session, "datetime", Clock)
+    seen = model_that(monkeypatch, ModelReply("One", 5), ModelReply("Two", 5), ModelReply("Three", 5))
+    note_changes.annotate("samantha", NOTE.path, NOTE.text, quote="three times", text="Is that right?", author="persona")
+    root = store.read("samantha", NOTE.path)["annotations"][0]
+    first = turn.run_turn("samantha", "hello", model=LOCAL, open_note=NOTE, edits=True)  # recorded at 10:00
+    note_changes.reply("samantha", NOTE.path, root["id"], text="No, it is four.", author="user")
+    monkeypatch.setattr(note_changes, "_now", lambda: "2026-10-05T11:00:00+00:00")  # between messages one and two
+    note_changes.change_annotation("samantha", NOTE.path, root["id"], verdict=note_changes.DECLINED)
+    turn.run_turn("samantha", "second", model=LOCAL, open_note=NOTE, edits=True, session_id=first.session_id)  # 12:00
+    turn.run_turn("samantha", "third", model=LOCAL, open_note=NOTE, edits=True, session_id=first.session_id)  # 14:00
+
+    assert "decided" not in seen[0]["messages"][-1]["content"]  # nothing to tell on the first message
+    second = seen[1]["messages"][-1]["content"]
+    assert "On “three times”: declined, the user wrote: No, it is four." in second
+    assert "decided" not in seen[2]["messages"][-1]["content"]  # told once

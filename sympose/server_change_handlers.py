@@ -105,10 +105,10 @@ def add_annotation(body: AnnotationCreate) -> dict[str, Any]:
 def change_annotation(body: AnnotationChange) -> dict[str, Any]:
     handle = _handle(body.persona)
     path = _key(body.path)
-    if body.state is None and body.text is None:
-        raise HTTPException(status_code=400, detail="Nothing to change: give a state or a text.")
+    if body.state is None and body.text is None and body.verdict is None:
+        raise HTTPException(status_code=400, detail="Nothing to change: give a state, a text or a verdict.")
     try:
-        nc.change_annotation(handle, path, body.id, text=body.text, state=body.state)
+        nc.change_annotation(handle, path, body.id, text=body.text, state=body.state, verdict=body.verdict)
     except KeyError:
         raise HTTPException(status_code=404, detail="No such comment.")
     except ValueError as error:

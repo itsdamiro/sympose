@@ -181,3 +181,88 @@ def test_a_comment_with_an_unreadable_time_is_not_called_new(monkeypatch):
     add_at("garbage", monkeypatch, "three times", "Odd")
 
     assert open_comments.gather(H, NOTE, since=SINCE).items[0].new is False
+
+
+# -- what the user decided on her comments, told to her once (docs/decisions/069, amended) -----------------------------
+
+
+def hers_at(when, monkeypatch, quote="three times", text="Is this still true?"):
+    monkeypatch.setattr(nc, "_now", lambda: when)
+    return add(quote, text, author="persona")
+
+
+def decide(root, when, monkeypatch, verdict, reply=None):
+    if reply:
+        nc.reply(H, PATH, root["id"], text=reply, author="user")
+    monkeypatch.setattr(nc, "_now", lambda: when)
+    nc.change_annotation(H, PATH, root["id"], verdict=verdict)
+
+
+def test_a_decision_made_since_the_last_reply_is_told_with_the_users_reason_for_a_decline(monkeypatch):
+    accepted = hers_at(BEFORE, monkeypatch, "three times")
+    declined = hers_at(BEFORE, monkeypatch, "raised", "Should the beds move?")
+    decide(accepted, AFTER, monkeypatch, nc.ACCEPTED)
+    decide(declined, AFTER, monkeypatch, nc.DECLINED, reply="No, the beds stay.")
+
+    found = open_comments.gather(H, NOTE, since=SINCE)
+
+    assert [(d.quote, d.verdict, d.reason) for d in found.decided] == [("three times", "accepted", None), ("raised", "declined", "No, the beds stay.")]
+    assert found.items == ()  # decided comments are resolved: they do not travel as open ones
+
+
+def test_a_decision_made_before_the_last_reply_is_not_told_again_and_none_is_told_on_the_first_message(monkeypatch):
+    root = hers_at(BEFORE, monkeypatch)
+    decide(root, BEFORE, monkeypatch, nc.ACCEPTED)
+
+    assert open_comments.gather(H, NOTE, since=SINCE).decided == ()
+    assert open_comments.gather(H, NOTE).decided == ()
+
+
+def test_the_reason_is_the_users_latest_reply_and_a_resolve_without_a_verdict_is_not_a_decision(monkeypatch):
+    root = hers_at(BEFORE, monkeypatch)
+    nc.reply(H, PATH, root["id"], text="First thought.", author="user")
+    nc.reply(H, PATH, root["id"], text="Final word.", author="user")
+    plain = hers_at(BEFORE, monkeypatch, "raised", "Another")
+    nc.set_annotation_state(H, PATH, plain["id"], nc.RESOLVED)
+    decide(root, AFTER, monkeypatch, nc.DECLINED)
+
+    (d,) = open_comments.gather(H, NOTE, since=SINCE).decided
+
+    assert d.reason == "Final word."
+
+
+def test_only_the_newest_decisions_within_a_small_cap_are_told_oldest_first(monkeypatch):
+    total = open_comments.DECIDED_CAP + 3
+    for i in reversed(range(total)):  # decided out of order, so the order told is the time, not the order of saving
+        root = hers_at(BEFORE, monkeypatch, "three times", f"c{i}")
+        decide(root, f"2026-10-05T12:{i:02d}:00+00:00", monkeypatch, nc.DECLINED, reply=f"r{i}")
+
+    found = open_comments.gather(H, NOTE, since=SINCE)
+
+    assert [d.reason for d in found.decided] == [f"r{i}" for i in range(3, total)]  # the 3 oldest are left out; oldest first
+
+
+def test_the_block_tells_her_what_was_decided_in_plain_words(monkeypatch):
+    accepted = hers_at(BEFORE, monkeypatch, "three times")
+    declined = hers_at(BEFORE, monkeypatch, "raised", "Move the beds?")
+    decide(accepted, AFTER, monkeypatch, nc.ACCEPTED)
+    decide(declined, AFTER, monkeypatch, nc.DECLINED, reply="No, they stay.")
+
+    text = open_comments.block(open_comments.gather(H, NOTE, since=SINCE), "Samantha")
+
+    assert "Since your last reply the user decided on your comments:" in text
+    assert "On “three times”: accepted." in text
+    assert "On “raised”: declined, the user wrote: No, they stay." in text
+    assert "open comments" not in text
+
+
+def test_the_turn_carries_the_decisions_and_a_cloud_model_is_not_given_them_until_approved(monkeypatch):
+    root = hers_at(BEFORE, monkeypatch)
+    decide(root, AFTER, monkeypatch, nc.ACCEPTED)
+    persona = {"handle": H}
+
+    sent = edit_turn.resolve(persona, False, NOTE, comments_from=H, since=SINCE)
+    held = edit_turn.resolve(persona, False, NOTE, comments_from=H, may_see_comments=False, since=SINCE)
+
+    assert "On “three times”: accepted." in edit_turn.message(sent, "x")
+    assert "accepted" not in edit_turn.message(held, "x")

@@ -352,7 +352,7 @@ describe("comments in the text", () => {
     expect(click.defaultPrevented).toBe(false)
   })
 
-  it("inside a table cell the release of the button opens the thread, since the press repaints the cell and the click never comes", () => {
+  it("opens the thread on a click inside a table cell as well (stylo 0.20.1 sends the click there)", () => {
     const onOpenComment = vi.fn()
     const { view } = mount({ proposals: [], annotations: [comment("c1", "raised")] }, { onOpenComment })
     const mark = view.dom.querySelector(".sy-comment-hl") as HTMLElement
@@ -361,32 +361,19 @@ describe("comments in the text", () => {
     mark.replaceWith(cell)
     cell.append(mark)
 
-    mark.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }))
+    mark.dispatchEvent(new MouseEvent("click", { bubbles: true }))
 
     expect(onOpenComment).toHaveBeenCalledTimes(1)
     expect(onOpenComment.mock.calls[0][0]).toBe("c1")
   })
 
-  it("but not when words are being selected, and not for a release on marked text outside a cell", () => {
+  it("does not take the release of the button for a click: the thread opens on a click only", () => {
     const onOpenComment = vi.fn()
     const { view } = mount({ proposals: [], annotations: [comment("c1", "raised")] }, { onOpenComment })
-    const mark = view.dom.querySelector(".sy-comment-hl") as HTMLElement
-    mark.dispatchEvent(new MouseEvent("mouseup", { bubbles: true })) // plain text: the click does it, a release does not
-    expect(onOpenComment).not.toHaveBeenCalled()
 
-    const cell = document.createElement("td")
-    cell.className = "cm-inplace-tcell"
-    mark.replaceWith(cell)
-    cell.append(mark)
-    const range = document.createRange()
-    range.selectNodeContents(mark)
-    window.getSelection()!.removeAllRanges()
-    window.getSelection()!.addRange(range)
-
-    mark.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }))
+    ;(view.dom.querySelector(".sy-comment-hl") as HTMLElement).dispatchEvent(new MouseEvent("mouseup", { bubbles: true }))
 
     expect(onOpenComment).not.toHaveBeenCalled()
-    window.getSelection()!.removeAllRanges()
   })
 
   it("says nothing for a click elsewhere in the text, or when nobody is listening", () => {

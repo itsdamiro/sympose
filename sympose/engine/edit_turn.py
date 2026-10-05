@@ -32,6 +32,7 @@ class Edit:
     comments: tuple[open_comments.Comment, ...] = ()  # the user's open comments on the note, within their cap
     comments_left_out: int = 0
     comments_withheld: int = 0  # open comments the model may not have (a cloud model, ADR 031)
+    decided: tuple[open_comments.Decision, ...] = ()  # what the user decided on her comments since her last reply
     persona_name: str = "She"
     source: OpenNote | None = None  # the whole open note, which a change is placed in (she is shown `note`, within the cap)
 
@@ -73,6 +74,7 @@ def resolve(
     return Edit(
         mode, can_call_tools, OpenNote(open_note.path, text), cut,
         comments=found.items if may_see_comments else (), comments_left_out=found.left_out if may_see_comments else 0,
+        decided=found.decided if may_see_comments else (),
         comments_withheld=0 if may_see_comments else len(found.items), persona_name=name, source=open_note,
     )
 
@@ -136,8 +138,8 @@ def message(edit: Edit, user_message: str) -> str:
     rules.append(_UNASKED if edit.mode == edit_mode.AUTO else _ASKED)
     fence = "`" * max(4, 1 + max((len(run) for run in re.findall(r"`+", edit.note.text)), default=0))
     comments = ""
-    if edit.comments:
-        comments = open_comments.block(open_comments.Found(edit.comments, edit.comments_left_out), edit.persona_name) + "\n\n"
+    if edit.comments or edit.decided:
+        comments = open_comments.block(open_comments.Found(edit.comments, edit.comments_left_out, edit.decided), edit.persona_name) + "\n\n"
     elif edit.comments_withheld:
         comments = _COMMENTS_WITHHELD.format(n=edit.comments_withheld) + "\n\n"
     head = f"The open note, {edit.note.path}:\n\n{fence}\n{edit.note.text}\n{fence}\n\n{comments}The user's request: {user_message}\n\n"

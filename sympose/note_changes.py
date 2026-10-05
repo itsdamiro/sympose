@@ -20,6 +20,7 @@ from sympose.persona_files import profiles_dir
 PENDING, OUTDATED = "pending", "outdated"
 ATTACHED, DETACHED = "attached", "detached"
 OPEN, RESOLVED = "open", "resolved"
+ACCEPTED, DECLINED = "accepted", "declined"  # the user's verdict on one of her comments (docs/decisions/069)
 _NAME_WORDS = 5
 
 
@@ -148,22 +149,39 @@ def set_annotation_state(handle: str, note_path: str, annotation_id: str, state:
     change_annotation(handle, note_path, annotation_id, state=state)
 
 
-def change_annotation(handle: str, note_path: str, annotation_id: str, *, text: str | None = None, state: str | None = None) -> None:
-    """Changes a comment's text and/or state in one save: a state that is not allowed changes nothing, not even the
-    text that came with it."""
+def change_annotation(
+    handle: str, note_path: str, annotation_id: str, *, text: str | None = None, state: str | None = None, verdict: str | None = None,
+) -> None:
+    """Changes a comment's text, state and/or verdict in one save: anything that is not allowed changes nothing, not even
+    the text that came with it. A verdict (`accepted`, or `declined` after the user has replied) is the user's decision on
+    one of her comments; it resolves the comment, and reopening it clears the verdict."""
     if state is not None and state not in (OPEN, RESOLVED):
         raise ValueError(f"An annotation is {OPEN} or {RESOLVED}, not {state!r}")
+    if verdict is not None and verdict not in (ACCEPTED, DECLINED):
+        raise ValueError(f"A verdict is {ACCEPTED} or {DECLINED}, not {verdict!r}")
+    if verdict is not None and state not in (None, RESOLVED):
+        raise ValueError("A verdict resolves the comment; it cannot come with a reopen.")
 
     def apply(entry: dict[str, Any]) -> None:
         annotation = _pick(entry["annotations"], annotation_id)
+        if verdict is not None:
+            if annotation.get("reply_to") or annotation.get("author") != "persona":
+                raise ValueError("Only her comments can be accepted or declined.")
+            if verdict == DECLINED and not any(a.get("reply_to") == annotation_id and a.get("author") == "user" for a in entry["annotations"]):
+                raise ValueError("Reply first, saying why you disagree.")
         if text is not None:
             annotation["text"] = text
-        if state is not None:
-            annotation["state"] = state
+        if verdict is not None:
+            annotation["verdict"], annotation["decided"] = verdict, _now()
+        if state is not None or verdict is not None:
+            annotation["state"] = RESOLVED if verdict is not None else state
+            if annotation["state"] == OPEN:
+                annotation.pop("verdict", None)
+                annotation.pop("decided", None)
             if not annotation.get("reply_to"):  # a comment and the answers under it are open or resolved together
                 for answer in entry["annotations"]:
                     if answer.get("reply_to") == annotation_id:
-                        answer["state"] = state
+                        answer["state"] = annotation["state"]
 
     store.update(handle, note_path, apply)
 

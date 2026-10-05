@@ -538,3 +538,30 @@ def test_a_draft_is_saved_for_the_persona_who_asked_not_the_default_one(env):
 
     text = lambda who: client.get("/api/vault/changes", params={"path": "Compost.md", "persona": who}).json()["proposals"][0]["text"]  # noqa: E731
     assert (text("samantha"), text("grace")) == ("# Samantha's\n", "# Grace edited\n")
+
+
+def test_a_comment_of_hers_is_accepted_through_the_route_and_a_decline_needs_the_users_reply_first(env):
+    client, _ = env
+    root = nc.annotate("samantha", "Garden plan.md", NOTE, quote="raised", text="Are you sure?", author="persona")
+    body = {"path": "Garden plan.md", "id": root["id"], "persona": "samantha"}
+
+    too_soon = client.patch("/api/vault/annotations", json={**body, "verdict": "declined"})
+    client.post("/api/vault/annotations", json={"path": "Garden plan.md", "persona": "samantha", "reply_to": root["id"], "text": "Yes, I am."})
+    declined = client.patch("/api/vault/annotations", json={**body, "verdict": "declined"})
+
+    assert (too_soon.status_code, declined.status_code) == (400, 200)
+    assert "Reply first" in too_soon.json()["detail"]
+    (got,) = [a for a in client.get("/api/vault/changes", params={"path": "Garden plan.md", "persona": "samantha"}).json()["annotations"] if a["id"] == root["id"]]
+    assert (got["state"], got["verdict"]) == ("resolved", "declined")
+
+
+def test_the_route_refuses_a_verdict_on_the_users_own_comment_and_an_unknown_verdict(env):
+    client, _ = env
+    mine = nc.annotate("samantha", "Garden plan.md", NOTE, quote="raised", text="mine", author="user")
+    hers = nc.annotate("samantha", "Garden plan.md", NOTE, quote="three", text="hers", author="persona")
+
+    on_mine = client.patch("/api/vault/annotations", json={"path": "Garden plan.md", "id": mine["id"], "persona": "samantha", "verdict": "accepted"})
+    unknown = client.patch("/api/vault/annotations", json={"path": "Garden plan.md", "id": hers["id"], "persona": "samantha", "verdict": "maybe"})
+
+    assert (on_mine.status_code, unknown.status_code) == (400, 400)
+    assert "Only her comments" in on_mine.json()["detail"]

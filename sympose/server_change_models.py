@@ -32,12 +32,13 @@ class AnnotationCreate(BaseModel):
 
 
 class AnnotationChange(BaseModel):
-    """Body of `PATCH /api/vault/annotations` — resolve or reopen a comment, and/or change its text."""
+    """Body of `PATCH /api/vault/annotations` — resolve or reopen a comment, change its text, and/or give a verdict on one of hers."""
 
     path: str = Field(..., min_length=1)
     id: str = Field(..., min_length=1)
     state: str | None = None
     text: str | None = None
+    verdict: str | None = None  # `accepted` or `declined`: the user's decision on one of her comments (ADR 069), which resolves it
     persona: str | None = None
 
 

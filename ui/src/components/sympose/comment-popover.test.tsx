@@ -230,3 +230,118 @@ describe("CommentPopover: a thread", () => {
     await waitFor(() => expect(onClose).toHaveBeenCalled())
   })
 })
+
+describe("CommentPopover: accepting or declining one of her comments (docs/decisions/069)", () => {
+  const hers = (over: Partial<Annotation> = {}) => note("h1", { author: "persona", text: "Are you sure about the count?", ...over })
+  const reply = (author: "user" | "persona") => note("r1", { author, reply_to: "h1", text: "an answer", time: "2026-10-04T10:05:00+00:00" })
+  const open = (annotations: Annotation[]) => show({ kind: "thread", id: "h1", rect }, annotations)
+  const button = (name: string) => screen.findByRole("button", { name }) as Promise<HTMLButtonElement>
+
+  it("offers Accept and Decline on her comment, and no plain Resolve", async () => {
+    open([hers()])
+
+    expect(await button("Accept")).toBeTruthy()
+    expect(await button("Decline")).toBeTruthy()
+    expect(screen.queryByRole("button", { name: "Resolve" })).toBeNull()
+  })
+
+  it("offers neither on the user's own comment, which is resolved as before", async () => {
+    show({ kind: "thread", id: "c1", rect }, [note("c1")])
+
+    expect(await button("Resolve")).toBeTruthy()
+    expect(screen.queryByRole("button", { name: "Accept" })).toBeNull()
+    expect(screen.queryByRole("button", { name: "Decline" })).toBeNull()
+  })
+
+  it("accepts it, tells the note's changes to be read again, and closes", async () => {
+    const { onClose, onChanged } = open([hers()])
+
+    await act(async () => fireEvent.click(await button("Accept")))
+
+    expect(api.changeComment).toHaveBeenCalledWith({ path: "n.md", persona: "samantha", id: "h1", verdict: "accepted" })
+    expect(onChanged).toHaveBeenCalledTimes(1)
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it("keeps Decline off until the user has replied in the thread, and says why", async () => {
+    open([hers(), reply("persona")]) // an answer of hers is not the user's reply
+
+    const decline = await button("Decline")
+
+    expect(decline.disabled).toBe(true)
+    expect(screen.getByText(/reply first/i)).toBeTruthy()
+  })
+
+  it("declines once the user has replied, and closes", async () => {
+    const { onClose, onChanged } = open([hers(), reply("user")])
+    const decline = await button("Decline")
+    expect(decline.disabled).toBe(false)
+    expect(screen.queryByText(/reply first/i)).toBeNull()
+
+    await act(async () => fireEvent.click(decline))
+
+    expect(api.changeComment).toHaveBeenCalledWith({ path: "n.md", persona: "samantha", id: "h1", verdict: "declined" })
+    expect(onChanged).toHaveBeenCalledTimes(1)
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it("stays open and says why when the decision could not be saved", async () => {
+    api.changeComment.mockResolvedValue({ ok: false, error: "Reply first, saying why you disagree." })
+    const { onClose } = open([hers(), reply("user")])
+
+    await act(async () => fireEvent.click(await button("Decline")))
+
+    expect(toast.error).toHaveBeenCalledWith("Reply first, saying why you disagree.")
+    expect(onClose).not.toHaveBeenCalled()
+  })
+})
+
+describe("CommentPopover: the thread's buttons are one row (Resolve on the left, Reply and Delete on the right)", () => {
+  const row = async (id: string, annotations: Annotation[]) => {
+    show({ kind: "thread", id, rect }, annotations)
+    await screen.findByTestId("comment-thread")
+    return screen.getByTestId("comment-thread-actions")
+  }
+  const labels = (el: HTMLElement) => [...el.querySelectorAll("button")].map((b) => b.textContent)
+
+  it("puts Resolve, Reply and Delete in one row, in that order", async () => {
+    const actions = await row("c1", [note("c1")])
+
+    expect(labels(actions)).toEqual(["Resolve", "Reply", "Delete"])
+  })
+
+  it("for one of her comments the left side is Accept and Decline", async () => {
+    const actions = await row("h1", [note("h1", { author: "persona" })])
+
+    expect(labels(actions)).toEqual(["Accept", "Decline", "Reply", "Delete"])
+  })
+
+  it("keeps Reply and Delete together as the right side, apart from the left", async () => {
+    const actions = await row("c1", [note("c1")])
+    const [left, right] = [...actions.children] as HTMLElement[]
+
+    expect(labels(left)).toEqual(["Resolve"])
+    expect(labels(right)).toEqual(["Reply", "Delete"])
+    expect(actions.className).toContain("justify-between")
+  })
+
+  it("Reply is off until something is written and sends from that row", async () => {
+    const actions = await row("c1", [note("c1")])
+    const send = [...actions.querySelectorAll("button")].find((b) => b.textContent === "Reply") as HTMLButtonElement
+    expect(send.disabled).toBe(true)
+
+    fireEvent.change(screen.getByLabelText("Reply"), { target: { value: "an answer" } })
+    expect(send.disabled).toBe(false)
+    await act(async () => fireEvent.click(send))
+
+    expect(api.replyToComment).toHaveBeenCalledWith({ path: "n.md", persona: "samantha", replyTo: "c1", text: "an answer" })
+  })
+
+  it("keeps the hint about declining above the row, not inside it", async () => {
+    const actions = await row("h1", [note("h1", { author: "persona" })])
+
+    expect(actions.textContent).not.toMatch(/to decline/i)
+    expect(screen.getByText(/to decline, reply first/i)).toBeTruthy()
+  })
+})
+
