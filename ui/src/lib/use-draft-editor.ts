@@ -1,7 +1,7 @@
 import * as React from "react"
 
 import { notify } from "@/lib/notify"
-import { fetchChanges, resolveChanges } from "@/lib/persona-changes-api"
+import { fetchChanges, resolveChanges, saveDraftText } from "@/lib/persona-changes-api"
 import { getUnsavedGuard } from "@/lib/unsaved-guard"
 import { announceDraftsChanged } from "@/lib/use-drafts"
 import { createVaultNote, saveVaultNote } from "@/lib/vault-note-api"
@@ -10,8 +10,9 @@ import type { PanelFile } from "@/lib/use-note-document"
 /**
  * The draft of a new note open in the editor (docs/decisions/071): a note the persona proposed that has no file yet.
  * It is shown through the editor's `file` seam, like a persona's own file, with its text from the proposal. Saving
- * (the button, `⌘/Ctrl-S`, autosave, leaving the draft) only keeps the user's edits here, for this session: the file
- * is made by `accept`, the one deliberate act, and `decline` forgets the proposal. `path` is the key the editor is
+ * (the button, `⌘/Ctrl-S`, autosave, leaving the draft) keeps the user's edits in the proposal in the persona's folder
+ * (never the vault; amended 2026-10-05): the file is made by `accept`, the one deliberate act, and `decline` forgets
+ * the proposal. `path` is the key the editor is
  * given, `draft:<handle>/<note path>`, never a vault path.
  */
 export function useDraftEditor({
@@ -46,6 +47,8 @@ export function useDraftEditor({
               return text === undefined ? null : { content: text }
             },
             save: async (_path, text) => {
+              const kept = await saveDraftText(notePath, handle, text) // in her folder, so a reload or a restart keeps it
+              if (!kept.ok) return kept
               texts.current.set(`${handle}:${notePath}`, text)
               return { ok: true }
             },

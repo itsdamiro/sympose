@@ -39,3 +39,12 @@ class AnnotationChange(BaseModel):
     state: str | None = None
     text: str | None = None
     persona: str | None = None
+
+
+class DraftText(BaseModel):
+    """Body of `PATCH /api/vault/changes/draft` — the user saved the new-note draft at `path` in the editor; `text` is
+    what the editor now holds. Kept in the persona's folder, never written to the vault."""
+
+    path: str = Field(..., min_length=1)
+    text: str
+    persona: str | None = None

@@ -37,7 +37,7 @@ from sympose import server_session_handlers as sess
 from sympose import server_trash_handlers as th
 from sympose import server_vault_handlers as vh
 from sympose import vault_paths
-from sympose.server_change_models import AnnotationChange, AnnotationCreate, ChangesResolve
+from sympose.server_change_models import AnnotationChange, AnnotationCreate, ChangesResolve, DraftText
 from sympose.server_models import ChatBinAction, ChatCancel, ChatCompact, ChatSessionStart, ChatSessionUpdate, ChatTurn, DefinitionsSwitch, EditModeChoice, FolderDefinition, FolderIcon, HiddenPath, ModelChoice, PersonaFileWrite, SettingChange, SharingChange, TrashEmpty, TrashRestore, VaultActivate
 
 
@@ -326,6 +326,10 @@ def create_app() -> FastAPI:
     @app.post("/api/vault/changes/resolve")
     def resolve_changes(body: ChangesResolve) -> dict[str, Any]:
         return chg.resolve_changes(body)
+
+    @app.patch("/api/vault/changes/draft")
+    def save_draft(body: DraftText) -> dict[str, Any]:
+        return chg.save_draft(body)
 
     @app.post("/api/vault/annotations", status_code=201)
     def add_annotation(body: AnnotationCreate) -> dict[str, Any]:

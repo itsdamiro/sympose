@@ -100,6 +100,24 @@ export async function resolveChanges(path: string, persona: string, which: strin
   }
 }
 
+export type SaveDraftResult = { ok: true } | { ok: false; error: string }
+
+/** `PATCH /api/vault/changes/draft`: the user saved a new-note draft in the editor; its text is kept in the persona's
+ *  folder (docs/decisions/071), never the vault. */
+export async function saveDraftText(path: string, persona: string, text: string): Promise<SaveDraftResult> {
+  try {
+    const res = await fetch("/api/vault/changes/draft", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path, persona, text }),
+    })
+    if (!res.ok) return { ok: false, error: (await detailOf(res)) || `HTTP ${res.status}` }
+    return { ok: true }
+  } catch {
+    return { ok: false, error: "the Sympose backend is not reachable" }
+  }
+}
+
 export type CommentResult = { ok: true; comment?: Annotation } | { ok: false; error: string }
 
 async function sendComment(method: "POST" | "PATCH", body: Record<string, unknown>): Promise<CommentResult> {

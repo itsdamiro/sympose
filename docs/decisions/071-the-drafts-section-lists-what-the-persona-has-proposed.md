@@ -29,7 +29,7 @@ A persona's proposals are kept per note in her own folder (ADR 070) and drawn as
 ## What was built, and how the open questions were settled
 
 - **The editor holds a note with no file through the editor's `file` seam,** the one a persona's own file uses (`useDraftEditor`, `DraftBanner`): the text comes from the proposal, and the editor's key for it is `draft:<handle>/<path>`, never a vault path. The first alternative, making the first save create the file, was rejected: autosave and the flush on leaving a note both save without being asked, so an edit would have made the note without the user accepting it.
-- **Saving a draft only keeps the edit, for the session.** The button, `⌘/Ctrl-S`, autosave and leaving the draft store the text in the hook; reopening the draft shows it; Decline and Accept forget it. Known limit: the editor's "Saved" notice appears on `⌘/Ctrl-S` in a draft though nothing is written to the vault, and the edit is lost on a reload of the page.
+- **Saving a draft only keeps the edit, for the session (replaced 2026-10-05, see the amendment).** The button, `⌘/Ctrl-S`, autosave and leaving the draft store the text in the hook; reopening the draft shows it; Decline and Accept forget it. Known limit: the editor's "Saved" notice appears on `⌘/Ctrl-S` in a draft though nothing is written to the vault, and the edit is lost on a reload of the page.
 - **Accept** flushes the editor, then creates the note (the ordinary create, which refuses a name in use and leaves the draft), writes the text over the stub the create makes, forgets the proposal and opens the note. If the write fails after the create, the empty note stays and the draft is kept, with the reason shown. **Decline** flushes (so an unsaved edit is not sent to a path that is not a note), forgets the proposal and creates nothing.
 - **A draft with only outdated changes is listed,** so it can be declined.
 - **The list is read** on mount, on a persona change, when the vault is refreshed, when the window is focused and when a change is resolved or a draft accepted or declined (`announceDraftsChanged`). The end of a chat turn is not wired yet: until the persona's tool exists (slice 5) nothing proposes during a turn; slice 5 adds it.
@@ -44,6 +44,10 @@ A persona's proposals are kept per note in her own folder (ADR 070) and drawn as
 - **Caption.** "Drafts" while only proposals are listed, "Comments" while only comments are, "Drafts & comments" when both kinds are. It is shown only while at least one row is listed.
 - **Route.** `GET /api/vault/drafts` returns `comments` (the open count) beside `count` (the changes waiting) for each entry; a note with only comments has `count: 0`. `time` is the latest of the note's proposals and open comments, so the list stays newest first. The list is read at the same moments as before, and also after a comment is added, changed, resolved or deleted (the editor announces it, as it does for a resolved change).
 
+## Amendment (2026-10-05): saving a draft keeps the edit in her folder
+
+The first build kept a draft's edits only in the page for the session, and said "Saved" on `⌘/Ctrl-S` though nothing was kept anywhere durable: a reload lost them. Now **saving a draft (the button, `⌘/Ctrl-S`, autosave, leaving the draft) writes the edited text into the draft's proposal in her folder** (ADR 070's store, never the vault), so "Saved" is true and the edit survives a reload and a restart. A new route, `PATCH /api/vault/changes/draft` (`path`, `persona`, `text`), replaces the text of the note's new-note proposal and answers 404 when the note has none; the working name is left as it is (the user renames the note when it is accepted). The editor's save reports a failed write as an error instead of "Saved". Accept and Decline are unchanged: the first still creates the file, the second forgets the proposal. The vault is still touched only by Accept.
+
 ## Alternatives rejected
 
 - **A footer section like Recent.** Rejected: the footer is for reference lists the user reaches for; a draft is a to-do and belongs where the eye starts.
@@ -52,3 +56,4 @@ A persona's proposals are kept per note in her own folder (ADR 070) and drawn as
 - **Polling the drafts route.** Rejected: nothing proposes except during a chat turn, which already tells the panel when it ends.
 - **A second group for commented notes (2026-10-05).** Weighed with the user and set aside: they preferred one place for everything that needs a look; the row and caption say which kind each is.
 - **Listing only the comments waiting on the user, or only the user's waiting on her.** Rejected by the user for the simpler rule: any open comment.
+- **Only changing the notice to say the draft is not in the vault (2026-10-05).** Rejected: the edit would still be lost on a reload.

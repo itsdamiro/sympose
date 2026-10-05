@@ -88,6 +88,18 @@ def propose_create(handle: str, note_path: str, text: str, *, say: str, title: s
     return proposal
 
 
+def edit_draft(handle: str, note_path: str, text: str) -> None:
+    """The user saved the new-note draft in the editor: its proposal now holds their text (still in her folder, never the
+    vault; the working name stays). `KeyError` when the note has no new-note draft."""
+    def apply(entry: dict[str, Any]) -> None:
+        creates = [p for p in entry["proposals"] if p.get("kind") == "create"]
+        if not creates:
+            raise KeyError(note_path)
+        creates[0]["text"] = text
+
+    store.update(handle, note_path, apply)
+
+
 def status(proposal: dict[str, Any], note_text: str) -> str:
     """`pending` while the passage is in the note exactly once (it follows the text); `outdated` once it was
     rewritten or can no longer be told from another. A new note has nothing to go stale."""

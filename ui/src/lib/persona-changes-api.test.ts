@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { fetchChanges, fetchDrafts, resolveChanges } from "./persona-changes-api"
+import { fetchChanges, fetchDrafts, resolveChanges, saveDraftText } from "./persona-changes-api"
 
 const json = (body: unknown, ok = true, status = ok ? 200 : 500) =>
   ({ ok, status, json: () => Promise.resolve(body) }) as Response
@@ -106,5 +106,24 @@ describe("comments", () => {
     expect(await addComment({ path: "n.md", persona: "x", quote: "q", before: "", after: "", text: "" })).toEqual(down)
     expect(await changeComment({ path: "n.md", persona: "x", id: "z", state: "open" })).toEqual(down)
     expect(await deleteComment("n.md", "x", "z")).toEqual(down)
+  })
+})
+
+describe("saveDraftText", () => {
+  it("sends the draft's text for the persona with PATCH and says it is kept", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(json({ path: "N.md" }))
+    vi.stubGlobal("fetch", fetchMock)
+
+    expect(await saveDraftText("N.md", "samantha", "# N\n")).toEqual({ ok: true })
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/vault/changes/draft", expect.objectContaining({ method: "PATCH", body: JSON.stringify({ path: "N.md", persona: "samantha", text: "# N\n" }) }))
+  })
+
+  it("gives the server's reason when it refuses, and a plain one when it cannot be reached", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json({ detail: "That note has no new-note draft." }, false, 404)))
+    expect(await saveDraftText("N.md", "samantha", "x")).toEqual({ ok: false, error: "That note has no new-note draft." })
+
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("down")))
+    expect(await saveDraftText("N.md", "samantha", "x")).toEqual({ ok: false, error: "the Sympose backend is not reachable" })
   })
 })

@@ -463,3 +463,78 @@ def test_half_a_context_is_not_used_the_passage_is_found_in_the_note_instead(env
 
     assert made.status_code == 201
     assert made.json()["before"].endswith("The beds are ") and made.json()["after"].startswith(".")
+
+
+def test_saving_a_draft_replaces_the_new_note_text_in_her_folder_and_never_touches_the_vault(env):
+    client, vault = env
+    nc.propose_create("samantha", "Compost.md", "# Compost\n\nfirst\n", say="New.")
+    before = vault_files(vault)
+
+    res = client.patch("/api/vault/changes/draft", json={"path": "Compost.md", "persona": "samantha", "text": "# Compost\n\nedited by the user\n"})
+
+    assert res.status_code == 200
+    (proposal,) = client.get("/api/vault/changes", params={"path": "Compost.md", "persona": "samantha"}).json()["proposals"]
+    assert proposal["text"] == "# Compost\n\nedited by the user\n" and proposal["name"] == "Compost"
+    assert vault_files(vault) == before
+
+
+def test_the_saved_draft_survives_a_new_app_because_it_is_a_file_in_her_folder(env):
+    client, _ = env
+    nc.propose_create("samantha", "Compost.md", "# Compost\n", say="New.")
+    client.patch("/api/vault/changes/draft", json={"path": "Compost.md", "persona": "samantha", "text": "# Compost\n\nkept\n"})
+
+    again = TestClient(create_app())  # as after a restart: nothing is held in memory
+
+    (proposal,) = again.get("/api/vault/changes", params={"path": "Compost.md", "persona": "samantha"}).json()["proposals"]
+    assert proposal["text"] == "# Compost\n\nkept\n"
+
+
+def test_saving_a_draft_changes_only_that_persona_and_that_note(env):
+    client, _ = env
+    nc.propose_create("samantha", "Compost.md", "# Compost\n", say="")
+    nc.propose_create("grace", "Compost.md", "# Grace's\n", say="")
+    nc.propose_create("samantha", "Other.md", "# Other\n", say="")
+
+    client.patch("/api/vault/changes/draft", json={"path": "Compost.md", "persona": "samantha", "text": "# Changed\n"})
+
+    text = lambda who, path: client.get("/api/vault/changes", params={"path": path, "persona": who}).json()["proposals"][0]["text"]  # noqa: E731
+    assert (text("samantha", "Compost.md"), text("grace", "Compost.md"), text("samantha", "Other.md")) == ("# Changed\n", "# Grace's\n", "# Other\n")
+
+
+def test_saving_text_for_a_note_with_no_new_note_draft_is_404_and_adds_nothing(env):
+    client, _ = env
+    nc.propose_edit("samantha", "Garden plan.md", NOTE, find="three times", replace="four times", say="")
+
+    on_edit = client.patch("/api/vault/changes/draft", json={"path": "Garden plan.md", "persona": "samantha", "text": "x"})
+    on_nothing = client.patch("/api/vault/changes/draft", json={"path": "Nope.md", "persona": "samantha", "text": "x"})
+
+    assert (on_edit.status_code, on_nothing.status_code) == (404, 404)
+    assert client.get("/api/vault/changes", params={"path": "Nope.md", "persona": "samantha"}).json()["proposals"] == []
+
+
+def test_saving_a_draft_for_an_unknown_persona_is_404(env):
+    client, _ = env
+    res = client.patch("/api/vault/changes/draft", json={"path": "Compost.md", "persona": "nobody", "text": "x"})
+    assert res.status_code == 404
+
+
+def test_a_draft_saved_under_another_spelling_of_its_path_reaches_the_same_draft(env):
+    client, _ = env
+    nc.propose_create("samantha", "Sub/Compost.md", "# Compost\n", say="")
+
+    res = client.patch("/api/vault/changes/draft", json={"path": "./Sub/Compost", "persona": "samantha", "text": "# By another spelling\n"})
+
+    assert res.status_code == 200 and res.json()["path"] == "Sub/Compost.md"
+    (proposal,) = client.get("/api/vault/changes", params={"path": "Sub/Compost.md", "persona": "samantha"}).json()["proposals"]
+    assert proposal["text"] == "# By another spelling\n"
+
+
+def test_a_draft_is_saved_for_the_persona_who_asked_not_the_default_one(env):
+    client, _ = env
+    nc.propose_create("samantha", "Compost.md", "# Samantha's\n", say="")
+    nc.propose_create("grace", "Compost.md", "# Grace's\n", say="")
+
+    client.patch("/api/vault/changes/draft", json={"path": "Compost.md", "persona": "grace", "text": "# Grace edited\n"})
+
+    text = lambda who: client.get("/api/vault/changes", params={"path": "Compost.md", "persona": who}).json()["proposals"][0]["text"]  # noqa: E731
+    assert (text("samantha"), text("grace")) == ("# Samantha's\n", "# Grace edited\n")

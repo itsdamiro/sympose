@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { act, cleanup, renderHook } from "@testing-library/react"
 
-const changes = vi.hoisted(() => ({ fetchChanges: vi.fn(), resolveChanges: vi.fn() }))
+const changes = vi.hoisted(() => ({ fetchChanges: vi.fn(), resolveChanges: vi.fn(), saveDraftText: vi.fn() }))
 const vault = vi.hoisted(() => ({ createVaultNote: vi.fn(), saveVaultNote: vi.fn() }))
 const notify = vi.hoisted(() => ({ notify: { error: vi.fn(), success: vi.fn() } }))
 const guard = vi.hoisted(() => ({ getUnsavedGuard: vi.fn() }))
@@ -24,6 +24,7 @@ const proposal = { id: "p", kind: "create", text: "# New plan\n\nHello\n", name:
 function setup(onAccepted = vi.fn()) {
   changes.fetchChanges.mockResolvedValue({ proposals: [proposal] })
   changes.resolveChanges.mockResolvedValue({ ok: true, resolved: ["p"] })
+  changes.saveDraftText.mockResolvedValue({ ok: true })
   vault.createVaultNote.mockResolvedValue({ ok: true, path: "Ideas/New plan" })
   vault.saveVaultNote.mockResolvedValue({ ok: true })
   guard.getUnsavedGuard.mockReturnValue(null)
@@ -53,12 +54,22 @@ describe("useDraftEditor", () => {
     expect(await result.current.file!.load("x")).toBeNull()
   })
 
-  it("keeps an edit for the session when the editor saves it, and creates nothing", async () => {
+  it("keeps an edit in her folder when the editor saves it, and creates nothing in the vault", async () => {
     const { result } = setup()
     expect(await result.current.file!.save("x", "# New plan\n\nEdited\n")).toEqual({ ok: true })
+    expect(changes.saveDraftText).toHaveBeenCalledWith(PATH, "samantha", "# New plan\n\nEdited\n")
     expect(vault.createVaultNote).not.toHaveBeenCalled()
     expect(vault.saveVaultNote).not.toHaveBeenCalled()
     expect(await result.current.file!.load("x")).toEqual({ content: "# New plan\n\nEdited\n" })
+  })
+
+  it("says why and keeps nothing when the edit could not be kept, instead of reporting it saved", async () => {
+    const { result } = setup()
+    changes.saveDraftText.mockResolvedValue({ ok: false, error: "disk full" })
+
+    expect(await result.current.file!.save("x", "# New plan\n\nEdited\n")).toEqual({ ok: false, error: "disk full" })
+
+    expect(await result.current.file!.load("x")).toEqual({ content: proposal.text }) // the proposal's own text, not the failed edit
   })
 
   it("accepts: creates the file, writes the text, forgets the proposal, and says the path, in that order", async () => {

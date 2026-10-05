@@ -10,7 +10,7 @@ from fastapi import HTTPException
 
 from sympose import note_changes as nc
 from sympose import note_changes_store as store
-from sympose.server_change_models import AnnotationChange, AnnotationCreate, ChangesResolve
+from sympose.server_change_models import AnnotationChange, AnnotationCreate, ChangesResolve, DraftText
 from sympose.server_handlers import read_note, require_profile
 
 
@@ -71,6 +71,16 @@ def resolve_changes(body: ChangesResolve) -> dict[str, Any]:
     if not body.all and not gone and body.ids:
         raise HTTPException(status_code=404, detail="No such pending change.")
     return {"path": path, "resolved": gone}
+
+
+def save_draft(body: DraftText) -> dict[str, Any]:
+    handle = _handle(body.persona)
+    path = _key(body.path)
+    try:
+        nc.edit_draft(handle, path, body.text)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="That note has no new-note draft.") from None
+    return {"path": path}
 
 
 def add_annotation(body: AnnotationCreate) -> dict[str, Any]:
