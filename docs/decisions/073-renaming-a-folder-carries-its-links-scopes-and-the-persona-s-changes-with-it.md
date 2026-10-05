@@ -57,6 +57,6 @@ ADR 070 already says a future folder move "must carry entries under the folder's
 ## Not covered
 
 - A deleted note or folder in the bin keeps the path it came from; restoring it after its folder was renamed puts it back under the old name (ADR 045, 050).
-- The tree's expanded folders (a cookie of paths) are not remapped: the renamed folder and the ones inside it come back collapsed.
+- ~~The tree's expanded folders are not remapped.~~ Fixed with the folder move (ADR 074): a renamed or moved folder keeps its open state.
 - Pins, recents and open folders are in the browser that renamed the folder; another browser keeps the old paths until they are unpinned (as for a note's rename, ADR 051).
 - Moving a folder; renaming a folder that holds a persona's own files (`profiles/` is not in the vault).

@@ -1,6 +1,6 @@
 # 074 — Moving a folder onto another
 
-> **Status: Accepted (damiro, 2026-10-05; not built).** Second half of the folder work (ADR 073 was the rename). Dragging a folder onto another folder, or onto the vault root, the drop a note already has.
+> **Status: Accepted (damiro, 2026-10-05); built 2026-10-06.** Second half of the folder work (ADR 073 was the rename). Dragging a folder onto another folder, or onto the vault root, the drop a note already has.
 
 ## Context
 
@@ -56,6 +56,16 @@ Things that exist already and are reused: `vault_write_rename_folder`, `vault_wr
 - **Refuse any move that changes a persona's reach.** Rejected: it would block a legitimate move for a one-line question.
 - **Rewrite a link only when Obsidian would no longer find it by its old form.** Rejected by the user for always rewriting to the full path: explicit links over fewer changes to the notes.
 
+## Built (2026-10-06)
+
+**Backend.** `vault_move_folder_plan` (the read-only plan, slice 1; also for a folder going in under a new name, so the reach asked about is the real one), `vault_write_move_folder` (the move, a rename on a clash, a merge), `vault_write_merge_folder` (numbering what is in both, moving files across one at a time), `vault_write_relink_folder` (a move rewrites the folder's whole path in a link, a rename its own segment), `server_folder_handlers` (`PATCH /api/vault/folder/move`, which answers `{path, detail, relinked, failed, definition, personas, personas_unchanged, merged, renamed, left_behind}`, and `POST /api/vault/folder/move-plan`), and `vault_health_moves` (the two observations of item 7, never a problem; a numbered twin means a number of 2 or more).
+
+**Merge.** What is in both is renamed first, inside the incoming folder (a note through the note rename, so the links that named it follow it and its pending changes follow through a callback as each rename happens), and then everything is moved across with nothing overwritten, so the folder links are rewritten against the files as they are after the renames. A file where the other folder has a folder of that name (or the reverse) is numbered like any other. Hidden files and folders are never moved: they stay, and so does the source folder, and the answer says how many files are left (`left_behind`). Scopes, the hidden list and pending changes follow the folder to its new path whether or not something was left behind; what is left is hidden files, which are not notes, or a file that appeared meanwhile.
+
+**Web app.** A folder row is dragged onto a folder row, the heading of the folder in view, a root folder in the main menu, the vault name at the top of the menu or the empty space below the root folders (the last two are the vault root; damiro chose both). A drop on itself, its own subfolder or its present parent is not offered: no highlight, no cursor. `use-folder-move` saves a note with unsaved edits, asks for the plan, asks what the plan says needs asking (`FolderMoveDialog`: rename or merge; the files in both in one prompt; "This gives Grace access to 12 notes. Move anyway?"), moves, and follows: pins, recents, the open note, the section (a root folder moved inside another leaves the section as that other root), and **the tree's expanded folders** (`folder-moved`), for a rename too. When a merge renamed the note that is open, the editor closes instead of landing on the note that was there.
+
+**Checked in real headless Chrome** (invented vault, three personas, a hidden note, a pending change and a comment, a pin, an open note): a plain move with the folder's open state kept, its links, a persona's scope, her pending change; a clash answered by a new name (the folder there untouched, links inside and outside, the hidden list, the comment, the pin); a merge with a note in both, with the editor open on the incoming one; a move that changes two personas' reach, cancelled and then agreed; a drop on itself, its parent and the heading, which send nothing; a move to the vault root by the vault name and by the empty space. **Found there and fixed:** a drag lost its highlight when it moved onto a row's own icon or label (the browser reports the child's `dragenter` before the parent's `dragleave`); it now stays lit until the drag leaves the row (this also fixes it for notes). The review found and I fixed: a bad new name was reported as "into itself", the reach asked about was the merge's when the user had chosen a new name, a failing rename in the middle of a merge lost the pending changes of the ones before it, a failing merge step raised instead of reporting what was left, the vault-root highlight could stay on over a row, and the section after moving a root folder inside another.
+
 ## Not covered
 
 - A deleted note or folder in the bin keeps the path it came from (ADR 045, 050).
@@ -63,3 +73,6 @@ Things that exist already and are reused: `vault_write_rename_folder`, `vault_wr
 - Plain Markdown links are not rewritten (#42, #101); health does not yet look for them.
 - Moving a folder that holds a persona's own files (`profiles/` is not in the vault).
 - A move across two vaults.
+- The links to a file that a merge renamed and that is not a note (an image in both folders) are not followed; they keep the old path, which is the other folder's file now. Only notes have the note rename's relinking.
+- A hidden file, or a hidden note in a folder, that a merge left in the source folder keeps the scope, the hidden state and the pending changes of the folder it was in, which have moved.
+- The drop handlers of the tree, the heading and the main menu are three copies of one idea with small differences; a shared hook would hold them together (tech debt, no behaviour in it).
