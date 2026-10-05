@@ -55,7 +55,7 @@ It is information, not a block: the user can choose `auto` with any model. The s
 - **The cap on the note's text and on the comments**, and whether a note longer than the cap is sent in part.
 - **How faithful the marker shape is against the tool shape**, on `gemma2:9b` and Gemini Flash, with the real prompt (not Spike B's), which is the measurement slice 5 starts with; and whether the figures above hold on a longer note.
 - **Where the note table lives and how a model gets an entry** (a measurement script and a row, like `lookup.MEASURED`).
-- **`accept` mode and an applied edit the user then edits over:** the same outdated rule as a pending change, or just a text change; settled when built.
+- **`accept` mode and an applied edit the user then edits over:** settled 2026-10-05, see "`accept` in the editor" below.
 
 ## Measured (2026-10-04): the marker with the real prompt, on `gemma2:9b`
 
@@ -108,7 +108,21 @@ What the replies show:
 - **The duplicate-proposal bug is closed** on both sides (ADR 070).
 - **The note is a share category (`open_note`, ADR 031).** A cloud model is not sent the note's text until the user approves the category; the persona is told a note is open but withheld (she cannot see or change it, and says so), the turn records it as withheld, and a sent note is recorded in the turn's cloud categories (the web's reply footer names it "the open note"). Local models always receive it. Only the open note is a category so far: one that sent nothing would only confuse the list.
 - **Her comments (2026-10-05).** A third tool, `comment_on(find, text)` (or `<!-- comment_on: {...} -->`), files a comment of hers on a passage through the same parser and the same unique-passage rule; it is given only with a note open and never in `plan`. The editor draws her comments in the brand blue and the user's in amber (a light tint with an underline, measured at 4.4:1 light and 6.1:1 dark for the note's text on it), and a line holding both shows two dots; the dot is drawn in the line's own left space, so a comment never changes the editor's width.
-- **Not built:** the comments travelling to her (`annotations`, with the category when they travel); the screen sending `open_note`; `accept`'s behaviour in the editor; the refresh of the Drafts list at the end of a turn; the per-mode wording measured again with this exact text (the figures above are for the script's wording).
+- **Not built:** the comments travelling to her (`annotations`, with the category when they travel); the per-mode wording measured again with this exact text (the figures above are for the script's wording).
+
+## `accept` in the editor (decided 2026-10-05 with the user)
+
+**An applied edit is ordinary text with a mark, not a new kind of tracked change.** In `accept` mode the editor applies each of her placed, pending edits to its own text as one undoable change (the same replacement `Accept` makes) and draws the new words with a light highlight and a small Undo. Nothing is new on the server and the file is not touched.
+
+**Her applied edits stay pending on the server until the note is saved.** Resolving them at once would lose them if the user closes the note without saving, and the user goes back and forth to a note whenever they like. So: while applied they are still listed under Drafts; closing the note without saving leaves the file as it was, the proposals still waiting, and opening the note again applies them again. Any save of the note (the button, `⌘/Ctrl-S`, autosave or the leave-note flush after the user has touched it) forgets the ones still applied, as accepted. Her unresolved comments are never affected: they live in her folder and survive closing, reloading and reopening (ADR 070).
+
+**An applied edit that is undone or edited over is dropped, and the proposal is forgotten.** Undo on the highlight, the editor's own undo, and typing inside the new words all take the words back out of the user's text; the proposal is then declined on the server. This is the "just a text change" answer: no outdated state for an applied edit. Typing at either edge of the new words does not drop it.
+
+**No autosave or leave-note flush writes text that is only hers.** The editor has a flush that saves unsaved text when the user leaves a note, and autosave; for text that holds only her applied edits and no touch by the user (no typing, no frontmatter edit) both wait. The user's explicit save, and "Save and switch" when changing vaults, still save. Once the user touches the note, the ordinary rules apply and everything in the buffer, hers included, is saved with it, since the user is there.
+
+**Not applied:** a new note (still a draft), a change that cannot be placed (the reply footer says so), and any edit while the note is in read mode. A persona's own file never gets this.
+
+**Built (2026-10-05, not yet checked in a real browser):** `applyProposals`, `clearApplied`, `appliedState` and the mark with its Undo in `lib/review-extensions.ts`; the hold on automatic saves and `onSaved` in `lib/use-note-document.ts`; the panel applies waiting edits when the persona's mode is `accept` (`markdown-panel.tsx`). Known gap: the editor remounts on a read/edit toggle or a surface change, which ends the marks (the text stays and the proposal stays pending until a save); the hold's frontmatter-edit clause has no test (the stylo stand-in has no frontmatter).
 
 ## Alternatives rejected
 
@@ -118,3 +132,5 @@ What the replies show:
 - **Applying edits to the file in `accept` mode.** Rejected: the save, or the Accept, stays the user's act.
 - **Whole-note rewrites instead of patches.** Rejected in ADR 042 and by Spike B: a rewrite is applied wrong far more often (9 of 36 against 2 for a patch) and shows nothing exact to review.
 - **Sending the open note only when the message looks like an edit request.** Rejected: a phrase list, and a missed phrase means a silent refusal.
+- **Resolving an applied edit on the server at once.** Rejected: closing the note without saving would lose it, and the file must stay the user's to change.
+- **Keeping an applied edit as a tracked change in an "applied" state (goes outdated when edited over).** Rejected: a new state, a new drawing and undo rules, for a Decline after typing nearby that is rarely wanted.

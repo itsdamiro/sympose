@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { getOpenNote } from "@/lib/open-note-source"
+import { getUnsavedGuard } from "@/lib/unsaved-guard"
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import { EditorView } from "@codemirror/view"
@@ -81,6 +82,8 @@ vi.mock("@damiro/stylo/styles.css", () => ({}))
 vi.mock("@damiro/stylo/katex.css", () => ({}))
 vi.mock("@/lib/vault-note-api", () => api)
 vi.mock("@/lib/persona-changes-api", () => changesApi)
+const editModeApi = vi.hoisted(() => ({ fetchEditMode: vi.fn(), saveEditMode: vi.fn() }))
+vi.mock("@/lib/edit-mode-api", () => editModeApi)
 const notify = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }))
 vi.mock("@/lib/notify", () => ({ notify }))
 vi.mock("@/components/sympose/note-actions-menu", () => ({ NoteActionsMenu: () => null }))
@@ -112,6 +115,7 @@ beforeEach(() => {
   api.saveVaultNote.mockResolvedValue({ ok: true, mtime: 200 })
   changesApi.fetchChanges.mockResolvedValue(changes([]))
   changesApi.resolveChanges.mockResolvedValue({ ok: true, resolved: [] })
+  editModeApi.fetchEditMode.mockResolvedValue({ mode: "manual", source: "persona", modes: [], notes: { accept: null, auto: null }, model: "m" })
   for (const fn of [changesApi.addComment, changesApi.replyToComment, changesApi.changeComment, changesApi.deleteComment]) fn.mockResolvedValue({ ok: true })
 })
 afterEach(() => {
@@ -370,5 +374,129 @@ describe("MarkdownPanel with the persona's suggested changes", () => {
     await waitFor(() => expect(changesApi.fetchChanges).toHaveBeenCalled())
     expect(screen.getByTestId("cm").parentElement?.getAttribute("data-extensions")).toBe("no")
     expect(screen.getByTestId("cm").querySelector(".sy-change")).toBeNull()
+  })
+})
+
+describe("MarkdownPanel in accept mode (docs/decisions/072)", () => {
+  const inAccept = () => editModeApi.fetchEditMode.mockResolvedValue({ mode: "accept", source: "persona", modes: [], notes: { accept: null, auto: null }, model: "m" })
+  const appliedMark = () => screen.getByTestId("cm").querySelector(".sy-applied")
+  const waitApplied = () => waitFor(() => expect(appliedMark()?.textContent).toBe("four times"))
+  const type = (text: string) => act(() => editorView().dispatch({ changes: { from: 0, insert: text }, userEvent: "input.type" }))
+
+  beforeEach(() => {
+    inAccept()
+    changesApi.fetchChanges.mockResolvedValue(changes([edit("p1", "three times", "four times")]))
+  })
+
+  it("applies her waiting edit to the text at once, draws it as applied, and neither saves nor forgets it", async () => {
+    open()
+
+    await waitApplied()
+
+    expect(doc()).toContain("four times a week")
+    expect(screen.getByTestId("cm").querySelector(".sy-change")).toBeNull()
+    expect(changesApi.resolveChanges).not.toHaveBeenCalled()
+    expect(api.saveVaultNote).not.toHaveBeenCalled()
+  })
+
+  it("does not apply it in manual mode", async () => {
+    editModeApi.fetchEditMode.mockResolvedValue({ mode: "manual", source: "persona", modes: [], notes: { accept: null, auto: null }, model: "m" })
+    open()
+
+    await waitFor(() => expect(screen.getByTestId("cm").querySelector(".sy-change-add")).not.toBeNull())
+
+    expect(appliedMark()).toBeNull()
+    expect(editorView().state.doc.toString()).toContain("three times a week")
+  })
+
+  it("does not apply it in read mode", async () => {
+    document.cookie = "sympose:pref.noteReadOnly=1"
+    open()
+    await waitFor(() => expect(changesApi.fetchChanges).toHaveBeenCalled())
+    await waitFor(() => expect(editModeApi.fetchEditMode).toHaveBeenCalled())
+
+    expect(appliedMark()).toBeNull()
+  })
+
+  it("leaves the file alone when the note is closed untouched, and applies her edit again when it is opened again", async () => {
+    const first = open()
+    await waitApplied()
+
+    first.unmount()
+    await act(async () => {})
+
+    expect(api.saveVaultNote).not.toHaveBeenCalled()
+    expect(changesApi.resolveChanges).not.toHaveBeenCalled()
+
+    open()
+    await waitApplied()
+    expect(doc()).toContain("four times a week")
+    expect(api.saveVaultNote).not.toHaveBeenCalled()
+  })
+
+  it("leaves the file alone when the user moves to another note without touching this one", async () => {
+    const view = open()
+    await waitApplied()
+
+    view.rerender(<MarkdownPanel path="Other.md" persona="samantha" preferences={PREFERENCES} toolbarItems={["undo"]} />)
+    await act(async () => {})
+
+    expect(api.saveVaultNote).not.toHaveBeenCalled()
+  })
+
+  it("saves everything, hers included, when the user has touched the note and then leaves it, and forgets her edit", async () => {
+    const view = open()
+    await waitApplied()
+    await type("X")
+
+    view.rerender(<MarkdownPanel path="Other.md" persona="samantha" preferences={PREFERENCES} toolbarItems={["undo"]} />)
+
+    await waitFor(() => expect(api.saveVaultNote).toHaveBeenCalledTimes(1))
+    expect(api.saveVaultNote.mock.calls[0][0]).toBe("Garden plan.md")
+    expect(api.saveVaultNote.mock.calls[0][1]).toContain("XI run four times a week")
+  })
+
+  it("saves with her edit when the user saves it (Save and switch), then forgets the proposal and ends the mark", async () => {
+    open()
+    await waitApplied()
+    await waitFor(() => expect(getUnsavedGuard()!.isDirty()).toBe(true))
+
+    await act(async () => {
+      expect(await getUnsavedGuard()!.save()).toBe(true)
+    })
+
+    expect(api.saveVaultNote.mock.calls[0][1]).toContain("four times a week")
+    await waitFor(() => expect(changesApi.resolveChanges).toHaveBeenCalledWith("Garden plan.md", "samantha", ["p1"]))
+    await waitFor(() => expect(appliedMark()).toBeNull())
+    expect(doc()).toContain("four times a week")
+  })
+
+  it("does not autosave her edit before the user has touched the note, and does after", async () => {
+    open({ preferences: { ...PREFERENCES, autosave: "on" } })
+    await waitApplied()
+
+    await act(async () => new Promise((r) => setTimeout(r, 1800)))
+    expect(api.saveVaultNote).not.toHaveBeenCalled()
+
+    await type("X")
+    await waitFor(() => expect(api.saveVaultNote).toHaveBeenCalledTimes(1), { timeout: 4000 })
+    expect(api.saveVaultNote.mock.calls[0][1]).toContain("four times")
+  })
+
+  it("takes her edit back and forgets it when the user presses Undo on the mark", async () => {
+    open()
+    await waitApplied()
+
+    await act(async () => fireEvent.click(screen.getByTestId("cm").querySelector(".sy-applied-undo") as HTMLElement))
+
+    expect(doc()).toContain("three times a week")
+    await waitFor(() => expect(changesApi.resolveChanges).toHaveBeenCalledWith("Garden plan.md", "samantha", ["p1"]))
+    expect(appliedMark()).toBeNull()
+  })
+
+  it("does not list an applied edit as outdated", async () => {
+    open()
+    await waitApplied()
+    expect(screen.queryByText(/outdated|changed there since/i)).toBeNull()
   })
 })

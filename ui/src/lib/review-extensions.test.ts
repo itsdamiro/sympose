@@ -9,6 +9,9 @@ import type { Annotation, Proposal } from "./persona-changes-api"
 import {
   NO_REVIEW,
   acceptChanges,
+  appliedState,
+  applyProposals,
+  clearApplied,
   attachedComments,
   classify,
   declineChanges,
@@ -44,10 +47,15 @@ function comment(id: string, quote: string, state: "open" | "resolved" = "open",
 const views: EditorView[] = []
 function mount(
   data: ReviewData,
-  { doc = NOTE, onResolve = vi.fn(), onOpenComment }: { doc?: string; onResolve?: (ids: string[]) => void; onOpenComment?: (id: string, rect: DOMRect) => void } = {}
+  {
+    doc = NOTE,
+    onResolve = vi.fn(),
+    onOpenComment,
+    onApplied,
+  }: { doc?: string; onResolve?: (ids: string[]) => void; onOpenComment?: (id: string, rect: DOMRect) => void; onApplied?: (ids: string[], untouched: boolean) => void } = {}
 ) {
   const view = new EditorView({
-    state: EditorState.create({ doc, extensions: [history(), reviewExtensions({ initial: () => data, onResolve, onOpenComment })] }),
+    state: EditorState.create({ doc, extensions: [history(), reviewExtensions({ initial: () => data, onResolve, onOpenComment, onApplied })] }),
     parent: document.body,
   })
   views.push(view)
@@ -369,5 +377,146 @@ describe("selectionTarget", () => {
 
   it("is nothing when nothing is selected", () => {
     expect(selectionTarget(mount(NO_REVIEW).view)).toBeNull()
+  })
+})
+
+describe("applying her edits in accept mode (docs/decisions/072)", () => {
+  const data = (...proposals: Proposal[]): ReviewData => ({ proposals, annotations: [] })
+  const type = (view: EditorView, at: number, insert: string, to = at) => view.dispatch({ changes: { from: at, to, insert }, userEvent: "input.type" })
+
+  it("puts her replacement in the text, marks it, and does not tell the server anything", () => {
+    const { view, onResolve } = mount(data(edit("a", "three times", "four times")))
+
+    expect(applyProposals(view, ["a"])).toEqual(["a"])
+
+    expect(view.state.doc.toString()).toBe(NOTE.replace("three times", "four times"))
+    expect(view.dom.querySelector(".sy-applied")?.textContent).toBe("four times")
+    expect(view.dom.querySelector(".sy-applied-undo")).not.toBeNull()
+    expect(onResolve).not.toHaveBeenCalled()
+  })
+
+  it("applies several at once and refuses the second of two on one passage", () => {
+    const { view } = mount(data(edit("a", "three times", "four times"), edit("b", "raised", "sunken"), edit("c", "three", "two")))
+
+    expect(applyProposals(view, ["a", "b", "c"])).toEqual(["a", "b"])
+
+    expect(view.state.doc.toString()).toBe(NOTE.replace("three times", "four times").replace("raised", "sunken"))
+    expect([...view.dom.querySelectorAll(".sy-applied")].map((e) => e.textContent)).toEqual(["four times", "sunken"])
+  })
+
+  it("reports what is applied, and that the user has not touched the note", () => {
+    const onApplied = vi.fn()
+    const { view } = mount(data(edit("a", "three times", "four times")), { onApplied })
+
+    applyProposals(view, ["a"])
+
+    expect(onApplied).toHaveBeenLastCalledWith(["a"], true)
+    expect(appliedState(view.state)).toEqual({ ids: ["a"], untouched: true })
+  })
+
+  it("is touched once the user types anywhere", () => {
+    const onApplied = vi.fn()
+    const { view } = mount(data(edit("a", "three times", "four times")), { onApplied })
+    applyProposals(view, ["a"])
+
+    type(view, 0, "X")
+
+    expect(appliedState(view.state)).toEqual({ ids: ["a"], untouched: false })
+    expect(onApplied).toHaveBeenLastCalledWith(["a"], false)
+  })
+
+  it("follows the new words when text is typed before them", () => {
+    const { view, onResolve } = mount(data(edit("a", "three times", "four times")))
+    applyProposals(view, ["a"])
+
+    type(view, 0, "XX ")
+
+    expect(view.dom.querySelector(".sy-applied")?.textContent).toBe("four times")
+    expect(onResolve).not.toHaveBeenCalled()
+  })
+
+  it("keeps it when text is typed at either edge of the new words", () => {
+    const { view, onResolve } = mount(data(edit("a", "three times", "four times")))
+    applyProposals(view, ["a"])
+    const at = view.state.doc.toString().indexOf("four times")
+
+    type(view, at + "four times".length, "!")
+    type(view, at, ">")
+
+    expect(appliedState(view.state).ids).toEqual(["a"])
+    expect(onResolve).not.toHaveBeenCalled()
+  })
+
+  it("drops it and forgets the proposal when the user types inside the new words", () => {
+    const onApplied = vi.fn()
+    const { view, onResolve } = mount(data(edit("a", "three times", "four times")), { onApplied })
+    applyProposals(view, ["a"])
+    const at = view.state.doc.toString().indexOf("four times")
+
+    type(view, at + 2, "Z")
+
+    expect(onResolve).toHaveBeenCalledWith(["a"])
+    expect(appliedState(view.state).ids).toEqual([])
+    expect(onApplied).toHaveBeenLastCalledWith([], true)
+    expect(view.dom.querySelector(".sy-applied")).toBeNull()
+  })
+
+  it("drops it and forgets the proposal when the editor's undo takes the words back out", () => {
+    const { view, onResolve } = mount(data(edit("a", "three times", "four times")))
+    applyProposals(view, ["a"])
+
+    undo(view)
+
+    expect(view.state.doc.toString()).toBe(NOTE)
+    expect(onResolve).toHaveBeenCalledWith(["a"])
+    expect(appliedState(view.state).ids).toEqual([])
+  })
+
+  it("the Undo on the mark puts her original words back and forgets the proposal", () => {
+    const { view, onResolve } = mount(data(edit("a", "three times", "four times")))
+    applyProposals(view, ["a"])
+
+    view.dom.querySelector<HTMLButtonElement>(".sy-applied-undo")!.click()
+
+    expect(view.state.doc.toString()).toBe(NOTE)
+    expect(onResolve).toHaveBeenCalledWith(["a"])
+    expect(view.dom.querySelector(".sy-applied")).toBeNull()
+  })
+
+  it("clearApplied ends the marks and returns the ids, without telling the server (the save does that)", () => {
+    const onApplied = vi.fn()
+    const { view, onResolve } = mount(data(edit("a", "three times", "four times")), { onApplied })
+    applyProposals(view, ["a"])
+
+    expect(clearApplied(view)).toEqual(["a"])
+
+    expect(appliedState(view.state).ids).toEqual([])
+    expect(view.dom.querySelector(".sy-applied")).toBeNull()
+    expect(view.state.doc.toString()).toBe(NOTE.replace("three times", "four times"))
+    expect(onResolve).not.toHaveBeenCalled()
+    expect(onApplied).toHaveBeenLastCalledWith([], true)
+  })
+
+  it("an edit that deletes words keeps its Undo, which puts them back; typing at the gap drops it", () => {
+    const { view, onResolve } = mount(data(edit("a", " The beds are raised.", "")))
+    applyProposals(view, ["a"])
+    expect(view.state.doc.toString()).toBe(NOTE.replace(" The beds are raised.", ""))
+    expect(view.dom.querySelector(".sy-applied-undo")).not.toBeNull()
+
+    view.dom.querySelector<HTMLButtonElement>(".sy-applied-undo")!.click()
+
+    expect(view.state.doc.toString()).toBe(NOTE)
+    expect(onResolve).toHaveBeenCalledWith(["a"])
+
+    const second = mount(data(edit("b", " The beds are raised.", "")))
+    applyProposals(second.view, ["b"])
+    type(second.view, second.view.state.doc.toString().indexOf("week.") + 5, "!")
+    expect(second.onResolve).toHaveBeenCalledWith(["b"])
+  })
+
+  it("applying nothing changes nothing", () => {
+    const { view } = mount(data(edit("a", "three times", "four times")))
+    expect(applyProposals(view, ["nope"])).toEqual([])
+    expect(view.state.doc.toString()).toBe(NOTE)
   })
 })

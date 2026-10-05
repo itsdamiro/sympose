@@ -30,6 +30,8 @@ export function useNoteDocument({
   file,
   reloadToken,
   autosave,
+  holdAutomaticSave,
+  onSaved,
 }: {
   path?: string
   persona: string
@@ -37,6 +39,12 @@ export function useNoteDocument({
   file?: PanelFile
   reloadToken: number
   autosave: string
+  /** True while the buffer holds only what the persona applied (docs/decisions/072, `accept` mode): autosave, the
+   *  leave-note flush and a rename's save then wait, so her edit never reaches the file without the user touching the
+   *  note. The user's own save, and "Save and switch", still write. */
+  holdAutomaticSave?: () => boolean
+  /** The buffer was written to the file. */
+  onSaved?: () => void
 }) {
   // "empty" is derived straight from `path`, not effect-driven state — nothing
   // to synchronize with an external system until there's a path to fetch. On a
@@ -91,8 +99,12 @@ export function useNoteDocument({
   // The file's functions are read off a ref, so a new object each render never refetches; the effects below depend on
   // `path`, which is what names the file.
   const fileRef = React.useRef(file)
+  const holdRef = React.useRef(holdAutomaticSave)
+  const savedRef = React.useRef(onSaved)
   React.useEffect(() => {
     fileRef.current = file
+    holdRef.current = holdAutomaticSave
+    savedRef.current = onSaved
   })
 
   React.useEffect(() => {
@@ -145,9 +157,12 @@ export function useNoteDocument({
     async ({
       silent = false,
       syncTags = !silent,
+      automatic = false,
     }: {
       silent?: boolean
       syncTags?: boolean
+      /** Not the user's act (autosave, the flush, a rename): waits while the buffer holds only the persona's edits. */
+      automatic?: boolean
     } = {}): Promise<boolean> => {
       // Targets `loadedPathRef.current` — the note `body`/`frontmatter`
       // state actually holds — rather than the `path` prop directly. On a
@@ -159,6 +174,7 @@ export function useNoteDocument({
       // needs to call this mid-switch without racing it.
       const targetPath = loadedPathRef.current
       if (!targetPath) return true
+      if (automatic && holdRef.current?.()) return true
       if (savingRef.current) return false
 
       // Autosave's 1.5s debounce fires on any typing pause, including
@@ -198,6 +214,7 @@ export function useNoteDocument({
         // `[[links]]` added since the last load — without rescanning on
         // every keystroke.
         setFetch({ status: "ready", content: text })
+        savedRef.current?.()
         if (!silent) notify.success(fileRef.current ? "Saved" : "Note saved")
         return true
       }
@@ -238,7 +255,7 @@ export function useNoteDocument({
       retarget: async (oldPath, newPath) => {
         if (loadedPathRef.current !== oldPath) return
         loadedPathRef.current = newPath
-        await saveNoteRef.current({ silent: true, syncTags: false })
+        await saveNoteRef.current({ silent: true, syncTags: false, automatic: true })
       },
     })
     return () => setUnsavedGuard(null)
@@ -268,7 +285,7 @@ export function useNoteDocument({
   React.useEffect(() => {
     return () => {
       if (loadedVaultPathRef.current !== currentVaultPathRef.current) return
-      void saveNoteRef.current({ silent: true, syncTags: true })
+      void saveNoteRef.current({ silent: true, syncTags: true, automatic: true })
     }
   }, [path, vaultPath])
 
@@ -277,7 +294,7 @@ export function useNoteDocument({
   // regardless. Re-armed on each edit, cancelled on unmount / note switch.
   React.useEffect(() => {
     if (autosave !== "on" || note.status !== "ready") return
-    const id = window.setTimeout(() => void saveNote({ silent: true }), AUTOSAVE_DELAY)
+    const id = window.setTimeout(() => void saveNote({ silent: true, automatic: true }), AUTOSAVE_DELAY)
     return () => window.clearTimeout(id)
   }, [autosave, note.status, saveNote])
 

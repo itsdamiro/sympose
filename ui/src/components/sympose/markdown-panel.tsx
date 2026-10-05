@@ -26,7 +26,8 @@ import { usePanelSizing } from "@/lib/use-panel-sizing"
 import { useNoteDocument, type PanelFile } from "@/lib/use-note-document"
 import type { Proposal } from "@/lib/persona-changes-api"
 import { usePersonaChanges } from "@/lib/use-persona-changes"
-import { classify, reviewExtensions, setReviewData, type ReviewData } from "@/lib/review-extensions"
+import { applyProposals, classify, clearApplied, pendingIds, reviewExtensions, setReviewData, type ReviewData } from "@/lib/review-extensions"
+import { useEditMode } from "@/lib/use-edit-mode"
 import { OutdatedChanges } from "@/components/sympose/outdated-changes"
 import { CommentPopover, type CommentBox } from "@/components/sympose/comment-popover"
 import { setOpenNoteSource } from "@/lib/open-note-source"
@@ -138,6 +139,7 @@ const FRONTMATTER_VISIBLE_COOKIE = "sympose:pref.frontmatterExpanded"
 /** Whether the panel is locked to stylo's rendered `preview` mode — a global
  *  viewing preference (see `FRONTMATTER_VISIBLE_COOKIE` above), not per-note.
  *  Off (editable) by default, so existing notes open exactly as before. */
+const NO_IDS: string[] = []
 const NOTE_READ_ONLY_COOKIE = "sympose:pref.noteReadOnly"
 
 /**
@@ -216,8 +218,25 @@ function MarkdownPanel({
   const editorScrollRef = React.useRef<HTMLDivElement>(null)
   const { size, dragging, handleProps, availW, fillToggling } = usePanelSizing(wrapRef, fill, storageKey)
 
+  // `accept` mode (docs/decisions/072): her edits applied to the editor's text stay pending on the server until the note
+  // is saved. `appliedRef` is what the editor last reported; the document hook asks `heldRef` before an automatic save.
+  const appliedRef = React.useRef<{ ids: string[]; untouched: boolean }>({ ids: [], untouched: true })
+  const heldRef = React.useRef<() => boolean>(() => false)
+  const savedRef = React.useRef<() => void>(() => {})
   const { note, frontmatter, setFrontmatter, body, setBody, frontmatterEditedRef, loadedPathRef, saveNote } =
-    useNoteDocument({ path, persona, vaultPath, file, reloadToken, autosave: preferences.autosave })
+    useNoteDocument({
+      path,
+      persona,
+      vaultPath,
+      file,
+      reloadToken,
+      autosave: preferences.autosave,
+      holdAutomaticSave: () => heldRef.current(),
+      onSaved: () => savedRef.current(),
+    })
+  React.useEffect(() => {
+    heldRef.current = () => appliedRef.current.ids.length > 0 && appliedRef.current.untouched && !frontmatterEditedRef.current
+  })
   // The chat sends the note as the editor holds it, with the user's message (docs/decisions/072). Not for a persona's
   // own file or a draft (`file`): there is no vault note to propose changes to.
   const bodyRef = React.useRef(body)
@@ -278,15 +297,39 @@ function MarkdownPanel({
     setCommentBoxPath(path)
     setCommentBox(null)
   }
+  // Her edits already applied to the text are not waiting any more: they are drawn as applied, not as tracked changes,
+  // and are not listed as outdated now that their old words are gone.
+  const [applied, setApplied] = React.useState<{ path?: string; ids: string[] }>({ ids: [] })
+  const appliedIds = applied.path === path ? applied.ids : NO_IDS
   const reviewData = React.useMemo<ReviewData>(
-    () => ({ proposals: changes?.proposals ?? [], annotations: changes?.annotations ?? [] }),
-    [changes]
+    () => ({
+      proposals: (changes?.proposals ?? []).filter((p) => !appliedIds.includes(p.id)),
+      annotations: changes?.annotations ?? [],
+    }),
+    [changes, appliedIds]
   )
   const reviewDataRef = React.useRef(reviewData)
   const resolveRef = React.useRef(resolveChanges)
+  const pathRef = React.useRef(path)
   React.useEffect(() => {
     reviewDataRef.current = reviewData
     resolveRef.current = resolveChanges
+    pathRef.current = path
+  })
+  // Another note: nothing is applied there yet. (After the cleanups of the effects above have run, so a leave-note flush
+  // still sees what was held.)
+  React.useEffect(() => {
+    appliedRef.current = { ids: [], untouched: true }
+  }, [path])
+  // The note was written: what she applied is accepted now, so the server forgets it and the marks end.
+  React.useEffect(() => {
+    savedRef.current = () => {
+      const view = styloRef.current?.getView()
+      const ids = new Set([...(view ? clearApplied(view) : []), ...appliedRef.current.ids])
+      appliedRef.current = { ids: [], untouched: true }
+      setApplied({ path: pathRef.current, ids: [] })
+      if (ids.size > 0) void resolveRef.current([...ids])
+    }
   })
   const reviewExt = React.useMemo(
     () =>
@@ -294,6 +337,10 @@ function MarkdownPanel({
       reviewExtensions({
         initial: () => reviewDataRef.current,
         onResolve: (ids) => void resolveRef.current(ids),
+        onApplied: (ids, untouched) => {
+          appliedRef.current = { ids, untouched }
+          setApplied({ path: pathRef.current, ids })
+        },
         onOpenComment: (id, rect) => setCommentBox({ kind: "thread", id, rect }),
       }),
     []
@@ -302,6 +349,14 @@ function MarkdownPanel({
   React.useEffect(() => {
     styloRef.current?.getView()?.dispatch({ effects: setReviewData.of(reviewData) })
   }, [reviewData, reviewExt])
+  // `accept`: her placed, waiting edits go into the text as soon as they are here, once the editor holds the note.
+  const { info: editInfo } = useEditMode(persona, persona)
+  const acceptMode = editInfo?.mode === "accept" && !readOnly && !file
+  React.useEffect(() => {
+    const view = styloRef.current?.getView()
+    if (!acceptMode || !view || note.status !== "ready" || loadedPathRef.current !== path) return
+    applyProposals(view, pendingIds(view.state))
+  }, [acceptMode, note.status, path, loadedPathRef, reviewData, body])
   const outdatedProposals = React.useMemo(() => classify(body, reviewData.proposals).outdated, [body, reviewData])
   // Accepting the whole note changes the text, and the save writes what the text is by then: it waits for the
   // change to reach `body` (`saveNote` closes over it) instead of saving the text from before.

@@ -59,6 +59,8 @@ export interface ReviewOptions {
   onResolve: (ids: string[]) => void
   /** Told when the user clicks a highlighted passage: the comment's id and where the passage is on screen. */
   onOpenComment?: (id: string, rect: DOMRect) => void
+  /** Told when the set of her applied edits (`accept` mode) changes, and whether the user has touched the note since. */
+  onApplied?: (ids: string[], untouched: boolean) => void
 }
 
 const reviewField = StateField.define<ReviewData>({
@@ -68,6 +70,153 @@ const reviewField = StateField.define<ReviewData>({
     return value
   },
 })
+
+/** One of her edits applied to the text in `accept` mode: where the new words are now, and what they replaced. */
+interface Applied {
+  id: string
+  from: number
+  to: number
+  find: string
+  say: string
+}
+
+interface AppliedState {
+  items: Applied[]
+  /** No change by the user (typing, undo, anything not her application) since the first edit was applied. */
+  untouched: boolean
+}
+
+const addApplied = StateEffect.define<Applied[]>()
+const endApplied = StateEffect.define<null>()
+
+/** Whether a change (in the old text's positions) reaches into the applied words; touching an edge does not. */
+function reaches(item: Applied, from: number, to: number): boolean {
+  if (item.from === item.to) return from <= item.from && to >= item.from // a deletion: anything at its point
+  return from < item.to && to > item.from ? true : from === to && from > item.from && from < item.to
+}
+
+const appliedField = StateField.define<AppliedState>({
+  create: () => ({ items: [], untouched: true }),
+  update(value, tr) {
+    const effects = tr.effects.filter((e) => e.is(addApplied) || e.is(endApplied))
+    if (!tr.docChanged && effects.length === 0) return value
+    let items = value.items
+    if (tr.docChanged && items.length > 0) {
+      const kept: Applied[] = []
+      for (const item of items) {
+        let hit = false
+        tr.changes.iterChangedRanges((fromA, toA) => {
+          if (reaches(item, fromA, toA)) hit = true
+        })
+        if (!hit) kept.push({ ...item, from: tr.changes.mapPos(item.from, 1), to: tr.changes.mapPos(item.to, -1) })
+      }
+      items = kept
+    }
+    let adding = false
+    for (const effect of effects) {
+      if (effect.is(endApplied)) items = []
+      else if (effect.is(addApplied)) {
+        adding = true
+        items = [...items, ...effect.value]
+      }
+    }
+    if (items.length === 0) return value.items.length === 0 && value.untouched ? value : { items, untouched: true }
+    return { items, untouched: value.untouched && !(tr.docChanged && !adding) }
+  },
+})
+
+class UndoWidget extends WidgetType {
+  readonly item: Applied
+
+  constructor(item: Applied) {
+    super()
+    this.item = item
+  }
+
+  eq(other: UndoWidget): boolean {
+    return other.item.id === this.item.id && other.item.say === this.item.say
+  }
+
+  toDOM(view: EditorView): HTMLElement {
+    const b = document.createElement("button")
+    b.type = "button"
+    b.className = "sy-applied-undo"
+    b.setAttribute("aria-label", "Undo this change")
+    b.title = this.item.say ? `Undo: ${this.item.say}` : "Undo this change"
+    b.append(icon(Cancel01Icon))
+    b.addEventListener("mousedown", (e) => e.preventDefault()) // keep the caret where it is
+    b.addEventListener("click", () => {
+      const now = view.state.field(appliedField).items.find((i) => i.id === this.item.id)
+      if (!now) return
+      view.dispatch({ changes: { from: now.from, to: now.to, insert: now.find }, userEvent: "input.undo-applied" })
+    })
+    return b
+  }
+
+  ignoreEvent(): boolean {
+    return true
+  }
+}
+
+// Told when her applied edits change; one per editor, set by `reviewExtensions`.
+const appliedFacet = Facet.define<(ids: string[], untouched: boolean) => void, ((ids: string[], untouched: boolean) => void) | undefined>({
+  combine: (values) => values[0],
+})
+
+const appliedListener = EditorView.updateListener.of((update) => {
+  const before = update.startState.field(appliedField)
+  const after = update.state.field(appliedField)
+  if (before === after) return
+  const ended = update.transactions.some((tr) => tr.effects.some((e) => e.is(endApplied)))
+  const gone = before.items.filter((b) => !after.items.some((a) => a.id === b.id)).map((i) => i.id)
+  if (!ended && gone.length > 0) update.view.state.facet(resolveFacet)?.(gone) // undone or edited over: the proposal is forgotten
+  const ids = after.items.map((i) => i.id)
+  if (ended || gone.length > 0 || ids.length !== before.items.length || after.untouched !== before.untouched) {
+    update.view.state.facet(appliedFacet)?.(ids, after.untouched)
+  }
+})
+
+/** The ids of her edits applied to the text now, and whether the user has left the note alone since. */
+export function appliedState(state: EditorState): { ids: string[]; untouched: boolean } {
+  const { items, untouched } = state.field(appliedField)
+  return { ids: items.map((i) => i.id), untouched }
+}
+
+/**
+ * Applies these proposals to the text (`accept` mode, docs/decisions/072) as one undoable change, marks the new words,
+ * and keeps the proposals pending on the server: they are forgotten when the note is saved (`clearApplied`) or when the
+ * words are undone or edited over. Two proposals on one passage: the earlier is applied, the other waits.
+ */
+export function applyProposals(view: EditorView, ids: string[]): string[] {
+  const { placed } = classify(view.state.doc.toString(), view.state.field(reviewField).proposals)
+  const chosen: Placed[] = []
+  for (const p of placed) {
+    if (!ids.includes(p.proposal.id)) continue
+    if (!chosen.some((c) => p.from < c.to && c.from < p.to)) chosen.push(p)
+  }
+  if (chosen.length === 0) return []
+  chosen.sort((a, b) => a.from - b.from)
+  let shift = 0
+  const items = chosen.map((p) => {
+    const replace = p.proposal.replace ?? ""
+    const from = p.from + shift
+    shift += replace.length - (p.to - p.from)
+    return { id: p.proposal.id, from, to: from + replace.length, find: p.proposal.find ?? "", say: p.proposal.say }
+  })
+  view.dispatch({
+    changes: chosen.map((p) => ({ from: p.from, to: p.to, insert: p.proposal.replace ?? "" })),
+    effects: addApplied.of(items),
+    userEvent: "input.apply",
+  })
+  return items.map((i) => i.id)
+}
+
+/** The note was saved: the marks end and the text stays. Returns the ids that were applied, for the panel to forget. */
+export function clearApplied(view: EditorView): string[] {
+  const ids = view.state.field(appliedField).items.map((i) => i.id)
+  if (ids.length > 0) view.dispatch({ effects: endApplied.of(null) })
+  return ids
+}
 
 function icon(data: typeof Tick02Icon): SVGSVGElement {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg")
@@ -198,6 +347,10 @@ function decorate(state: EditorState): DecorationSet {
     ranges.push(Decoration.mark({ class: "sy-change-del" }).range(from, to))
     ranges.push(Decoration.widget({ widget: new ChangeWidget(proposal), side: 1 }).range(to))
   }
+  for (const item of state.field(appliedField).items) {
+    if (item.from < item.to) ranges.push(Decoration.mark({ class: "sy-applied", attributes: item.say ? { title: item.say } : undefined }).range(item.from, item.to))
+    ranges.push(Decoration.widget({ widget: new UndoWidget(item), side: 1 }).range(item.to))
+  }
   for (const { annotation, from, to } of attachedComments(text, data.annotations)) {
     const by = annotation.author === "persona" ? "sy-by-persona" : "sy-by-user"
     ranges.push(Decoration.mark({ class: `sy-comment-hl ${by}`, attributes: { "data-comment-id": annotation.id } }).range(from, to))
@@ -235,6 +388,27 @@ const theme = EditorView.baseTheme({
     cursor: "pointer",
     verticalAlign: "middle",
   },
+  ".sy-applied": {
+    backgroundColor: "color-mix(in srgb, var(--ok) 20%, transparent)",
+    borderRadius: "var(--radius-sm, 3px)",
+  },
+  ".sy-applied-undo": {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "1.25rem",
+    height: "1.25rem",
+    marginInlineStart: "0.25rem",
+    padding: "0",
+    border: "1px solid var(--border)",
+    borderRadius: "var(--radius-sm, 3px)",
+    background: "var(--background)",
+    color: "var(--muted-foreground)",
+    cursor: "pointer",
+    verticalAlign: "middle",
+  },
+  ".sy-applied-undo svg": { width: "0.8rem", height: "0.8rem", stroke: "currentColor", strokeWidth: "2" },
+  ".sy-applied-undo:hover": { color: "var(--danger)", borderColor: "var(--danger)" },
   ".sy-change-btn svg": { width: "0.8rem", height: "0.8rem", stroke: "currentColor", strokeWidth: "2" },
   ".sy-change-accept:hover": { color: "var(--ok)", borderColor: "var(--ok)" },
   ".sy-change-decline:hover": { color: "var(--danger)", borderColor: "var(--danger)" },
@@ -265,13 +439,16 @@ const theme = EditorView.baseTheme({
 })
 
 /** The extensions for stylo's `extensions` prop. Memoize the array; it reconfigures the live editor when it changes. */
-export function reviewExtensions({ initial, onResolve, onOpenComment }: ReviewOptions): Extension[] {
-  const decorations = EditorView.decorations.compute(["doc", reviewField], decorate)
+export function reviewExtensions({ initial, onResolve, onOpenComment, onApplied }: ReviewOptions): Extension[] {
+  const decorations = EditorView.decorations.compute(["doc", reviewField, appliedField], decorate)
   return [
     reviewField.init(() => initial()),
     decorations,
     theme,
     resolveFacet.of(onResolve),
+    appliedField,
+    appliedListener,
+    ...(onApplied ? [appliedFacet.of(onApplied)] : []),
     ...(onOpenComment ? [openCommentFacet.of(onOpenComment)] : []),
     EditorView.domEventHandlers({
       click(event, view) {
