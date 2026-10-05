@@ -25,6 +25,7 @@ import { useChatSession } from "@/lib/use-chat-session"
 import { useSessionList } from "@/lib/use-session-list"
 import { usePersonaRoster } from "@/lib/use-persona-roster"
 import { useNoteChanges } from "@/lib/use-note-changes"
+import { announceFolderMoved } from "@/lib/folder-moved"
 import { useFolderView } from "@/lib/use-folder-view"
 import { useVaultSearch } from "@/lib/use-vault-search"
 import { useVaultTree } from "@/lib/use-vault-tree"
@@ -56,6 +57,7 @@ import {
   CloudNotice,
   ModelPicker,
   FolderSetupDialog,
+  FolderMoveDialog,
   RootCreateDialog,
   MainMenu,
   MarkdownPanel,
@@ -376,12 +378,13 @@ export function AppShell() {
   const folderRenamed = React.useCallback(
     (oldFolder: string, newFolder: string) => {
       selectionFollows(oldFolder, newFolder)
+      announceFolderMoved(oldFolder, newFolder)
       if (active === oldFolder) setActive(newFolder)
     },
     [selectionFollows, active, setActive]
   )
 
-  const { moveNote, vaultTreeActions, onEditorRenamed, onEditorDeleted } = useNoteChanges({
+  const { moveNote, moveFolder, folderMoveAsk, closeFolderMoveAsk, vaultTreeActions, onEditorRenamed, onEditorDeleted } = useNoteChanges({
     activePersona,
     selectedNote,
     setSelectedNote,
@@ -655,6 +658,7 @@ export function AppShell() {
           onSelectAccount={() => selectSection(MENU_ACCOUNT_ID)}
           onSelectTrash={() => selectSection(MENU_TRASH_ID)}
           onDropNote={moveNote}
+          onDropFolder={moveFolder}
           onHideItem={(item) => hideFromView(item.id)}
           onCreateRoot={setRootCreate}
           onDeleteItem={deleteRootFolder}
@@ -793,6 +797,8 @@ export function AppShell() {
             fill={editorFill}
             phone={isPhone}
           />
+
+          <FolderMoveDialog ask={folderMoveAsk} onClose={closeFolderMoveAsk} />
 
           <RootCreateDialog kind={rootCreate} onCreate={createAtRoot} onClose={() => setRootCreate(null)} />
 

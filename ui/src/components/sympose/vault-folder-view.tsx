@@ -8,7 +8,7 @@ import { cn, stripMdExtension } from "@/lib/utils"
 import { vaultScopedKey } from "@/lib/cookies"
 import { folderIconFor } from "@/lib/vault-folders"
 import { useBinPreferences } from "@/lib/use-bin-section-preference"
-import { isNoteDrag, readNoteDrag } from "@/lib/vault-drag"
+import { canDropDraggedFolder, canDropFolder, endFolderDrag, isNoteDrag, readFolderDrag, readNoteDrag } from "@/lib/vault-drag"
 import type { VaultSearchResult } from "@/lib/vault-search-api"
 import {
   SearchResultRow,
@@ -95,6 +95,37 @@ export function VaultFolderView({
   openEditor: () => void
 }) {
   const [dragOverRootHeading, setDragOverRootHeading] = React.useState(false)
+  // The heading takes a note or a folder into the folder in view (docs/decisions/074 for the folder).
+  const onMoveFolder = vaultTreeActions.onMoveFolder
+  const takes = (e: React.DragEvent) =>
+    !!activeRootFolder && (isNoteDrag(e) || (!!onMoveFolder && canDropDraggedFolder(e, activeRootFolder.path)))
+  const headingDrop: React.HTMLAttributes<HTMLHeadingElement> = activeRootFolder
+    ? {
+        onDragOver: (e) => {
+          if (!takes(e)) return
+          e.preventDefault()
+          e.dataTransfer.dropEffect = "move"
+        },
+        onDragEnter: (e) => {
+          if (takes(e)) setDragOverRootHeading(true)
+        },
+        onDragLeave: () => setDragOverRootHeading(false),
+        onDrop: (e) => {
+          setDragOverRootHeading(false)
+          const folder = onMoveFolder ? readFolderDrag(e) : undefined
+          if (folder) {
+            e.preventDefault()
+            endFolderDrag()
+            if (canDropFolder(folder, activeRootFolder.path)) onMoveFolder!(folder, activeRootFolder.path)
+            return
+          }
+          const path = readNoteDrag(e)
+          if (!path) return
+          e.preventDefault()
+          moveNote(path, activeRootFolder.path)
+        },
+      }
+    : {}
   const [bin, setBin] = useBinPreferences()
   return (
       <div className="flex flex-col gap-2">
@@ -105,39 +136,7 @@ export function VaultFolderView({
             dragOverRootHeading &&
               "bg-accent/60 ring-1 ring-inset ring-brand/60"
           )}
-          onDragOver={
-            activeRootFolder
-              ? (e) => {
-                  if (!isNoteDrag(e)) return
-                  e.preventDefault()
-                  e.dataTransfer.dropEffect = "move"
-                }
-              : undefined
-          }
-          onDragEnter={
-            activeRootFolder
-              ? (e) => {
-                  if (!isNoteDrag(e)) return
-                  setDragOverRootHeading(true)
-                }
-              : undefined
-          }
-          onDragLeave={
-            activeRootFolder
-              ? () => setDragOverRootHeading(false)
-              : undefined
-          }
-          onDrop={
-            activeRootFolder
-              ? (e) => {
-                  const path = readNoteDrag(e)
-                  if (!path) return
-                  e.preventDefault()
-                  setDragOverRootHeading(false)
-                  moveNote(path, activeRootFolder.path)
-                }
-              : undefined
-          }
+          {...headingDrop}
         >
           {trashView ? "Bin" : activeLabel || "Vault"}
         </h2>

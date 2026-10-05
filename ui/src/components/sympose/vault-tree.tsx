@@ -14,9 +14,19 @@ import {
 } from "@hugeicons/core-free-icons"
 
 import { cn, stripMdExtension } from "@/lib/utils"
-import { readList, writeList } from "@/lib/cookie-list"
+import { readList, remapPrefix, writeList } from "@/lib/cookie-list"
 import { getCookie, setCookie } from "@/lib/cookies"
-import { startNoteDrag, isNoteDrag, readNoteDrag } from "@/lib/vault-drag"
+import { onFolderMoved } from "@/lib/folder-moved"
+import {
+  canDropDraggedFolder,
+  canDropFolder,
+  endFolderDrag,
+  isNoteDrag,
+  readFolderDrag,
+  readNoteDrag,
+  startFolderDrag,
+  startNoteDrag,
+} from "@/lib/vault-drag"
 import { useAnimatedNodeList } from "@/lib/use-animated-node-list"
 import { GroupCaption } from "@/components/sympose/group-caption"
 import { VaultRowMenu } from "@/components/sympose/vault-row-menu"
@@ -273,6 +283,12 @@ export interface RowActions {
    * targets, no rename/delete/create callbacks required.
    */
   onMoveNote?: (path: string, destFolder: string) => void
+  /**
+   * A folder row was dragged onto another folder row (docs/decisions/074): the folder's path and the one it was dropped
+   * on. Wiring this makes folder rows draggable and, with `onMoveNote` or alone, drop targets for folders; a drop on
+   * itself, its own subfolder or the folder it is already in is not offered.
+   */
+  onMoveFolder?: (path: string, destFolder: string) => void
 }
 
 interface VaultTreeProps
@@ -329,6 +345,7 @@ function VaultTree({
   onTogglePin,
   onHide,
   onMoveNote,
+  onMoveFolder,
   hideExtension = false,
   pinnedNodes = NO_CHILDREN,
   pinnedShowPath = false,
@@ -348,6 +365,18 @@ function VaultTree({
   React.useEffect(() => {
     if (storageKey) setCookie(storageKey, writeList([...expanded]))
   }, [storageKey, expanded])
+
+  // A folder renamed or moved keeps its open or closed state: the expanded paths under it follow (docs/decisions/073, 074).
+  React.useEffect(
+    () =>
+      onFolderMoved((oldFolder, newFolder) =>
+        setExpanded((prev) => {
+          const next = remapPrefix([...prev], oldFolder, newFolder)
+          return next.length === prev.size && next.every((p) => prev.has(p)) ? prev : new Set(next)
+        })
+      ),
+    []
+  )
 
   const toggle = React.useCallback((path: string) => {
     setExpanded((prev) => {
@@ -371,6 +400,7 @@ function VaultTree({
     onTogglePin,
     onHide,
     onMoveNote,
+    onMoveFolder,
   }
 
   return (
@@ -482,27 +512,42 @@ export function VaultTreeRow({
   const pinned = node.type === "note" && !!actions.isPinned?.(node.path)
   const [dragOver, setDragOver] = React.useState(false)
   const canMove = !!actions.onMoveNote
-  const folderDropProps: React.HTMLAttributes<HTMLButtonElement> = canMove
-    ? {
-        onDragOver: (e) => {
-          if (!isNoteDrag(e)) return
-          e.preventDefault()
-          e.dataTransfer.dropEffect = "move"
-        },
-        onDragEnter: (e) => {
-          if (!isNoteDrag(e)) return
-          setDragOver(true)
-        },
-        onDragLeave: () => setDragOver(false),
-        onDrop: (e) => {
-          const path = readNoteDrag(e)
-          if (!path) return
-          e.preventDefault()
-          setDragOver(false)
-          actions.onMoveNote!(path, node.path)
-        },
-      }
-    : {}
+  const canMoveFolders = !!actions.onMoveFolder
+  // What this row takes: a note (to move it into the folder) or a folder that may go here (docs/decisions/074).
+  const takes = (e: React.DragEvent) =>
+    (canMove && isNoteDrag(e)) || (canMoveFolders && canDropDraggedFolder(e, node.path))
+  const folderDropProps: React.HTMLAttributes<HTMLButtonElement> =
+    canMove || canMoveFolders
+      ? {
+          onDragOver: (e) => {
+            if (!takes(e)) return
+            e.preventDefault()
+            e.dataTransfer.dropEffect = "move"
+          },
+          onDragEnter: (e) => {
+            if (!takes(e)) return
+            setDragOver(true)
+          },
+          onDragLeave: () => setDragOver(false),
+          onDrop: (e) => {
+            setDragOver(false)
+            const folder = canMoveFolders ? readFolderDrag(e) : undefined
+            if (folder) {
+              e.preventDefault()
+              endFolderDrag()
+              if (canDropFolder(folder, node.path)) actions.onMoveFolder!(folder, node.path)
+              return
+            }
+            const path = canMove ? readNoteDrag(e) : undefined
+            if (!path) return
+            e.preventDefault()
+            actions.onMoveNote!(path, node.path)
+          },
+          ...(canMoveFolders
+            ? { draggable: true, onDragStart: (e: React.DragEvent) => startFolderDrag(e, node.path), onDragEnd: endFolderDrag }
+            : {}),
+        }
+      : {}
 
   // Called unconditionally (a note has no children, so this just tracks an
   // empty list) rather than only inside the folder branch below — `node.type`

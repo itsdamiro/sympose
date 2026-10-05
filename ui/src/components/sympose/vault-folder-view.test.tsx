@@ -4,6 +4,7 @@ import * as React from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import type { VaultSearchResult } from "@/lib/vault-search-api"
+import { endFolderDrag, startFolderDrag } from "@/lib/vault-drag"
 import { folderIconFor } from "@/lib/vault-folders"
 import { VaultFolderView } from "./vault-folder-view"
 import type { VaultNode } from "./vault-tree"
@@ -352,5 +353,60 @@ describe("VaultFolderView: the Drafts section", () => {
   it("shows nothing when there are no drafts", () => {
     setup({ drafts: [] })
     expect(document.querySelector('[data-slot="drafts-section"]')).toBeNull()
+  })
+})
+
+describe("VaultFolderView: dropping a folder on the heading (docs/decisions/074)", () => {
+  const FOLDER_MIME = "application/x-sympose-vault-folder-path"
+  const heading = () => screen.getByRole("heading", { level: 2 })
+  const held = (path: string) => {
+    const dt = { types: [FOLDER_MIME], getData: (t: string) => (t === FOLDER_MIME ? path : ""), setData: vi.fn(), dropEffect: "none", effectAllowed: "" }
+    startFolderDrag({ dataTransfer: dt } as unknown as React.DragEvent, path)
+    return { dataTransfer: dt }
+  }
+  const withFolders = () => {
+    const onMoveFolder = vi.fn()
+    const s = setup({ vaultTreeActions: { persona: "samantha", onMoveFolder } as unknown as React.ComponentProps<typeof VaultFolderView>["vaultTreeActions"] })
+    return { onMoveFolder, ...s }
+  }
+  afterEach(endFolderDrag)
+
+  it("moves the folder into the folder in view, lighting the heading meanwhile and taking over the drop", () => {
+    const { onMoveFolder } = withFolders()
+    const e = held("Daily/Old")
+
+    fireEvent.dragEnter(heading(), e)
+    expect(heading().className).toContain("ring-brand")
+    expect(fireEvent.drop(heading(), e)).toBe(false)
+
+    expect(onMoveFolder).toHaveBeenCalledExactlyOnceWith("Daily/Old", "Notes")
+    expect(heading().className).not.toContain("ring-brand")
+  })
+
+  it.each([
+    ["itself", "Notes"],
+    ["a folder already in it", "Notes/Sub"],
+  ])("does not offer %s", (_what, dragged) => {
+    const { onMoveFolder } = withFolders()
+    const e = held(dragged)
+
+    expect(fireEvent.dragOver(heading(), e)).toBe(true)
+    fireEvent.dragEnter(heading(), e)
+    expect(heading().className).not.toContain("ring-brand")
+    fireEvent.drop(heading(), e)
+    expect(onMoveFolder).not.toHaveBeenCalled()
+  })
+
+  it("takes no folder when moving folders is not wired, and still takes a note", () => {
+    const s = setup()
+    fireEvent.drop(heading(), held("Daily/Old"))
+    expect(s.moveNote).not.toHaveBeenCalled()
+  })
+
+  it("is no drop target for a folder when the section is not a folder", () => {
+    const onMoveFolder = vi.fn()
+    setup({ activeRootFolder: undefined, vaultTreeActions: { persona: "samantha", onMoveFolder } as unknown as React.ComponentProps<typeof VaultFolderView>["vaultTreeActions"] })
+    fireEvent.drop(heading(), held("Daily/Old"))
+    expect(onMoveFolder).not.toHaveBeenCalled()
   })
 })

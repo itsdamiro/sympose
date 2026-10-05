@@ -11,7 +11,7 @@ import {
 
 import { cn } from "@/lib/utils"
 import { useResizable } from "@/lib/use-resizable"
-import { isNoteDrag, readNoteDrag } from "@/lib/vault-drag"
+import { canDropDraggedFolder, canDropFolder, endFolderDrag, isFolderDrag, isNoteDrag, readFolderDrag, readNoteDrag } from "@/lib/vault-drag"
 import { Logo } from "@/components/logo"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { MainMenuRowMenu } from "@/components/sympose/main-menu-row-menu"
@@ -102,6 +102,12 @@ interface MainMenuProps extends Omit<React.ComponentProps<"nav">, "onSelect"> {
    * highlight differ.
    */
   onDropNote?: (path: string, destFolder: string) => void
+  /**
+   * A folder dragged from the vault tree was dropped on a folder item's row, on the vault name at the top of the menu
+   * or on the empty space below the folders (the last two are the vault root, `""`): the folder's path and where it
+   * goes (docs/decisions/074). A drop on itself, its own subfolder or the folder it is already in is not offered.
+   */
+  onDropFolder?: (path: string, destFolder: string) => void
   /**
    * Hide a folder or root note from view (docs/decisions/037): a right-click
    * (or long-press) menu on its row with one item, "Hide from view". Omit and
@@ -205,6 +211,7 @@ function MainMenu({
   onSelectAccount,
   onSelectTrash,
   onDropNote,
+  onDropFolder,
   onHideItem,
   onCreateRoot,
   onDeleteItem,
@@ -226,6 +233,33 @@ function MainMenu({
 }: MainMenuProps) {
   const lastExpanded = React.useRef(MENU_MAX)
   const [dragOverId, setDragOverId] = React.useState<string | null>(null)
+  const [dragOverRoot, setDragOverRoot] = React.useState(false)
+
+  // The vault root takes a folder: the vault name at the top and the empty space below the folders (docs/decisions/074).
+  const rootDrop: React.HTMLAttributes<HTMLElement> = onDropFolder
+    ? {
+        onDragOver: (e) => {
+          if (!canDropDraggedFolder(e, "")) return
+          e.preventDefault()
+          e.dataTransfer.dropEffect = "move"
+        },
+        onDragEnter: (e) => {
+          if (canDropDraggedFolder(e, "")) setDragOverRoot(true)
+        },
+        onDragLeave: (e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragOverRoot(false)
+        },
+        onDrop: (e) => {
+          setDragOverRoot(false)
+          const folder = readFolderDrag(e)
+          if (!folder) return
+          e.preventDefault()
+          endFolderDrag()
+          if (canDropFolder(folder, "")) onDropFolder(folder, "")
+        },
+      }
+    : {}
+  const rootOver = "rounded-md bg-accent/60 text-foreground ring-1 ring-brand/60 ring-inset"
 
   const {
     size: width,
@@ -274,12 +308,55 @@ function MainMenu({
     <ul
       className={cn(
         "flex min-h-0 flex-1 flex-col gap-1 overflow-x-hidden overflow-y-auto py-2",
-        hideChrome && "pt-3"
+        hideChrome && "pt-3",
+        dragOverRoot && rootOver
       )}
+      {...rootDrop}
     >
       {items.map((item) => {
         const active = item.id === activeId
         const dropTarget = onDropNote && item.type !== "note"
+        const folderTarget = onDropFolder && item.type !== "note"
+        // A note, or a folder that may go in this one (docs/decisions/074). A folder dragged over the row never falls
+        // through to the vault root behind it: the row answers for it, even when it does not take it.
+        const takes = (e: React.DragEvent) =>
+          (!!dropTarget && isNoteDrag(e)) || (!!folderTarget && canDropDraggedFolder(e, item.id))
+        const ownFolderDrag = (e: React.DragEvent) => !!onDropFolder && isFolderDrag(e)
+        const itemDrop: React.HTMLAttributes<HTMLButtonElement> =
+          dropTarget || onDropFolder
+            ? {
+                onDragOver: (e) => {
+                  if (ownFolderDrag(e)) e.stopPropagation()
+                  if (!takes(e)) return
+                  e.preventDefault()
+                  e.dataTransfer.dropEffect = "move"
+                },
+                onDragEnter: (e) => {
+                  if (ownFolderDrag(e)) e.stopPropagation()
+                  if (takes(e)) setDragOverId(item.id)
+                },
+                onDragLeave: (e) => {
+                  if (ownFolderDrag(e)) e.stopPropagation()
+                  setDragOverId(null)
+                },
+                onDrop: (e) => {
+                  setDragOverId(null)
+                  if (ownFolderDrag(e)) {
+                    e.stopPropagation()
+                    const folder = folderTarget ? readFolderDrag(e) : undefined
+                    if (!folder) return
+                    e.preventDefault()
+                    endFolderDrag()
+                    if (canDropFolder(folder, item.id)) onDropFolder!(folder, item.id)
+                    return
+                  }
+                  const path = dropTarget ? readNoteDrag(e) : undefined
+                  if (!path) return
+                  e.preventDefault()
+                  onDropNote!(path, item.id)
+                },
+              }
+            : {}
         const row = (
           <button
             type="button"
@@ -292,35 +369,7 @@ function MainMenu({
               dragOverId === item.id &&
                 "rounded-md bg-accent/60 text-foreground ring-1 ring-brand/60 ring-inset"
             )}
-            onDragOver={
-              dropTarget
-                ? (e) => {
-                    if (!isNoteDrag(e)) return
-                    e.preventDefault()
-                    e.dataTransfer.dropEffect = "move"
-                  }
-                : undefined
-            }
-            onDragEnter={
-              dropTarget
-                ? (e) => {
-                    if (!isNoteDrag(e)) return
-                    setDragOverId(item.id)
-                  }
-                : undefined
-            }
-            onDragLeave={dropTarget ? () => setDragOverId(null) : undefined}
-            onDrop={
-              dropTarget
-                ? (e) => {
-                    const path = readNoteDrag(e)
-                    if (!path) return
-                    e.preventDefault()
-                    setDragOverId(null)
-                    onDropNote(path, item.id)
-                  }
-                : undefined
-            }
+            {...itemDrop}
           >
             <span className={SLOT}>
               <HugeiconsIcon icon={item.icon} className="size-4.5" />
@@ -390,6 +439,7 @@ function MainMenu({
       {/* header — brand mark doubles as the workspace switcher trigger;
           collapse/expand lives solely in the footer's Collapse row now */}
       {!hideChrome && (
+        <div data-slot="vault-root-drop" className={cn("shrink-0", dragOverRoot && rootOver)} {...rootDrop}>
         <WorkspaceSwitcher
           vaults={vaults}
           active={activeVault}
@@ -405,6 +455,7 @@ function MainMenu({
             {vaultLabel}
           </span>
         </WorkspaceSwitcher>
+        </div>
       )}
 
       {/* folders — a right-click or long-press on the empty space makes a note or folder at the vault root */}

@@ -1,6 +1,7 @@
 import { notify } from "@/lib/notify"
 import type { VaultNode } from "@/components/sympose"
 import { getUnsavedGuard } from "@/lib/unsaved-guard"
+import { useFolderMove } from "@/lib/use-folder-move"
 import { moveVaultNote } from "@/lib/vault-note-api"
 
 /**
@@ -15,6 +16,8 @@ import { moveVaultNote } from "@/lib/vault-note-api"
  *   it the same `(path, destFolder)` pair; the no-op case (dropped back on its own
  *   folder) resolves without a fetch inside `moveVaultNote` itself, so nothing here
  *   guards it.
+ * - `moveFolder` is the same for a folder row dropped on a folder, a root folder or the vault root (docs/decisions/074):
+ *   it plans, asks what needs the user's word (`folderMoveAsk`, shown by `<FolderMoveDialog>`), moves, and follows.
  * - A rename or move of the open note first lets the editor save its unsaved edits to the new path
  *   (`followMove`), so nothing is written to the old one.
  * - `vaultTreeActions` is the row callbacks shared by both `<VaultTree>` instances
@@ -98,6 +101,15 @@ export function useNoteChanges({
     notify.success(res.detail)
   }
 
+  const { moveFolder, ask: folderMoveAsk, closeAsk: closeFolderMoveAsk } = useFolderMove({
+    persona: activePersona,
+    selectedNote,
+    before: beforeFolderRename,
+    after: followFolderMove,
+    noteRenamedAway: () => setSelectedNote(undefined),
+    refreshVault,
+  })
+
   const vaultTreeActions = {
     selectedPath: openableNote,
     onHide: hideFromView,
@@ -126,6 +138,7 @@ export function useNoteChanges({
     isPinned,
     onTogglePin: togglePin,
     onMoveNote: moveNote,
+    onMoveFolder: moveFolder,
     onUnpinAll: unpinMany,
     onRemoveFromRecents: removeFromRecents,
     onClearRecents: clearRecents,
@@ -142,5 +155,5 @@ export function useNoteChanges({
     refreshVault()
   }
 
-  return { moveNote, vaultTreeActions, onEditorRenamed, onEditorDeleted }
+  return { moveNote, moveFolder, folderMoveAsk, closeFolderMoveAsk, vaultTreeActions, onEditorRenamed, onEditorDeleted }
 }
