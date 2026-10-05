@@ -45,19 +45,27 @@ export function useFolderMove({
       if (!plan.ok) return void notify.error(plan.error)
 
       const answers: FolderMoveAnswers = {}
+      let reach = plan.reach
       if (plan.clash) {
         const name = path.slice(path.lastIndexOf("/") + 1)
         const choice = await prompt<{ merge: true } | { newName: string } | null>((resolve) => ({ kind: "clash", name, destination, resolve }))
         if (!choice) return
         if ("merge" in choice) answers.ifExists = "merge"
-        else Object.assign(answers, { ifExists: "rename", newName: choice.newName })
+        else {
+          Object.assign(answers, { ifExists: "rename", newName: choice.newName })
+          // What a persona reads is decided by where the folder really goes: ask again for that name.
+          const renamed = await planFolderMove(path, destination, persona, choice.newName)
+          if (!renamed.ok) return void notify.error(renamed.error)
+          if (renamed.clash) return void notify.error(`“${choice.newName}” is also taken in ${destination || "the vault root"}.`)
+          reach = renamed.reach
+        }
         if (answers.ifExists === "merge" && plan.noteClashes.length > 0) {
           if (!(await prompt<boolean>((resolve) => ({ kind: "notes", files: plan.noteClashes, resolve })))) return
           answers.renameClashingNotes = true
         }
       }
-      if (plan.reach.length > 0) {
-        if (!(await prompt<boolean>((resolve) => ({ kind: "reach", reach: plan.reach, resolve })))) return
+      if (reach.length > 0) {
+        if (!(await prompt<boolean>((resolve) => ({ kind: "reach", reach, resolve })))) return
         answers.confirmReach = true
       }
 

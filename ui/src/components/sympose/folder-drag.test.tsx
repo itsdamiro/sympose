@@ -288,6 +288,31 @@ describe("MainMenu: dropping a folder (docs/decisions/074)", () => {
     expect(vaultName().className).not.toContain("ring-brand")
   })
 
+  it("lights the row, not the vault root, when the drag moves from the space behind the rows onto a row", async () => {
+    setup()
+    const dt = await held("Projects/Garden")
+    const list = screen.getByRole("list")
+    fireEvent.dragEnter(list, ev(dt))
+    expect(list.className).toContain("ring-brand")
+
+    fireEvent.dragEnter(row("Archive"), ev(dt))
+
+    expect(list.className).not.toContain("ring-brand")
+    expect(row("Archive").className).toContain("ring-brand")
+  })
+
+  it("puts the vault root out when a drop lands on a row, which keeps the drop from the root's own handler", async () => {
+    const onDropFolder = setup()
+    const dt = await held("Projects/Garden")
+    const list = screen.getByRole("list")
+    fireEvent.dragEnter(list, ev(dt))
+
+    fireEvent.drop(row("README"), ev(dt)) // a row that takes no folder
+
+    expect(list.className).not.toContain("ring-brand")
+    expect(onDropFolder).not.toHaveBeenCalled()
+  })
+
   it("never lets a drop on a row fall through to the vault root behind it", async () => {
     const onDropFolder = setup()
     const dt = await held("Projects/Garden")

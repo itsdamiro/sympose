@@ -14,7 +14,7 @@ import { useVaults, useVaultSwitching } from "@/lib/use-vaults"
 import { useMenuCollapse } from "@/lib/use-menu-collapse"
 import { useMenuItems } from "@/lib/use-menu-items"
 import { useShellNavigation } from "@/lib/use-shell-navigation"
-import { SECTION_LABELS } from "@/lib/shell-sections"
+import { SECTION_LABELS, sectionAfterFolderMove } from "@/lib/shell-sections"
 import { useSectionHistory } from "@/lib/use-section-history"
 import { useVaultRefresh } from "@/lib/use-vault-refresh"
 import { useCreateField, useCreateSubmit, type CreateKind } from "@/lib/use-create-flow"
@@ -379,7 +379,8 @@ export function AppShell() {
     (oldFolder: string, newFolder: string) => {
       selectionFollows(oldFolder, newFolder)
       announceFolderMoved(oldFolder, newFolder)
-      if (active === oldFolder) setActive(newFolder)
+      const next = sectionAfterFolderMove(active, oldFolder, newFolder)
+      if (next !== active) setActive(next)
     },
     [selectionFollows, active, setActive]
   )

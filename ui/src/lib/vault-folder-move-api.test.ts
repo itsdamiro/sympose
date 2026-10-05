@@ -20,8 +20,17 @@ describe("planFolderMove", () => {
 
     const res = await planFolderMove("A", "B", "samantha")
 
-    expect(sent(f)).toEqual({ url: "/api/vault/folder/move-plan", method: "POST", body: { path: "A", destination: "B", persona: "samantha" } })
+    expect(sent(f)).toEqual({ url: "/api/vault/folder/move-plan", method: "POST", body: { path: "A", destination: "B", persona: "samantha", new_name: "" } })
     expect(res).toEqual({ ok: true, path: "A", destination: "B", newPath: "B/A", clash: true, noteClashes: ["x.md"], reach: [{ handle: "g", name: "Grace", gains: 2, loses: 0 }], definition: "stops" })
+  })
+
+  it("asks for the plan under another name when the user chose one", async () => {
+    const f = stub(true, { path: "A", destination: "B", new_path: "B/Friends", clash: false, note_clashes: [], reach: [], definition: null })
+
+    const res = await planFolderMove("A", "B", "samantha", "Friends")
+
+    expect(sent(f).body).toEqual({ path: "A", destination: "B", persona: "samantha", new_name: "Friends" })
+    expect(res.ok && res.newPath).toBe("B/Friends")
   })
 
   it("says what the server refused with", async () => {

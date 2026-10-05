@@ -88,7 +88,7 @@ describe("moving a folder (docs/decisions/074)", () => {
   })
 
   it("asks first when a folder of that name is there, and moves under the new name the user gives", async () => {
-    api.planFolderMove.mockResolvedValue(plan({ clash: true }))
+    api.planFolderMove.mockResolvedValueOnce(plan({ clash: true })).mockResolvedValueOnce(plan({ newPath: "Archive/Friends" }))
     const { result } = setup()
 
     let done!: Promise<void>
@@ -108,6 +108,47 @@ describe("moving a folder (docs/decisions/074)", () => {
     act(() => void result.current.moveFolder("Projects/People", "Archive"))
 
     await waitFor(() => expect(result.current.ask).toMatchObject({ kind: "clash", name: "People", destination: "Archive" }))
+  })
+
+  it("asks the server again for the name chosen, and asks about the reach of that plan, not of the merge", async () => {
+    const merge = [{ handle: "zed", name: "Zed", gains: 4, loses: 0 }]
+    const renamed = [{ handle: "grace", name: "Grace", gains: 2, loses: 0 }]
+    api.planFolderMove.mockResolvedValueOnce(plan({ clash: true, reach: merge })).mockResolvedValueOnce(plan({ reach: renamed }))
+    const { result } = setup()
+
+    let done!: Promise<void>
+    act(() => {
+      done = result.current.moveFolder("People", "Archive")
+    })
+    await answer(result, "clash", { newName: "Friends" })
+    await waitFor(() => expect(result.current.ask).toMatchObject({ kind: "reach", reach: renamed }))
+    await answer(result, "reach", true)
+    await act(() => done)
+
+    expect(api.planFolderMove).toHaveBeenLastCalledWith("People", "Archive", "samantha", "Friends")
+    expect(api.moveVaultFolder).toHaveBeenCalledWith("People", "Archive", "samantha", { ifExists: "rename", newName: "Friends", confirmReach: true })
+  })
+
+  it("does not move when the name chosen is taken too, or the server refuses it, and says so", async () => {
+    api.planFolderMove.mockResolvedValueOnce(plan({ clash: true })).mockResolvedValueOnce(plan({ clash: true }))
+    const { result } = setup()
+    let done!: Promise<void>
+    act(() => {
+      done = result.current.moveFolder("People", "Archive")
+    })
+    await answer(result, "clash", { newName: "Taken" })
+    await act(() => done)
+    expect(notify.error).toHaveBeenCalledWith("“Taken” is also taken in Archive.")
+    expect(api.moveVaultFolder).not.toHaveBeenCalled()
+
+    api.planFolderMove.mockResolvedValueOnce(plan({ clash: true })).mockResolvedValueOnce({ ok: false, error: "plain name" })
+    act(() => {
+      done = result.current.moveFolder("People", "Archive")
+    })
+    await answer(result, "clash", { newName: "a/b" })
+    await act(() => done)
+    expect(notify.error).toHaveBeenCalledWith("plain name")
+    expect(api.moveVaultFolder).not.toHaveBeenCalled()
   })
 
   it("merges without more questions when no file is in both", async () => {
@@ -141,7 +182,7 @@ describe("moving a folder (docs/decisions/074)", () => {
   })
 
   it("does not ask about files in both when the folder goes in under another name: nothing clashes then", async () => {
-    api.planFolderMove.mockResolvedValue(plan({ clash: true, noteClashes: ["Anna.md"] }))
+    api.planFolderMove.mockResolvedValueOnce(plan({ clash: true, noteClashes: ["Anna.md"] })).mockResolvedValueOnce(plan())
     const { result } = setup()
 
     let done!: Promise<void>

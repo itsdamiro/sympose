@@ -332,7 +332,10 @@ function MainMenu({
                   e.dataTransfer.dropEffect = "move"
                 },
                 onDragEnter: (e) => {
-                  if (ownFolderDrag(e)) e.stopPropagation()
+                  if (ownFolderDrag(e)) {
+                    e.stopPropagation()
+                    setDragOverRoot(false) // over a row, not over the empty space behind it
+                  }
                   if (takes(e)) setDragOverId(item.id)
                 },
                 onDragLeave: (e) => {
@@ -341,6 +344,7 @@ function MainMenu({
                 },
                 onDrop: (e) => {
                   setDragOverId(null)
+                  setDragOverRoot(false)
                   if (ownFolderDrag(e)) {
                     e.stopPropagation()
                     const folder = folderTarget ? readFolderDrag(e) : undefined

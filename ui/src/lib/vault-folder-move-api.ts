@@ -24,13 +24,14 @@ export interface FolderMovePlan {
 
 export type FolderMovePlanResult = ({ ok: true } & FolderMovePlan) | { ok: false; error: string }
 
-/** `POST /api/vault/folder/move-plan`: read only. `destination` is a folder path, or `""` for the vault root. */
-export async function planFolderMove(path: string, destination: string, persona: string): Promise<FolderMovePlanResult> {
+/** `POST /api/vault/folder/move-plan`: read only. `destination` is a folder path, or `""` for the vault root. With a
+ *  `newName`, the plan is for the folder going in under that name (what the user chose for a clash). */
+export async function planFolderMove(path: string, destination: string, persona: string, newName = ""): Promise<FolderMovePlanResult> {
   try {
     const res = await fetch("/api/vault/folder/move-plan", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ path, destination, persona }),
+      body: JSON.stringify({ path, destination, persona, new_name: newName }),
     })
     if (!res.ok) return { ok: false, error: (await detailOf(res)) || `Move failed (HTTP ${res.status})` }
     const b = (await res.json()) as {
