@@ -28,6 +28,13 @@ const note = (path: string): VaultNode => ({ type: "note", name: path.split("/")
 const folder = (path: string, children: VaultNode[] = []): VaultNode =>
   ({ type: "folder", name: path.split("/").pop()!, path, children }) as VaultNode
 
+/** A `dragleave` on `el` heading for `to` (jsdom has no DragEvent, so the relatedTarget is put on the event by hand). */
+function leave(el: Element, dt: Drag, to: Element | null) {
+  const e = createEvent.dragLeave(el, ev(dt))
+  Object.defineProperty(e, "relatedTarget", { value: to })
+  fireEvent(el, e)
+}
+
 /** Start dragging the row labelled `name`, the way a browser does, and hand back the drag. */
 function pickUp(name: string) {
   const dt = drag()
@@ -80,6 +87,17 @@ describe("VaultTree: dragging a folder row (docs/decisions/074)", () => {
     expect(row("Archive").className).not.toContain("ring-brand")
     fireEvent.dragEnter(row("Archive"), ev(dt))
     fireEvent.drop(row("Archive"), ev(dt))
+    expect(row("Archive").className).not.toContain("ring-brand")
+  })
+
+  it("stays lit while the drag moves onto the row's own icon or label, and goes out when it leaves the row", () => {
+    render(<VaultTree {...props} onMoveFolder={vi.fn()} />)
+    const dt = pickUp("People")
+    fireEvent.dragEnter(row("Archive"), ev(dt))
+
+    leave(row("Archive"), dt, row("Archive").querySelector("span"))
+    expect(row("Archive").className).toContain("ring-brand")
+    leave(row("Archive"), dt, document.body)
     expect(row("Archive").className).not.toContain("ring-brand")
   })
 
@@ -214,6 +232,17 @@ describe("MainMenu: dropping a folder (docs/decisions/074)", () => {
     expect(onDropFolder).not.toHaveBeenCalled()
   })
 
+  it("keeps a root folder's row lit while the drag moves onto its icon or label", async () => {
+    setup()
+    const dt = await held("Projects/Garden")
+    fireEvent.dragEnter(row("Archive"), ev(dt))
+
+    leave(row("Archive"), dt, row("Archive").querySelector("span"))
+    expect(row("Archive").className).toContain("ring-brand")
+    leave(row("Archive"), dt, document.body)
+    expect(row("Archive").className).not.toContain("ring-brand")
+  })
+
   it("moves a nested folder to the vault root when dropped on the vault name, and lights it", async () => {
     const onDropFolder = setup()
     const dt = await held("Projects/Garden")
@@ -253,15 +282,9 @@ describe("MainMenu: dropping a folder (docs/decisions/074)", () => {
     const dt = await held("Projects/Garden")
     fireEvent.dragEnter(vaultName(), ev(dt))
 
-    // jsdom has no DragEvent, so the relatedTarget is put on the event by hand
-    const leave = (to: Element | null) => {
-      const e = createEvent.dragLeave(vaultName(), ev(dt))
-      Object.defineProperty(e, "relatedTarget", { value: to })
-      fireEvent(vaultName(), e)
-    }
-    leave(vaultName().firstElementChild)
+    leave(vaultName(), dt, vaultName().firstElementChild)
     expect(vaultName().className).toContain("ring-brand")
-    leave(document.body)
+    leave(vaultName(), dt, document.body)
     expect(vaultName().className).not.toContain("ring-brand")
   })
 

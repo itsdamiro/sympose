@@ -8,7 +8,7 @@ import { cn, stripMdExtension } from "@/lib/utils"
 import { vaultScopedKey } from "@/lib/cookies"
 import { folderIconFor } from "@/lib/vault-folders"
 import { useBinPreferences } from "@/lib/use-bin-section-preference"
-import { canDropDraggedFolder, canDropFolder, endFolderDrag, isNoteDrag, readFolderDrag, readNoteDrag } from "@/lib/vault-drag"
+import { canDropDraggedFolder, canDropFolder, endFolderDrag, isNoteDrag, leavesTarget, readFolderDrag, readNoteDrag } from "@/lib/vault-drag"
 import type { VaultSearchResult } from "@/lib/vault-search-api"
 import {
   SearchResultRow,
@@ -109,7 +109,9 @@ export function VaultFolderView({
         onDragEnter: (e) => {
           if (takes(e)) setDragOverRootHeading(true)
         },
-        onDragLeave: () => setDragOverRootHeading(false),
+        onDragLeave: (e) => {
+          if (leavesTarget(e)) setDragOverRootHeading(false)
+        },
         onDrop: (e) => {
           setDragOverRootHeading(false)
           const folder = onMoveFolder ? readFolderDrag(e) : undefined

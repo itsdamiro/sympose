@@ -11,7 +11,7 @@ import {
 
 import { cn } from "@/lib/utils"
 import { useResizable } from "@/lib/use-resizable"
-import { canDropDraggedFolder, canDropFolder, endFolderDrag, isFolderDrag, isNoteDrag, readFolderDrag, readNoteDrag } from "@/lib/vault-drag"
+import { canDropDraggedFolder, canDropFolder, endFolderDrag, isFolderDrag, isNoteDrag, leavesTarget, readFolderDrag, readNoteDrag } from "@/lib/vault-drag"
 import { Logo } from "@/components/logo"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { MainMenuRowMenu } from "@/components/sympose/main-menu-row-menu"
@@ -247,7 +247,7 @@ function MainMenu({
           if (canDropDraggedFolder(e, "")) setDragOverRoot(true)
         },
         onDragLeave: (e) => {
-          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragOverRoot(false)
+          if (leavesTarget(e)) setDragOverRoot(false)
         },
         onDrop: (e) => {
           setDragOverRoot(false)
@@ -337,7 +337,7 @@ function MainMenu({
                 },
                 onDragLeave: (e) => {
                   if (ownFolderDrag(e)) e.stopPropagation()
-                  setDragOverId(null)
+                  if (leavesTarget(e)) setDragOverId(null)
                 },
                 onDrop: (e) => {
                   setDragOverId(null)

@@ -22,6 +22,7 @@ import {
   canDropFolder,
   endFolderDrag,
   isNoteDrag,
+  leavesTarget,
   readFolderDrag,
   readNoteDrag,
   startFolderDrag,
@@ -528,7 +529,9 @@ export function VaultTreeRow({
             if (!takes(e)) return
             setDragOver(true)
           },
-          onDragLeave: () => setDragOver(false),
+          onDragLeave: (e) => {
+            if (leavesTarget(e)) setDragOver(false)
+          },
           onDrop: (e) => {
             setDragOver(false)
             const folder = canMoveFolders ? readFolderDrag(e) : undefined

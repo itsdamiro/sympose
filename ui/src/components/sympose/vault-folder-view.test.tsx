@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from "@testing-library/react"
+import { cleanup, createEvent, fireEvent, render, screen } from "@testing-library/react"
 import * as React from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -395,6 +395,22 @@ describe("VaultFolderView: dropping a folder on the heading (docs/decisions/074)
     expect(heading().className).not.toContain("ring-brand")
     fireEvent.drop(heading(), e)
     expect(onMoveFolder).not.toHaveBeenCalled()
+  })
+
+  it("stays lit while the drag moves onto something inside the heading, and goes out when it leaves it", () => {
+    withFolders()
+    const e = held("Daily/Old")
+    fireEvent.dragEnter(heading(), e)
+
+    const leave = (to: Node | null) => {
+      const ev = createEvent.dragLeave(heading(), e)
+      Object.defineProperty(ev, "relatedTarget", { value: to })
+      fireEvent(heading(), ev)
+    }
+    leave(heading().firstChild)
+    expect(heading().className).toContain("ring-brand")
+    leave(document.body)
+    expect(heading().className).not.toContain("ring-brand")
   })
 
   it("takes no folder when moving folders is not wired, and still takes a note", () => {

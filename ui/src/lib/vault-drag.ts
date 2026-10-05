@@ -70,3 +70,10 @@ export function canDropFolder(folder: string, destination: string): boolean {
   const parent = folder.includes("/") ? folder.slice(0, folder.lastIndexOf("/")) : ""
   return destination !== folder && !destination.startsWith(`${folder}/`) && destination !== parent
 }
+
+/** Whether a `dragleave` really leaves the element it is handled on, not just moves into one of its own children
+ *  (a browser fires `dragenter` on the child first, then `dragleave` on the parent): the highlight stays while the
+ *  drag is anywhere over the row, and goes out only when it leaves it. */
+export function leavesTarget(e: React.DragEvent): boolean {
+  return !e.currentTarget.contains(e.relatedTarget as Node | null)
+}
