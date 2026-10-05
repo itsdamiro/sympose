@@ -10,6 +10,8 @@ import {
   type ChatPhase,
   type SessionPage,
 } from "@/lib/chat-api"
+import { getOpenNote } from "@/lib/open-note-source"
+import { announcePersonaActed } from "@/lib/use-persona-changes"
 import type { ChatTurn, SystemKind } from "@/lib/chat-types"
 
 /** How often the status of a reply in flight is asked for. */
@@ -219,13 +221,16 @@ export function useChat(persona: string) {
       const text = batch.map((b) => b.text).join("\n\n")
       const controller = new AbortController()
       aborts.current.set(key, controller)
-      const result = await sendChatTurn(text, persona, sessionId, controller.signal)
+      const result = await sendChatTurn(text, persona, sessionId, controller.signal, getOpenNote())
       aborts.current.delete(key)
       const next = waiting.current.get(key) ?? []
       waiting.current.delete(key)
       const more = next.length > 0 // decided with no await before `inFlight` is released below
       if (!more) inFlight.current.delete(key)
-      if (result.ok) sessionId = result.reply.session_id
+      if (result.ok) {
+        sessionId = result.reply.session_id
+        announcePersonaActed() // she may have proposed or commented on the note, or made a draft, during the turn
+      }
       const asked = new Set(batch.map((b) => b.id)) // read now: `batch` moves on below, before React runs the update
       const elsewhere = activeRef.current[persona] !== undefined ? activeRef.current[persona] !== key : key !== firstKey(persona)
       update(key, (c) => {

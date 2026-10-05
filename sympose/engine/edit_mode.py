@@ -28,8 +28,9 @@ SUMMARIES = {
 }
 _READ_EACH = "Read each change before you accept it."
 _GEMMA = (
-    "On this model, measured on invented notes, a change was right 29 times out of 36 and wrong but still "
-    "applied 2 times out of 36, and once in 4 it invented a price the note did not hold. " + _READ_EACH
+    "On this model, measured on invented notes with her real prompt, a change was right 18 times out of 36 and "
+    "placed but wrong 3 times out of 36; most of the others she talked about the change instead of proposing it. "
+    "In an earlier, shorter test it invented a price the note did not hold once in 4. " + _READ_EACH
 )
 # What was measured, by model (docs/decisions/072, Measured). A model joins by a measurement and a line here.
 MEASURED = {

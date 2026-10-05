@@ -15,10 +15,10 @@ from sympose import settings_store
 from sympose.engine import budget
 
 SETTING = "cloud_share"
-NOTES, PROPERTIES, RECAPS, CHATS, VAULT_MAP, CONNECTIONS, MEMORY, OPEN_NOTE = (
-    "notes", "properties", "recaps", "chats", "vault_map", "connections", "memory", "open_note",
+NOTES, PROPERTIES, RECAPS, CHATS, VAULT_MAP, CONNECTIONS, MEMORY, OPEN_NOTE, ANNOTATIONS = (
+    "notes", "properties", "recaps", "chats", "vault_map", "connections", "memory", "open_note", "annotations",
 )
-CATEGORIES = (NOTES, PROPERTIES, RECAPS, CHATS, VAULT_MAP, CONNECTIONS, MEMORY, OPEN_NOTE)
+CATEGORIES = (NOTES, PROPERTIES, RECAPS, CHATS, VAULT_MAP, CONNECTIONS, MEMORY, OPEN_NOTE, ANNOTATIONS)
 # What a grounded passage of the user's own notes is, by its `kind` (a note's properties are a
 # passage of their own, docs/decisions/030); anything else that is a vault passage is note text.
 _PROPERTIES_KIND = "properties"
@@ -32,6 +32,7 @@ DESCRIPTIONS = {
     CONNECTIONS: "how a note found for a message connects to your other notes (links, tags, folder) and which other notes are close in meaning to it",
     MEMORY: "the persona's own memory of you (its profile, active context and decisions files, docs/decisions/041)",
     OPEN_NOTE: "the text of the note open in the editor, sent with your message so the persona can propose changes to it (docs/decisions/072)",
+    ANNOTATIONS: "your open comments on the note open in the editor, with the passage each is about and the persona's answers (docs/decisions/069)",
 }
 _REFERENCE_SOURCE = "sympose"
 
@@ -107,7 +108,7 @@ def embeds_notes(embedding_model: str) -> bool:
 
 def categories_of(
     grounding: list[dict[str, Any]], recaps: list[dict[str, Any]], vault_map: bool = False, memory: bool = False,
-    chats: bool = False, open_note: bool = False,
+    chats: bool = False, open_note: bool = False, annotations: bool = False,
 ) -> list[str]:
     """The categories that `grounding`, `recaps`, (docs/decisions/035) the vault map, and
     (docs/decisions/041) the persona's own memory carry, in the order of `CATEGORIES` (what a turn
@@ -122,6 +123,8 @@ def categories_of(
         present.add(MEMORY)
     if open_note:
         present.add(OPEN_NOTE)
+    if annotations:
+        present.add(ANNOTATIONS)
     if any(hit.get("connections") or hit.get("related") or hit.get("links") for hit in grounding):
         present.add(CONNECTIONS)
     return [name for name in CATEGORIES if name in present]

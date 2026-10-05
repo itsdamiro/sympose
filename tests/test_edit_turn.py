@@ -149,12 +149,12 @@ def test_a_note_that_may_be_seen_is_not_withheld():
     assert not edit_turn.resolve(SAMANTHA, False, NOTE).withheld
 
 
-def test_the_rules_with_a_note_open_say_how_to_comment_on_a_passage():
+def test_a_model_with_tools_is_told_how_to_comment_and_one_without_is_given_the_edit_rule_alone():
     marker = edit_turn.message(edit_turn.resolve(SAMANTHA, False, NOTE), "x")
     tool = edit_turn.message(edit_turn.resolve(SAMANTHA, True, NOTE), "x")
 
-    assert '<!-- comment_on: {"find"' in marker
-    assert "comment_on" in tool and "<!--" not in tool
+    assert "comment_on" in tool and "propose_note" in tool and "<!--" not in tool
+    assert "comment_on" not in marker and "propose_note" not in marker and '<!-- propose_edit:' in marker
 
 
 def test_with_no_note_open_there_is_nothing_to_comment_on():

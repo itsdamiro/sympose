@@ -179,12 +179,14 @@ def _run(
 
     if modes.edit and modes.edit.withheld:
         withheld[sharing.OPEN_NOTE] = 1
+    if modes.edit and modes.edit.comments_withheld:
+        withheld[sharing.ANNOTATIONS] = modes.edit.comments_withheld
     searched_used = found.searched if any(h.get("source") != reference.SOURCE for h in grounding_results) else None
     memory_sent = memory.sent_names(mem.profile, mem.context, decisions_sent)
     cloud = None if sharing.is_local(target_model) else (
         sharing.categories_of(
             grounding_results, recaps_sent, vault_map=found.map_allowed and bool(found.map_text), memory=bool(memory_sent),
-            chats=bool(chats_sent), open_note=bool(modes.edit and modes.edit.note),
+            chats=bool(chats_sent), open_note=bool(modes.edit and modes.edit.note), annotations=bool(modes.edit and modes.edit.comments),
         ),
         [name for name in sharing.CATEGORIES if name in withheld],
     )

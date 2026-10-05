@@ -8,7 +8,7 @@ import re
 from dataclasses import dataclass
 
 from sympose import settings_store
-from sympose.engine import edit_mode
+from sympose.engine import edit_mode, open_comments
 
 CAP_SETTING = "open_note_cap"
 DEFAULT_CAP, MIN_CAP = 12000, 20  # characters of the open note she is shown
@@ -29,6 +29,10 @@ class Edit:
     note: OpenNote | None = None  # what she is shown, within the cap
     cut: bool = False  # the note was longer than the cap
     withheld: bool = False  # a note is open but the model may not have its text (a cloud model, ADR 031)
+    comments: tuple[open_comments.Comment, ...] = ()  # the user's open comments on the note, within their cap
+    comments_left_out: int = 0
+    comments_withheld: int = 0  # open comments the model may not have (a cloud model, ADR 031)
+    persona_name: str = "She"
     source: OpenNote | None = None  # the whole open note, which a change is placed in (she is shown `note`, within the cap)
 
     @property
@@ -50,7 +54,10 @@ def _within(text: str, limit: int) -> tuple[str, bool]:
     return (head[:newline] if newline > limit // 2 else head), True
 
 
-def resolve(persona: dict, can_call_tools: bool, open_note: OpenNote | None, may_see: bool = True) -> Edit:
+def resolve(
+    persona: dict, can_call_tools: bool, open_note: OpenNote | None, may_see: bool = True,
+    comments_from: str | None = None, may_see_comments: bool = True,
+) -> Edit:
     """What this turn gives her. In `plan` she is given no tool and no note; otherwise the tool or the marker, and
     the open note when there is one, cut to the cap."""
     mode = edit_mode.for_persona(persona)
@@ -61,7 +68,13 @@ def resolve(persona: dict, can_call_tools: bool, open_note: OpenNote | None, may
     if not may_see:
         return Edit(mode, can_call_tools, withheld=True)
     text, cut = _within(open_note.text, cap())
-    return Edit(mode, can_call_tools, OpenNote(open_note.path, text), cut, source=open_note)
+    found = open_comments.gather(comments_from, open_note) if comments_from else open_comments.Found()
+    name = persona.get("name") or str(persona.get("handle") or "She").title()
+    return Edit(
+        mode, can_call_tools, OpenNote(open_note.path, text), cut,
+        comments=found.items if may_see_comments else (), comments_left_out=found.left_out if may_see_comments else 0,
+        comments_withheld=0 if may_see_comments else len(found.items), persona_name=name, source=open_note,
+    )
 
 
 _EDIT_TOOL = (
@@ -84,10 +97,6 @@ _COMMENT_TOOL = (
     "To comment on a passage without changing it (a question or a doubt for the user, when they ask for one), call "
     "comment_on with find, copied from the note exactly and found in it once, and text."
 )
-_COMMENT_MARKER = (
-    "To comment on a passage without changing it (a question or a doubt for the user, when they ask for one), add one "
-    'line: <!-- comment_on: {"find": "...", "text": "..."} --> with find copied from the note exactly and found in it once.'
-)
 _REVIEW = "The user reviews each change before anything is saved. Do not rewrite the note."
 _ASKED = (
     "If the request needs information that is neither in the note nor in the request, propose nothing and say what you "
@@ -106,6 +115,7 @@ _WITHHELD = (
     "A note is open in the editor, but the user has not allowed its text to be sent to this model, so you cannot see it "
     "or change it; if asked to change it, say so."
 )
+_COMMENTS_WITHHELD = "The user has {n} open comments on this note, but has not allowed them to be sent to this model, so you cannot see them."
 _CUT = "The note is longer than what is shown: only the first {n} characters are, so propose changes only to those."
 
 
@@ -117,10 +127,18 @@ def message(edit: Edit, user_message: str) -> str:
     if edit.note is None:
         held = f"{_WITHHELD} " if edit.withheld else ""
         return f"{user_message}\n\n{held}{new_note} {_REVIEW}"
-    rules = [_EDIT_TOOL if edit.tool else _EDIT_MARKER, new_note, _COMMENT_TOOL if edit.tool else _COMMENT_MARKER, _REVIEW]
+    # A model without tools gets the edit rule alone beside a note: every further line cost `gemma2:9b` edits when
+    # measured (ADR 072, 18 of 36 right with it alone, 8 with the new-note and comment lines), and it is the one
+    # the user asks for most. A model with tools has them described outside the prompt.
+    rules = [_EDIT_TOOL, new_note, _COMMENT_TOOL, _REVIEW] if edit.tool else [_EDIT_MARKER, _REVIEW]
     if edit.cut:
         rules.append(_CUT.format(n=len(edit.note.text)))
     rules.append(_UNASKED if edit.mode == edit_mode.AUTO else _ASKED)
     fence = "`" * max(4, 1 + max((len(run) for run in re.findall(r"`+", edit.note.text)), default=0))
-    head = f"The open note, {edit.note.path}:\n\n{fence}\n{edit.note.text}\n{fence}\n\nThe user's request: {user_message}\n\n"
+    comments = ""
+    if edit.comments:
+        comments = open_comments.block(open_comments.Found(edit.comments, edit.comments_left_out), edit.persona_name) + "\n\n"
+    elif edit.comments_withheld:
+        comments = _COMMENTS_WITHHELD.format(n=edit.comments_withheld) + "\n\n"
+    head = f"The open note, {edit.note.path}:\n\n{fence}\n{edit.note.text}\n{fence}\n\n{comments}The user's request: {user_message}\n\n"
     return head + " ".join(rules)

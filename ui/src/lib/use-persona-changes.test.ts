@@ -7,7 +7,7 @@ const toast = vi.hoisted(() => ({ error: vi.fn() }))
 vi.mock("@/lib/persona-changes-api", () => api)
 vi.mock("@/lib/notify", () => ({ notify: toast }))
 
-import { usePersonaChanges } from "./use-persona-changes"
+import { announcePersonaActed, usePersonaChanges } from "./use-persona-changes"
 
 const proposal = (id: string) => ({ id, time: "t", kind: "edit", say: "", find: "x", replace: "y", before: "", after: "", status: "pending" })
 const noteChanges = (path: string, ids: string[]) => ({ path, exists: true, mtime: 1, proposals: ids.map(proposal), annotations: [] })
@@ -28,6 +28,17 @@ describe("usePersonaChanges", () => {
 
     await waitFor(() => expect(result.current.changes?.proposals).toHaveLength(2))
     expect(api.fetchChanges).toHaveBeenCalledWith("a.md", "samantha")
+  })
+
+  it("reads the note's changes again when a chat turn ends, since she may have proposed something in it", async () => {
+    api.fetchChanges.mockResolvedValueOnce(noteChanges("a.md", [])).mockResolvedValueOnce(noteChanges("a.md", ["1"]))
+    const { result } = renderHook(() => usePersonaChanges({ path: "a.md", persona: "samantha" }))
+    await waitFor(() => expect(result.current.changes).not.toBeNull())
+
+    act(() => announcePersonaActed())
+
+    await waitFor(() => expect(result.current.changes?.proposals).toHaveLength(1))
+    expect(api.fetchChanges).toHaveBeenCalledTimes(2)
   })
 
   it("has nothing for no note and fetches nothing while disabled", async () => {

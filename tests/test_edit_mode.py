@@ -96,7 +96,7 @@ def test_the_two_calmer_modes_have_nothing_to_warn_about():
 @pytest.mark.parametrize("mode", ["accept", "auto"])
 def test_a_measured_small_model_is_told_its_own_figures(mode):
     text = edit_mode.note(mode, GEMMA)
-    assert "29" in text and "36" in text and "2 times" in text and "price" in text
+    assert "18" in text and "36" in text and "3 times" in text and "price" in text
     assert "read each change" in text.lower()
 
 

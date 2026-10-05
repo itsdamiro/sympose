@@ -25,7 +25,7 @@ Nothing in any mode writes the vault: the file changes only through the user's A
 
 **Auto and small models: a warning, as information.** Choosing `auto` shows a note specific to the model the persona uses, from a table of what was measured (like `lookup.MEASURED`). The user's Accept does not make a wrong change harmless: a change that looks right and is wrong can be accepted by mistake, and `auto` puts more of them in front of the user. So:
 
-- For `gemma2:9b`: a patch right 29 times of 36, an edit applied but wrong 2 times of 36, and a price invented once in 4 when the request needed a fact the note did not hold (ADR 042, Measured). Read each change before accepting it.
+- For `gemma2:9b` (figures corrected 2026-10-05, see Measured): a change right 18 times of 36 with her real prompt, placed but wrong 3 times of 36 and otherwise her talking instead of proposing (the first draft of this record quoted the bare-prompt 29 of 36 and 2 of 36), and a price invented once in 4 when the request needed a fact the note did not hold (ADR 042, Measured). Read each change before accepting it.
 - For a model smaller than `gemma2:9b`, or any model not measured: nothing is known about how faithfully it edits, and smaller models are expected to be worse, not better.
 - For a model measured as faithful (Gemini Flash, 36 of 36 on the same set): the shorter form, measured on a small set of invented notes only.
 
@@ -78,6 +78,19 @@ What the replies show:
 - **Not measured yet:** the tool-call shape; a longer note; more runs on `gemma2:9b`.
 
 **Gemini Flash (`gemini/gemini-flash-latest`), same script, variants B and D, four runs per case (36 edit replies and 12 quiet replies each; the user approved a scratch cloud run, invented notes and Samantha's shipped prompt only):** 36 of 36 edits right and 12 of 12 quiet in both. The persona did not cost it anything, the pushier wording of D did not make it propose unasked, and it did not hit any of the failures above (it quoted a unique passage for the "first Pack charger" line, wrote the bullet marker, put the new section at the end). So the difference between the two models is large and the wording matters only for the small one; the table of what to show beside `auto` and `accept` (above) holds as written, with Flash's own figure now measured through the real prompt as well as Spike B's bare one.
+
+## Measured (2026-10-05): the shipped turn text on `gemma2:9b`, four runs per case (36 edit replies, 12 quiet)
+
+`tests/live_edit_cases.py` now sends the product's own text (`edit_turn.message`), so what is measured is what ships. `manual`, marker shape, Samantha's real prompt, invented notes:
+
+| Rules beside the note | Right | Placed but wrong | No proposal when none asked |
+|---|---|---|---|
+| Edit rule, new-note rule and comment rule, one sentence each | 8 of 36 | 2 | 12 of 12 |
+| The two rarer rules compressed into one line placed before the edit rule | 11 of 36 | 7 | 12 of 12 |
+| Edit rule alone (shipped for a model without tools) | 18 of 36 | 3 | 12 of 12 |
+
+- **Every further line cost the small model its edits,** and it mostly failed by talking about the change instead of proposing it (a safe failure); the compressed line also raised the placed-but-wrong count. So a model that cannot call tools is given the edit rule alone beside a note, and has no new-note or comment lines until a way is found that does not cost it (a model with tools gets all three tools, which are described outside the prompt). Two runs of the full set earlier gave 8 of 18 manual and 7 of 18 for `auto`'s wording; `auto` was not measured with the lean rules.
+- **The warning's figures were wrong for this prompt:** the 29 of 36 was Spike B's bare prompt. The note shown beside `accept` and `auto` now says 18 of 36 right and 3 of 36 placed but wrong.
 
 ## Built so far (2026-10-05): the setting, the persona's control and the warning (steps 1 and 2)
 

@@ -18,8 +18,17 @@ describe("sendChatTurn", () => {
     const res = await sendChatTurn("hello", "samantha", "s0")
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
     expect(url).toBe("/api/chat/turn")
-    expect(JSON.parse(init.body as string)).toEqual({ message: "hello", persona: "samantha", session_id: "s0" })
+    expect(JSON.parse(init.body as string)).toEqual({ message: "hello", persona: "samantha", session_id: "s0", edits: true })
     expect(res).toEqual({ ok: true, reply })
+  })
+
+  it("sends the note open in the editor with the message, and says the screen can show a proposal", async () => {
+    const fetchMock = stub({ ok: true, status: 200, json: () => Promise.resolve(reply) })
+    await sendChatTurn("make it four", "samantha", "s0", undefined, { path: "a.md", text: "I run three times." })
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(JSON.parse(init.body as string)).toEqual({
+      message: "make it four", persona: "samantha", session_id: "s0", edits: true, open_note: { path: "a.md", text: "I run three times." },
+    })
   })
 
   it("returns the backend's own reason when it refuses", async () => {

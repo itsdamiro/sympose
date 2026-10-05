@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { getOpenNote } from "@/lib/open-note-source"
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import { EditorView } from "@codemirror/view"
@@ -314,6 +315,26 @@ describe("MarkdownPanel with the persona's suggested changes", () => {
     await act(async () => fireEvent.click(screen.getByRole("menuitem", { name: "Comment" })))
 
     expect((await screen.findByTestId("comment-compose")).textContent).toContain("raised")
+  })
+
+  it("tells the chat which note is open and its text as the editor holds it, and forgets it when the note closes", async () => {
+    const { unmount } = open()
+    await waitFor(() => expect(screen.getByTestId("cm").querySelector(".cm-content")).not.toBeNull())
+    await waitFor(() => expect(getOpenNote()?.path).toBe("Garden plan.md"))
+    expect(getOpenNote()?.text.trimEnd()).toBe(NOTE.trimEnd())
+
+    await act(async () => editorView().dispatch({ changes: { from: 0, insert: "Hi. " } }))
+    await waitFor(() => expect(getOpenNote()?.text.startsWith("Hi. ")).toBe(true))
+
+    unmount()
+    expect(getOpenNote()).toBeNull()
+  })
+
+  it("does not offer a persona's own file to the chat as a note", async () => {
+    const file = { load: vi.fn().mockResolvedValue({ content: NOTE, mtime: 1 }), save: vi.fn(), title: "soul.md" }
+    open({ path: "soul.md", file })
+    await screen.findByTestId("cm")
+    expect(getOpenNote()).toBeNull()
   })
 
   it("has no comment in the right-click menu for a persona's own file", async () => {

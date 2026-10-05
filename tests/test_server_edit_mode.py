@@ -56,7 +56,7 @@ def test_the_note_for_accept_and_auto_is_about_the_model_she_uses(client):
     small = client.get("/api/personas/small/edit-mode").json()["notes"]
     cloudy = client.get("/api/personas/cloudy/edit-mode").json()["notes"]
     assert set(small) == {"accept", "auto"}
-    assert small["auto"] == edit_mode.note("auto", "ollama_chat/gemma2:9b") and "29" in small["auto"]
+    assert small["auto"] == edit_mode.note("auto", "ollama_chat/gemma2:9b") and "18" in small["auto"]
     assert cloudy["accept"] == edit_mode.note("accept", "gemini/gemini-flash-latest") and "36 of 36" in cloudy["accept"]
 
 

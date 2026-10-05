@@ -37,11 +37,16 @@ _MARKER = re.compile(r"<!--\s*propose_edit:\s*(\{.*?\})\s*-->", re.S)
 # (manual, accept: the plain one; auto: the one that also invites a change she notices); EDIT_TOOL=1 is not measured here
 # (this script reads the marker shape, the one a model without tools must use).
 MODE = os.environ.get("EDIT_MODE", "manual")
+# EDIT_LEAN=1 drops the rules for a new note and for a comment, to see whether the longer block costs a small model
+# its edits (the lines are there for the cases that need them, and cost the others).
+LEAN = os.environ.get("EDIT_LEAN") == "1"
 
 
 def user_turn(note: str, request: str) -> str:
     from sympose.engine import edit_turn
 
+    if LEAN:
+        edit_turn._NOTE_MARKER = edit_turn._COMMENT_MARKER = ""
     edit = edit_turn.Edit(MODE, False, edit_turn.OpenNote("Garden plan.md", note))
     return edit_turn.message(edit, request)
 
@@ -90,7 +95,7 @@ def run(model: str, runs: int, verbose: bool) -> None:
         except Exception as error:
             return f"(call failed: {str(error)[:120]})"
 
-    totals = [0, 0, 0]
+    totals, wrong = [0, 0, 0], 0
     for case in CASES:
         cid, note, instruction = case[0], case[1], case[2]
         scores = []
@@ -98,13 +103,14 @@ def run(model: str, runs: int, verbose: bool) -> None:
             reply = ask(note, instruction)
             parsed, matched, new = apply(reply, note)
             scores.append((parsed, matched, parsed and matched and correct(case, new)))
+            wrong += bool(patches(reply)[1]) and bool(scores[-1][1]) and not scores[-1][2]  # a change that was placed and is wrong
             if verbose and not scores[-1][2]:
                 print(f"      [{cid}] {reply[:300]!r}", flush=True)
         for i in range(3):
             totals[i] += sum(s[i] for s in scores)
         print(f"  edit     {cid:12} parsed {sum(s[0] for s in scores)}/{runs}  matched {sum(s[1] for s in scores)}/{runs}  correct {sum(s[2] for s in scores)}/{runs}", flush=True)
     n = runs * len(CASES)
-    print(f"{model} [{MODE}] edits: parsed {totals[0]}/{n}  matched {totals[1]}/{n}  correct {totals[2]}/{n}", flush=True)
+    print(f"{model} [{MODE}] edits: parsed {totals[0]}/{n}  matched {totals[1]}/{n}  correct {totals[2]}/{n}  placed but wrong {wrong}/{n}", flush=True)
 
     quiet = 0
     for cid, note, request in NO_PROPOSAL:

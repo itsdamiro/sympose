@@ -174,3 +174,36 @@ def test_with_no_note_open_she_is_not_given_the_comment_tool(monkeypatch):
     turn.run_turn("samantha", "hi", model=CLOUD, edits=True)
 
     assert [t["function"]["name"] for t in seen[0]["tools"]] == ["propose_note"]
+
+
+def test_the_users_open_comments_come_with_the_message_for_a_local_model(monkeypatch):
+    note_changes.annotate("samantha", NOTE.path, NOTE.text, quote="three times", text="Is that every week?", author="user")
+    seen = model_that(monkeypatch, ModelReply("ok", 5))
+
+    turn.run_turn("samantha", "any thoughts?", model=LOCAL, open_note=NOTE)
+
+    assert "Is that every week?" in seen[0]["messages"][-1]["content"]
+
+
+def test_a_cloud_model_is_not_sent_the_comments_until_approved_and_the_turn_says_so(monkeypatch):
+    note_changes.annotate("samantha", NOTE.path, NOTE.text, quote="three times", text="Is that every week?", author="user")
+    sharing.set_approved(sharing.OPEN_NOTE, True)
+    seen = model_that(monkeypatch, ModelReply("ok", 5))
+
+    result = turn.run_turn("samantha", "any thoughts?", model=CLOUD, open_note=NOTE)
+
+    sent = seen[0]["messages"][-1]["content"]
+    assert "Is that every week?" not in sent and "three times a week" in sent
+    assert result.sent["withheld"] == [sharing.ANNOTATIONS]
+
+
+def test_an_approved_cloud_model_gets_the_comments_and_the_record_names_the_category(monkeypatch):
+    note_changes.annotate("samantha", NOTE.path, NOTE.text, quote="three times", text="Is that every week?", author="user")
+    sharing.set_approved(sharing.OPEN_NOTE, True)
+    sharing.set_approved(sharing.ANNOTATIONS, True)
+    seen = model_that(monkeypatch, ModelReply("ok", 5))
+
+    result = turn.run_turn("samantha", "any thoughts?", model=CLOUD, open_note=NOTE)
+
+    assert "Is that every week?" in seen[0]["messages"][-1]["content"]
+    assert sharing.ANNOTATIONS in result.sent["cloud"] and result.sent["withheld"] == []

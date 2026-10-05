@@ -153,6 +153,7 @@ const CLOUD_WORDS: Record<string, string> = {
   connections: "note connections",
   memory: "her memory",
   open_note: "the open note",
+  annotations: "your comments",
 }
 
 /** The categories of the vault a cloud model was sent or refused, in plain words (ADR 031's names are the code's). */

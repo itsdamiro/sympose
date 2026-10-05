@@ -4,6 +4,15 @@ import { notify } from "@/lib/notify"
 import { fetchChanges, resolveChanges, type NoteChanges } from "@/lib/persona-changes-api"
 import { announceDraftsChanged } from "@/lib/use-drafts"
 
+const ACTED = "sympose:persona-acted"
+
+/** A chat turn ended: she may have proposed a change, left a comment or made a draft, so the open note's changes and
+ *  the Drafts list are read again. */
+export function announcePersonaActed() {
+  window.dispatchEvent(new Event(ACTED))
+  announceDraftsChanged()
+}
+
 /**
  * The open note's pending changes and comments from the persona (docs/decisions/070): fetched when a note is opened,
  * and again when the window comes back into focus (she may have proposed something in the chat meanwhile) or when
@@ -29,7 +38,11 @@ export function usePersonaChanges({ path, persona, enabled = true }: { path?: st
   React.useEffect(() => {
     const again = () => setReloadKey((k) => k + 1)
     window.addEventListener("focus", again)
-    return () => window.removeEventListener("focus", again)
+    window.addEventListener(ACTED, again)
+    return () => {
+      window.removeEventListener("focus", again)
+      window.removeEventListener(ACTED, again)
+    }
   }, [])
 
   // Another note's changes are never shown while this one's are on their way.

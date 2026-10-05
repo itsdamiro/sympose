@@ -29,6 +29,7 @@ import { usePersonaChanges } from "@/lib/use-persona-changes"
 import { classify, reviewExtensions, setReviewData, type ReviewData } from "@/lib/review-extensions"
 import { OutdatedChanges } from "@/components/sympose/outdated-changes"
 import { CommentPopover, type CommentBox } from "@/components/sympose/comment-popover"
+import { setOpenNoteSource } from "@/lib/open-note-source"
 import { commentMenuItem, commentToolbarItem, reviewToolbarItems } from "@/components/sympose/review-toolbar"
 import type { EditorPreferences } from "@/lib/use-editor-preferences"
 import { FrontmatterCard } from "@/components/sympose/frontmatter-card"
@@ -217,6 +218,17 @@ function MarkdownPanel({
 
   const { note, frontmatter, setFrontmatter, body, setBody, frontmatterEditedRef, loadedPathRef, saveNote } =
     useNoteDocument({ path, persona, vaultPath, file, reloadToken, autosave: preferences.autosave })
+  // The chat sends the note as the editor holds it, with the user's message (docs/decisions/072). Not for a persona's
+  // own file or a draft (`file`): there is no vault note to propose changes to.
+  const bodyRef = React.useRef(body)
+  React.useEffect(() => {
+    bodyRef.current = body
+  })
+  React.useEffect(() => {
+    if (!path || file) return
+    setOpenNoteSource(() => (loadedPathRef.current === path ? { path, text: bodyRef.current } : null))
+    return () => setOpenNoteSource(null)
+  }, [path, file, loadedPathRef])
   // Expanded/collapsed state of the frontmatter card — toggled from the `⋯`
   // row, persisted globally (same convention as `app-shell.tsx`'s rail /
   // auto-collapse cookies).
