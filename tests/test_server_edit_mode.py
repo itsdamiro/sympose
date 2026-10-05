@@ -89,3 +89,46 @@ def test_picking_a_model_afterwards_keeps_her_mode(client, scratch):
     client.put("/api/personas/plain/edit-mode", json={"mode": "auto"})
     client.put("/api/personas/plain/model", json={"model": "gemini/gemini-flash-latest"})
     assert client.get("/api/personas/plain/edit-mode").json()["mode"] == "auto"
+
+
+def test_the_global_note_lists_each_persona_that_follows_the_setting_with_her_model(client):
+    body = client.get("/api/edit-mode/global").json()
+
+    assert body["mode"] == "manual"
+    assert [(f["handle"], f["model"]) for f in body["following"]] == [
+        ("cloudy", "gemini/gemini-flash-latest"),
+        ("plain", body["following"][1]["model"]),
+        ("small", "ollama_chat/gemma2:9b"),
+    ]
+    for mode in (edit_mode.ACCEPT, edit_mode.AUTO):
+        text = body["notes"][mode]
+        assert edit_mode.note(mode, "ollama_chat/gemma2:9b") in text
+        assert edit_mode.note(mode, "gemini/gemini-flash-latest") in text
+        assert "Samantha" in text
+
+
+def test_a_persona_with_a_mode_of_her_own_is_not_listed_because_the_global_one_does_not_reach_her(client):
+    handles = [f["handle"] for f in client.get("/api/edit-mode/global").json()["following"]]
+    assert "shipped" not in handles
+
+
+def test_a_mode_in_her_local_file_also_takes_her_off_the_list(client, scratch):
+    client.put("/api/personas/small/edit-mode", json={"mode": "plan"})
+    handles = [f["handle"] for f in client.get("/api/edit-mode/global").json()["following"]]
+    assert "small" not in handles
+
+
+def test_with_no_follower_the_note_says_so_instead_of_quoting_a_model(client, scratch):
+    for handle in ("plain", "cloudy", "small"):
+        client.put(f"/api/personas/{handle}/edit-mode", json={"mode": "manual"})
+
+    body = client.get("/api/edit-mode/global").json()
+
+    assert body["following"] == []
+    assert "No persona follows" in body["notes"]["accept"]
+    assert "gemma2" not in body["notes"]["accept"] and "Flash" not in body["notes"]["accept"]
+
+
+def test_the_global_note_reports_the_global_mode_in_force(client):
+    settings_store.set(edit_mode.SETTING, "auto")
+    assert client.get("/api/edit-mode/global").json()["mode"] == "auto"

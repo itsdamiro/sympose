@@ -178,6 +178,10 @@ def create_app() -> FastAPI:
     def put_persona_model(handle: str, body: ModelChoice) -> dict[str, Any]:
         return mh.put_persona_model(handle, body)
 
+    @app.get("/api/edit-mode/global")
+    def get_global_edit_mode() -> dict[str, Any]:
+        return emh.get_global_edit_mode()
+
     @app.get("/api/personas/{handle}/edit-mode")
     def get_persona_edit_mode(handle: str) -> dict[str, Any]:
         return emh.get_edit_mode(handle)

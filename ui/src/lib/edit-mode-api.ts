@@ -41,3 +41,20 @@ export async function saveEditMode(handle: string, mode: EditModeId | null): Pro
     return { ok: false, error: "the Sympose backend is not reachable" }
   }
 }
+
+/** The global mode and who it reaches (docs/decisions/072): the personas with no mode of their own, and the note for `accept` and `auto` with one line for each. */
+export interface GlobalEditMode {
+  mode: EditModeId
+  following: { handle: string; name: string; model: string }[]
+  notes: { accept: string; auto: string }
+}
+
+/** `GET /api/edit-mode/global`; `null` when the backend is unreachable. */
+export async function fetchGlobalEditMode(): Promise<GlobalEditMode | null> {
+  try {
+    const res = await fetch("/api/edit-mode/global")
+    return res.ok ? ((await res.json()) as GlobalEditMode) : null
+  } catch {
+    return null
+  }
+}

@@ -6,7 +6,7 @@ from typing import Any
 
 from fastapi import HTTPException
 
-from sympose import persona_model
+from sympose import persona_model, profile as profile_mod
 from sympose.engine import edit_mode, model as model_mod
 from sympose.server_handlers import require_profile
 from sympose.server_models import EditModeChoice
@@ -35,3 +35,24 @@ def put_edit_mode(persona: str, body: EditModeChoice) -> dict[str, Any]:
     if not persona_model.set_edit_mode(profile["handle"], body.mode):
         raise HTTPException(status_code=500, detail=f"Couldn't save the edit mode for {profile['handle']}.")
     return _state(persona)
+
+
+_NO_FOLLOWER = (
+    "No persona follows this setting right now: each has a mode of her own, chosen on the Persona page. "
+    "It applies to a persona that has none."
+)
+
+
+def get_global_edit_mode() -> dict[str, Any]:
+    """The global mode and who it reaches: the personas with no mode of their own, each with the model she uses, and the
+    note for `accept` and `auto` listing one line per follower (the global setting has no one model to quote)."""
+    following = [
+        {"handle": p["handle"], "name": p["name"], "model": model_mod.resolve_model(p.get("model") or None)}
+        for p in profile_mod.list_profiles()
+        if not edit_mode.valid(p.get("edit_mode"))
+    ]
+    notes = {
+        m: "\n".join(f"{f['name']} ({f['model']}): {edit_mode.note(m, f['model'])}" for f in following) or _NO_FOLLOWER
+        for m in (edit_mode.ACCEPT, edit_mode.AUTO)
+    }
+    return {"mode": edit_mode.mode(), "following": following, "notes": notes}

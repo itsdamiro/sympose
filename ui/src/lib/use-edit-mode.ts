@@ -1,14 +1,8 @@
 import * as React from "react"
 
-import { confirm } from "@/lib/confirm-store"
 import { fetchEditMode, saveEditMode, type EditModeId, type EditModeInfo } from "@/lib/edit-mode-api"
 import { notify } from "@/lib/notify"
-import { getNotificationPreferences } from "@/lib/use-notification-preferences"
-
-const ASKS: Partial<Record<EditModeId, { message: (name: string) => string; confirmLabel: string }>> = {
-  accept: { message: (name) => `Let ${name} apply her edits in the editor?`, confirmLabel: "Use Accept edits" },
-  auto: { message: (name) => `Let ${name} act on her own initiative?`, confirmLabel: "Use Auto" },
-}
+import { askBeforeEditMode } from "@/lib/edit-mode-ask"
 
 /**
  * The active persona's edit mode (docs/decisions/072) for the persona page's chip. Read when the persona changes.
@@ -42,16 +36,8 @@ export function useEditMode(handle: string, personaName: string) {
   )
 
   const choose = React.useCallback(
-    (mode: EditModeId | null) => {
-      const ask = mode ? ASKS[mode] : undefined
-      const note = mode && info ? info.notes[mode as "accept" | "auto"] : null
-      if (!ask || !note) return void apply(mode)
-      if (getNotificationPreferences().confirm === "none") {
-        void apply(mode).then((ok) => ok && notify.warning(note, { duration: 12000 }))
-        return
-      }
-      confirm({ message: ask.message(personaName), description: note, confirmLabel: ask.confirmLabel, tone: "default", onConfirm: () => void apply(mode) })
-    },
+    (mode: EditModeId | null) =>
+      askBeforeEditMode({ mode, who: personaName, note: mode && info ? info.notes[mode as "accept" | "auto"] : null, apply: () => apply(mode) }),
     [info, personaName, apply]
   )
 

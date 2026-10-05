@@ -1,5 +1,7 @@
 import * as React from "react"
 
+import { askBeforeEditMode } from "@/lib/edit-mode-ask"
+import { fetchGlobalEditMode } from "@/lib/edit-mode-api"
 import { notify } from "@/lib/notify"
 import {
   changeSetting,
@@ -31,27 +33,40 @@ export function useEngineSettings() {
     }
   }, [])
 
+  const save = React.useCallback(async (key: string, value: boolean | string | number | null): Promise<boolean> => {
+    const result = await changeSetting(key, value)
+    if (!result.ok) {
+      notify.error(result.error)
+      return false
+    }
+    setState((prev) =>
+      prev.status !== "ready"
+        ? prev
+        : {
+            status: "ready",
+            groups: prev.groups.map((g) => ({
+              ...g,
+              settings: g.settings.map((s) => (s.key === key ? result.setting : s)),
+            })),
+          }
+    )
+    return true
+  }, [])
+
+  // The global edit mode (docs/decisions/072): `accept` and `auto` first show the note about the models of the personas
+  // that follow it, so the row keeps what is in force until the user confirms (`false` here means "asked, not saved").
   const change = React.useCallback(
     async (key: string, value: boolean | string | number | null): Promise<boolean> => {
-      const result = await changeSetting(key, value)
-      if (!result.ok) {
-        notify.error(result.error)
-        return false
+      if (key === "edit_mode" && (value === "accept" || value === "auto")) {
+        const note = (await fetchGlobalEditMode())?.notes[value]
+        if (note) {
+          askBeforeEditMode({ mode: value, who: null, note, apply: () => save(key, value) })
+          return false
+        }
       }
-      setState((prev) =>
-        prev.status !== "ready"
-          ? prev
-          : {
-              status: "ready",
-              groups: prev.groups.map((g) => ({
-                ...g,
-                settings: g.settings.map((s) => (s.key === key ? result.setting : s)),
-              })),
-            }
-      )
-      return true
+      return save(key, value)
     },
-    []
+    [save]
   )
 
   return { state, change }
