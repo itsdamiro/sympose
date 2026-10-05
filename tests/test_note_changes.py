@@ -166,18 +166,43 @@ def test_declining_one_of_two_keeps_the_other_and_the_comment():
     assert len(entry["annotations"]) == 1
 
 
-def test_drafts_list_notes_with_proposals_only_not_notes_with_just_comments():
+def test_drafts_list_notes_with_a_proposal_waiting_or_an_open_comment_with_both_counts():
     nc.propose_edit(H, "a.md", NOTE, find="three times", replace="four times", say="")
     nc.propose_edit(H, "a.md", NOTE, find="raised", replace="sunken", say="")
     nc.propose_create(H, "New.md", "# New\n", say="")
     nc.annotate(H, "only-comments.md", NOTE, quote="raised", text="q", author="user")
+    nc.annotate(H, "a.md", NOTE, quote="three", text="why?", author="persona")
 
     drafts = {d["path"]: d for d in nc.drafts(H)}
 
-    assert set(drafts) == {"a.md", "New.md"}
-    assert drafts["a.md"]["count"] == 2 and drafts["a.md"]["is_new"] is False
-    assert drafts["New.md"]["count"] == 1 and drafts["New.md"]["is_new"] is True
-    assert drafts["a.md"]["time"]
+    assert set(drafts) == {"a.md", "New.md", "only-comments.md"}
+    assert (drafts["a.md"]["count"], drafts["a.md"]["comments"], drafts["a.md"]["is_new"]) == (2, 1, False)
+    assert (drafts["New.md"]["count"], drafts["New.md"]["comments"], drafts["New.md"]["is_new"]) == (1, 0, True)
+    assert (drafts["only-comments.md"]["count"], drafts["only-comments.md"]["comments"]) == (0, 1)
+    assert drafts["a.md"]["time"] and drafts["only-comments.md"]["time"]
+
+
+def test_a_resolved_comment_does_not_list_a_note_and_answers_are_not_counted():
+    root = nc.annotate(H, "a.md", NOTE, quote="raised", text="q", author="user")
+    nc.reply(H, "a.md", root["id"], text="because", author="persona")
+    assert [(d["path"], d["comments"]) for d in nc.drafts(H)] == [("a.md", 1)]
+
+    nc.set_annotation_state(H, "a.md", root["id"], nc.RESOLVED)
+
+    assert nc.drafts(H) == []
+
+
+def test_a_note_with_comments_is_listed_by_the_latest_of_its_proposals_and_open_comments(monkeypatch):
+    times = iter(["2026-10-04T10:00:00+00:00", "2026-10-04T12:00:00+00:00", "2026-10-04T11:00:00+00:00"])
+    monkeypatch.setattr(nc, "_now", lambda: next(times))
+    nc.propose_edit(H, "a.md", NOTE, find="three times", replace="four times", say="")
+    nc.annotate(H, "b.md", NOTE, quote="raised", text="q", author="user")
+    nc.annotate(H, "a.md", NOTE, quote="raised", text="q", author="user")
+
+    drafts = nc.drafts(H)
+
+    assert [d["path"] for d in drafts] == ["b.md", "a.md"]
+    assert drafts[1]["time"] == "2026-10-04T11:00:00+00:00"
 
 
 def test_each_persona_has_its_own_drafts_for_the_same_note():

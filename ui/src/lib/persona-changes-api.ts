@@ -49,7 +49,10 @@ export interface Draft {
   path: string
   name: string | null
   is_new: boolean
+  /** Changes waiting; 0 for a note listed only for its open comments. */
   count: number
+  /** Open comments, by the user or by her (the answers under one are not counted). */
+  comments: number
   time: string
 }
 

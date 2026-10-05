@@ -26,6 +26,7 @@ import { usePanelSizing } from "@/lib/use-panel-sizing"
 import { useNoteDocument, type PanelFile } from "@/lib/use-note-document"
 import type { Proposal } from "@/lib/persona-changes-api"
 import { usePersonaChanges } from "@/lib/use-persona-changes"
+import { announceDraftsChanged } from "@/lib/use-drafts"
 import { applyProposals, classify, clearApplied, pendingIds, reviewExtensions, setReviewData, type ReviewData } from "@/lib/review-extensions"
 import { useEditMode } from "@/lib/use-edit-mode"
 import { OutdatedChanges } from "@/components/sympose/outdated-changes"
@@ -887,7 +888,10 @@ function MarkdownPanel({
           path={path}
           persona={persona}
           onClose={() => setCommentBox(null)}
-          onChanged={refreshChanges}
+          onChanged={() => {
+            refreshChanges()
+            announceDraftsChanged() // the note may now (no longer) have an open comment
+          }}
         />
       )}
     </div>

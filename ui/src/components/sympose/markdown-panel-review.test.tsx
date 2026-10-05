@@ -272,6 +272,27 @@ describe("MarkdownPanel with the persona's suggested changes", () => {
     await waitFor(() => expect(screen.queryByTestId("comment-compose")).toBeNull())
   })
 
+  it("tells the Drafts list when a comment is added, so the note is listed without a reload", async () => {
+    const told = vi.fn()
+    window.addEventListener("sympose:drafts-changed", told)
+    try {
+      open()
+      await waitFor(() => expect(commentButton()).not.toBeNull())
+      const at = NOTE.indexOf("raised")
+      await act(async () => editorView().dispatch({ selection: { anchor: at, head: at + 6 } }))
+      await waitFor(() => expect(commentButton()?.disabled).toBe(false))
+      await act(async () => fireEvent.click(commentButton() as HTMLButtonElement))
+      await screen.findByTestId("comment-compose")
+      fireEvent.change(screen.getByLabelText("Comment"), { target: { value: "why raised?" } })
+
+      await act(async () => fireEvent.click(screen.getByRole("button", { name: "Comment" })))
+
+      await waitFor(() => expect(told).toHaveBeenCalled())
+    } finally {
+      window.removeEventListener("sympose:drafts-changed", told)
+    }
+  })
+
   it("closes the box when another note is opened, so a comment is never saved onto the wrong note", async () => {
     const view = open()
     await waitFor(() => expect(screen.getByTestId("cm").querySelector(".cm-content")).not.toBeNull())

@@ -174,12 +174,13 @@ def discard_proposal(handle: str, note_path: str, proposal_id: str) -> None:
 
 
 def drafts(handle: str) -> list[dict[str, Any]]:
-    """The notes with a proposal waiting, newest first: what the Drafts section lists. A note that only has
-    comments is not a draft."""
+    """The notes with a proposal waiting or an open comment, newest first: what the Drafts section lists (ADR 071, amended
+    2026-10-05). `count` is the changes waiting, `comments` the open comments (the answers under one belong to it)."""
     found = []
     for entry in store.entries(handle):
         proposals = entry["proposals"]
-        if not proposals:
+        open_comments = [a for a in entry["annotations"] if a.get("state") == OPEN and not a.get("reply_to")]
+        if not proposals and not open_comments:
             continue
         creates = [p for p in proposals if p.get("kind") == "create"]
         found.append({
@@ -187,7 +188,8 @@ def drafts(handle: str) -> list[dict[str, Any]]:
             "name": creates[0].get("name") if creates else None,
             "is_new": bool(creates),
             "count": len(proposals),
-            "time": max(str(p.get("time", "")) for p in proposals),
+            "comments": len(open_comments),
+            "time": max(str(x.get("time", "")) for x in [*proposals, *open_comments]),
         })
     return sorted(found, key=lambda d: d["time"], reverse=True)
 

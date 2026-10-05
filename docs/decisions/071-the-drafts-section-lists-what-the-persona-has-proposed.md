@@ -35,9 +35,20 @@ A persona's proposals are kept per note in her own folder (ADR 070) and drawn as
 - **The list is read** on mount, on a persona change, when the vault is refreshed, when the window is focused and when a change is resolved or a draft accepted or declined (`announceDraftsChanged`). The end of a chat turn is not wired yet: until the persona's tool exists (slice 5) nothing proposes during a turn; slice 5 adds it.
 - **A draft row has no menu and no reserved room for one:** the shared note row now keeps the room on the right for a `⋯` button only when it has one, so the end label (the count or "new") does not move when the row is focused.
 
+## Amendment (2026-10-05): the section also lists notes with an open comment
+
+**Decided with the user.** The Drafts section is also where a note shows that it has an open comment, so everything that needs a look is in one place, above the notes and Pinned. This replaces the earlier rule that "a note that only has comments is not a draft". Merged into the one group (not a second group) at the user's choice; the alternative of a separate group was weighed and set aside.
+
+- **Which notes.** Any note that holds a proposal waiting or an open comment (a comment of the user's or of hers, until it is resolved; the answers under a comment belong to it and are not counted). A resolved comment does not list a note. Per persona, like the proposals.
+- **Rows.** The row keeps the shared note row. It ends with what is waiting: for a new note "new" (as before); otherwise the number of changes waiting when there are any, and the number of open comments with a small comment icon when there are any (a note with changes only shows what it showed before). A note with comments and no changes opens like any note; its comments are in the editor (ADR 069).
+- **Caption.** "Drafts" while only proposals are listed, "Comments" while only comments are, "Drafts & comments" when both kinds are. It is shown only while at least one row is listed.
+- **Route.** `GET /api/vault/drafts` returns `comments` (the open count) beside `count` (the changes waiting) for each entry; a note with only comments has `count: 0`. `time` is the latest of the note's proposals and open comments, so the list stays newest first. The list is read at the same moments as before, and also after a comment is added, changed, resolved or deleted (the editor announces it, as it does for a resolved change).
+
 ## Alternatives rejected
 
 - **A footer section like Recent.** Rejected: the footer is for reference lists the user reaches for; a draft is a to-do and belongs where the eye starts.
 - **Creating the file at once as a hidden or marked note, so the editor needs no special case.** Rejected in ADR 042 and ADR 070: a file in the vault is a write, and the vault would show it to every tool.
 - **A badge on the note's own row instead of a section.** Rejected: it works for an existing note and cannot show a new one, which has no row.
 - **Polling the drafts route.** Rejected: nothing proposes except during a chat turn, which already tells the panel when it ends.
+- **A second group for commented notes (2026-10-05).** Weighed with the user and set aside: they preferred one place for everything that needs a look; the row and caption say which kind each is.
+- **Listing only the comments waiting on the user, or only the user's waiting on her.** Rejected by the user for the simpler rule: any open comment.

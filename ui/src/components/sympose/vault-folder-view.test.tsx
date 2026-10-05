@@ -330,7 +330,7 @@ describe("VaultFolderView: dropping a note on the heading", () => {
 })
 
 describe("VaultFolderView: the Drafts section", () => {
-  const draft = { path: "Ideas/New plan.md", name: "New plan", is_new: true, count: 1, time: "t" }
+  const draft = { path: "Ideas/New plan.md", name: "New plan", is_new: true, count: 1, comments: 0, time: "t" }
 
   it("lists the drafts above the notes, and opens one when its row is chosen", () => {
     const s = setup({ drafts: [draft], vaultTreeActions: { persona: "samantha", hideExtension: true } as React.ComponentProps<typeof VaultFolderView>["vaultTreeActions"] })

@@ -28,7 +28,7 @@ describe("fetchChanges", () => {
 describe("fetchDrafts", () => {
   it("returns the drafts, and nothing when the backend is down", async () => {
     vi.spyOn(console, "info").mockImplementation(() => {})
-    const drafts = [{ path: "a.md", name: null, is_new: false, count: 2, time: "t" }]
+    const drafts = [{ path: "a.md", name: null, is_new: false, count: 2, comments: 0, time: "t" }]
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json({ drafts })))
     expect(await fetchDrafts("samantha")).toEqual(drafts)
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")))
