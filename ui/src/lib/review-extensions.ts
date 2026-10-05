@@ -1,6 +1,7 @@
 import { Decoration, EditorView, ViewPlugin, WidgetType, type DecorationSet } from "@codemirror/view"
 import { Facet, StateEffect, StateField, type EditorState, type Extension, type Range } from "@codemirror/state"
 import { Cancel01Icon, Tick02Icon } from "@hugeicons/core-free-icons"
+import type { CellMark } from "@damiro/stylo"
 
 import { captureContext, locate } from "@/lib/passage-finder"
 import type { Annotation, Proposal } from "@/lib/persona-changes-api"
@@ -91,6 +92,7 @@ interface AppliedState {
 
 const addApplied = StateEffect.define<Applied[]>()
 const endApplied = StateEffect.define<null>()
+const restoreApplied = StateEffect.define<{ items: Applied[]; untouched: boolean }>()
 
 /** Whether a change (in the old text's positions) reaches into the applied words; touching an edge does not. */
 function reaches(item: Applied, from: number, to: number): boolean {
@@ -101,7 +103,7 @@ function reaches(item: Applied, from: number, to: number): boolean {
 const appliedField = StateField.define<AppliedState>({
   create: () => ({ items: [], untouched: true }),
   update(value, tr) {
-    const effects = tr.effects.filter((e) => e.is(addApplied) || e.is(endApplied))
+    const effects = tr.effects.filter((e) => e.is(addApplied) || e.is(endApplied) || e.is(restoreApplied))
     if (!tr.docChanged && effects.length === 0) return value
     let items = value.items
     if (tr.docChanged && items.length > 0) {
@@ -116,15 +118,20 @@ const appliedField = StateField.define<AppliedState>({
       items = kept
     }
     let adding = false
+    let restored: boolean | null = null
     for (const effect of effects) {
       if (effect.is(endApplied)) items = []
+      else if (effect.is(restoreApplied)) {
+        items = [...items, ...effect.value.items]
+        restored = effect.value.untouched
+      }
       else if (effect.is(addApplied)) {
         adding = true
         items = [...items, ...effect.value]
       }
     }
     if (items.length === 0) return value.items.length === 0 && value.untouched ? value : { items, untouched: true }
-    return { items, untouched: value.untouched && !(tr.docChanged && !adding) }
+    return { items, untouched: restored ?? (value.untouched && !(tr.docChanged && !adding)) }
   },
 })
 
@@ -212,6 +219,24 @@ export function applyProposals(view: EditorView, ids: string[]): string[] {
     userEvent: "input.apply",
   })
   return items.map((i) => i.id)
+}
+
+/**
+ * A new editor was made over the text that already holds her applied edits (another editing surface, or back from read
+ * mode): draws the marks again for the edits in `ids`, finding each one's new words in the text by their surroundings
+ * (the finder the tracked changes use), and keeps whether the user had touched the note. An edit whose new words are
+ * gone or cannot be told apart is not marked; one that is marked already is not marked twice.
+ */
+export function restoreAppliedMarks(view: EditorView, proposals: Proposal[], ids: string[], untouched: boolean): void {
+  const text = view.state.doc.toString()
+  const have = view.state.field(appliedField).items
+  const items: Applied[] = []
+  for (const p of proposals) {
+    if (!ids.includes(p.id) || p.kind !== "edit" || !p.replace || have.some((h) => h.id === p.id)) continue
+    const at = locate(text, p.replace, p.before, p.after)
+    if (at.status === "one") items.push({ id: p.id, from: at.start, to: at.end, find: p.find ?? "", say: p.say })
+  }
+  if (items.length > 0) view.dispatch({ effects: restoreApplied.of({ items, untouched }) })
 }
 
 /** The note was saved: the marks end and the text stays. Returns the ids that were applied, for the panel to forget. */
@@ -325,8 +350,12 @@ export interface CommentTarget {
   rect: DOMRect
 }
 
-/** The selection as a comment target, or `null` when nothing is selected. */
-export function selectionTarget(view: EditorView): CommentTarget | null {
+/**
+ * The selection as a comment target, or `null` when nothing is selected. `anchor` is the screen rectangle to open the
+ * box beside when the caller knows it better than the editor does: stylo gives one for words in a table cell, where
+ * `coordsAtPos` can only answer with the table's edge.
+ */
+export function selectionTarget(view: EditorView, anchor?: DOMRect): CommentTarget | null {
   const { from, to } = view.state.selection.main
   if (from === to) return null
   const text = view.state.doc.toString()
@@ -334,12 +363,33 @@ export function selectionTarget(view: EditorView): CommentTarget | null {
   const start = view.coordsAtPos(from)
   const end = view.coordsAtPos(to)
   const box = view.dom.getBoundingClientRect()
-  const rect = start && end ? new DOMRect(Math.min(start.left, end.left), start.top, Math.abs(end.right - start.left) || 1, end.bottom - start.top) : box
+  const rect = anchor ?? (start && end ? new DOMRect(Math.min(start.left, end.left), start.top, Math.abs(end.right - start.left) || 1, end.bottom - start.top) : box)
   return { quote: text.slice(from, to), before, after, rect }
 }
 
 export function hasPending(state: EditorState): boolean {
   return state.field(reviewField, false) !== undefined && pendingIds(state).length > 0
+}
+
+/**
+ * What stylo draws inside table cells (its `inPlace.cellMarks`, 0.20): the same highlights `decorate` gives words
+ * outside a table (a decoration cannot reach a cell), as marks in document positions. Each open comment is marked with
+ * its author's colour and its id (a click on it opens the thread) and its cell gets the author's dot; an edit she has
+ * applied is marked as applied.
+ */
+export function cellMarks(state: EditorState): CellMark[] {
+  const data = state.field(reviewField, false)
+  if (!data) return []
+  const text = state.doc.toString()
+  const marks: CellMark[] = attachedComments(text, data.annotations).map(({ annotation, from, to }) => {
+    const by = annotation.author === "persona" ? "persona" : "user"
+    // Not `sy-by-*`: that class also draws the margin dot of a line, which a cell must not get on every highlighted word.
+    return { from, to, class: by === "persona" ? "sy-comment-hl sy-hl-persona" : "sy-comment-hl", attributes: { "data-comment-id": annotation.id }, cellClass: `sy-cell-by-${by}` }
+  })
+  for (const item of state.field(appliedField).items) {
+    if (item.from < item.to) marks.push({ from: item.from, to: item.to, class: "sy-applied", ...(item.say ? { attributes: { title: item.say } } : {}) })
+  }
+  return marks
 }
 
 function decorate(state: EditorState): DecorationSet {
@@ -421,7 +471,7 @@ const theme = EditorView.baseTheme({
     backgroundColor: "color-mix(in srgb, var(--chip-foreground) 14%, transparent)",
     boxShadow: "inset 0 -1.5px 0 color-mix(in srgb, var(--chip-foreground) 60%, transparent)",
   },
-  ".sy-comment-hl.sy-by-persona": {
+  ".sy-comment-hl.sy-by-persona, .sy-comment-hl.sy-hl-persona": {
     backgroundColor: "color-mix(in srgb, var(--brand) 14%, transparent)",
     boxShadow: "inset 0 -1.5px 0 color-mix(in srgb, var(--brand) 60%, transparent)",
   },
@@ -439,6 +489,20 @@ const theme = EditorView.baseTheme({
   ".sy-by-user::before": { backgroundColor: "var(--chip-foreground)" },
   ".sy-by-persona::after": { backgroundColor: "var(--brand)" },
   ".sy-by-user.sy-by-persona::before": { insetInlineStart: "-1.2rem" },
+  // A table cell holding a comment shows the author's dot in its corner (the cell is stylo's, so the host's class on it).
+  ".sy-cell-by-user, .sy-cell-by-persona": { position: "relative" },
+  ".sy-cell-by-user::before, .sy-cell-by-persona::after": {
+    content: '""',
+    position: "absolute",
+    top: "0.3rem",
+    insetInlineEnd: "0.3rem",
+    width: "0.4rem",
+    height: "0.4rem",
+    borderRadius: "50%",
+  },
+  ".sy-cell-by-user::before": { backgroundColor: "var(--chip-foreground)" },
+  ".sy-cell-by-persona::after": { backgroundColor: "var(--brand)" },
+  ".sy-cell-by-user.sy-cell-by-persona::before": { insetInlineEnd: "0.9rem" },
 })
 
 /** The extensions for stylo's `extensions` prop. Memoize the array; it reconfigures the live editor when it changes. */
@@ -461,14 +525,27 @@ export function reviewExtensions({ initial, onResolve, onOpenComment, onApplied,
         ]
       : []),
     ...(onOpenComment ? [openCommentFacet.of(onOpenComment)] : []),
-    EditorView.domEventHandlers({
-      click(event, view) {
+    // Listeners on the editor's own element rather than `domEventHandlers`: a click inside a table cell (stylo's own
+    // contenteditable DOM) is not passed to the editor's handlers, but it still reaches the element around them. And in a
+    // cell the press repaints the cell as it takes focus, which replaces the pressed word, so the browser never sends the
+    // click; there the release opens the thread instead (unless words are being selected).
+    ViewPlugin.define((view) => {
+      const open = (event: MouseEvent) => {
         const hit = (event.target as HTMLElement | null)?.closest?.<HTMLElement>(".sy-comment-hl")
         const id = hit?.dataset.commentId
-        if (!hit || !id) return false
-        view.state.facet(openCommentFacet)?.(id, hit.getBoundingClientRect())
-        return false // the click still places the caret
-      },
+        if (hit && id) view.state.facet(openCommentFacet)?.(id, hit.getBoundingClientRect()) // the click still places the caret
+      }
+      const release = (event: MouseEvent) => {
+        if ((event.target as HTMLElement | null)?.closest?.(".cm-inplace-tcell") && window.getSelection()?.isCollapsed !== false) open(event)
+      }
+      view.dom.addEventListener("click", open)
+      view.dom.addEventListener("mouseup", release)
+      return {
+        destroy: () => {
+          view.dom.removeEventListener("click", open)
+          view.dom.removeEventListener("mouseup", release)
+        },
+      }
     }),
   ]
 }

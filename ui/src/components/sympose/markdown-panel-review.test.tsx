@@ -21,7 +21,7 @@ vi.mock("@damiro/stylo", async () => {
     mode?: string
     extensions?: import("@codemirror/state").Extension[]
     toolbar?: { items?: (string | Item)[] }
-    inPlace?: { contextMenu?: boolean | { items?: (Item & { when?: string; readOnlySafe?: boolean })[] } }
+    inPlace?: { contextMenu?: boolean | { items?: (Item & { when?: string; readOnlySafe?: boolean })[] }; cellMarks?: (state: unknown) => unknown[] }
     canvasHeader?: (ctx: { view: unknown }) => React.ReactNode
   }
   const Stylo = React.forwardRef<unknown, Props>(function Stylo(props, ref) {
@@ -67,7 +67,7 @@ vi.mock("@damiro/stylo", async () => {
     const view = viewRef.current
     const items = props.toolbar?.items ?? []
     return (
-      <div data-mode={props.mode} data-extensions={props.extensions ? "yes" : "no"}>
+      <div data-mode={props.mode} data-extensions={props.extensions ? "yes" : "no"} data-cellmarks={view && props.inPlace?.cellMarks ? JSON.stringify(props.inPlace.cellMarks(view.state)) : "none"}>
         {props.canvasHeader?.({ view })}
         <div role="toolbar">
           {items.map((item) =>
@@ -149,6 +149,23 @@ describe("MarkdownPanel with the persona's suggested changes", () => {
     await waitFor(() => expect(screen.getByTestId("cm").querySelector(".sy-change-add")?.textContent).toBe("four times"))
     expect(changesApi.fetchChanges).toHaveBeenCalledWith("Garden plan.md", "samantha")
     expect(screen.getByTestId("cm").querySelector(".sy-change-del")?.textContent).toBe("three times")
+  })
+
+  it("gives stylo the marks for words in a table cell: the open comments, so a comment inside a table is drawn", async () => {
+    changesApi.fetchChanges.mockResolvedValue(changes([], [{ id: "c1", time: "t", author: "user", quote: "raised", before: NOTE.slice(0, NOTE.indexOf("raised")), after: ".", text: "why?", state: "open", reply_to: null, status: "attached" }]))
+    const { container } = open()
+
+    await waitFor(() => {
+      const marks = JSON.parse(container.querySelector("[data-cellmarks]")!.getAttribute("data-cellmarks")!)
+      expect(marks).toEqual([expect.objectContaining({ class: "sy-comment-hl", attributes: { "data-comment-id": "c1" } })])
+    })
+  })
+
+  it("gives stylo no cell marks for a persona's own file", async () => {
+    const file = { load: async () => ({ content: NOTE }), save: async () => ({ ok: true as const }), title: "soul.md" }
+    const { container } = open({ file })
+    await waitFor(() => expect(screen.getByTestId("cm").querySelector(".cm-content")).not.toBeNull())
+    expect(container.querySelector("[data-cellmarks]")!.getAttribute("data-cellmarks")).toBe("none")
   })
 
   it("accepts one change from its own button: the text changes, the server forgets it, and nothing is saved yet", async () => {
@@ -537,6 +554,43 @@ describe("MarkdownPanel in accept mode (docs/decisions/072)", () => {
     expect(doc()).toContain("three times a week")
     await waitFor(() => expect(changesApi.resolveChanges).toHaveBeenCalledWith("Garden plan.md", "samantha", ["p1"]))
     expect(appliedMark()).toBeNull()
+  })
+
+  it("draws her applied edit's mark again when the editor is made anew (another editing surface), without saving anything", async () => {
+    const view = open()
+    await waitApplied()
+
+    view.rerender(<MarkdownPanel path="Garden plan.md" persona="samantha" preferences={{ ...PREFERENCES, surface: "source" }} toolbarItems={["undo"]} />)
+
+    await waitFor(() => expect(appliedMark()?.textContent).toBe("four times"))
+    expect(editorView().state.doc.toString()).toContain("four times a week")
+    expect(changesApi.resolveChanges).not.toHaveBeenCalled()
+    expect(api.saveVaultNote).not.toHaveBeenCalled()
+  })
+
+  it("remembers across that whether the user had touched the note: touched, leaving the note still saves hers with it", async () => {
+    const view = open()
+    await waitApplied()
+    await type("X")
+    view.rerender(<MarkdownPanel path="Garden plan.md" persona="samantha" preferences={{ ...PREFERENCES, surface: "source" }} toolbarItems={["undo"]} />)
+    await waitFor(() => expect(appliedMark()?.textContent).toBe("four times"))
+
+    view.rerender(<MarkdownPanel path="Other.md" persona="samantha" preferences={{ ...PREFERENCES, surface: "source" }} toolbarItems={["undo"]} />)
+
+    await waitFor(() => expect(api.saveVaultNote).toHaveBeenCalledTimes(1))
+    expect(api.saveVaultNote.mock.calls[0][1]).toContain("XI run four times a week")
+  })
+
+  it("and untouched, leaving the note after that still writes nothing", async () => {
+    const view = open()
+    await waitApplied()
+    view.rerender(<MarkdownPanel path="Garden plan.md" persona="samantha" preferences={{ ...PREFERENCES, surface: "source" }} toolbarItems={["undo"]} />)
+    await waitFor(() => expect(appliedMark()?.textContent).toBe("four times"))
+
+    view.rerender(<MarkdownPanel path="Other.md" persona="samantha" preferences={{ ...PREFERENCES, surface: "source" }} toolbarItems={["undo"]} />)
+    await act(async () => {})
+
+    expect(api.saveVaultNote).not.toHaveBeenCalled()
   })
 
   it("does not list an applied edit as outdated", async () => {

@@ -4,6 +4,7 @@ list does not inflate every turn. They are vault-derived (the passage and the us
 model gets them only when the `annotations` category is approved (ADR 031); `edit_turn` asks that."""
 
 from dataclasses import dataclass
+from datetime import datetime
 
 from sympose import note_changes, settings_store
 from sympose import note_changes_store as store
@@ -16,6 +17,7 @@ DEFAULT_CAP, MIN_CAP = 20, 1  # comments carried with one message
 class Comment:
     quote: str
     thread: tuple[tuple[str, str], ...]  # (who, text), `who` being "user" or "persona", oldest first
+    new: bool | None = None  # said (or answered) since the previous turn; `None` when there is no earlier turn to compare with
 
 
 @dataclass(frozen=True)
@@ -30,8 +32,17 @@ def cap() -> int:
     return value if ok else DEFAULT_CAP
 
 
-def gather(handle: str, note) -> Found:
-    """The open comments of `handle` on `note` (an `OpenNote`, or `None`), attached to a passage of its current text."""
+def _later(time: str, since: str) -> bool:
+    """Whether `time` is after `since`, compared as times (a session's carry fractions of a second, a comment's do not)."""
+    try:
+        return datetime.fromisoformat(time) > datetime.fromisoformat(since)
+    except ValueError:
+        return False
+
+
+def gather(handle: str, note, since: str | None = None) -> Found:
+    """The open comments of `handle` on `note` (an `OpenNote`, or `None`), attached to a passage of its current text.
+    `since` is when the previous turn of this conversation was recorded, if there was one: it decides which are new."""
     if note is None:
         return Found()
     entry = store.read(handle, note.path)
@@ -47,17 +58,20 @@ def gather(handle: str, note) -> Found:
     roots.sort(key=lambda a: str(a.get("time", "")))
     limit = cap()
     kept = roots[-limit:]
-    return Found(
-        tuple(Comment(a["quote"], tuple((x["author"], x["text"]) for x in [a, *sorted(answers.get(a["id"], []), key=lambda r: str(r.get("time", "")))])) for a in kept),
-        len(roots) - len(kept),
-    )
+    def comment(a: dict) -> Comment:
+        thread = [a, *sorted(answers.get(a["id"], []), key=lambda r: str(r.get("time", "")))]
+        fresh = None if since is None else any(_later(str(x.get("time", "")), since) for x in thread)
+        return Comment(a["quote"], tuple((x["author"], x["text"]) for x in thread), fresh)
+
+    return Found(tuple(comment(a) for a in kept), len(roots) - len(kept))
 
 
 def block(found: Found, persona_name: str) -> str:
     """The comments as the model reads them, with where each is and who said what."""
     lines = ["The user's open comments on this note:"]
     for comment in found.items:
-        lines.append(f"- On “{comment.quote}”:")
+        label = "" if comment.new is None else " (new since your last reply)" if comment.new else " (from before your last reply)"
+        lines.append(f"- On “{comment.quote}”{label}:")
         lines.extend(f"    {persona_name if who == 'persona' else 'the user'}: {text}" for who, text in comment.thread)
     if found.left_out:
         lines.append(f"({found.left_out} older comments are left out.)")

@@ -207,3 +207,42 @@ def test_an_approved_cloud_model_gets_the_comments_and_the_record_names_the_cate
 
     assert "Is that every week?" in seen[0]["messages"][-1]["content"]
     assert sharing.ANNOTATIONS in result.sent["cloud"] and result.sent["withheld"] == []
+
+
+def test_the_second_message_of_a_conversation_says_which_comments_are_new_since_the_first(monkeypatch):
+    seen = model_that(monkeypatch, ModelReply("One", 5), ModelReply("Two", 5))
+    note_changes.annotate("samantha", NOTE.path, NOTE.text, quote="three times", text="Old doubt", author="user")
+
+    first = turn.run_turn("samantha", "hello", model=LOCAL, open_note=NOTE, edits=True)
+    monkeypatch.setattr(note_changes, "_now", lambda: "2999-01-01T00:00:00+00:00")  # after anything the first turn recorded
+    note_changes.annotate("samantha", NOTE.path, NOTE.text, quote="Pack charger", text="New doubt", author="user")
+    turn.run_turn("samantha", "and now?", model=LOCAL, open_note=NOTE, edits=True, session_id=first.session_id)
+
+    assert "since your last reply" not in seen[0]["messages"][-1]["content"]  # nothing to compare with yet
+    second = seen[1]["messages"][-1]["content"]
+    assert "On “Pack charger” (new since your last reply):" in second
+    assert "On “three times” (from before your last reply):" in second
+
+
+def test_the_label_is_relative_to_the_latest_message_not_the_first(monkeypatch):
+    from datetime import datetime, timezone
+
+    from sympose.engine import session
+
+    clock = iter(f"2026-10-05T{hour}:00:00+00:00" for hour in ("10", "12", "14"))
+
+    class Clock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime.fromisoformat(next(clock)).astimezone(tz or timezone.utc)
+
+    monkeypatch.setattr(session, "datetime", Clock)
+    seen = model_that(monkeypatch, ModelReply("One", 5), ModelReply("Two", 5), ModelReply("Three", 5))
+    first = turn.run_turn("samantha", "hello", model=LOCAL, open_note=NOTE, edits=True)  # recorded at 10:00
+    monkeypatch.setattr(note_changes, "_now", lambda: "2026-10-05T11:00:00+00:00")  # between messages one and two
+    note_changes.annotate("samantha", NOTE.path, NOTE.text, quote="three times", text="Asked between one and two", author="user")
+    turn.run_turn("samantha", "second", model=LOCAL, open_note=NOTE, edits=True, session_id=first.session_id)  # 12:00
+    turn.run_turn("samantha", "third", model=LOCAL, open_note=NOTE, edits=True, session_id=first.session_id)  # 14:00
+
+    assert "(new since your last reply)" in seen[1]["messages"][-1]["content"]  # added after message one
+    assert "(from before your last reply)" in seen[2]["messages"][-1]["content"]  # but not new at message three

@@ -71,8 +71,9 @@ export function commentMenuItem(onCompose: (target: CommentTarget) => void): Con
     icon: <HugeiconsIcon icon={Comment01Icon} className="size-4" />,
     when: "selection",
     readOnlySafe: true,
-    run: (view: EditorView) => {
-      const target = selectionTarget(view)
+    // The rectangle comes from stylo, which knows where the words are in a table cell (the editor can only say where the table is).
+    run: (view: EditorView, info?: { rect: DOMRect }) => {
+      const target = selectionTarget(view, info?.rect)
       if (target) onCompose(target)
     },
   }

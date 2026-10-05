@@ -56,7 +56,7 @@ def _within(text: str, limit: int) -> tuple[str, bool]:
 
 def resolve(
     persona: dict, can_call_tools: bool, open_note: OpenNote | None, may_see: bool = True,
-    comments_from: str | None = None, may_see_comments: bool = True,
+    comments_from: str | None = None, may_see_comments: bool = True, since: str | None = None,
 ) -> Edit:
     """What this turn gives her. In `plan` she is given no tool and no note; otherwise the tool or the marker, and
     the open note when there is one, cut to the cap."""
@@ -68,7 +68,7 @@ def resolve(
     if not may_see:
         return Edit(mode, can_call_tools, withheld=True)
     text, cut = _within(open_note.text, cap())
-    found = open_comments.gather(comments_from, open_note) if comments_from else open_comments.Found()
+    found = open_comments.gather(comments_from, open_note, since) if comments_from else open_comments.Found()
     name = persona.get("name") or str(persona.get("handle") or "She").title()
     return Edit(
         mode, can_call_tools, OpenNote(open_note.path, text), cut,

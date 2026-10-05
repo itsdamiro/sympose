@@ -54,6 +54,16 @@ The user selects words and presses the toolbar's Comment button (greyed while no
 - Whether a highlight with no comment still travels (it marks "look at this") or only commented ones do.
 - How a note's annotations are cleaned up when a note is permanently deleted from the bin.
 
+## Amendment (2026-10-05): which comments are new since her last reply
+
+ADR 072 said the comments travel "labelled new since the last message or earlier". Built so: each open comment is marked **new** when the comment or any answer in its thread is newer than the previous turn of this conversation (the `timestamp` the session already records for that turn), and **earlier** otherwise; the block reads `On “passage” (new since your last reply):` or `(from before your last reply):`. Times are compared as times (the session's carry fractions of a second, a comment's do not). A comment of hers made during the last turn is earlier. **The first message of a conversation carries no label at all**, since there is nothing to contrast with. Nothing new is stored: the comments' own times and the session's turn times are enough, and a conversation that was compacted or resumed behaves the same because the turns' timestamps remain.
+
+**Measured (2026-10-05, invented notes, four runs each, a throwaway script):** asked "What have I added since your last reply?" with one new and one earlier comment, `gemma2:9b` named the new one 2 of 4 with the labels against 1 of 4 without, and presented the earlier one as new 0 of 4 against 1 of 4; Gemini Flash named it 4 of 4 against 2 of 4, and never presented the earlier one as new either way. So the labels help and cost nothing measured.
+
+## Amendment (2026-10-05): comments inside table cells (stylo 0.20.0)
+
+A decoration cannot reach a table cell, so the highlight of a comment on words inside a table was not drawn (the comment itself saved and attached). Stylo 0.20.0 takes `inPlace.cellMarks(state)` and draws the marks it returns on the characters of a cell, and gives a menu item `run(view, { rect })`. Built: `cellMarks` (`lib/review-extensions.ts`) returns one mark per open comment (the user's amber, hers the brand blue, with `data-comment-id`) and one per edit she has applied, and gives the cell the author's dot in its corner; the Comment item opens its box beside the rectangle stylo gives, where it used to open under the table. The marks use their own class (`sy-hl-persona`), not `sy-by-*`, which also carries the margin-dot rule for plain text and put a stray dot at the cell's edge for every highlighted word. **A click on a marked word in a cell never arrives** (the press rebuilds the cell as it takes focus, so the browser sends no `click`); inside a cell the thread opens on the release of the button when no words are selected. Reported to stylo in `docs/requests/2026-10-05_click-on-a-marked-word-in-a-cell-never-arrives.md`; the workaround can go when a click arrives. Not covered: a change she proposed inside a table (the struck words, the new ones and their buttons are widgets, not marks); Accept all on the toolbar still applies it.
+
 ## Alternatives rejected
 
 - **A sidecar file in the vault** (`Note.md.comments` or a hidden index). Rejected: visible to the user and to sync tools, which is confusing, and it ties Sympose's own state to files the user did not create.

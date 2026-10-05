@@ -84,4 +84,51 @@ describe("useEditMode", () => {
     expect(notify.notify.warning).not.toHaveBeenCalled()
     expect(result.current.info?.mode).toBe("manual")
   })
+
+  it("reads the mode again when another part of the app changed it, so an open note follows at once", async () => {
+    const { result } = await ready("samantha")
+    expect(result.current.info?.mode).toBe("manual")
+    api.fetchEditMode.mockResolvedValue(info({ mode: "accept", source: "persona" }))
+
+    act(() => window.dispatchEvent(new Event("sympose:edit-mode-changed")))
+
+    await waitFor(() => expect(result.current.info?.mode).toBe("accept"))
+  })
+
+  it("reads it again when the window comes back into focus, for a change made in the terminal or another window", async () => {
+    const { result } = await ready("samantha")
+    api.fetchEditMode.mockResolvedValue(info({ mode: "plan", source: "persona" }))
+
+    act(() => window.dispatchEvent(new Event("focus")))
+
+    await waitFor(() => expect(result.current.info?.mode).toBe("plan"))
+  })
+
+  it("tells the rest of the app after a mode is saved, and not after a failed save", async () => {
+    const told = vi.fn()
+    window.addEventListener("sympose:edit-mode-changed", told)
+    try {
+      const { result } = await ready()
+      await act(async () => result.current.choose("plan"))
+      expect(told).toHaveBeenCalledTimes(1)
+
+      api.saveEditMode.mockResolvedValue({ ok: false, error: "disk" })
+      await act(async () => result.current.choose("manual"))
+      expect(told).toHaveBeenCalledTimes(1)
+    } finally {
+      window.removeEventListener("sympose:edit-mode-changed", told)
+    }
+  })
+
+  it("another reader of the same persona's mode (the open note's editor) follows a mode this one saved, and this one does not re-read its own change", async () => {
+    const chip = await ready("samantha")
+    const editor = await ready("samantha")
+    const reads = api.fetchEditMode.mock.calls.length
+    api.fetchEditMode.mockResolvedValue(info({ mode: "plan", source: "persona" }))
+
+    await act(async () => chip.result.current.choose("plan"))
+
+    await waitFor(() => expect(editor.result.current.info?.mode).toBe("plan"))
+    expect(api.fetchEditMode.mock.calls.length).toBe(reads + 1) // only the other reader read again
+  })
 })

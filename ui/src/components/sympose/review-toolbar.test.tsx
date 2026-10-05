@@ -122,16 +122,27 @@ describe("commentMenuItem", () => {
     const view = mount([])
     view.dispatch({ selection: { anchor: 2, head: 5 } })
 
-    commentMenuItem(onCompose).run(view)
+    commentMenuItem(onCompose).run(view, { rect: new DOMRect(0, 0, 1, 1) })
 
     expect(onCompose).toHaveBeenCalledTimes(1)
     expect(onCompose.mock.calls[0][0].quote).toBe(NOTE.slice(2, 5))
   })
 
+  it("opens the box beside the rectangle stylo gives for the selection (a table cell's words), not where the editor puts the position", () => {
+    const onCompose = vi.fn()
+    const view = mount([])
+    view.dispatch({ selection: { anchor: 2, head: 5 } })
+    const rect = new DOMRect(120, 340, 60, 18)
+
+    commentMenuItem(onCompose).run(view, { rect })
+
+    expect(onCompose.mock.calls[0][0].rect).toBe(rect)
+  })
+
   it("does nothing without a selection", () => {
     const onCompose = vi.fn()
 
-    commentMenuItem(onCompose).run(mount([]))
+    commentMenuItem(onCompose).run(mount([]), { rect: new DOMRect(0, 0, 1, 1) })
 
     expect(onCompose).not.toHaveBeenCalled()
   })

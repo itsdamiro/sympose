@@ -13,10 +13,12 @@ import {
   applyProposals,
   clearApplied,
   attachedComments,
+  cellMarks,
   classify,
   declineChanges,
   hasPending,
   pendingIds,
+  restoreAppliedMarks,
   reviewExtensions,
   selectionTarget,
   setReviewData,
@@ -350,6 +352,43 @@ describe("comments in the text", () => {
     expect(click.defaultPrevented).toBe(false)
   })
 
+  it("inside a table cell the release of the button opens the thread, since the press repaints the cell and the click never comes", () => {
+    const onOpenComment = vi.fn()
+    const { view } = mount({ proposals: [], annotations: [comment("c1", "raised")] }, { onOpenComment })
+    const mark = view.dom.querySelector(".sy-comment-hl") as HTMLElement
+    const cell = document.createElement("td")
+    cell.className = "cm-inplace-tcell" // stylo's cell: put the marked word inside one
+    mark.replaceWith(cell)
+    cell.append(mark)
+
+    mark.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }))
+
+    expect(onOpenComment).toHaveBeenCalledTimes(1)
+    expect(onOpenComment.mock.calls[0][0]).toBe("c1")
+  })
+
+  it("but not when words are being selected, and not for a release on marked text outside a cell", () => {
+    const onOpenComment = vi.fn()
+    const { view } = mount({ proposals: [], annotations: [comment("c1", "raised")] }, { onOpenComment })
+    const mark = view.dom.querySelector(".sy-comment-hl") as HTMLElement
+    mark.dispatchEvent(new MouseEvent("mouseup", { bubbles: true })) // plain text: the click does it, a release does not
+    expect(onOpenComment).not.toHaveBeenCalled()
+
+    const cell = document.createElement("td")
+    cell.className = "cm-inplace-tcell"
+    mark.replaceWith(cell)
+    cell.append(mark)
+    const range = document.createRange()
+    range.selectNodeContents(mark)
+    window.getSelection()!.removeAllRanges()
+    window.getSelection()!.addRange(range)
+
+    mark.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }))
+
+    expect(onOpenComment).not.toHaveBeenCalled()
+    window.getSelection()!.removeAllRanges()
+  })
+
   it("says nothing for a click elsewhere in the text, or when nobody is listening", () => {
     const onOpenComment = vi.fn()
     const { view } = mount({ proposals: [], annotations: [comment("c1", "raised")] }, { onOpenComment })
@@ -529,9 +568,102 @@ describe("applying her edits in accept mode (docs/decisions/072)", () => {
     expect(onReady).toHaveBeenCalledWith(view)
   })
 
+  it("draws the marks again on a new editor made over the same text, for the edits still applied, keeping whether the user touched the note", () => {
+    const proposals = [edit("a", "three times", "four times"), edit("b", "raised", "sunken")]
+    const first = mount(data(...proposals))
+    applyProposals(first.view, ["a", "b"])
+    const text = first.view.state.doc.toString()
+    first.view.destroy()
+
+    const onApplied = vi.fn()
+    const remade = mount(data(...proposals), { doc: text, onApplied })
+    restoreAppliedMarks(remade.view, proposals, ["a", "b"], false)
+
+    expect([...remade.view.dom.querySelectorAll(".sy-applied")].map((e) => e.textContent)).toEqual(["four times", "sunken"])
+    expect(appliedState(remade.view.state)).toEqual({ ids: ["a", "b"], untouched: false })
+    expect(onApplied).toHaveBeenLastCalledWith(["a", "b"], false)
+    expect(remade.view.state.doc.toString()).toBe(text)
+  })
+
+  it("restores nothing for an edit whose new words are gone from the text, or are not told apart, and nothing twice", () => {
+    const proposals = [edit("a", "three times", "four times"), edit("b", "raised", "sunken")]
+    const doc = NOTE.replace("three times", "four times") // "b" never applied here: its words are not in the text
+    const { view } = mount(data(...proposals), { doc })
+
+    restoreAppliedMarks(view, proposals, ["a", "b"], true)
+    restoreAppliedMarks(view, proposals, ["a", "b"], true)
+
+    expect(appliedState(view.state).ids).toEqual(["a"])
+    expect(view.dom.querySelectorAll(".sy-applied")).toHaveLength(1)
+  })
+
+  it("restores only the edits it is told are applied, and not one whose new words occur twice with nothing to tell them apart", () => {
+    const twice = "beds here. beds there."
+    const ambiguous: Proposal = { id: "c", time: "t", kind: "edit", say: "", find: "plots", replace: "beds", before: "", after: "", status: "pending" }
+    const proposals = [edit("a", "three times", "four times"), edit("b", "raised", "sunken"), ambiguous]
+    const text = NOTE.replace("three times", "four times").replace("raised", "sunken")
+
+    const named = mount(data(...proposals), { doc: text })
+    restoreAppliedMarks(named.view, proposals, ["a"], true)
+    expect(appliedState(named.view.state).ids).toEqual(["a"]) // "b" is in the text but was not named
+
+    const unclear = mount(data(ambiguous), { doc: twice })
+    restoreAppliedMarks(unclear.view, [ambiguous], ["c"], true)
+    expect(appliedState(unclear.view.state).ids).toEqual([])
+  })
+
   it("applying nothing changes nothing", () => {
     const { view } = mount(data(edit("a", "three times", "four times")))
     expect(applyProposals(view, ["nope"])).toEqual([])
     expect(view.state.doc.toString()).toBe(NOTE)
+  })
+})
+
+describe("cellMarks (stylo's marks inside table cells)", () => {
+  const withData = (data: ReviewData) => mount(data).view.state
+
+  it("marks each open comment's words with its author's class and its id, for the cells stylo draws them in", () => {
+    const mine = comment("c1", "three times")
+    const hers: Annotation = { ...comment("c2", "raised"), author: "persona" }
+    const state = withData({ proposals: [], annotations: [mine, hers] })
+
+    const marks = cellMarks(state)
+
+    const at = (quote: string) => NOTE.indexOf(quote)
+    expect(marks).toEqual([
+      { from: at("three times"), to: at("three times") + 11, class: "sy-comment-hl", attributes: { "data-comment-id": "c1" }, cellClass: "sy-cell-by-user" },
+      { from: at("raised"), to: at("raised") + 6, class: "sy-comment-hl sy-hl-persona", attributes: { "data-comment-id": "c2" }, cellClass: "sy-cell-by-persona" },
+    ])
+  })
+
+  it("never gives a cell mark the margin-dot class, which would drop a stray dot at the cell's edge for every highlighted word", () => {
+    const hers: Annotation = { ...comment("c2", "raised"), author: "persona" }
+    const state = withData({ proposals: [], annotations: [comment("c1", "three times"), hers] })
+
+    for (const mark of cellMarks(state)) expect(mark.class).not.toMatch(/sy-by-/)
+  })
+
+  it("leaves out a resolved comment, an answer, and one whose passage is gone", () => {
+    const resolved = comment("r", "three times", "resolved")
+    const answer: Annotation = { ...comment("a", "raised"), reply_to: "c1" }
+    const gone = comment("g", "raised", "open", NOTE)
+    const state = mount({ proposals: [], annotations: [resolved, answer, gone] }, { doc: NOTE.replace("raised", "sunken") }).view.state
+
+    expect(cellMarks(state)).toEqual([])
+  })
+
+  it("marks the words of an edit she has applied, with her explanation as the title", () => {
+    const { view } = mount({ proposals: [edit("p", "three times", "four times")], annotations: [] })
+    applyProposals(view, ["p"])
+
+    const marks = cellMarks(view.state)
+
+    expect(marks).toHaveLength(1)
+    expect(marks[0]).toMatchObject({ class: "sy-applied", attributes: { title: "say p" } })
+    expect(view.state.doc.sliceString(marks[0].from, marks[0].to)).toBe("four times")
+  })
+
+  it("is empty for a state that has none of this", () => {
+    expect(cellMarks(EditorState.create({ doc: NOTE }))).toEqual([])
   })
 })

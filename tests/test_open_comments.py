@@ -96,3 +96,88 @@ def test_the_comments_category_is_one_a_cloud_model_does_not_get_until_approved(
     assert sharing.ANNOTATIONS in sharing.CATEGORIES
     assert sharing.ANNOTATIONS not in sharing.allowed("gemini/gemini-flash-latest")
     assert sharing.categories_of([], [], annotations=True) == [sharing.ANNOTATIONS]
+
+
+# -- new since the last message (docs/decisions/069, amended) --------------------------------------------------------
+
+BEFORE, SINCE, AFTER = "2026-10-05T10:00:00+00:00", "2026-10-05T11:00:00+00:00", "2026-10-05T12:00:00+00:00"
+
+
+def add_at(when, monkeypatch, quote, text, author="user"):
+    monkeypatch.setattr(nc, "_now", lambda: when)
+    return add(quote, text, author=author)
+
+
+def test_with_no_earlier_message_nothing_is_called_new_or_old(monkeypatch):
+    add_at(BEFORE, monkeypatch, "three times", "Why?")
+
+    (c,) = open_comments.gather(H, NOTE).items
+
+    assert c.new is None
+    assert "since your last reply" not in open_comments.block(open_comments.Found((c,)), "Samantha")
+
+
+def test_a_comment_made_after_the_last_message_is_new_and_one_made_before_it_is_not(monkeypatch):
+    add_at(BEFORE, monkeypatch, "three times", "Old question")
+    add_at(AFTER, monkeypatch, "raised", "New question")
+
+    found = {c.quote: c.new for c in open_comments.gather(H, NOTE, since=SINCE).items}
+
+    assert found == {"three times": False, "raised": True}
+
+
+def test_an_answer_added_after_the_last_message_makes_the_whole_comment_new(monkeypatch):
+    root = add_at(BEFORE, monkeypatch, "three times", "Why?")
+    monkeypatch.setattr(nc, "_now", lambda: AFTER)
+    nc.reply(H, PATH, root["id"], text="Because winter.", author="user")
+
+    (c,) = open_comments.gather(H, NOTE, since=SINCE).items
+
+    assert c.new is True
+
+
+def test_her_own_comment_made_during_the_last_turn_is_not_new(monkeypatch):
+    add_at(BEFORE, monkeypatch, "three times", "A doubt of mine", author="persona")
+
+    (c,) = open_comments.gather(H, NOTE, since=SINCE).items
+
+    assert c.new is False
+
+
+def test_a_time_with_fractions_of_a_second_is_compared_as_a_time_not_as_text(monkeypatch):
+    add_at("2026-10-05T11:00:00+00:00", monkeypatch, "three times", "Same second, earlier")
+
+    (c,) = open_comments.gather(H, NOTE, since="2026-10-05T11:00:00.500000+00:00").items
+
+    assert c.new is False
+
+
+def test_the_block_says_which_comments_are_new_and_which_were_there_before(monkeypatch):
+    add_at(BEFORE, monkeypatch, "three times", "Old question")
+    add_at(AFTER, monkeypatch, "raised", "New question")
+
+    text = open_comments.block(open_comments.gather(H, NOTE, since=SINCE), "Samantha")
+
+    assert "On “raised” (new since your last reply):" in text
+    assert "On “three times” (from before your last reply):" in text
+
+
+def test_the_turn_carries_the_label_through(monkeypatch):
+    add_at(AFTER, monkeypatch, "three times", "New question")
+
+    edit = edit_turn.resolve({"handle": H}, False, NOTE, comments_from=H, since=SINCE)
+
+    assert [c.new for c in edit.comments] == [True]
+    assert "(new since your last reply)" in edit_turn.message(edit, "x")
+
+
+def test_a_comment_made_at_the_very_moment_of_the_last_message_is_not_new(monkeypatch):
+    add_at(SINCE, monkeypatch, "three times", "At the same moment")
+
+    assert open_comments.gather(H, NOTE, since=SINCE).items[0].new is False
+
+
+def test_a_comment_with_an_unreadable_time_is_not_called_new(monkeypatch):
+    add_at("garbage", monkeypatch, "three times", "Odd")
+
+    assert open_comments.gather(H, NOTE, since=SINCE).items[0].new is False

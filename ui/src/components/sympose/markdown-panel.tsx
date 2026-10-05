@@ -27,7 +27,7 @@ import { useNoteDocument, type PanelFile } from "@/lib/use-note-document"
 import type { Proposal } from "@/lib/persona-changes-api"
 import { usePersonaChanges } from "@/lib/use-persona-changes"
 import { announceDraftsChanged } from "@/lib/use-drafts"
-import { applyProposals, classify, clearApplied, pendingIds, reviewExtensions, setReviewData, type ReviewData } from "@/lib/review-extensions"
+import { applyProposals, cellMarks, classify, clearApplied, pendingIds, restoreAppliedMarks, reviewExtensions, setReviewData, type ReviewData } from "@/lib/review-extensions"
 import { useEditMode } from "@/lib/use-edit-mode"
 import { OutdatedChanges } from "@/components/sympose/outdated-changes"
 import { CommentPopover, type CommentBox } from "@/components/sympose/comment-popover"
@@ -313,9 +313,11 @@ function MarkdownPanel({
   )
   const reviewDataRef = React.useRef(reviewData)
   const resolveRef = React.useRef(resolveChanges)
+  const proposalsRef = React.useRef<Proposal[]>([])
   const pathRef = React.useRef(path)
   React.useEffect(() => {
     reviewDataRef.current = reviewData
+    proposalsRef.current = changes?.proposals ?? []
     resolveRef.current = resolveChanges
     pathRef.current = path
   })
@@ -353,6 +355,11 @@ function MarkdownPanel({
   React.useEffect(() => {
     styloRef.current?.getView()?.dispatch({ effects: setReviewData.of(reviewData) })
   }, [reviewData, reviewExt])
+  // A new editor over text that holds her applied edits (another surface, or back from read mode) shows their marks again.
+  React.useEffect(() => {
+    const view = styloRef.current?.getView()
+    if (view && appliedRef.current.ids.length > 0) restoreAppliedMarks(view, proposalsRef.current, appliedRef.current.ids, appliedRef.current.untouched)
+  }, [editorMade])
   // `accept`: her placed, waiting edits go into the text as soon as they are here, once the editor holds the note. Run
   // when any of that changes, and when the editor itself is made (it can come last, after a lazy load).
   const { info: editInfo } = useEditMode(persona, persona)
@@ -568,7 +575,7 @@ function MarkdownPanel({
       onTaskToggle={handleTaskToggle}
       mode={readOnly ? "preview" : surface}
       softBreaks
-      inPlace={{ reveal, selectionUI, table: tableEditing, ...(file ? {} : { contextMenu: { items: commentMenu } }) }}
+      inPlace={{ reveal, selectionUI, table: tableEditing, ...(file ? {} : { contextMenu: { items: commentMenu }, cellMarks }) }}
       canvasHeader={readOnly ? undefined : canvasHeader}
       extensions={readOnly || file ? undefined : reviewExt}
       toolbar={{
