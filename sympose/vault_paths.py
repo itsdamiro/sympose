@@ -98,6 +98,19 @@ def resolve_sandbox(profile: dict[str, Any]) -> tuple[str, list[str]] | None:
     return mv, allowed_dirs
 
 
+def scope_prefixes(mv: str, allowed_dirs: list[str]) -> list[str]:
+    """Vault-relative folder prefixes a persona may see, or `[""]` when its
+    scope is the whole vault."""
+    mv_real = os.path.realpath(mv)
+    prefixes: list[str] = []
+    for d in allowed_dirs:
+        d_real = os.path.realpath(d)
+        if d_real == mv_real:
+            return [""]
+        prefixes.append(os.path.relpath(d_real, mv_real).replace(os.sep, "/"))
+    return prefixes
+
+
 def get_primary_dir(profile: dict[str, Any]) -> str | None:
     """The persona's first allowed directory — where a bare (unqualified)
     note name is created, as opposed to an explicit `Folder/Note` path."""

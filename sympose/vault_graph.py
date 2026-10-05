@@ -70,19 +70,6 @@ def _vault_note_stems(mv: str) -> set[str]:
     return vault_paths.mtime_cached(_NOTE_STEMS_CACHE, [mv], ignore_dirs, build)
 
 
-def _scope_prefixes(mv: str, allowed_dirs: list[str]) -> list[str]:
-    """Vault-relative folder prefixes a persona may see, or `[""]` when its
-    scope is the whole vault."""
-    mv_real = os.path.realpath(mv)
-    prefixes: list[str] = []
-    for d in allowed_dirs:
-        d_real = os.path.realpath(d)
-        if d_real == mv_real:
-            return [""]
-        prefixes.append(os.path.relpath(d_real, mv_real).replace(os.sep, "/"))
-    return prefixes
-
-
 def get_vault_tree(profile: dict[str, Any]) -> list[dict[str, Any]]:
     """Nested `VaultNode` directory tree for `GET /api/vault/tree`, scoped
     to the persona's allowed folders. Rebuilt fresh from disk on every call
@@ -93,7 +80,7 @@ def get_vault_tree(profile: dict[str, Any]) -> list[dict[str, Any]]:
         return []
     mv, allowed_dirs = scope
 
-    prefixes = _scope_prefixes(mv, allowed_dirs)
+    prefixes = vault_paths.scope_prefixes(mv, allowed_dirs)
     notes = get_vault_snapshot(mv, allowed_dirs)
     manifest = vault_manifest_build.build(mv, notes)
     real_folders = _list_real_folders(mv, allowed_dirs)
@@ -138,7 +125,7 @@ def get_vault_graph(profile: dict[str, Any]) -> dict[str, Any]:
     all_nodes = manifest.get("nodes", [])
     links = manifest.get("links", [])
 
-    if _scope_prefixes(mv, allowed_dirs) != [""]:
+    if vault_paths.scope_prefixes(mv, allowed_dirs) != [""]:
         # Lowercased on both sides: a link `[[foo]]` means a note called `Foo`.
         hidden_stems = {stem.lower() for stem in _vault_note_stems(mv)}
         ghosts = {

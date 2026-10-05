@@ -9,14 +9,12 @@ from dataclasses import dataclass
 from typing import Any
 
 from sympose import folder_definitions, vault_paths
-from sympose.security import is_safe_path
+from sympose.vault_folder_paths import OK, resolve_folder
 from sympose.vault_write import get_file_locks
 from sympose.vault_write_rename import _dst_already_taken, rename_note_to_path
 from sympose.vault_write_relink import WIKILINK_UNSAFE_CHARS
 from sympose.vault_write_relink_folder import relink_folder
-from sympose.vault_write_status import NOTE_DENIED, NOTE_EXISTS, NOTE_INVALID_NAME, NOTE_NOT_FOUND
-
-OK = "ok"
+from sympose.vault_write_status import NOTE_DENIED, NOTE_EXISTS, NOTE_INVALID_NAME
 
 
 @dataclass(frozen=True)
@@ -55,24 +53,11 @@ def _files_inside(mv: str, src: str) -> set[str]:
 def rename_folder_to_path(profile: dict[str, Any], old_name: str, new_name: str) -> tuple[str, FolderRenamed | None]:
     """Rename a vault folder, keeping its parent, and rewrite the links that name it. `(OK, details)` or `(error, None)`,
     the error being `NOTE_NOT_FOUND` / `NOTE_EXISTS` / `NOTE_DENIED` / `NOTE_INVALID_NAME` or an `Error: ...` message."""
-    scope = vault_paths.resolve_sandbox(profile)
-    if scope is None:
-        return NOTE_DENIED, None
-    mv, allowed_dirs = scope
-    clean = old_name.strip().strip("\"'").strip("/\\")
+    status, found = resolve_folder(profile, old_name)
+    if found is None:
+        return status, None
+    mv, allowed_dirs, src, _ = found
     new = new_name.strip().strip("\"'")
-    if not clean:
-        return NOTE_DENIED, None
-    src = os.path.normpath(os.path.join(mv, clean))
-    rel_parts = os.path.relpath(src, mv).replace(os.sep, "/").split("/")
-    # Never the vault root (its relative path is `.`), the bin or another dot folder (`.obsidian`, `.git`): they are not
-    # folders of notes.
-    if any(part.startswith(".") for part in rel_parts) or not is_safe_path(src, mv):
-        return NOTE_DENIED, None
-    if not vault_paths.is_within_any(src, allowed_dirs):
-        return NOTE_DENIED, None
-    if not os.path.isdir(src):
-        return NOTE_NOT_FOUND, None
     if (error := _new_name_error(new)) is not None:
         return error, None
     dst = os.path.join(os.path.dirname(src), new)
