@@ -15,6 +15,7 @@ from typing import Any
 
 from sympose import note_changes_store as store
 from sympose import passage_finder as finder
+from sympose import table_spans
 from sympose.persona_files import profiles_dir
 
 PENDING, OUTDATED = "pending", "outdated"
@@ -55,6 +56,8 @@ def propose_edit(handle: str, note_path: str, note_text: str, *, find: str, repl
     before, after = _anchor(note_text, find, None)
     proposal = {"id": _id(), "time": _now(), "kind": "edit", "find": find, "replace": replace, "before": before, "after": after, "say": say}
     start = finder.locate(note_text, find, before, after).start
+    if (refusal := table_spans.problem(note_text, start, start + len(find), replace)) is not None:
+        raise CannotAnchor(refusal)
 
     def add(entry: dict[str, Any]) -> None:
         if any(_overlaps(waiting, note_text, start, start + len(find)) for waiting in entry["proposals"]):
