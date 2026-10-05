@@ -20,11 +20,15 @@ def _segments(path: str) -> list[str]:
     return [s.strip().lower() for s in path.replace("\\", "/").split("/") if s.strip()]
 
 
-def rewrite_folder_links(text: str, old_folder: str, new_name: str, inside: set[str]) -> tuple[str, int]:
+def rewrite_folder_links(
+    text: str, old_folder: str, new_name: str, inside: set[str], new_folder: str | None = None
+) -> tuple[str, int]:
     """Retarget every wikilink or embed whose qualifier names `old_folder` (the vault-relative path it had) and that,
     read against `inside` (the lower-cased paths of the files that were in it, a note both with and without `.md`), resolves to
     one of them: the qualifier before the folder's name must be a tail of the folder's parent path, and what follows it
-    must be a path inside the folder. `#heading` and `|alias` stay. Returns the new text and the hit count."""
+    must be a path inside the folder. `#heading` and `|alias` stay. A rename swaps the folder's own segment for
+    `new_name`; a move (`new_folder`, its full new path) swaps the whole path up to and including it (docs/decisions/074).
+    Returns the new text and the hit count."""
     old = _segments(old_folder)
     name_l, parent = old[-1], old[:-1]
     rewritten = 0
@@ -44,7 +48,10 @@ def rewrite_folder_links(text: str, old_folder: str, new_name: str, inside: set[
                 continue
             inner_path = "/".join([*old, *[s.strip().lower() for s in qualifier[i + 1 :]], leaf.strip().lower()])
             if inner_path in inside:
-                segs[i] = new_name
+                if new_folder is None:
+                    segs[i] = new_name
+                else:
+                    segs[: i + 1] = [new_folder]
                 rewritten += 1
                 return f"{bang}[[{'/'.join(segs)}{tail}]]"
         return m.group(0)
@@ -61,7 +68,9 @@ def _notes(root: str):
                 yield os.path.join(folder, name)
 
 
-def relink_folder(mv: str, allowed_dirs: list[str], old_folder: str, new_name: str, inside: set[str]) -> tuple[int, int]:
+def relink_folder(
+    mv: str, allowed_dirs: list[str], old_folder: str, new_name: str, inside: set[str], new_folder: str | None = None
+) -> tuple[int, int]:
     """Rewrite the folder links in every note of the vault inside the sandbox (those now in the renamed folder
     included). Returns `(updated, failed)`: `failed` counts a note whose rewrite was lost to an `OSError`, so a caller
     can tell "nothing needed relinking" from "some relinks silently did not happen"."""
@@ -77,7 +86,7 @@ def relink_folder(mv: str, allowed_dirs: list[str], old_folder: str, new_name: s
                     content = f.read()
                 if needle not in content.lower():
                     continue
-                rewritten, hits = rewrite_folder_links(content, old_folder, new_name, inside)
+                rewritten, hits = rewrite_folder_links(content, old_folder, new_name, inside, new_folder)
                 if not hits:
                     continue
                 write_atomic_text(fp, rewritten, newline="", errors="surrogateescape")
