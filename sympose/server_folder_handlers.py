@@ -8,7 +8,8 @@ from fastapi import HTTPException
 
 from sympose import note_changes, persona_scope, vault_hidden, vault_paths
 from sympose.server_handlers import require_profile, sandbox_denied, translate_vault_result
-from sympose.server_models import FolderRename
+from sympose.server_models import FolderMovePlan, FolderRename
+from sympose.vault_move_folder_plan import plan_move
 from sympose.vault_write_rename_folder import OK, rename_folder_to_path
 
 
@@ -43,4 +44,25 @@ def rename_folder(body: FolderRename) -> dict[str, Any]:
     return {
         "path": got.path, "detail": detail, "relinked": got.relinked, "failed": got.failed,
         "definition": got.definition, "personas": changed, "personas_unchanged": unchanged,
+    }
+
+
+def move_plan(body: FolderMovePlan) -> dict[str, Any]:
+    """What the move would do and what needs the user's word first: a folder of that name already there (rename or merge),
+    the files in both, the personas whose reach would change, a definition note that stops or starts applying. Moves nothing."""
+    profile = require_profile(body.persona)
+    status, got = plan_move(profile, body.path, body.destination)
+    if got is None:
+        translate_vault_result(
+            status,
+            not_found=f"No folder `{body.path}` or no folder `{body.destination}` in the vault.",
+            exists="Something that is not a folder already has that name there.",
+            denied=sandbox_denied(body.path),
+            invalid_name="A folder cannot go into itself, into one of its own folders, or into the folder it is already in.",
+        )
+        raise HTTPException(status_code=500, detail=status)
+    return {
+        "path": got.path, "destination": got.destination, "new_path": got.new_path, "clash": got.clash,
+        "note_clashes": list(got.note_clashes), "definition": got.definition,
+        "reach": [{"handle": r.handle, "name": r.name, "gains": r.gains, "loses": r.loses} for r in got.reach],
     }

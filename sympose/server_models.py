@@ -39,6 +39,15 @@ class FolderCreate(BaseModel):
     persona: str | None = None
 
 
+class FolderMovePlan(BaseModel):
+    """Body of `POST /api/vault/folder/move-plan` — what moving the folder at `path` into `destination` (a folder, or `""`
+    for the vault root) would do and what it needs the user's word for. Read only (docs/decisions/074)."""
+
+    path: str = Field(..., min_length=1)
+    destination: str
+    persona: str | None = None
+
+
 class FolderRename(BaseModel):
     """Body of `PATCH /api/vault/folder` — rename the folder at `path` to `new_name`, one plain name: the folder keeps its
     parent (moving a folder is a separate step). Links that name it, the personas' scopes, the hidden list and the

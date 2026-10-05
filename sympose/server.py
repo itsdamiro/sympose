@@ -39,7 +39,7 @@ from sympose import server_trash_handlers as th
 from sympose import server_vault_handlers as vh
 from sympose import vault_paths
 from sympose.server_change_models import AnnotationChange, AnnotationCreate, ChangesResolve, DraftText
-from sympose.server_models import ChatBinAction, ChatCancel, ChatCompact, ChatSessionStart, ChatSessionUpdate, ChatTurn, DefinitionsSwitch, EditModeChoice, FolderDefinition, FolderIcon, FolderRename, HiddenPath, ModelChoice, PersonaFileWrite, SettingChange, SharingChange, TrashEmpty, TrashRestore, VaultActivate
+from sympose.server_models import ChatBinAction, ChatCancel, ChatCompact, ChatSessionStart, ChatSessionUpdate, ChatTurn, DefinitionsSwitch, EditModeChoice, FolderDefinition, FolderIcon, FolderMovePlan, FolderRename, HiddenPath, ModelChoice, PersonaFileWrite, SettingChange, SharingChange, TrashEmpty, TrashRestore, VaultActivate
 
 
 def create_app() -> FastAPI:
@@ -296,6 +296,10 @@ def create_app() -> FastAPI:
     @app.patch("/api/vault/folder")
     def rename_folder(body: FolderRename) -> dict[str, Any]:
         return fh.rename_folder(body)
+
+    @app.post("/api/vault/folder/move-plan")
+    def plan_folder_move(body: FolderMovePlan) -> dict[str, Any]:
+        return fh.move_plan(body)
 
     @app.patch("/api/vault/note")
     def rename_note(body: h.NoteRename) -> dict[str, Any]:
