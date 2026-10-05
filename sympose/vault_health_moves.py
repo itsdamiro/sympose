@@ -32,6 +32,6 @@ def numbered_twins(notes: list[dict[str, Any]]) -> list[tuple[str, str]]:
         folder, name = posixpath.split(rel)
         stem, extension = posixpath.splitext(name)
         twin = _NUMBERED.match(stem)
-        if twin and posixpath.join(folder, twin["stem"] + extension).lower() in names:
+        if twin and int(twin["n"]) >= 2 and posixpath.join(folder, twin["stem"] + extension).lower() in names:
             found.append((rel, f"has the same name as `{twin['stem']}{extension}` in its folder with a number added: it may be a duplicate to combine"))
     return found

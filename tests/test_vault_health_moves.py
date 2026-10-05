@@ -74,6 +74,14 @@ def test_a_numbered_note_with_no_original_in_its_folder_is_not_a_twin(scratch):
     assert found(vh.check_numbered_twins) == []
 
 
+def test_a_number_below_two_is_not_a_merge_twin(scratch):
+    put(scratch, "People/Meeting.md")
+    put(scratch, "People/Meeting (1).md")
+    put(scratch, "People/Meeting (0).md")
+
+    assert found(vh.check_numbered_twins) == []
+
+
 def test_the_original_is_found_whatever_its_case(scratch):
     put(scratch, "People/anna.md")
     put(scratch, "People/Anna (2).md")
