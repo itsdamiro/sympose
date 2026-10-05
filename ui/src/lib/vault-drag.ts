@@ -24,3 +24,49 @@ export function isNoteDrag(e: React.DragEvent) {
 export function readNoteDrag(e: React.DragEvent): string | undefined {
   return e.dataTransfer.getData(VAULT_NOTE_MIME) || undefined
 }
+
+/**
+ * The same for a folder row (docs/decisions/074): a folder dragged onto another folder row, a root folder in the main
+ * menu, or the vault root. Its own MIME, so a folder drop never lands on a surface that only takes notes, and a note
+ * drop never lands on one that only takes folders.
+ */
+const VAULT_FOLDER_MIME = "application/x-sympose-vault-folder-path"
+
+let dragged: string | undefined
+
+export function startFolderDrag(e: React.DragEvent, path: string) {
+  e.dataTransfer.setData(VAULT_FOLDER_MIME, path)
+  e.dataTransfer.effectAllowed = "move"
+  dragged = path
+}
+
+/** The drag ended, dropped or not. */
+export function endFolderDrag() {
+  dragged = undefined
+}
+
+/** The folder being dragged right now: a `dragover` can see the payload's type but not its value. */
+export function draggedFolder(): string | undefined {
+  return dragged
+}
+
+/** Whether this `dragover` carries a folder that may be dropped into `destination` (`""` is the vault root): the
+ *  surfaces that take a folder offer a drop only then, so a forbidden target shows no highlight. */
+export function canDropDraggedFolder(e: React.DragEvent, destination: string): boolean {
+  return isFolderDrag(e) && dragged !== undefined && canDropFolder(dragged, destination)
+}
+
+export function isFolderDrag(e: React.DragEvent) {
+  return e.dataTransfer.types.includes(VAULT_FOLDER_MIME)
+}
+
+export function readFolderDrag(e: React.DragEvent): string | undefined {
+  return e.dataTransfer.getData(VAULT_FOLDER_MIME) || undefined
+}
+
+/** Whether `folder` may be dropped into `destination`: not onto itself, not into one of its own folders, not into the
+ *  folder it is already in. */
+export function canDropFolder(folder: string, destination: string): boolean {
+  const parent = folder.includes("/") ? folder.slice(0, folder.lastIndexOf("/")) : ""
+  return destination !== folder && !destination.startsWith(`${folder}/`) && destination !== parent
+}
