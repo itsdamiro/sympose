@@ -80,17 +80,24 @@ def move_folder(body: FolderMove) -> dict[str, Any]:
     status, plan = plan_move(profile, body.path, body.destination)
     if plan is None:
         _raise_move_error(status, body)
-    if plan.clash:  # merging is the next slice
-        raise HTTPException(status_code=409, detail=f"A folder named `{plan.new_path}` is already there.")
+    if plan.clash and body.if_exists is None:
+        raise HTTPException(status_code=409, detail=f"A folder named `{plan.new_path}` is already there: merge into it or move this one under another name.")
+    if body.if_exists == "merge" and plan.note_clashes and not body.rename_clashing_notes:
+        raise HTTPException(status_code=409, detail=f"{_plural(len(plan.note_clashes), 'file')} {'is' if len(plan.note_clashes) == 1 else 'are'} in both folders ({', '.join(plan.note_clashes[:5])}); rename the incoming ones or cancel.")
     if plan.reach and not body.confirm_reach:
         who = "; ".join(
             f"{r.name}" + (f" gains {_plural(r.gains, 'note')}" if r.gains else "") + (f" loses {_plural(r.loses, 'note')}" if r.loses else "")
             for r in plan.reach
         )
         raise HTTPException(status_code=409, detail=f"This changes what a persona can read ({who}); confirm to move anyway.")
-    status, got = move_folder_to_path(profile, body.path, body.destination)
+    status, got = move_folder_to_path(
+        profile, body.path, body.destination, if_exists=body.if_exists, new_name=body.new_name,
+        rename_clashing_notes=body.rename_clashing_notes,
+    )
     if got is None:
         _raise_move_error(status, body)
+    for old, new in got.renamed_notes:  # a renamed incoming note takes its pending changes along, before the folder's follow
+        note_changes.rename_everywhere(old, new)
     changed, unchanged = persona_scope.rename_folder(plan.path, got.path)
     vault = vault_paths.get_master_vault()
     if vault:
@@ -105,6 +112,12 @@ def move_folder(body: FolderMove) -> dict[str, Any]:
         bits.append("folder scope updated for " + ", ".join(changed))
     if unchanged:
         bits.append("edit the folder scope by hand for " + ", ".join(unchanged))
+    if got.merged:
+        bits.append("merged into the folder that was there")
+    if got.renamed_notes or got.renamed_others:
+        bits.append(f"{_plural(len(got.renamed_notes) + got.renamed_others, 'file')} renamed to avoid a clash")
+    if got.left_behind:
+        bits.append(f"{_plural(got.left_behind, 'file')} left in `{plan.path}` (hidden, or taken meanwhile)")
     if plan.definition == "stops":
         bits.append(f"`{plan.path}` is no longer a top-level folder, so its description stopped applying")
     elif plan.definition == "starts":
@@ -113,6 +126,7 @@ def move_folder(body: FolderMove) -> dict[str, Any]:
     return {
         "path": got.path, "detail": detail, "relinked": got.relinked, "failed": got.failed,
         "definition": plan.definition, "personas": changed, "personas_unchanged": unchanged,
+        "merged": got.merged, "renamed": len(got.renamed_notes) + got.renamed_others, "left_behind": got.left_behind,
     }
 
 

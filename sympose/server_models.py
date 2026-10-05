@@ -1,7 +1,7 @@
 """Request body models for the web API — split out of
 `server_handlers.py` (project's 200-LOC-per-file guideline)."""
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -51,10 +51,15 @@ class FolderMovePlan(BaseModel):
 class FolderMove(BaseModel):
     """Body of `PATCH /api/vault/folder/move` — move the folder at `path` into `destination` (a folder, or `""` for the
     vault root), keeping its name. Links that name it, the personas' scopes, the hidden list and the pending changes
-    follow. `confirm_reach`: the user said yes to a move that changes what a persona can read (docs/decisions/074)."""
+    follow. `if_exists`: what to do when a folder of that name is already there, `merge` or `rename` (to `new_name`);
+    `rename_clashing_notes`: a merge may rename the incoming notes and files that are in both to `Name (2)`.
+    `confirm_reach`: the user said yes to a move that changes what a persona can read (docs/decisions/074)."""
 
     path: str = Field(..., min_length=1)
     destination: str
+    if_exists: Literal["merge", "rename"] | None = None
+    new_name: str = ""
+    rename_clashing_notes: bool = False
     confirm_reach: bool = False
     persona: str | None = None
 
