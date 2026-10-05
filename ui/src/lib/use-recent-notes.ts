@@ -1,6 +1,6 @@
 import * as React from "react"
 
-import { readList, remapPath, writeList } from "@/lib/cookie-list"
+import { readList, remapPath, remapPrefix, writeList } from "@/lib/cookie-list"
 import { getCookie, setCookie } from "@/lib/cookies"
 import { useVaultScopedState } from "@/lib/use-vault-scoped-state"
 
@@ -65,6 +65,8 @@ export function useRecentNotes(vaultPath: string | null): {
   removeFromRecents: (path: string) => void
   /** A renamed or moved note keeps its place in the history. */
   remapRecent: (oldPath: string, newPath: string) => void
+  /** A renamed folder takes its recents with it (docs/decisions/073). */
+  remapRecentFolder: (oldFolder: string, newFolder: string) => void
   /** Empty the whole history — the "Recent" group caption's "Clear recents". */
   clearRecents: () => void
 } {
@@ -101,6 +103,14 @@ export function useRecentNotes(vaultPath: string | null): {
     [setHistory]
   )
 
+  // A folder was renamed (docs/decisions/073): the recents under it follow.
+  const remapRecentFolder = React.useCallback(
+    (oldFolder: string, newFolder: string) => {
+      setHistory((prev) => remapPrefix(prev, oldFolder, newFolder))
+    },
+    [setHistory]
+  )
+
   const clearRecents = React.useCallback(() => {
     setHistory([])
   }, [setHistory])
@@ -129,6 +139,7 @@ export function useRecentNotes(vaultPath: string | null): {
     recordVisit,
     removeFromRecents,
     remapRecent,
+    remapRecentFolder,
     clearRecents,
   }
 }

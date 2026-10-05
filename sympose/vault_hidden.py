@@ -72,6 +72,13 @@ def unhide(vault: str, path: str) -> bool:
     return _change(vault, lambda paths: [p for p in paths if p != path])
 
 
+def rename_folder(vault: str, old: str, new: str) -> bool:
+    """A folder was renamed (docs/decisions/073): the folder, and what is hidden inside it, stay hidden under the new
+    path. Only this vault's list changes. `False` when the setting is damaged or the file could not be written."""
+    prefix = old + "/"
+    return _change(vault, lambda paths: [new + p[len(old):] if p == old or p.startswith(prefix) else p for p in paths])
+
+
 def definitions_shown() -> bool:
     return settings_store.flag(DEFINITIONS_SETTING, False)
 

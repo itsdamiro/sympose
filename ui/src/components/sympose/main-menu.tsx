@@ -5,11 +5,8 @@ import {
   Delete03Icon,
   Settings01Icon,
   SidebarLeft01Icon,
-  ViewOffIcon,
-  Delete02Icon,
   FolderAddIcon,
   NoteAddIcon,
-  FolderEditIcon,
 } from "@hugeicons/core-free-icons"
 
 import { cn } from "@/lib/utils"
@@ -17,6 +14,7 @@ import { useResizable } from "@/lib/use-resizable"
 import { isNoteDrag, readNoteDrag } from "@/lib/vault-drag"
 import { Logo } from "@/components/logo"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { MainMenuRowMenu } from "@/components/sympose/main-menu-row-menu"
 import { WorkspaceSwitcher } from "@/components/sympose/workspace-switcher"
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu"
 import {
@@ -119,6 +117,13 @@ interface MainMenuProps extends Omit<React.ComponentProps<"nav">, "onSelect"> {
   onDeleteItem?: (item: MainMenuItem) => void
   /** Define a root folder by hand, from its row's menu: the shell opens the setup dialog. */
   onDefineItem?: (item: MainMenuItem) => void
+  /** The persona a folder's rename is made as. With `onRenameFolder` it adds Rename folder to a folder row's menu
+   *  (docs/decisions/073); not offered on the collapsed rail, which has no room for the field. */
+  persona?: string
+  /** A root folder was renamed from its row's menu: its old path and its new one. */
+  onRenameFolder?: (oldPath: string, newPath: string) => void
+  /** Before a rename request: save what is unsaved; `false` holds the rename back (docs/decisions/073). */
+  onBeforeRenameFolder?: () => Promise<boolean>
   /**
    * Account row: label plus, when the active persona is known, its icon and
    * accent for the avatar (falls back to the first letter on `bg-accent`).
@@ -204,6 +209,9 @@ function MainMenu({
   onCreateRoot,
   onDeleteItem,
   onDefineItem,
+  persona,
+  onRenameFolder,
+  onBeforeRenameFolder,
   account = { name: "Persona" },
   vaults = EMPTY_VAULTS,
   activeVault = null,
@@ -322,36 +330,20 @@ function MainMenu({
         )
         const isFolder = item.type !== "note"
         const hasMenu =
-          onHideItem || (isFolder && (onDeleteItem || onDefineItem))
+          onHideItem || (isFolder && (onDeleteItem || onDefineItem || (persona && onRenameFolder)))
         return (
           <li key={item.id}>
             {hasMenu ? (
-              <ContextMenu>
-                <ContextMenuTrigger className="block">{row}</ContextMenuTrigger>
-                <ContextMenuContent className="duration-thumb ease-snappy">
-                  {isFolder && onDefineItem && (
-                    <DropdownMenuItem onClick={() => onDefineItem(item)}>
-                      <HugeiconsIcon icon={FolderEditIcon} />
-                      Define folder
-                    </DropdownMenuItem>
-                  )}
-                  {onHideItem && (
-                    <DropdownMenuItem onClick={() => onHideItem(item)}>
-                      <HugeiconsIcon icon={ViewOffIcon} />
-                      Hide from view
-                    </DropdownMenuItem>
-                  )}
-                  {isFolder && onDeleteItem && (
-                    <DropdownMenuItem
-                      variant="destructive"
-                      onClick={() => onDeleteItem(item)}
-                    >
-                      <HugeiconsIcon icon={Delete02Icon} />
-                      Delete folder
-                    </DropdownMenuItem>
-                  )}
-                </ContextMenuContent>
-              </ContextMenu>
+              <MainMenuRowMenu
+                item={item}
+                row={row}
+                persona={collapsed ? undefined : persona}
+                onDefineItem={onDefineItem}
+                onRenameFolder={onRenameFolder}
+                onBeforeRenameFolder={onBeforeRenameFolder}
+                onHideItem={onHideItem}
+                onDeleteItem={onDeleteItem}
+              />
             ) : (
               row
             )}

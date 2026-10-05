@@ -656,3 +656,48 @@ def test_a_verdict_must_be_accepted_or_declined_and_cannot_come_with_a_reopen():
     with pytest.raises(ValueError):
         nc.change_annotation(H, "a.md", root["id"], state=nc.OPEN, verdict=nc.ACCEPTED)
     assert "verdict" not in entry_of(root["id"])
+
+
+# -- a folder was renamed: the entries under it follow (docs/decisions/073) ------------------------------------------
+
+
+def test_every_entry_under_the_renamed_folder_moves_with_it_proposals_and_comments_alike():
+    nc.propose_edit(H, "People/Anna.md", NOTE, find="three times", replace="four times", say="")
+    nc.annotate(H, "People/Sub/Ben.md", NOTE, quote="raised", text="q", author="user")
+    nc.propose_create(H, "People/Draft.md", "# Draft\n", say="")
+
+    nc.rename_folder_everywhere("People", "Team")
+
+    assert sorted(d["path"] for d in nc.drafts(H)) == ["Team/Anna.md", "Team/Draft.md", "Team/Sub/Ben.md"]
+    assert store.read(H, "Team/Anna.md")["proposals"][0]["find"] == "three times"
+    assert store.read(H, "Team/Sub/Ben.md")["annotations"][0]["quote"] == "raised"
+    assert store.read(H, "People/Anna.md")["proposals"] == []
+
+
+def test_entries_outside_the_folder_stay_even_when_the_name_starts_the_same():
+    nc.propose_edit(H, "People/Anna.md", NOTE, find="three times", replace="four times", say="")
+    nc.propose_edit(H, "People and Pets/Rex.md", NOTE, find="three times", replace="four times", say="")
+    nc.propose_edit(H, "Other/People/Zed.md", NOTE, find="three times", replace="four times", say="")
+    nc.propose_edit(H, "People.md", NOTE, find="three times", replace="four times", say="")
+
+    nc.rename_folder_everywhere("People", "Team")
+
+    assert sorted(d["path"] for d in nc.drafts(H)) == ["Other/People/Zed.md", "People and Pets/Rex.md", "People.md", "Team/Anna.md"]
+
+
+def test_a_folder_rename_moves_every_personas_entries():
+    nc.propose_edit("samantha", "People/Anna.md", NOTE, find="three times", replace="four times", say="")
+    nc.propose_edit("grace", "People/Anna.md", NOTE, find="raised", replace="sunken", say="")
+
+    nc.rename_folder_everywhere("People", "Team")
+
+    assert [d["path"] for d in nc.drafts("samantha")] == ["Team/Anna.md"]
+    assert [d["path"] for d in nc.drafts("grace")] == ["Team/Anna.md"]
+
+
+def test_a_folder_rename_keeps_a_deep_path_exact_and_a_case_only_change_works():
+    nc.propose_edit(H, "Sub/Deep/Anna.md", NOTE, find="three times", replace="four times", say="")
+
+    nc.rename_folder_everywhere("Sub", "sub")
+
+    assert [d["path"] for d in nc.drafts(H)] == ["sub/Deep/Anna.md"]

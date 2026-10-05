@@ -140,6 +140,37 @@ export async function createVaultFolder(
   }
 }
 
+export type RenameVaultFolderResult =
+  | { ok: true; path: string; detail: string; personas: string[]; personasUnchanged: string[]; relinkFailed: number }
+  | { ok: false; error: string }
+
+/**
+ * Client for `PATCH /api/vault/folder` (docs/decisions/073) — rename the folder at `path` to `newName`, one plain
+ * name: the folder keeps its parent. The links that name it, the personas' own folder scopes, the hidden list and the
+ * persona's pending changes follow on the server. 404 gone, 409 name taken, 400 not a plain name, 403 outside the
+ * sandbox. `path` in the result is the folder's new vault-relative path, `personas` those whose scope was rewritten.
+ */
+export async function renameVaultFolder(
+  path: string,
+  newName: string,
+  persona: string
+): Promise<RenameVaultFolderResult> {
+  try {
+    const res = await fetch("/api/vault/folder", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path, new_name: newName, persona }),
+    })
+    if (res.ok) {
+      const body = (await res.json()) as { path: string; detail: string; personas: string[]; personas_unchanged: string[]; failed: number }
+      return { ok: true, path: body.path, detail: body.detail, personas: body.personas, personasUnchanged: body.personas_unchanged, relinkFailed: body.failed }
+    }
+    return { ok: false, error: (await detailOf(res)) || `Rename failed (HTTP ${res.status})` }
+  } catch (err) {
+    return { ok: false, error: `Rename failed — backend unreachable (${err})` }
+  }
+}
+
 export type RenameVaultNoteResult =
   | { ok: true; path: string; detail: string }
   | { ok: false; error: string }

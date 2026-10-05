@@ -247,6 +247,12 @@ def rename_everywhere(old: str, new: str) -> None:
         rename(handle, old, new)
 
 
+def rename_folder_everywhere(old_folder: str, new_folder: str) -> None:
+    """A folder was renamed (docs/decisions/073): every persona's entries for the notes under it follow."""
+    for handle in _handles():
+        store.move_prefix(handle, old_folder, new_folder)
+
+
 def forget_everywhere(note_path: str) -> None:
     """A note was deleted for good: no persona keeps an entry for it."""
     for handle in _handles():

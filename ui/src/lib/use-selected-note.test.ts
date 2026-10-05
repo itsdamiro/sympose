@@ -11,6 +11,8 @@ function setup(vaultPath: string | null, hidden: string[] = []) {
   const recordVisit = vi.fn()
   const remapPin = vi.fn()
   const remapRecent = vi.fn()
+  const remapPinFolder = vi.fn()
+  const remapRecentFolder = vi.fn()
   const hook = renderHook(
     (p: { vaultPath: string | null }) =>
       useSelectedNote({
@@ -19,10 +21,12 @@ function setup(vaultPath: string | null, hidden: string[] = []) {
         recordVisit,
         remapPin,
         remapRecent,
+        remapPinFolder,
+        remapRecentFolder,
       }),
     { initialProps: { vaultPath } }
   )
-  return { recordVisit, remapPin, remapRecent, ...hook }
+  return { recordVisit, remapPin, remapRecent, remapPinFolder, remapRecentFolder, ...hook }
 }
 
 beforeEach(() => {
@@ -110,4 +114,26 @@ describe("useSelectedNote", () => {
     expect(remapRecent).toHaveBeenCalledWith("Other.md", "Elsewhere.md")
     expect(result.current.selectedNote).toBe("Open.md")
   })
+
+  it("follows a renamed folder: the pins and recents under it, and the open note when it is inside", () => {
+    const { result, remapPinFolder, remapRecentFolder } = setup("/a")
+    act(() => result.current.selectNote("People/Sub/Anna.md"))
+
+    act(() => result.current.folderRenamed("People", "Team"))
+
+    expect(remapPinFolder).toHaveBeenCalledWith("People", "Team")
+    expect(remapRecentFolder).toHaveBeenCalledWith("People", "Team")
+    expect(result.current.selectedNote).toBe("Team/Sub/Anna.md")
+    expect(getCookie(vaultScopedKey(COOKIE, "/a"))).toBe("Team/Sub/Anna.md")
+  })
+
+  it("leaves the open note alone when it is not inside the renamed folder, even one whose name starts the same", () => {
+    const { result } = setup("/a")
+    act(() => result.current.selectNote("People and Pets/Rex.md"))
+
+    act(() => result.current.folderRenamed("People", "Team"))
+
+    expect(result.current.selectedNote).toBe("People and Pets/Rex.md")
+  })
 })
+

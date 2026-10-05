@@ -249,6 +249,10 @@ export interface RowActions {
   persona?: string
   /** A note row was renamed: old path → new vault-relative path. */
   onRenamed?: (oldPath: string, newPath: string) => void
+  /** A folder row was renamed (docs/decisions/073): old path → new vault-relative path. */
+  onFolderRenamed?: (oldPath: string, newPath: string) => void
+  /** Before a folder's rename request: save what is unsaved; `false` holds the rename back. */
+  onBeforeFolderRename?: () => Promise<boolean>
   /** A note row was moved to trash. */
   onDeleted?: (path: string) => void
   /** A new note was created from a folder row. */
@@ -317,6 +321,8 @@ function VaultTree({
   onSelect,
   persona,
   onRenamed,
+  onFolderRenamed,
+  onBeforeFolderRename,
   onDeleted,
   onCreated,
   isPinned,
@@ -357,6 +363,8 @@ function VaultTree({
   const actions: RowActions = {
     persona,
     onRenamed,
+    onFolderRenamed,
+    onBeforeFolderRename,
     onDeleted,
     onCreated,
     isPinned,
@@ -535,6 +543,8 @@ export function VaultTreeRow({
         persona={actions.persona!}
         paddingLeft={pad}
         onRenamed={actions.onRenamed!}
+        onFolderRenamed={actions.onFolderRenamed}
+        onBeforeFolderRename={actions.onBeforeFolderRename}
         onDeleted={actions.onDeleted!}
         onCreated={actions.onCreated!}
         pinned={pinned}

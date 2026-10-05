@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { detailOf, moveVaultNote, saveVaultNote } from "./vault-note-api"
+import { detailOf, moveVaultNote, renameVaultFolder, saveVaultNote } from "./vault-note-api"
 
 function stubRename(reply: { path: string; detail: string }) {
   const fetchMock = vi.fn().mockResolvedValue({
@@ -101,3 +101,38 @@ describe("detailOf", () => {
     expect(await detailOf({ json: () => Promise.reject(new Error("no")) } as Response)).toBeUndefined()
   })
 })
+
+describe("renameVaultFolder", () => {
+  it("sends the new name as one plain name for the persona and reads back the new path and who followed", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ path: "Team", detail: "Renamed to `Team`", personas: ["Ada"], personas_unchanged: ["Bo"], failed: 2 }),
+    } as Response)
+    vi.stubGlobal("fetch", fetchMock)
+
+    const res = await renameVaultFolder("People", "Team", "samantha")
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe("/api/vault/folder")
+    expect(init.method).toBe("PATCH")
+    expect(JSON.parse(init.body as string)).toEqual({ path: "People", new_name: "Team", persona: "samantha" })
+    expect(res).toEqual({ ok: true, path: "Team", detail: "Renamed to `Team`", personas: ["Ada"], personasUnchanged: ["Bo"], relinkFailed: 2 })
+  })
+
+  it("gives the server's reason when it refuses", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 409, json: () => Promise.resolve({ detail: "`Team` is already taken in that folder." }) } as Response))
+
+    expect(await renameVaultFolder("People", "Team", "samantha")).toEqual({ ok: false, error: "`Team` is already taken in that folder." })
+  })
+
+  it("says the backend is unreachable when the request fails", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("down")))
+
+    const res = await renameVaultFolder("People", "Team", "samantha")
+
+    expect(res.ok).toBe(false)
+    expect(!res.ok && res.error).toMatch(/unreachable/)
+  })
+})
+

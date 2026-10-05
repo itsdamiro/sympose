@@ -27,6 +27,7 @@ from sympose import server_origin
 from sympose import server_handlers as h
 from sympose import server_hidden_handlers as hh
 from sympose import server_edit_mode_handlers as emh
+from sympose import server_folder_handlers as fh
 from sympose import server_model_handlers as mh
 from sympose import server_persona_file_handlers as pfh
 from sympose import server_persona_handlers as ph
@@ -38,7 +39,7 @@ from sympose import server_trash_handlers as th
 from sympose import server_vault_handlers as vh
 from sympose import vault_paths
 from sympose.server_change_models import AnnotationChange, AnnotationCreate, ChangesResolve, DraftText
-from sympose.server_models import ChatBinAction, ChatCancel, ChatCompact, ChatSessionStart, ChatSessionUpdate, ChatTurn, DefinitionsSwitch, EditModeChoice, FolderDefinition, FolderIcon, HiddenPath, ModelChoice, PersonaFileWrite, SettingChange, SharingChange, TrashEmpty, TrashRestore, VaultActivate
+from sympose.server_models import ChatBinAction, ChatCancel, ChatCompact, ChatSessionStart, ChatSessionUpdate, ChatTurn, DefinitionsSwitch, EditModeChoice, FolderDefinition, FolderIcon, FolderRename, HiddenPath, ModelChoice, PersonaFileWrite, SettingChange, SharingChange, TrashEmpty, TrashRestore, VaultActivate
 
 
 def create_app() -> FastAPI:
@@ -291,6 +292,10 @@ def create_app() -> FastAPI:
     @app.post("/api/vault/folder/definition", status_code=201)
     def write_folder_definition(body: FolderDefinition) -> dict[str, Any]:
         return dh.write_definition(body)
+
+    @app.patch("/api/vault/folder")
+    def rename_folder(body: FolderRename) -> dict[str, Any]:
+        return fh.rename_folder(body)
 
     @app.patch("/api/vault/note")
     def rename_note(body: h.NoteRename) -> dict[str, Any]:

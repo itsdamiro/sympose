@@ -1,11 +1,11 @@
 import * as React from "react"
 
-import { deleteVaultNote, renameVaultNote } from "@/lib/vault-note-api"
+import { deleteVaultNote, renameVaultFolder, renameVaultNote } from "@/lib/vault-note-api"
 import { notify } from "@/lib/notify"
 
 /**
  * The rename/delete flow shared by `<VaultRowMenu>` and `<NoteActionsMenu>`
- * (E2) — inline rename (with the Base UI focus-restoration workaround below)
+ * (E2); a folder row uses the same inline rename with `kind: "folder"` (docs/decisions/073) — inline rename (with the Base UI focus-restoration workaround below)
  * plus move-to-trash, both against the same `renameVaultNote`/
  * `deleteVaultNote` API calls. Each caller still owns its own menu items,
  * its own rename `<input>` JSX/styling, and any node-type-specific extras
@@ -13,22 +13,29 @@ import { notify } from "@/lib/notify"
  * common to both.
  */
 export function useVaultNoteActions({
+  kind = "note",
   path,
   persona,
   stem,
   onRenamed,
   onDeleted,
+  beforeRename,
 }: {
-  /** Vault-relative path of the note this menu acts on. */
+  /** A note (the default), or a folder row: its rename goes to the folder route and keeps a name that ends in `.md`. */
+  kind?: "note" | "folder"
+  /** Vault-relative path of the note or folder this menu acts on. */
   path: string
   persona: string
   /** Displayed name with `.md` already stripped — the rename field's
    *  starting value, and the confirm dialog's subject. */
   stem: string
-  /** Called with the note's new vault-relative path after a rename. */
+  /** Called with the note's (or folder's) new vault-relative path after a rename. */
   onRenamed: (newPath: string) => void
   /** Called after the note is moved to trash. */
   onDeleted: () => void
+  /** A folder's rename waits for this first, and is cancelled when it says `false`: the app saves what is unsaved in the
+   *  editor, because the rename can rewrite the links in that very note (docs/decisions/073). */
+  beforeRename?: () => Promise<boolean>
 }) {
   const [renaming, setRenaming] = React.useState<string | null>(null)
   // Rename mode is entered only once the menu that launched it has fully
@@ -74,15 +81,25 @@ export function useVaultNoteActions({
   )
 
   const submitRename = React.useCallback(async () => {
-    const name = (renaming ?? "")
-      .trim()
-      .replace(/\.md$/i, "")
-      .replace(/^\/+|\/+$/g, "")
+    const typed = (renaming ?? "").trim().replace(/^\/+|\/+$/g, "")
+    const name = kind === "folder" ? typed : typed.replace(/\.md$/i, "")
     if (!name || busy || name === stem) {
       setRenaming(null)
       return
     }
     setBusy(true)
+    if (kind === "folder") {
+      if (beforeRename && !(await beforeRename())) return void setBusy(false)
+      const res = await renameVaultFolder(path, name, persona)
+      setBusy(false)
+      if (!res.ok) return void notify.error(res.error)
+      setRenaming(null)
+      onRenamed(res.path)
+      // The server's sentence says what was relinked and which personas changed; a part that could not be done is a warning.
+      if (res.personasUnchanged.length > 0 || res.relinkFailed > 0) notify.warning(res.detail, { duration: 12000 })
+      else notify.success(res.detail)
+      return
+    }
     const res = await renameVaultNote(path, name, persona)
     setBusy(false)
     if (res.ok) {
@@ -92,7 +109,7 @@ export function useVaultNoteActions({
     } else {
       notify.error(res.error)
     }
-  }, [renaming, busy, stem, path, persona, onRenamed])
+  }, [renaming, busy, stem, path, persona, kind, onRenamed, beforeRename])
 
   const runDelete = React.useCallback(async () => {
     const res = await deleteVaultNote(path, persona)

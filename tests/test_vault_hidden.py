@@ -367,3 +367,38 @@ def test_what_the_persona_reads_is_not_touched(client):
     tree = _by_path(vault_graph.get_vault_tree(profile))
     assert "hidden" not in tree["Journal/Secret.md"] and "Drafts/One.md" in tree
     assert grounding.scope_index(profile) is not None
+
+
+# -- a folder was renamed: what is hidden under it follows (docs/decisions/073) ------------------------------------
+
+
+def test_a_hidden_folder_and_what_is_hidden_inside_it_follow_its_rename(vault):
+    for path in ("Drafts", "Drafts/One.md", "Journal/Secret.md", "Draftsman", "Other/Drafts"):
+        vault_hidden.hide(vault, path)
+
+    assert vault_hidden.rename_folder(vault, "Drafts", "Sketches") is True
+
+    assert vault_hidden.hidden_paths(vault) == sorted(["Sketches", "Sketches/One.md", "Journal/Secret.md", "Draftsman", "Other/Drafts"], key=lambda p: (p.lower(), p))
+
+
+def test_the_rename_changes_only_this_vaults_list(vault):
+    vault_hidden.hide(vault, "Drafts")
+    vault_hidden.hide("/some/other/vault", "Drafts")
+
+    vault_hidden.rename_folder(vault, "Drafts", "Sketches")
+
+    assert vault_hidden.hidden_paths("/some/other/vault") == ["Drafts"]
+
+
+def test_with_nothing_hidden_under_it_a_rename_changes_nothing_and_still_succeeds(vault):
+    vault_hidden.hide(vault, "Journal")
+
+    assert vault_hidden.rename_folder(vault, "Drafts", "Sketches") is True
+    assert vault_hidden.hidden_paths(vault) == ["Journal"]
+
+
+def test_a_damaged_setting_is_left_alone_and_says_so(vault):
+    settings_store.set(vault_hidden.HIDDEN_SETTING, "not a dict")
+
+    assert vault_hidden.rename_folder(vault, "Drafts", "Sketches") is False
+    assert settings_store.get(vault_hidden.HIDDEN_SETTING) == "not a dict"

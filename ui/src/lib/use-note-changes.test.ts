@@ -16,6 +16,7 @@ function setup(over: { selectedNote?: string; hideExtension?: boolean; openableN
     setSelectedNote: vi.fn(),
     selectNote: vi.fn(),
     noteRenamed: vi.fn(),
+    folderRenamed: vi.fn(),
     refreshVault: vi.fn(),
     openEditor: vi.fn(),
     hideFromView: vi.fn(),
@@ -201,3 +202,73 @@ describe("useNoteChanges: the open editor", () => {
     expect(s.refreshVault).toHaveBeenCalledTimes(1)
   })
 })
+
+describe("useNoteChanges: a folder was renamed (docs/decisions/073)", () => {
+  const guard = (retarget = vi.fn(async () => {})) => {
+    setUnsavedGuard({ name: () => "n", isDirty: () => false, save: async () => true, retarget })
+    return retarget
+  }
+
+  it("lets the open editor save its unsaved edits at the note's new path first, then follows the rename everywhere", async () => {
+    const order: string[] = []
+    const retarget = guard(vi.fn(async () => void order.push("retarget")))
+    const s = setup({ selectedNote: "People/Sub/Anna.md" })
+    s.refreshVault.mockImplementation(() => void order.push("refresh"))
+    s.folderRenamed.mockImplementation(() => void order.push("follow"))
+
+    await s.result.current.vaultTreeActions.onFolderRenamed("People", "Team")
+
+    expect(retarget).toHaveBeenCalledWith("People/Sub/Anna.md", "Team/Sub/Anna.md")
+    expect(order).toEqual(["retarget", "refresh", "follow"])
+    expect(s.folderRenamed).toHaveBeenCalledWith("People", "Team")
+  })
+
+  it("does not touch the editor when the open note is not inside the renamed folder", async () => {
+    const retarget = guard()
+    const s = setup({ selectedNote: "People and Pets/Rex.md" })
+
+    await s.result.current.vaultTreeActions.onFolderRenamed("People", "Team")
+
+    expect(retarget).not.toHaveBeenCalled()
+    expect(s.refreshVault).toHaveBeenCalledTimes(1)
+    expect(s.folderRenamed).toHaveBeenCalledWith("People", "Team")
+  })
+
+  it("works with no note open", async () => {
+    guard()
+    const s = setup()
+
+    await s.result.current.vaultTreeActions.onFolderRenamed("People", "Team")
+
+    expect(s.folderRenamed).toHaveBeenCalledTimes(1)
+  })
+
+  it("saves an unsaved open note before the rename request, whichever note it is, since the rename may rewrite its links", async () => {
+    const save = vi.fn(async () => true)
+    setUnsavedGuard({ name: () => "n", isDirty: () => true, save, retarget: async () => {} })
+    const s = setup({ selectedNote: "Elsewhere/Note.md" })
+
+    expect(await s.result.current.vaultTreeActions.onBeforeFolderRename()).toBe(true)
+
+    expect(save).toHaveBeenCalledTimes(1)
+  })
+
+  it("says to go ahead without saving when nothing is unsaved or no note is open", async () => {
+    const save = vi.fn(async () => true)
+    setUnsavedGuard({ name: () => "n", isDirty: () => false, save, retarget: async () => {} })
+    const s = setup({ selectedNote: "People/Anna.md" })
+    expect(await s.result.current.vaultTreeActions.onBeforeFolderRename()).toBe(true)
+    expect(save).not.toHaveBeenCalled()
+
+    setUnsavedGuard(null)
+    expect(await s.result.current.vaultTreeActions.onBeforeFolderRename()).toBe(true)
+  })
+
+  it("holds the rename back when the unsaved note could not be saved", async () => {
+    setUnsavedGuard({ name: () => "n", isDirty: () => true, save: async () => false, retarget: async () => {} })
+    const s = setup({ selectedNote: "People/Anna.md" })
+
+    expect(await s.result.current.vaultTreeActions.onBeforeFolderRename()).toBe(false)
+  })
+})
+

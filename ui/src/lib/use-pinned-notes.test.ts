@@ -147,6 +147,23 @@ describe("usePinnedNotes", () => {
     expect(result.current.pinnedPaths).toEqual(["a.md"])
   })
 
+  it("follows a renamed folder: the pins under it move to the new name, others stay", () => {
+    const { result } = renderHook(() => usePinnedNotes("/vault-a"))
+    for (const p of ["People/Anna.md", "People and Pets/Rex.md", "People/Sub/Ben.md", "Other.md"]) act(() => result.current.togglePin(p))
+
+    act(() => result.current.remapPinFolder("People", "Team"))
+
+    expect(result.current.pinnedPaths).toEqual(["Team/Anna.md", "People and Pets/Rex.md", "Team/Sub/Ben.md", "Other.md"])
+    expect(result.current.isPinned("People/Anna.md")).toBe(false)
+  })
+
+  it("leaves the pins alone when no pin is under the renamed folder", () => {
+    const { result } = renderHook(() => usePinnedNotes("/vault-a"))
+    act(() => result.current.togglePin("a.md"))
+    act(() => result.current.remapPinFolder("People", "Team"))
+    expect(result.current.pinnedPaths).toEqual(["a.md"])
+  })
+
   it("keeps the saved cookie small enough to be stored, dropping the oldest pins", () => {
     const { result } = renderHook(() => usePinnedNotes("/vault-a"))
     for (let i = 0; i < 300; i++) {

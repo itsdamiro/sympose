@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { MAX_COOKIE_VALUE, readList, remapPath, writeList } from "./cookie-list"
+import { MAX_COOKIE_VALUE, readList, remapPath, remapPrefix, writeList } from "./cookie-list"
 
 describe("readList / writeList", () => {
   it("round-trips a path with a comma as one entry", () => {
@@ -60,3 +60,34 @@ describe("remapPath", () => {
     expect(remapPath(["a.md", "b.md"], "a.md", "b.md")).toEqual(["b.md"])
   })
 })
+
+describe("remapPrefix (a folder was renamed, docs/decisions/073)", () => {
+  it("moves every path under the folder, and the folder itself, to the new name, keeping order", () => {
+    expect(remapPrefix(["a.md", "People", "People/Anna.md", "People/Sub/Ben.md", "z.md"], "People", "Team")).toEqual([
+      "a.md",
+      "Team",
+      "Team/Anna.md",
+      "Team/Sub/Ben.md",
+      "z.md",
+    ])
+  })
+
+  it("leaves a neighbour that merely starts with the same letters, and a folder of that name deeper down", () => {
+    const list = ["People and Pets/Rex.md", "Other/People/Zed.md", "People.md"]
+    expect(remapPrefix(list, "People", "Team")).toBe(list)
+  })
+
+  it("returns the same list when nothing is under the folder", () => {
+    const list = ["a.md", "b/c.md"]
+    expect(remapPrefix(list, "People", "Team")).toBe(list)
+  })
+
+  it("handles a nested folder by its whole path", () => {
+    expect(remapPrefix(["A/People/Anna.md", "People/Anna.md"], "A/People", "A/Team")).toEqual(["A/Team/Anna.md", "People/Anna.md"])
+  })
+
+  it("drops a duplicate that the rename would make", () => {
+    expect(remapPrefix(["Team/Anna.md", "People/Anna.md"], "People", "Team")).toEqual(["Team/Anna.md"])
+  })
+})
+

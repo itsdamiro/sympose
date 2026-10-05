@@ -56,6 +56,8 @@ function VaultRowMenu({
   className,
   children,
   onRenamed,
+  onFolderRenamed,
+  onBeforeFolderRename,
   onDeleted,
   onCreated,
   pinned = false,
@@ -73,6 +75,11 @@ function VaultRowMenu({
   children: React.ReactNode
   /** A note row was renamed: its old path and the new vault-relative path. */
   onRenamed: (oldPath: string, newPath: string) => void
+  /** A folder row was renamed (docs/decisions/073): its old path and its new vault-relative path. Omit to leave
+   *  Rename out of a folder's menu. */
+  onFolderRenamed?: (oldPath: string, newPath: string) => void
+  /** Before a folder's rename request: save what is unsaved; `false` holds the rename back. */
+  onBeforeFolderRename?: () => Promise<boolean>
   /** A note row was moved to trash. */
   onDeleted: (path: string) => void
   /** A new note was created (from a folder row): its vault-relative path. */
@@ -90,7 +97,7 @@ function VaultRowMenu({
   onHide?: (path: string) => void
 }) {
   const isNote = node.type === "note"
-  const stem = node.name.replace(/\.md$/i, "")
+  const stem = isNote ? node.name.replace(/\.md$/i, "") : node.name
 
   const {
     renaming,
@@ -104,11 +111,13 @@ function VaultRowMenu({
     handleInputKeyDown,
     runDelete,
   } = useVaultNoteActions({
+    kind: isNote ? "note" : "folder",
     path: node.path,
     persona,
     stem,
-    onRenamed: (newPath) => onRenamed(node.path, newPath),
+    onRenamed: (newPath) => (isNote ? onRenamed(node.path, newPath) : onFolderRenamed?.(node.path, newPath)),
     onDeleted: () => onDeleted(node.path),
+    beforeRename: onBeforeFolderRename,
   })
 
   const runDeleteFolder = async () => {
@@ -190,6 +199,12 @@ function VaultRowMenu({
         <DropdownMenuItem onClick={() => onHide(node.path)}>
           <HugeiconsIcon icon={ViewOffIcon} />
           Hide from view
+        </DropdownMenuItem>
+      )}
+      {onFolderRenamed && (
+        <DropdownMenuItem onClick={() => setPendingRename(true)}>
+          <HugeiconsIcon icon={Edit01Icon} />
+          Rename
         </DropdownMenuItem>
       )}
       <DropdownMenuItem

@@ -53,3 +53,20 @@ export function remapPath(
   const mapped = list.map((p) => (p === oldPath ? newPath : p))
   return mapped.filter((p, i) => mapped.indexOf(p) === i)
 }
+
+/** `list` with the folder `oldFolder` renamed to `newFolder`: the folder's own path and every path under it follow
+ *  (docs/decisions/073). `People and Pets/` and `Other/People/` are not under `People/`. Order is kept; the same list
+ *  comes back when nothing is under the folder. */
+export function remapPrefix(
+  list: string[],
+  oldFolder: string,
+  newFolder: string
+): string[] {
+  const prefix = `${oldFolder}/`
+  if (!list.some((p) => p === oldFolder || p.startsWith(prefix))) return list
+  const mapped = list.map((p) =>
+    p === oldFolder || p.startsWith(prefix) ? newFolder + p.slice(oldFolder.length) : p
+  )
+  return mapped.filter((p, i) => mapped.indexOf(p) === i)
+}
+

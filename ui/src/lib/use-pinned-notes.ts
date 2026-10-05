@@ -1,6 +1,6 @@
 import * as React from "react"
 
-import { readList, remapPath, writeList } from "@/lib/cookie-list"
+import { readList, remapPath, remapPrefix, writeList } from "@/lib/cookie-list"
 import { useVaultScopedState } from "@/lib/use-vault-scoped-state"
 
 const COOKIE = "sympose:vault.pinned"
@@ -30,6 +30,8 @@ export function usePinnedNotes(vaultPath: string | null): {
   unpinMany: (paths: string[]) => void
   /** A renamed or moved note keeps its pin, in the same place. */
   remapPin: (oldPath: string, newPath: string) => void
+  /** A renamed folder takes its pins with it (docs/decisions/073). */
+  remapPinFolder: (oldFolder: string, newFolder: string) => void
   /** Every currently pinned path, insertion order — resolved by the caller
    *  against the full vault tree for the vault-wide "Pinned" group. */
   pinnedPaths: string[]
@@ -77,8 +79,19 @@ export function usePinnedNotes(vaultPath: string | null): {
     [setPinned]
   )
 
+  // A folder was renamed (docs/decisions/073): the pins under it follow.
+  const remapPinFolder = React.useCallback(
+    (oldFolder: string, newFolder: string) => {
+      setPinned((prev) => {
+        const next = remapPrefix([...prev], oldFolder, newFolder)
+        return next.length === prev.size && next.every((p) => prev.has(p)) ? prev : new Set(next)
+      })
+    },
+    [setPinned]
+  )
+
   const isPinned = React.useCallback((path: string) => pinned.has(path), [pinned])
   const pinnedPaths = React.useMemo(() => [...pinned], [pinned])
 
-  return { isPinned, togglePin, unpinMany, remapPin, pinnedPaths }
+  return { isPinned, togglePin, unpinMany, remapPin, remapPinFolder, pinnedPaths }
 }

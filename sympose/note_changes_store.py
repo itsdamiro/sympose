@@ -120,12 +120,27 @@ def move(handle: str, old: str, new: str) -> None:
         if not os.path.exists(old_file):
             return
         moved = _load(old_file, old)
+        if os.path.exists(new_file) and os.path.samefile(old_file, new_file):
+            # A change of case only, on a file system that reads both names as one file: the entry stays where it is
+            # and says its new path (loading it as the target and then deleting the old file would delete it).
+            moved["path"] = new
+            _save(old_file, moved)
+            return
         target = _load(new_file, new)
         target["path"] = new
         target["proposals"] += moved["proposals"]
         target["annotations"] += moved["annotations"]
         _save(new_file, target)
         os.unlink(old_file)
+
+
+def move_prefix(handle: str, old_folder: str, new_folder: str) -> None:
+    """A folder was renamed: every entry under it follows its note to the new path (docs/decisions/073). Only notes
+    inside the folder: `People and Pets/` and `Other/People/` are not under `People/`."""
+    prefix = old_folder.strip("/") + "/"
+    for entry in entries(handle):
+        if entry["path"].startswith(prefix):
+            move(handle, entry["path"], new_folder.strip("/") + "/" + entry["path"][len(prefix):])
 
 
 def drop(handle: str, note_path: str) -> None:

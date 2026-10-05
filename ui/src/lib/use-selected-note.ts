@@ -35,6 +35,7 @@ export function resolveSelectedNoteFor(vaultPath: string | null): string | undef
  *   is a new visit.
  * - `noteRenamed` follows a renamed or moved note: its pin, its place in the
  *   recents and, when open, the editor (docs/decisions/051).
+ * - `folderRenamed` follows a renamed folder the same way, by prefix (docs/decisions/073).
  * - `openableNote` is what the editor shows: a remembered note that has since
  *   been hidden does not reopen, and a note hidden while open closes at once
  *   (docs/decisions/037). Nebula node ids are the note's full vault-relative
@@ -46,12 +47,16 @@ export function useSelectedNote({
   recordVisit,
   remapPin,
   remapRecent,
+  remapPinFolder,
+  remapRecentFolder,
 }: {
   vaultPath: string | null
   isHidden: (path: string | undefined) => boolean
   recordVisit: (path: string) => void
   remapPin: (oldPath: string, newPath: string) => void
   remapRecent: (oldPath: string, newPath: string) => void
+  remapPinFolder: (oldFolder: string, newFolder: string) => void
+  remapRecentFolder: (oldFolder: string, newFolder: string) => void
 }) {
   const [selectedNote, setSelectedNote] = useVaultScopedState(
     NOTE_COOKIE,
@@ -74,6 +79,15 @@ export function useSelectedNote({
     },
     [remapPin, remapRecent, selectedNote, setSelectedNote]
   )
+  // A folder was renamed (docs/decisions/073): the pins and recents under it, and the open note if it is inside.
+  const folderRenamed = React.useCallback(
+    (oldFolder: string, newFolder: string) => {
+      remapPinFolder(oldFolder, newFolder)
+      remapRecentFolder(oldFolder, newFolder)
+      if (selectedNote?.startsWith(`${oldFolder}/`)) setSelectedNote(newFolder + selectedNote.slice(oldFolder.length))
+    },
+    [remapPinFolder, remapRecentFolder, selectedNote, setSelectedNote]
+  )
   const openableNote = isHidden(selectedNote) ? undefined : selectedNote
-  return { selectedNote, setSelectedNote, openableNote, selectNote, noteRenamed }
+  return { selectedNote, setSelectedNote, openableNote, selectNote, noteRenamed, folderRenamed }
 }

@@ -39,6 +39,16 @@ class FolderCreate(BaseModel):
     persona: str | None = None
 
 
+class FolderRename(BaseModel):
+    """Body of `PATCH /api/vault/folder` — rename the folder at `path` to `new_name`, one plain name: the folder keeps its
+    parent (moving a folder is a separate step). Links that name it, the personas' scopes, the hidden list and the
+    persona's pending changes follow (docs/decisions/073)."""
+
+    path: str = Field(..., min_length=1)
+    new_name: str
+    persona: str | None = None
+
+
 class NoteRename(BaseModel):
     """Body of `PATCH /api/vault/note` — rename `path` to `new_path` and
     rewrite every `[[wikilink]]` that referenced it. `new_path` stays in

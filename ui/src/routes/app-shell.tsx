@@ -159,7 +159,7 @@ export function AppShell() {
   const { vaultsState, setVaultsState } = useVaults()
   const [brandMarkLabel, setBrandMarkLabel] = useBrandMarkLabel()
 
-  const { isPinned, togglePin, unpinMany, remapPin, pinnedPaths } = usePinnedNotes(
+  const { isPinned, togglePin, unpinMany, remapPin, remapPinFolder, pinnedPaths } = usePinnedNotes(
     vaultsState.active
   )
   const {
@@ -171,6 +171,7 @@ export function AppShell() {
     recordVisit,
     removeFromRecents,
     remapRecent,
+    remapRecentFolder,
     clearRecents,
   } = useRecentNotes(vaultsState.active)
   const [notifyPrefs, setNotifyPref] = useNotificationPreferences()
@@ -226,13 +227,15 @@ export function AppShell() {
     },
   })
   const { close: closeDraft } = draftEditor
-  const { selectedNote, setSelectedNote, openableNote, selectNote: selectVaultNote, noteRenamed } =
+  const { selectedNote, setSelectedNote, openableNote, selectNote: selectVaultNote, noteRenamed, folderRenamed: selectionFollows } =
     useSelectedNote({
       vaultPath: vaultsState.active,
       isHidden,
       recordVisit,
       remapPin,
       remapRecent,
+      remapPinFolder,
+      remapRecentFolder,
     })
   const selectNote = React.useCallback(
     (path: string) => {
@@ -368,6 +371,16 @@ export function AppShell() {
 
   const activeLabel = SECTION_LABELS[resolvedActive] ?? resolvedActive
 
+  // A folder was renamed (docs/decisions/073): the pins, recents and open note under it follow, and so does the section
+  // when the renamed folder is the one in view.
+  const folderRenamed = React.useCallback(
+    (oldFolder: string, newFolder: string) => {
+      selectionFollows(oldFolder, newFolder)
+      if (active === oldFolder) setActive(newFolder)
+    },
+    [selectionFollows, active, setActive]
+  )
+
   const { moveNote, vaultTreeActions, onEditorRenamed, onEditorDeleted } = useNoteChanges({
     activePersona,
     selectedNote,
@@ -375,6 +388,7 @@ export function AppShell() {
     openableNote,
     selectNote,
     noteRenamed,
+    folderRenamed,
     refreshVault,
     openEditor: () => panels.open("editor"),
     hideFromView,
@@ -645,6 +659,9 @@ export function AppShell() {
           onCreateRoot={setRootCreate}
           onDeleteItem={deleteRootFolder}
           onDefineItem={(item) => void openDefinition(item.id)}
+          persona={activePersona}
+          onRenameFolder={vaultTreeActions.onFolderRenamed}
+          onBeforeRenameFolder={vaultTreeActions.onBeforeFolderRename}
           vaults={vaultsState.vaults}
           activeVault={vaultsState.active}
           onSwitchVault={handleSwitchVault}

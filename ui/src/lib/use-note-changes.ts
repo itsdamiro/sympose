@@ -32,6 +32,7 @@ export function useNoteChanges({
   openableNote,
   selectNote,
   noteRenamed,
+  folderRenamed,
   refreshVault,
   openEditor,
   hideFromView,
@@ -48,6 +49,8 @@ export function useNoteChanges({
   openableNote: string | undefined
   selectNote: (path: string) => void
   noteRenamed: (oldPath: string, newPath: string) => void
+  /** A folder was renamed: the pins, recents, open note and section under it follow (docs/decisions/073). */
+  folderRenamed: (oldFolder: string, newFolder: string) => void
   refreshVault: () => void
   openEditor: () => void
   hideFromView: (path: string) => void
@@ -64,6 +67,24 @@ export function useNoteChanges({
     await getUnsavedGuard()?.retarget(oldPath, newPath)
     refreshVault()
     noteRenamed(oldPath, newPath)
+  }
+
+  // Before the rename request: a note with unsaved edits is saved first, whichever note it is, because the rename
+  // rewrites links on disk and may rewrite this very note, so a buffer saved afterwards would conflict with the file or
+  // overwrite the new links. `false` (it could not be saved; the editor says why) holds the rename back.
+  const beforeFolderRename = async (): Promise<boolean> => {
+    const guard = getUnsavedGuard()
+    return !guard?.isDirty() || (await guard.save())
+  }
+
+  // The folder is already at its new name: a note open inside it has its unsaved edits saved at the new path first
+  // (otherwise the leave-note flush would write to the old one), then everything that held the old path follows.
+  const followFolderMove = async (oldFolder: string, newFolder: string) => {
+    if (selectedNote?.startsWith(`${oldFolder}/`)) {
+      await getUnsavedGuard()?.retarget(selectedNote, newFolder + selectedNote.slice(oldFolder.length))
+    }
+    refreshVault()
+    folderRenamed(oldFolder, newFolder)
   }
 
   const moveNote = async (path: string, destFolder: string) => {
@@ -86,6 +107,8 @@ export function useNoteChanges({
     },
     persona: activePersona,
     onRenamed: followMove,
+    onFolderRenamed: followFolderMove,
+    onBeforeFolderRename: beforeFolderRename,
     onDeleted: (path: string) => {
       refreshVault()
       // `path` is a note's own path for a note-row delete, or a folder's path when

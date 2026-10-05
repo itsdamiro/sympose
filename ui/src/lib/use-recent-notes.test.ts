@@ -184,6 +184,15 @@ describe("useRecentNotes", () => {
     expect(result.current.recentPaths).toEqual(["b.md", "Daily/a.md"])
   })
 
+  it("follows a renamed folder: the recents under it move to the new name, in the same order", () => {
+    const { result } = renderHook(() => useRecentNotes("/vault-a"))
+    for (const p of ["People/Anna.md", "Other.md", "People/Sub/Ben.md"]) act(() => result.current.recordVisit(p))
+
+    act(() => result.current.remapRecentFolder("People", "Team"))
+
+    expect(result.current.recentPaths).toEqual(["Team/Sub/Ben.md", "Other.md", "Team/Anna.md"])
+  })
+
   it("keeps the saved cookie storable with very long paths, dropping the oldest visits", () => {
     const { result } = renderHook(() => useRecentNotes("/vault-a"))
     const long = (i: number) => `${"deep-folder/".repeat(30)}note-${i}.md`
