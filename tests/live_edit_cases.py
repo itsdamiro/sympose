@@ -12,7 +12,7 @@ requests, plus the cases that matter for `manual` mode: a question about the not
 better" discussion must produce no marker at all (she does not propose unasked). Scratch data and invented notes only,
 so a cloud model may be named. Opt-in, not deterministic: read the failing replies (-v).
 
-    python tests/live_edit_cases.py [-v] [runs] [model ...]      (default model: ollama_chat/gemma2:9b)"""
+    [EDIT_MODE=manual|auto] [EDIT_TOOL=1] python tests/live_edit_cases.py [-v] [runs] [model ...]      (default model: ollama_chat/gemma2:9b)"""
 
 import json
 import os
@@ -34,9 +34,11 @@ _MARKER = re.compile(r"<!--\s*propose_edit:\s*(\{.*?\})\s*-->", re.S)
 
 
 # The text is the product's own (`edit_turn.message`), so what is measured is what ships. EDIT_MODE picks the wording
-# (manual, accept: the plain one; auto: the one that also invites a change she notices); EDIT_TOOL=1 is not measured here
-# (this script reads the marker shape, the one a model without tools must use).
+# (manual, accept: the plain one; auto: the one that also invites a change she notices). EDIT_TOOL=1 gives the model the
+# product's tool definitions (`edit_tools.TOOLS`) and the wording a model with tools gets, and reads its tool calls; each
+# call is turned into the same marker as the default shape (a model without tools), so scoring is identical.
 MODE = os.environ.get("EDIT_MODE", "manual")
+TOOL = os.environ.get("EDIT_TOOL") == "1"
 # EDIT_LEAN=1 drops the rules for a new note and for a comment, to see whether the longer block costs a small model
 # its edits (the lines are there for the cases that need them, and cost the others).
 LEAN = os.environ.get("EDIT_LEAN") == "1"
@@ -47,7 +49,7 @@ def user_turn(note: str, request: str) -> str:
 
     if LEAN:
         edit_turn._NOTE_MARKER = edit_turn._COMMENT_MARKER = ""
-    edit = edit_turn.Edit(MODE, False, edit_turn.OpenNote("Garden plan.md", note))
+    edit = edit_turn.Edit(MODE, TOOL, edit_turn.OpenNote("Garden plan.md", note))
     return edit_turn.message(edit, request)
 
 
@@ -91,7 +93,13 @@ def run(model: str, runs: int, verbose: bool) -> None:
     def ask(note: str, request: str) -> str:
         try:
             messages = [{"role": "system", "content": system}, {"role": "user", "content": user_turn(note, request)}]
-            return litellm.completion(model=model, messages=messages, timeout=180).choices[0].message.content or ""
+            if not TOOL:
+                return litellm.completion(model=model, messages=messages, timeout=180).choices[0].message.content or ""
+            from sympose.engine import edit_tools
+
+            reply = litellm.completion(model=model, messages=messages, tools=edit_tools.TOOLS, timeout=180).choices[0].message
+            calls = "".join(f"\n<!-- {c.function.name}: {c.function.arguments} -->" for c in reply.tool_calls or [])
+            return (reply.content or "") + calls
         except Exception as error:
             return f"(call failed: {str(error)[:120]})"
 
@@ -112,7 +120,7 @@ def run(model: str, runs: int, verbose: bool) -> None:
             totals[i] += sum(s[i] for s in scores)
         print(f"  edit     {cid:12} parsed {sum(s[0] for s in scores)}/{runs}  matched {sum(s[1] for s in scores)}/{runs}  correct {sum(s[2] for s in scores)}/{runs}", flush=True)
     n = runs * len(CASES)
-    print(f"{model} [{MODE}] edits: parsed {totals[0]}/{n}  matched {totals[1]}/{n}  correct {totals[2]}/{n}  placed but wrong {wrong}/{n}", flush=True)
+    print(f"{model} [{MODE}{'+tools' if TOOL else ''}] edits: parsed {totals[0]}/{n}  matched {totals[1]}/{n}  correct {totals[2]}/{n}  placed but wrong {wrong}/{n}", flush=True)
 
     quiet, noticed = 0, 0
     for cid, note, request in NO_PROPOSAL:
@@ -127,7 +135,7 @@ def run(model: str, runs: int, verbose: bool) -> None:
                 print(f"      [{cid}] proposed unasked: {reply[:300]!r}", flush=True)
         quiet += none
         print(f"  quiet    {cid:12} no proposal {none}/{runs}", flush=True)
-    print(f"{model} [{MODE}] no unasked proposal{' except the seeded typo' if MODE == 'auto' else ''}: {quiet}/{runs * len(NO_PROPOSAL)}"
+    print(f"{model} [{MODE}{'+tools' if TOOL else ''}] no unasked proposal{' except the seeded typo' if MODE == 'auto' else ''}: {quiet}/{runs * len(NO_PROPOSAL)}"
           + (f"  (noticed the typo in {noticed})" if MODE == "auto" else "") + "\n", flush=True)
 
 
