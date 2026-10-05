@@ -11,6 +11,7 @@ from typing import Any
 from sympose import folder_definitions
 from sympose.vault_folder_paths import OK, resolve_folder
 from sympose.vault_move_reach import Reach, notes_in, reach_changes
+from sympose.vault_write_rename_folder import _new_name_error
 from sympose.vault_write_status import NOTE_EXISTS, NOTE_INVALID_NAME
 
 
@@ -54,9 +55,11 @@ def _definition(mv: str, old: str, new: str) -> str | None:
     return None
 
 
-def plan_move(profile: dict[str, Any], path: str, destination: str) -> tuple[str, MovePlan | None]:
+def plan_move(profile: dict[str, Any], path: str, destination: str, new_name: str = "") -> tuple[str, MovePlan | None]:
     """`(OK, plan)` or `(error, None)`, the error being `NOTE_NOT_FOUND`, `NOTE_DENIED`, `NOTE_INVALID_NAME` (into itself,
-    into its own subfolder, or where it already is) or `NOTE_EXISTS` (something that is not a folder has its name there)."""
+    into its own subfolder, or where it already is, or a `new_name` that is not one plain name) or `NOTE_EXISTS`
+    (something that is not a folder has its name there). With a `new_name`, the plan is for the folder going in under
+    that name, as the user may choose when a folder of its name is already there."""
     status, source = resolve_folder(profile, path)
     if source is None:
         return status, None
@@ -67,10 +70,13 @@ def plan_move(profile: dict[str, Any], path: str, destination: str) -> tuple[str
     _, _, dst, into = dest
     if into == old or into.startswith(old + "/") or into == posixpath.dirname(old):
         return NOTE_INVALID_NAME, None
-    target = os.path.join(dst, os.path.basename(src))
+    name = new_name.strip().strip("\"'") or os.path.basename(src)
+    if new_name and _new_name_error(name) is not None:
+        return NOTE_INVALID_NAME, None
+    target = os.path.join(dst, name)
     if os.path.lexists(target) and not os.path.isdir(target):
         return NOTE_EXISTS, None
-    new = posixpath.join(into, posixpath.basename(old))
+    new = posixpath.join(into, name)
     clash = os.path.isdir(target)
     return OK, MovePlan(
         path=old,

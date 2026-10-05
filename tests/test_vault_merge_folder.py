@@ -128,7 +128,7 @@ def test_a_hidden_file_and_a_hidden_folder_with_no_clash_stay_behind_too(vault):
 
     status, got = merge(vault)
 
-    assert status == mf.OK and got.left_behind == 1 and exists(vault, "People/.keep") and exists(vault, "People/.git/config")
+    assert status == mf.OK and got.left_behind == 2 and exists(vault, "People/.keep") and exists(vault, "People/.git/config")
     assert not exists(vault, "Archive/People/.keep") and not exists(vault, "Archive/People/.git")
 
 
@@ -178,3 +178,59 @@ def test_the_first_free_number_skips_every_folder_given():
 def test_a_folder_name_with_a_dot_is_numbered_whole(vault):
     write(vault, "a/v1.2/x.md")
     assert free_name("v1.2", True, os.path.join(vault, "a")) == "v1.2 (2)"
+
+
+def test_a_note_renamed_before_a_later_one_fails_still_reaches_the_callback_and_the_error_is_returned(vault, monkeypatch):
+    from sympose import vault_write_merge_folder as mg
+
+    write(vault, "People/Anna.md")
+    write(vault, "People/Ben.md")
+    write(vault, "Archive/People/Anna.md")
+    write(vault, "Archive/People/Ben.md")
+    real, seen = mg.rename_note_to_path, []
+
+    def second_fails(profile, old, new):
+        return real(profile, old, new) if not seen_any(seen) else ("Error: read-only", None)
+
+    def seen_any(_):
+        return bool(heard)
+
+    heard = []
+    monkeypatch.setattr(mg, "rename_note_to_path", second_fails)
+
+    status, got = mf.move_folder_to_path(ALL, "People", "Archive", if_exists="merge", rename_clashing_notes=True, on_note_renamed=lambda o, n: heard.append((o, n)))
+
+    assert got is None and status.startswith("Error: could not rename")
+    assert heard == [("People/Anna.md", "People/Anna (2).md")] and exists(vault, "People/Anna (2).md") and exists(vault, "People/Ben.md")
+
+
+def test_a_folder_that_cannot_be_made_does_not_stop_the_merge_and_what_it_holds_stays_behind(vault, monkeypatch):
+    from sympose import vault_write_merge_folder as mg
+
+    write(vault, "People/Anna.md")
+    write(vault, "People/Sub/Cleo.md")
+    write(vault, "Archive/People/Ben.md")
+    real = mg.os.makedirs
+
+    def refuse_sub(path, *a, **k):
+        if os.path.basename(path) == "Sub":
+            raise OSError("a file is in the way")
+        return real(path, *a, **k)
+
+    monkeypatch.setattr(mg.os, "makedirs", refuse_sub)
+
+    status, got = merge(vault)
+
+    assert status == mf.OK and exists(vault, "Archive/People/Anna.md")
+    assert exists(vault, "People/Sub/Cleo.md") and not exists(vault, "Archive/People/Sub") and got.left_behind == 1
+
+
+def test_a_link_to_a_folder_left_in_place_counts_as_left_behind(vault):
+    write(vault, "People/Anna.md")
+    write(vault, "Elsewhere/x.md")
+    write(vault, "Archive/People/Ben.md")
+    os.symlink(os.path.join(vault, "Elsewhere"), os.path.join(vault, "People", "Link"))
+
+    status, got = merge(vault)
+
+    assert status == mf.OK and got.left_behind == 1 and os.path.islink(os.path.join(vault, "People", "Link"))

@@ -231,3 +231,31 @@ def test_the_plan_moves_nothing(env):
     before = sorted(str(p.relative_to(env)) for p in env.rglob("*"))
     plan("People", "Archive")
     assert sorted(str(p.relative_to(env)) for p in env.rglob("*")) == before
+
+
+def test_a_plan_for_another_name_is_for_that_name_and_reads_the_clash_and_the_reach_there(env):
+    (env / "Other" / "Deep" / "Sub").mkdir()
+    (env / "Other" / "Deep" / "Sub" / "x.md").write_text("x\n")
+    (env / "Other" / "Friends").mkdir()  # a folder of the new name is a clash too
+
+    status, got = plan_move(get_profile("samantha"), "People", "Other", "Friends")
+    assert status == OK and got.new_path == "Other/Friends" and got.clash is True
+
+    status, got = plan_move(get_profile("samantha"), "People", "Other", "  Team ")
+    assert status == OK and got.new_path == "Other/Team" and got.clash is False
+    assert {r.handle for r in got.reach} == {"grace"}  # Ada's scope names People, so it goes with it
+
+
+def test_a_persona_scoped_to_the_folder_there_is_not_told_she_gains_notes_that_go_in_under_another_name(env):
+    (env / "Archive" / "People").mkdir()
+    write_persona(profiles_dir_path(), "zed", "name: Zed\nvault_folders: ['Archive/People']\n")
+
+    merged = plan_move(get_profile("samantha"), "People", "Archive")[1]
+    renamed = plan_move(get_profile("samantha"), "People", "Archive", "Friends")[1]
+
+    assert "zed" in {r.handle for r in merged.reach} and "zed" not in {r.handle for r in renamed.reach}
+
+
+@pytest.mark.parametrize("name", ["a/b", "a\\b", ".hid", "bad|name", ".."])
+def test_a_new_name_that_is_not_one_plain_name_is_invalid(env, name):
+    assert plan_move(get_profile("samantha"), "People", "Archive", name)[0] == NOTE_INVALID_NAME

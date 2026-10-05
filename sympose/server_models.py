@@ -45,6 +45,7 @@ class FolderMovePlan(BaseModel):
 
     path: str = Field(..., min_length=1)
     destination: str
+    new_name: str = ""  # plan for the folder going in under this name, when the user chose to rename it for a clash
     persona: str | None = None
 
 

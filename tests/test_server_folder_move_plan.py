@@ -103,3 +103,19 @@ def test_asking_changes_nothing_in_the_vault(env):
     ask(client, "People", "Archive")
 
     assert sorted(str(p.relative_to(vault)) for p in vault.rglob("*")) == before
+
+
+def test_a_plan_for_another_name_is_for_the_folder_going_in_under_it(env):
+    client, _ = env
+
+    body = client.post("/api/vault/folder/move-plan", json={"path": "People", "destination": "Archive", "new_name": "Friends", "persona": "samantha"}).json()
+
+    assert body["new_path"] == "Archive/Friends" and body["clash"] is False and body["note_clashes"] == []
+
+
+def test_a_new_name_that_is_not_one_plain_name_is_refused_as_such(env):
+    client, _ = env
+
+    res = client.post("/api/vault/folder/move-plan", json={"path": "People", "destination": "Archive", "new_name": "a/b", "persona": "samantha"})
+
+    assert res.status_code == 400 and "plain name" in res.json()["detail"]

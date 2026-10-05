@@ -229,3 +229,49 @@ def test_the_answer_says_when_a_merge_left_files_behind(env):
     body = move(client, if_exists="merge").json()
 
     assert body["left_behind"] == 1 and "1 file left in `People`" in body["detail"] and (vault / "People/.keep").exists()
+
+
+@pytest.mark.parametrize("name", ["a/b", ".hid", "bad|name", ".."])
+def test_a_bad_new_name_is_told_so_not_as_a_folder_into_itself(env, name):
+    client, vault, _ = env
+    (vault / "Archive/People").mkdir()
+
+    res = move(client, if_exists="rename", new_name=name)
+
+    assert res.status_code == 400 and "plain name" in res.json()["detail"] and (vault / "People/Anna.md").exists()
+
+
+def test_the_reach_prompt_for_a_rename_is_about_the_name_it_goes_in_under(env, tmp_path):
+    client, vault, profiles = env
+    (vault / "Other/People").mkdir()  # Grace reads Other: merging gives her the notes, going in as Friends does too, but
+    from helpers import write_persona
+
+    write_persona(profiles, "zed", "name: Zed\nvault_folders: ['Other/People']\n")  # Zed reads only the folder that is there
+
+    merge = move(client, destination="Other", if_exists="merge")
+    renamed = move(client, destination="Other", if_exists="rename", new_name="Friends")
+
+    assert "Zed" in merge.json()["detail"] and "Zed" not in renamed.json()["detail"] and "Grace" in renamed.json()["detail"]
+
+
+def test_a_note_renamed_by_a_merge_has_its_pending_changes_followed_even_when_a_later_rename_fails(env, monkeypatch):
+    client, vault, _ = env
+    (vault / "Archive/People").mkdir()
+    (vault / "Archive/People/Anna.md").write_text("there\n")
+    (vault / "Archive/People/Ben.md").write_text("there\n")
+    (vault / "People/Ben.md").write_text("Ben\n")
+    nc.propose_edit("samantha", "People/Anna.md", NOTE, find="three times", replace="four times", say="")
+    from sympose import vault_write_merge_folder as mg
+
+    real, calls = mg.rename_note_to_path, []
+
+    def second_fails(profile, old, new):
+        calls.append(old)
+        return real(profile, old, new) if len(calls) == 1 else ("Error: read-only", None)
+
+    monkeypatch.setattr(mg, "rename_note_to_path", second_fails)
+
+    res = move(client, if_exists="merge", rename_clashing_notes=True)
+
+    assert res.status_code == 500
+    assert [d["path"] for d in nc.drafts("samantha")] == ["People/Anna (2).md"]

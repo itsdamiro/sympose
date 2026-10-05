@@ -52,14 +52,14 @@ def move_plan(body: FolderMovePlan) -> dict[str, Any]:
     """What the move would do and what needs the user's word first: a folder of that name already there (rename or merge),
     the files in both, the personas whose reach would change, a definition note that stops or starts applying. Moves nothing."""
     profile = require_profile(body.persona)
-    status, got = plan_move(profile, body.path, body.destination)
+    status, got = plan_move(profile, body.path, body.destination, body.new_name)
     if got is None:
         translate_vault_result(
             status,
             not_found=f"No folder `{body.path}` or no folder `{body.destination}` in the vault.",
             exists="Something that is not a folder already has that name there.",
             denied=sandbox_denied(body.path),
-            invalid_name="A folder cannot go into itself, into one of its own folders, or into the folder it is already in.",
+            invalid_name=_INVALID_MOVE,
         )
         raise HTTPException(status_code=500, detail=status)
     return {
@@ -67,6 +67,12 @@ def move_plan(body: FolderMovePlan) -> dict[str, Any]:
         "note_clashes": list(got.note_clashes), "definition": got.definition,
         "reach": [{"handle": r.handle, "name": r.name, "gains": r.gains, "loses": r.loses} for r in got.reach],
     }
+
+
+_INVALID_MOVE = (
+    "A folder cannot go into itself, into one of its own folders, or into the folder it is already in, and a new name is "
+    "one plain name: no `/` or `\\`, not starting with a dot, and none of `[`, `]`, `|` or `#`."
+)
 
 
 def _plural(n: int, word: str) -> str:
@@ -77,7 +83,7 @@ def move_folder(body: FolderMove) -> dict[str, Any]:
     """Move the folder, then let the personas' scopes, the hidden list and the pending changes follow. A move that changes
     what a persona can read is refused until `confirm_reach` says the user agreed (docs/decisions/074)."""
     profile = require_profile(body.persona)
-    status, plan = plan_move(profile, body.path, body.destination)
+    status, plan = plan_move(profile, body.path, body.destination, body.new_name if body.if_exists == "rename" else "")
     if plan is None:
         _raise_move_error(status, body)
     if plan.clash and body.if_exists is None:
@@ -92,12 +98,10 @@ def move_folder(body: FolderMove) -> dict[str, Any]:
         raise HTTPException(status_code=409, detail=f"This changes what a persona can read ({who}); confirm to move anyway.")
     status, got = move_folder_to_path(
         profile, body.path, body.destination, if_exists=body.if_exists, new_name=body.new_name,
-        rename_clashing_notes=body.rename_clashing_notes,
+        rename_clashing_notes=body.rename_clashing_notes, on_note_renamed=note_changes.rename_everywhere,
     )
     if got is None:
         _raise_move_error(status, body)
-    for old, new in got.renamed_notes:  # a renamed incoming note takes its pending changes along, before the folder's follow
-        note_changes.rename_everywhere(old, new)
     changed, unchanged = persona_scope.rename_folder(plan.path, got.path)
     vault = vault_paths.get_master_vault()
     if vault:
@@ -136,6 +140,6 @@ def _raise_move_error(status: str, body: FolderMove) -> None:
         not_found=f"No folder `{body.path}` or no folder `{body.destination}` in the vault.",
         exists="Something already has that name there.",
         denied=sandbox_denied(body.path),
-        invalid_name="A folder cannot go into itself, into one of its own folders, or into the folder it is already in.",
+        invalid_name=_INVALID_MOVE,
     )
     raise HTTPException(status_code=500, detail=status)
