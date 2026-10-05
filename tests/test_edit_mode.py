@@ -3,6 +3,7 @@ counts for a persona (her untracked `persona.local.yaml`, then her shipped `pers
 `manual`), and the note a user is shown beside the more autonomous modes, specific to the model."""
 
 import os
+import shutil
 
 import pytest
 
@@ -82,8 +83,12 @@ def test_no_profile_at_all_is_the_global_mode():
     assert edit_mode.for_persona(None) == "plan"
 
 
-def test_shipped_samantha_is_manual_whatever_the_global_mode_is(monkeypatch):
-    monkeypatch.setenv("SYMPOSE_PROFILES_DIR", os.path.join(os.path.dirname(__file__), "..", "profiles"))
+def test_shipped_samantha_is_manual_whatever_the_global_mode_is(monkeypatch, tmp_path):
+    # Her shipped file only, copied: the real folder may hold the user's own untracked persona.local.yaml (their choice).
+    shipped = tmp_path / "profiles" / "samantha"
+    shipped.mkdir(parents=True)
+    shutil.copy(os.path.join(os.path.dirname(__file__), "..", "profiles", "samantha", "persona.yaml"), shipped)
+    monkeypatch.setenv("SYMPOSE_PROFILES_DIR", str(tmp_path / "profiles"))
     settings_store.set(edit_mode.SETTING, "auto")
     assert edit_mode.for_persona(profile.get_profile("samantha")) == "manual"
 
