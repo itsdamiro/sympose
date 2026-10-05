@@ -48,6 +48,17 @@ class FolderMovePlan(BaseModel):
     persona: str | None = None
 
 
+class FolderMove(BaseModel):
+    """Body of `PATCH /api/vault/folder/move` — move the folder at `path` into `destination` (a folder, or `""` for the
+    vault root), keeping its name. Links that name it, the personas' scopes, the hidden list and the pending changes
+    follow. `confirm_reach`: the user said yes to a move that changes what a persona can read (docs/decisions/074)."""
+
+    path: str = Field(..., min_length=1)
+    destination: str
+    confirm_reach: bool = False
+    persona: str | None = None
+
+
 class FolderRename(BaseModel):
     """Body of `PATCH /api/vault/folder` — rename the folder at `path` to `new_name`, one plain name: the folder keeps its
     parent (moving a folder is a separate step). Links that name it, the personas' scopes, the hidden list and the
