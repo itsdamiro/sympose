@@ -13,7 +13,7 @@ from typing import Any, Callable
 from sympose import folder_definitions as defs
 from sympose import folder_definitions_write as write_defs
 from sympose import folder_looks
-from sympose import vault_graph, vault_paths
+from sympose import vault_graph, vault_health_moves, vault_paths
 from sympose.vault_defaults import ATTACHMENT_EXTENSIONS, IGNORE_FOLDERS, NOTE_EXTENSIONS
 from sympose.vault_snapshot import get_vault_snapshot
 
@@ -152,6 +152,14 @@ def check_titles(scope: Scope) -> list[Finding]:
     return found
 
 
+def check_stale_definitions(scope: Scope) -> list[Finding]:
+    return [Finding(folder_of(rel), rel, message) for rel, message in vault_health_moves.stale_definitions(scope.notes)]
+
+
+def check_numbered_twins(scope: Scope) -> list[Finding]:
+    return [Finding(folder_of(rel), rel, message) for rel, message in vault_health_moves.numbered_twins(scope.notes)]
+
+
 CHECKS: list[Check] = [
     Check("Folders due a definition", check_due_folders, problem=False, per_folder=False),
     Check("Folder definitions with no icon", check_definition_icons, problem=False, of_notes=False),
@@ -159,6 +167,8 @@ CHECKS: list[Check] = [
     Check("Links to no note", check_broken_links),
     Check("Titles that are not the file name", check_titles),
     Check("Other files (clutter)", check_other_files, problem=False, of_notes=False),
+    Check("Notes named after a folder that is not top-level", check_stale_definitions, problem=False),
+    Check("Numbered twins of a note", check_numbered_twins, problem=False),
 ]
 
 
