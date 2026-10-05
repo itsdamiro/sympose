@@ -7,8 +7,10 @@ outside fenced code."""
 
 import re
 
-_DELIMITER = re.compile(r"^ {0,3}\|?[ \t]*:?-+:?[ \t]*(\|[ \t]*:?-+:?[ \t]*)*\|?[ \t]*$")
-_FENCE = re.compile(r"^ {0,3}(```|~~~)")
+_DELIMITER = re.compile(r"^\|?[ \t]*:?-+:?[ \t]*(\|[ \t]*:?-+:?[ \t]*)*\|?[ \t]*$")
+_OPEN = re.compile(r"(`{3,}|~{3,})(.*)$")  # a code fence's opening line: its characters, then the info string
+_LIST = re.compile(r"(?:[-*+]|\d{1,9}[.)])[ \t]+")  # a list marker, which a table's header row may follow
+_MARGIN = re.compile(r"[ \t]*(?:>[ \t]?)*")  # what a line starts with before its own text: indent, blockquote markers
 _PIPE = re.compile(r"(?<!\\)\|")
 _REFUSAL = "Quote words that sit inside one cell of the table, with a replacement that stays in that cell: a table change across cells, rows or lines cannot be shown to the user, so say it in a comment instead."
 
@@ -22,22 +24,37 @@ def _cells(line: str) -> list[tuple[int, int]]:
     return [(a + 1, b) for a, b in zip(edges, edges[1:])]
 
 
+def _fence_after(fence: tuple[str, int] | None, line: str) -> tuple[str, int] | None:
+    """The code fence still open after `line`: a fence opens with three or more backticks or tildes (a backtick
+    fence's info string holds no backtick, or the line is inline code) and closes with its own character, at least as
+    many times, and nothing else on the line."""
+    if fence is None:
+        found = _OPEN.match(line)
+        return (found[1][0], len(found[1])) if found and not (found[1][0] == "`" and "`" in found[2]) else None
+    return None if re.fullmatch(rf"{re.escape(fence[0])}{{{fence[1]},}}[ \t]*", line) else fence
+
+
 def _tables(text: str) -> list[list[tuple[int, str, bool]]]:
-    """Each table as its rows: (offset of the line, the line, whether it is the delimiter row)."""
+    """Each table as its rows: (offset of the row's own text, that text, whether it is the delimiter row). A line's own
+    text leaves out its end (`\\r` of a Windows note) and its margin, so a table in a blockquote or under a list item is
+    read like any other."""
     lines, at = [], 0
-    for line in text.split("\n"):
-        lines.append((at, line))
-        at += len(line) + 1
-    found, fenced, i = [], False, 0
+    for raw in text.split("\n"):
+        margin = _MARGIN.match(raw).end()
+        lines.append((at + margin, raw[margin:].rstrip("\r")))
+        at += len(raw) + 1
+    found, fence, i = [], None, 0
     while i < len(lines):
         offset, line = lines[i]
-        if _FENCE.match(line):
-            fenced = not fenced
-        header = "|" in line and i + 1 < len(lines) and not fenced
-        if header and _DELIMITER.match(lines[i + 1][1]) and "|" in lines[i + 1][1] and len(_cells(line)) == len(_cells(lines[i + 1][1])):
-            rows = [(offset, line, False), (*lines[i + 1], True)]
+        fence = _fence_after(fence, line)
+        listed = _LIST.match(line)
+        lead = listed.end() if listed else 0
+        head = line[lead:]
+        header = "|" in head and i + 1 < len(lines) and fence is None
+        if header and _DELIMITER.match(lines[i + 1][1]) and "|" in lines[i + 1][1] and len(_cells(head)) == len(_cells(lines[i + 1][1])):
+            rows = [(offset + lead, head, False), (*lines[i + 1], True)]
             i += 2
-            while i < len(lines) and lines[i][1].strip() and not _FENCE.match(lines[i][1]):
+            while i < len(lines) and lines[i][1].strip() and _fence_after(None, lines[i][1]) is None:
                 rows.append((*lines[i], False))
                 i += 1
             found.append(rows)
@@ -60,6 +77,6 @@ def problem(text: str, start: int, end: int, replace: str) -> str | None:
                     lead = a + len(content) - len(content.lstrip())
                     stop = a + len(content.rstrip())
                     if offset + lead <= start and end <= offset + stop and start < end:
-                        return _REFUSAL if _PIPE.search(replace) or "\n" in replace else None
+                        return _REFUSAL if _PIPE.search(replace) or "\n" in replace or replace.endswith("\\") else None
         return _REFUSAL
     return None

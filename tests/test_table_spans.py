@@ -121,3 +121,104 @@ def test_a_single_pipe_row_over_a_dash_line_is_a_heading_not_a_table():
 def test_nothing_quoted_inside_a_cell_is_refused():
     start, _ = at(NOTE, "Carrots")
     assert ts.problem(NOTE, start, start, "x") is not None
+
+
+CRLF = NOTE.replace("\n", "\r\n")
+QUOTED = "> A quote.\n>\n> | Item | Qty |\n> |------|-----|\n> | Carrots | 3 |\n\nDone.\n"
+DEEP = "1. Step\n\n    | Item | Qty |\n    |------|-----|\n    | Carrots | 3 |\n"
+
+
+@pytest.mark.parametrize("find", ["Carrots | 3", "| Carrots", "3 | sow early"])
+def test_a_note_with_windows_line_endings_is_read_the_same(find):
+    assert "one cell" in (problem(find, "x", CRLF) or "")
+
+
+def test_windows_line_endings_do_not_get_in_the_way_of_a_change_inside_a_cell():
+    assert problem("Carrots", "Parsnips", CRLF) is None
+    assert problem("sow early", "x", CRLF) is None
+    assert problem("raised", "sunken", CRLF) is None
+
+
+def test_a_line_break_in_a_replacement_is_refused_in_a_cell_however_the_note_ends_its_lines():
+    assert problem("Carrots", "a\r\nb", CRLF) is not None
+
+
+def test_a_table_inside_a_blockquote_is_a_table():
+    assert "one cell" in (problem("Carrots | 3", "x", QUOTED) or "")
+    assert "one cell" in (problem("> | Carrots", "x", QUOTED) or "")
+    assert problem("Carrots", "Parsnips", QUOTED) is None
+    assert problem("A quote.", "x", QUOTED) is None
+
+
+def test_a_table_indented_under_a_list_item_is_a_table():
+    assert "one cell" in (problem("Carrots | 3", "x", DEEP) or "")
+    assert problem("Carrots", "Parsnips", DEEP) is None
+
+
+def test_a_table_in_a_fence_inside_a_blockquote_is_not_a_table():
+    text = "> ```\n> | a | b |\n> |---|---|\n> | Carrots | 3 |\n> ```\n"
+    assert problem("Carrots | 3", "x", text) is None
+
+
+def test_a_table_inside_a_nested_blockquote_is_a_table():
+    text = "> > | a | b |\n> > |---|---|\n> > | Carrots | 3 |\n"
+    assert "one cell" in (problem("Carrots | 3", "x", text) or "")
+    assert problem("Carrots", "Parsnips", text) is None
+
+
+def test_a_table_inside_a_tilde_fence_is_not_a_table():
+    text = "~~~\n| a | b |\n|---|---|\n| Carrots | 3 |\n~~~\n"
+    assert problem("Carrots | 3", "x", text) is None
+
+
+def test_a_line_that_only_looks_like_a_fence_does_not_swallow_the_table_after_it():
+    # a backtick fence's info string cannot hold a backtick, so this line is inline code, not an opening fence
+    text = "```inline``` text\n\n| a | b |\n|---|---|\n| Carrots | 3 |\n"
+    assert "one cell" in (problem("Carrots | 3", "x", text) or "")
+
+
+def test_a_fence_closes_only_with_its_own_character_and_at_least_its_own_length():
+    text = "````\n```\n~~~\n| a | b |\n|---|---|\n| Carrots | 3 |\n````\n\n| c | d |\n|---|---|\n| Beets | 5 |\n"
+    assert problem("Carrots | 3", "x", text) is None  # all of it is inside the four-backtick fence
+    assert "one cell" in (problem("Beets | 5", "x", text) or "")  # and the table after the fence is found
+
+
+def test_a_table_whose_header_starts_with_a_list_marker_is_a_table():
+    bullet = "- | a | b |\n  |---|---|\n  | Carrots | 3 |\n"
+    numbered = "1. | a | b |\n   |---|---|\n   | Carrots | 3 |\n"
+    for text in (bullet, numbered):
+        assert "one cell" in (problem("Carrots | 3", "x", text) or "")
+        assert problem("Carrots", "Parsnips", text) is None
+    assert problem("a | b", "x", bullet) is not None
+
+
+def test_a_bullet_line_that_is_not_over_a_delimiter_row_is_not_a_table():
+    text = "- one | two\n- three | four\n"
+    assert problem("one | two", "x", text) is None
+
+
+def test_a_replacement_ending_in_a_backslash_would_escape_the_pipe_after_it_and_is_refused():
+    compact = "|Carrots|3|\n|-|-|\n|Beets|5|\n"
+    assert "one cell" in (problem("Carrots", "x\\", compact) or "")
+    assert problem("Carrots", "x", compact) is None
+
+
+def test_a_tilde_fence_is_not_closed_by_backticks_inside_it():
+    text = "~~~\n```\n| a | b |\n|---|---|\n| Carrots | 3 |\n~~~\n"
+    assert problem("Carrots | 3", "x", text) is None
+
+
+def test_a_fence_may_close_with_spaces_after_it():
+    text = "```\ncode\n```   \n\n| a | b |\n|---|---|\n| Carrots | 3 |\n"
+    assert "one cell" in (problem("Carrots | 3", "x", text) or "")
+
+
+def test_the_header_row_after_a_list_marker_keeps_its_own_cells():
+    bullet = "- | a | b |\n  |---|---|\n  | Carrots | 3 |\n"
+    assert problem("b", "x", bullet) is None
+    assert problem("a", "x", bullet) is None
+
+
+def test_a_table_ends_where_a_code_fence_opens_even_without_a_blank_line():
+    text = "| a | b |\n|---|---|\n| 1 | 2 |\n```\ncode | x\n```\n"
+    assert problem("code | x", "y", text) is None
