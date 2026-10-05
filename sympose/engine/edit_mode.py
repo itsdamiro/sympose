@@ -37,7 +37,8 @@ MEASURED = {
     "ollama_chat/gemma2:9b": _GEMMA,
     "ollama/gemma2:9b": _GEMMA,
     "gemini/gemini-flash-latest": (
-        "Measured on a small set of invented notes only: every change was right (36 of 36). " + _READ_EACH
+        "Measured on a small set of invented notes only, with her real prompt: a change was right 35 times out of 36 (once it "
+        "added a list item without its marker). " + _READ_EACH
     ),
 }
 _UNMEASURED = (

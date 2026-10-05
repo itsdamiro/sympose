@@ -102,6 +102,8 @@ def run(model: str, runs: int, verbose: bool) -> None:
         for _ in range(runs):
             reply = ask(note, instruction)
             parsed, matched, new = apply(reply, note)
+            if MODE == "auto" and cid != "typo":
+                new = new.replace("receive", "recieve")  # `auto` may also fix the invented note's seeded typo, which it should notice: not an error in the requested edit
             scores.append((parsed, matched, parsed and matched and correct(case, new)))
             wrong += bool(patches(reply)[1]) and bool(scores[-1][1]) and not scores[-1][2]  # a change that was placed and is wrong
             if verbose and not scores[-1][2]:
@@ -112,18 +114,21 @@ def run(model: str, runs: int, verbose: bool) -> None:
     n = runs * len(CASES)
     print(f"{model} [{MODE}] edits: parsed {totals[0]}/{n}  matched {totals[1]}/{n}  correct {totals[2]}/{n}  placed but wrong {wrong}/{n}", flush=True)
 
-    quiet = 0
+    quiet, noticed = 0, 0
     for cid, note, request in NO_PROPOSAL:
         none = 0
         for _ in range(runs):
             reply = ask(note, request)
-            if "propose_edit" not in reply:
+            others = [f for f, _ in patches(reply)[1] if "recieve" not in f] if MODE == "auto" else None  # in `auto` only the seeded typo may be proposed unasked
+            noticed += MODE == "auto" and "recieve" in reply and "propose_edit" in reply
+            if (others is None and "propose_edit" not in reply) or (others is not None and not others and patches(reply)[0]):
                 none += 1
             elif verbose:
                 print(f"      [{cid}] proposed unasked: {reply[:300]!r}", flush=True)
         quiet += none
         print(f"  quiet    {cid:12} no proposal {none}/{runs}", flush=True)
-    print(f"{model} [{MODE}] no unasked proposal: {quiet}/{runs * len(NO_PROPOSAL)}\n", flush=True)
+    print(f"{model} [{MODE}] no unasked proposal{' except the seeded typo' if MODE == 'auto' else ''}: {quiet}/{runs * len(NO_PROPOSAL)}"
+          + (f"  (noticed the typo in {noticed})" if MODE == "auto" else "") + "\n", flush=True)
 
 
 if __name__ == "__main__":

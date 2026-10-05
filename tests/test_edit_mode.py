@@ -106,7 +106,7 @@ def test_gemma_is_one_model_whichever_way_ollama_names_it():
 
 def test_a_model_measured_as_faithful_gets_the_short_form_with_its_figure():
     text = edit_mode.note("auto", FLASH)
-    assert "36 of 36" in text and "invented notes" in text
+    assert "35 times out of 36" in text and "invented notes" in text
     assert len(text) < len(edit_mode.note("auto", GEMMA))
 
 

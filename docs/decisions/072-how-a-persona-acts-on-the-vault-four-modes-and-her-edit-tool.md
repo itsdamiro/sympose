@@ -27,7 +27,7 @@ Nothing in any mode writes the vault: the file changes only through the user's A
 
 - For `gemma2:9b` (figures corrected 2026-10-05, see Measured): a change right 18 times of 36 with her real prompt, placed but wrong 3 times of 36 and otherwise her talking instead of proposing (the first draft of this record quoted the bare-prompt 29 of 36 and 2 of 36), and a price invented once in 4 when the request needed a fact the note did not hold (ADR 042, Measured). Read each change before accepting it.
 - For a model smaller than `gemma2:9b`, or any model not measured: nothing is known about how faithfully it edits, and smaller models are expected to be worse, not better.
-- For a model measured as faithful (Gemini Flash, 36 of 36 on the same set): the shorter form, measured on a small set of invented notes only.
+- For a model measured as faithful (Gemini Flash, 35 of 36 with the shipped text, see Measured 2026-10-05): the shorter form, measured on a small set of invented notes only.
 
 It is information, not a block: the user can choose `auto` with any model. The same note, shorter, is shown beside `accept`.
 
@@ -91,6 +91,10 @@ What the replies show:
 
 - **Every further line cost the small model its edits,** and it mostly failed by talking about the change instead of proposing it (a safe failure); the compressed line also raised the placed-but-wrong count. So a model that cannot call tools is given the edit rule alone beside a note, and has no new-note or comment lines until a way is found that does not cost it (a model with tools gets all three tools, which are described outside the prompt). Two runs of the full set earlier gave 8 of 18 manual and 7 of 18 for `auto`'s wording; `auto` was not measured with the lean rules.
 - **The warning's figures were wrong for this prompt:** the 29 of 36 was Spike B's bare prompt. The note shown beside `accept` and `auto` now says 18 of 36 right and 3 of 36 placed but wrong.
+
+## Measured (2026-10-05): the shipped turn text on Gemini Flash, four runs per case (36 edit replies, 12 quiet)
+
+`gemini/gemini-flash-latest`, the marker shape, invented notes only (`tests/live_edit_cases.py`, `EDIT_MODE=manual|auto`; the user approved the scratch cloud run). **`manual` wording:** 35 of 36 right, 1 placed but wrong (a list item added without its marker, once), 12 of 12 quiet. **`auto` wording:** 36 of 36 right and 12 of 12 quiet apart from the note's seeded typo, which it noticed unasked in 8 of the 12 quiet replies; that is what `auto` is for. The script first counted that typo fix against the requested edit (25 of 36, 11 wrong, and 5 of 12 quiet), so it now sets the seeded typo aside in `auto` and counts any other unasked change as the problem. So the in-app note for Flash says 35 of 36 (it said 36 of 36 from the earlier script wording). The tool shape is not measured live yet.
 
 ## Built so far (2026-10-05): the setting, the persona's control and the warning (steps 1 and 2)
 
