@@ -182,6 +182,61 @@ def test_drafts_list_notes_with_a_proposal_waiting_or_an_open_comment_with_both_
     assert drafts["a.md"]["time"] and drafts["only-comments.md"]["time"]
 
 
+NEWER = 4_102_444_800.0  # a note written long after any comment of these tests (year 2100)
+
+
+def stored(path="a.md") -> list[str]:
+    return [a["text"] for a in store.read(H, path)["annotations"]]
+
+
+def test_a_comment_whose_words_are_gone_from_a_note_written_since_is_deleted_with_its_answers():
+    gone = nc.annotate(H, "a.md", NOTE, quote="raised", text="q", author="user")
+    nc.reply(H, "a.md", gone["id"], text="because", author="persona")
+    nc.annotate(H, "a.md", NOTE, quote="three times", text="kept", author="user")
+
+    nc.prune(H, "a.md", NOTE.replace("raised", "sunken"), NEWER)
+
+    assert stored() == ["kept"]
+
+
+def test_a_note_left_with_no_comment_keeps_no_file():
+    nc.annotate(H, "a.md", NOTE, quote="raised", text="q", author="user")
+
+    nc.prune(H, "a.md", NOTE.replace("raised", "sunken"), NEWER)
+
+    assert nc.drafts(H) == [] and store.entries(H) == []
+
+
+def test_a_comment_newer_than_the_file_is_not_judged_by_it():
+    """It may be on words that are only in the editor so far."""
+    nc.annotate(H, "a.md", NOTE, quote="raised", text="q", author="user")
+
+    nc.prune(H, "a.md", NOTE.replace("raised", "sunken"), 1.0)  # a file written long before the comment
+    nc.prune(H, "a.md", NOTE.replace("raised", "sunken"), None)  # no file time
+
+    assert stored() == ["q"]
+
+
+def test_a_comment_the_user_resolved_is_deleted_and_one_whose_words_are_there_is_kept():
+    done = nc.annotate(H, "a.md", NOTE, quote="raised", text="done", author="user")
+    nc.reply(H, "a.md", done["id"], text="because", author="persona")
+    nc.annotate(H, "a.md", NOTE, quote="three times", text="open", author="user")
+    nc.set_annotation_state(H, "a.md", done["id"], nc.RESOLVED)
+
+    nc.prune(H, "a.md", NOTE, 1.0)
+
+    assert stored() == ["open"]
+
+
+def test_a_persona_comment_the_user_decided_on_is_kept_until_it_has_been_told_to_her():
+    mine = nc.annotate(H, "a.md", NOTE, quote="raised", text="hers", author="persona")
+    nc.change_annotation(H, "a.md", mine["id"], verdict=nc.ACCEPTED)
+
+    nc.prune(H, "a.md", NOTE, 1.0)
+
+    assert stored() == ["hers"]
+
+
 def test_a_resolved_comment_does_not_list_a_note_and_answers_are_not_counted():
     root = nc.annotate(H, "a.md", NOTE, quote="raised", text="q", author="user")
     nc.reply(H, "a.md", root["id"], text="because", author="persona")
@@ -701,3 +756,71 @@ def test_a_folder_rename_keeps_a_deep_path_exact_and_a_case_only_change_works():
     nc.rename_folder_everywhere("Sub", "sub")
 
     assert [d["path"] for d in nc.drafts(H)] == ["sub/Deep/Anna.md"]
+
+
+def test_her_change_over_words_the_user_commented_on_answers_the_comment_with_her_explanation():
+    asked = nc.annotate(H, "a.md", NOTE, quote="three times", text="make this bold", author="user")
+
+    nc.propose_edit(H, "a.md", NOTE, find="three times", replace="**three times**", say="Made it bold.")
+
+    (answer,) = [c for c in store.read(H, "a.md")["annotations"] if c["reply_to"]]
+    assert answer["reply_to"] == asked["id"] and answer["author"] == "persona" and answer["text"] == "Made it bold."
+
+
+def test_her_change_elsewhere_in_the_note_answers_no_comment():
+    nc.annotate(H, "a.md", NOTE, quote="raised", text="why?", author="user")
+
+    nc.propose_edit(H, "a.md", NOTE, find="three times", replace="four times", say="Count.")
+
+    assert [c["reply_to"] for c in store.read(H, "a.md")["annotations"]] == [None]
+
+
+def test_accepting_a_change_settles_the_comment_on_its_words_and_declining_does_not():
+    asked = nc.annotate(H, "a.md", NOTE, quote="three times", text="make this bold", author="user")
+    other = nc.annotate(H, "a.md", NOTE, quote="raised", text="why?", author="user")
+    change = nc.propose_edit(H, "a.md", NOTE, find="three times", replace="**three times**", say="Made it bold.")
+
+    nc.settle_comments(H, "a.md", NOTE, [])  # nothing accepted: nothing settled
+    assert {c["id"] for c in store.read(H, "a.md")["annotations"] if not c["reply_to"]} == {asked["id"], other["id"]}
+
+    nc.settle_comments(H, "a.md", NOTE, [change["id"]])
+
+    assert [c["id"] for c in store.read(H, "a.md")["annotations"]] == [other["id"]]  # her answer went with the comment
+
+
+def test_the_drafts_count_is_how_many_different_marks_the_note_shows():
+    nc.annotate(H, "a.md", NOTE, quote="three times", text="make this bold", author="user")  # answered by the change below: one item
+    nc.propose_edit(H, "a.md", NOTE, find="three times", replace="**three times**", say="Bold.")
+    nc.annotate(H, "a.md", NOTE, quote="raised", text="why?", author="user")
+    nc.annotate(H, "a.md", NOTE, quote="Phone", text="which?", author="user")
+
+    (draft,) = nc.drafts(H, lambda path: NOTE)
+
+    assert (draft["count"], draft["comments"], draft["items"]) == (1, 2, 3)
+
+
+def test_a_change_or_comment_that_is_not_marked_on_the_note_is_not_counted():
+    nc.propose_edit(H, "a.md", NOTE, find="raised", replace="sunken", say="")
+    nc.annotate(H, "a.md", NOTE, quote="Phone", text="which?", author="user")
+    rewritten = NOTE.replace("raised", "sunken").replace("Phone", "Mobile")
+
+    assert nc.drafts(H, lambda path: rewritten) == []
+    assert [d["items"] for d in nc.drafts(H, lambda path: NOTE)] == [2]
+
+
+def test_a_new_note_counts_as_one_item_and_has_no_text_to_judge_comments_by():
+    nc.propose_create(H, "New.md", "# New\n", say="")
+
+    assert [(d["path"], d["items"]) for d in nc.drafts(H, lambda path: None)] == [("New.md", 1)]
+
+
+def test_a_change_whose_words_are_gone_from_a_note_written_since_is_deleted_but_an_unclear_one_is_kept():
+    nc.propose_edit(H, "a.md", NOTE, find="raised", replace="sunken", say="")
+    nc.propose_edit(H, "a.md", NOTE, find="three times", replace="four times", say="")
+
+    nc.prune(H, "a.md", NOTE.replace("raised", "sunken"), NEWER)
+    assert [p["find"] for p in store.read(H, "a.md")["proposals"]] == ["three times"]
+
+    nc.prune(H, "a.md", "three times and three times", NEWER)  # in the note twice: unclear, not gone
+    assert [p["find"] for p in store.read(H, "a.md")["proposals"]] == ["three times"]
+

@@ -31,6 +31,51 @@ def vault_files(vault) -> dict[str, str]:
     return {name: (vault / name).read_text() for name in sorted(os.listdir(vault))}
 
 
+def test_reading_the_drafts_or_the_changes_quietly_deletes_the_comments_the_note_no_longer_has(env):
+    client, vault = env
+    nc.annotate("samantha", "Garden plan.md", NOTE, quote="raised", text="q", author="user")
+
+    def drafts():
+        return client.get("/api/vault/drafts", params={"persona": "samantha"}).json()["drafts"]
+
+    def changes():
+        return changes_for(client, "Garden plan.md")
+
+    assert [(d["path"], d["comments"]) for d in drafts()] == [("Garden plan.md", 1)]
+
+    (vault / "Garden plan.md").write_text(NOTE.replace("raised", "sunken"))
+    os.utime(vault / "Garden plan.md", (4_102_444_800, 4_102_444_800))  # written after the comment
+    assert drafts() == []
+    assert changes()["annotations"] == []
+    assert nc.drafts("samantha") == []  # gone from storage, not only from the answer
+
+
+def test_accepting_a_change_through_the_route_settles_the_comment_it_answered_and_declining_keeps_it(env):
+    client, _ = env
+    nc.annotate("samantha", "Garden plan.md", NOTE, quote="three times", text="make this bold", author="user")
+    change = nc.propose_edit("samantha", "Garden plan.md", NOTE, find="three times", replace="**three times**", say="Bold.")
+    body = {"path": "Garden plan.md", "persona": "samantha", "ids": [change["id"]]}
+
+    client.post("/api/vault/changes/resolve", json=body)  # declined
+    assert [c["author"] for c in changes_for(client, "Garden plan.md")["annotations"] if not c["reply_to"]] == ["user"]
+
+    change = nc.propose_edit("samantha", "Garden plan.md", NOTE, find="three times", replace="**three times**", say="Bold again.")
+    client.post("/api/vault/changes/resolve", json={**body, "ids": [change["id"]], "accepted": True})
+
+    assert changes_for(client, "Garden plan.md")["annotations"] == []
+
+
+def test_the_drafts_route_counts_the_marks_on_the_note_once_each(env):
+    client, _ = env
+    nc.annotate("samantha", "Garden plan.md", NOTE, quote="three times", text="make this bold", author="user")
+    nc.propose_edit("samantha", "Garden plan.md", NOTE, find="three times", replace="**three times**", say="Bold.")
+    nc.annotate("samantha", "Garden plan.md", NOTE, quote="raised", text="why?", author="user")
+
+    (draft,) = client.get("/api/vault/drafts", params={"persona": "samantha"}).json()["drafts"]
+
+    assert (draft["count"], draft["comments"], draft["items"]) == (1, 1, 2)
+
+
 def test_drafts_list_the_notes_with_a_proposal_for_the_asking_persona_only(env):
     client, _ = env
     nc.propose_edit("samantha", "Garden plan.md", NOTE, find="three times", replace="four times", say="Count.")
@@ -129,16 +174,16 @@ def test_resolving_with_neither_ids_nor_all_forgets_nothing(env):
     assert len(client.get("/api/vault/changes", params={"path": "Garden plan.md", "persona": "samantha"}).json()["proposals"]) == 1
 
 
-def test_a_comment_is_added_resolved_edited_and_deleted_through_the_routes(env):
+def test_a_comment_is_added_edited_and_deleted_through_the_routes(env):
     client, _ = env
 
     made = client.post("/api/vault/annotations", json={"path": "Garden plan.md", "quote": "raised", "text": "why?", "persona": "samantha"})
     cid = made.json()["id"]
     assert made.status_code == 201 and made.json()["author"] == "user" and made.json()["state"] == "open"
 
-    assert client.patch("/api/vault/annotations", json={"path": "Garden plan.md", "id": cid, "state": "resolved", "text": "why raised?", "persona": "samantha"}).status_code == 200
+    assert client.patch("/api/vault/annotations", json={"path": "Garden plan.md", "id": cid, "text": "why raised?", "persona": "samantha"}).status_code == 200
     (c,) = client.get("/api/vault/changes", params={"path": "Garden plan.md", "persona": "samantha"}).json()["annotations"]
-    assert (c["state"], c["text"]) == ("resolved", "why raised?")
+    assert (c["state"], c["text"]) == ("open", "why raised?")
 
     assert client.delete("/api/vault/annotations", params={"path": "Garden plan.md", "id": cid, "persona": "samantha"}).status_code == 200
     assert client.get("/api/vault/changes", params={"path": "Garden plan.md", "persona": "samantha"}).json()["annotations"] == []
@@ -199,7 +244,17 @@ def test_no_route_here_writes_the_vault(env):
     assert vault_files(vault) == before
 
 
-def test_a_comment_whose_passage_was_rewritten_is_reported_detached(env):
+def test_a_comment_whose_passage_was_rewritten_is_gone_quietly(env):
+    client, vault = env
+    nc.annotate("samantha", "Garden plan.md", NOTE, quote="Phone", text="which phone?", author="user")
+    (vault / "Garden plan.md").write_text(NOTE.replace("Phone", "Mobile"))
+    os.utime(vault / "Garden plan.md", (4_102_444_800, 4_102_444_800))  # written after the comment
+
+    assert client.get("/api/vault/changes", params={"path": "Garden plan.md", "persona": "samantha"}).json()["annotations"] == []
+
+
+def test_a_comment_whose_passage_is_rewritten_while_it_is_still_new_is_reported_detached(env):
+    """Made on words that are only in the editor so far: the file (written before it) cannot say it is gone."""
     client, vault = env
     nc.annotate("samantha", "Garden plan.md", NOTE, quote="Phone", text="which phone?", author="user")
     (vault / "Garden plan.md").write_text(NOTE.replace("Phone", "Mobile"))
@@ -446,14 +501,15 @@ def test_an_answer_to_an_unknown_comment_and_a_comment_with_nothing_to_comment_o
     assert changes_for(client, "Garden plan.md")["annotations"] == []
 
 
-def test_resolving_a_comment_through_the_route_resolves_its_answers(env):
+def test_resolving_a_comment_through_the_route_takes_it_and_its_answers_away_quietly(env):
     client, _ = env
     root = client.post("/api/vault/annotations", json={"path": "Garden plan.md", "quote": "raised", "text": "why?", "persona": "samantha"}).json()
     client.post("/api/vault/annotations", json={"path": "Garden plan.md", "reply_to": root["id"], "text": "because", "persona": "samantha"})
 
     client.patch("/api/vault/annotations", json={"path": "Garden plan.md", "id": root["id"], "state": "resolved", "persona": "samantha"})
 
-    assert {a["state"] for a in changes_for(client, "Garden plan.md")["annotations"]} == {"resolved"}
+    assert changes_for(client, "Garden plan.md")["annotations"] == []
+    assert client.get("/api/vault/drafts", params={"persona": "samantha"}).json()["drafts"] == []
 
 
 def test_half_a_context_is_not_used_the_passage_is_found_in_the_note_instead(env):

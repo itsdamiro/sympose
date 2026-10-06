@@ -39,13 +39,26 @@ def _on_disk(path: str, persona: str | None) -> tuple[bool, str, float | None]:
 
 
 def list_drafts(persona: str | None) -> dict[str, Any]:
-    return {"drafts": nc.drafts(_handle(persona))}
+    handle = _handle(persona)
+    for entry in store.entries(handle):
+        if entry["annotations"]:
+            exists, text, mtime = _on_disk(entry["path"], persona)
+            if exists:
+                nc.prune(handle, entry["path"], text, mtime)
+
+    def text_of(path: str) -> str | None:
+        exists, text, _ = _on_disk(path, persona)
+        return text if exists else None
+
+    return {"drafts": nc.drafts(handle, text_of)}
 
 
 def get_changes(path: str, persona: str | None) -> dict[str, Any]:
     handle = _handle(persona)
     path = _key(path)
     exists, text, mtime = _on_disk(path, persona)
+    if exists:
+        nc.prune(handle, path, text, mtime)
     entry = store.read(handle, path)
     return {
         "path": path,
@@ -61,6 +74,10 @@ def resolve_changes(body: ChangesResolve) -> dict[str, Any]:
     path = _key(body.path)
     entry = store.read(handle, path)
     ids = [p["id"] for p in entry["proposals"]] if body.all else body.ids
+    if body.accepted:
+        exists, text, _ = _on_disk(path, body.persona)
+        if exists:
+            nc.settle_comments(handle, path, text, ids)
     gone = []
     for proposal_id in ids:
         try:

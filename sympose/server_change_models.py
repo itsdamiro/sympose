@@ -12,6 +12,7 @@ class ChangesResolve(BaseModel):
     path: str = Field(..., min_length=1)
     ids: list[str] = Field(default_factory=list)
     all: bool = False
+    accepted: bool = False  # the user accepted them (not declined): the comments they answered are settled
     persona: str | None = None
 
 
