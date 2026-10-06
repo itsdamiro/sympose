@@ -144,3 +144,9 @@ The global `edit_mode` on the Settings page applies only to a persona with no mo
 - **Resolving an applied edit on the server at once.** Rejected: closing the note without saving would lose it, and the file must stay the user's to change.
 - **Keeping an applied edit as a tracked change in an "applied" state (goes outdated when edited over).** Rejected: a new state, a new drawing and undo rules, for a Decline after typing nearby that is rarely wanted.
 - **One model's note for the global setting (the default persona's), or a table of every measured model.** Rejected by the user: the first is wrong for any other persona that follows the setting on a different model; the second leaves the user to find their own model.
+
+## Amendment (2026-10-06): a model with tools is told the table rule when the note has a table
+
+A change inside a table is drawn only when it is one cell's own words replaced by words that stay in that cell (`table_spans`, ADR 069); anything else is refused. The persona learnt this only from the refusal, after she had told the user "just say the word and I can propose the edit" for deleting a whole table. A model that can call tools is now given one more rule, only when the open note holds a table: a table change is one cell's words, she cannot propose removing a table or a row or reshaping one, and says so and leaves a comment instead. A model without tools does not get it: the measurement above found that each further line cost `gemma2:9b` edits. It still learns the rule from a refusal, which for a marker is not shown to it; if that proves a problem it needs its own measurement.
+
+Not yet measured through a cloud model (no scratch cloud run has been approved for this line); the retrieval eval and the unit tests ran.

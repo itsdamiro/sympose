@@ -62,6 +62,9 @@ _RAW = [
     ("sympose", "what is the Drafts section?", True, "The web app.md"),
     ("sympose", "how do I move a folder?", True, "The web app.md"),
     ("sympose", "can a cloud model see the note I have open?", True, "Privacy and data.md"),
+    ("sympose", "how do I point you at one part of my note?", True, "The web app.md"),
+    ("sympose", "how do I open a comment you left on my note?", True, "The web app.md"),
+    ("sympose", "can you delete a table from my note?", True, "The web app.md"),
 ]
 
 _VAULT = [

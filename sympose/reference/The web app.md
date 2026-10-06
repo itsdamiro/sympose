@@ -24,9 +24,19 @@ When a persona proposes a change to the note you have open, the editor shows it 
 
 To leave a comment, select text and choose Comment; the persona reads your open comments with your next message and can reply or propose a change. A comment can be resolved, and a persona's own comment can be accepted or declined (declining needs your reply first). Nothing reaches the file until you accept or save. This is web app only.
 
+A comment's words are highlighted in the note. Click the highlight to open the thread, where you can reply, resolve it or delete it; a comment the persona leaves is opened the same way. Comments on exactly the same words share one highlight and one box, with a thread for each. There is no separate comments panel.
+
+In a table, a persona can propose a change to the words of one cell. She cannot propose removing a table or a row, or reshaping it, so she says so and leaves a comment; you make that change yourself in the editor.
+
+## How do I point the persona at a part of my note?
+
+Click the paperclip on a tracked change, or in the box that opens on a comment. The words appear as a chip under your message, and the persona is sent that part of the note, so she knows which one you mean. Remove the chip with its own button; it goes when you send the message.
+
+Without a chip she is sent the whole open note. With one, a model that can use tools gets the note's headings and the section the words are in, and can open the rest if it needs it.
+
 ## What is the Drafts section?
 
-At the top of the notes list, the Drafts section lists the notes in the folder you are viewing that a persona has proposed changes to, the new notes she has proposed, and the notes with an open comment. Choose one to open it. A new note she proposed has no file yet: it is created when you accept it.
+At the top of the notes list, the Drafts section lists the notes in the folder you are viewing that a persona has proposed changes to, the new notes she has proposed, and the notes with an open comment. Choose one to open it. Right-click a note in it for the same menu as in the notes list, such as rename or delete. A new note she proposed has no file yet: it is created when you accept it.
 
 ## How do I get back a note I deleted?
 
