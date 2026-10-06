@@ -2125,7 +2125,7 @@ def test_memory_review_discard_leaves_the_real_file_untouched(profiles):
     run_async(scenario())
 
 
-# -- first word after beside the model (docs/decisions/013) --
+# -- TTFT beside the model (docs/decisions/013) --
 
 
 def test_format_ttft_uses_ms_under_a_second_and_seconds_above():
@@ -2151,7 +2151,7 @@ def test_the_reply_header_shows_ttft_beside_the_model(profiles, monkeypatch):
             await pilot.pause(0.5)
             lines = [plain_text(c) for c in app.transcript.children]
             header = next(line for line in lines if line.startswith("@samantha"))
-            assert "Gemma2:9b · first word after 1.8s" in header
+            assert "Gemma2:9b · TTFT 1.8s" in header
 
     run_async(scenario())
 
@@ -2166,7 +2166,7 @@ def test_the_reply_header_omits_ttft_when_the_engine_gave_none(profiles):
             await pilot.pause(0.5)
             lines = [plain_text(c) for c in app.transcript.children]
             header = next(line for line in lines if line.startswith("@samantha"))
-            assert "first word after" not in header
+            assert "TTFT" not in header
 
     run_async(scenario())
 
@@ -2318,12 +2318,12 @@ def _run_and_get_header(monkeypatch, grounding) -> str:
 
 def test_the_reply_header_shows_the_grounded_note_after_the_ttft(profiles, monkeypatch):
     header = _run_and_get_header(monkeypatch, [_hit("Projects/Atlas.md"), _hit("Work/Budget.md")])
-    assert "first word after 1.8s · from Projects/Atlas.md +1" in header
+    assert "TTFT 1.8s · from Projects/Atlas.md +1" in header
 
 
 def test_the_reply_header_shows_nothing_when_nothing_grounded(profiles, monkeypatch):
     header = _run_and_get_header(monkeypatch, [])
-    assert header.endswith("first word after 1.8s")
+    assert header.endswith("TTFT 1.8s")
     assert "no notes" not in header and "from" not in header
 
 
@@ -2332,7 +2332,7 @@ def test_the_reply_header_hides_grounding_when_the_knob_is_off(profiles, monkeyp
 
     settings_store.set(grounding_line.SETTING, False)
     header = _run_and_get_header(monkeypatch, [_hit("Projects/Atlas.md")])
-    assert header.endswith("first word after 1.8s")
+    assert header.endswith("TTFT 1.8s")
 
 
 def test_grounded_command_lists_the_last_replys_notes(profiles, monkeypatch):
@@ -2463,15 +2463,15 @@ def test_the_reply_header_shows_the_trim_notice_before_the_grounded_note(profile
         monkeypatch, size=(140, 24), history_dropped=3, grounding=[_hit("Projects/Atlas.md")]
     )
     # The notice comes first and takes its room; the grounded path then keeps only what fits (a wider terminal here: the notice is long).
-    assert "first word after 1.8s · 3 older messages left out (too long for the model) · from " in header
+    assert "TTFT 1.8s · 3 older messages left out (too long for the model) · from " in header
     assert header.endswith("Atlas.md")
 
 
 def test_the_reply_header_shows_the_query_a_follow_up_was_rewritten_into(profiles, monkeypatch):
     header = _run_with_result(
-        monkeypatch, size=(92, 24), grounding=[_hit("Projects/Atlas.md")], searched="why we picked SQLite"
+        monkeypatch, size=(80, 24), grounding=[_hit("Projects/Atlas.md")], searched="why we picked SQLite"
     )
-    # A 92-column line: the path gives up room, keeping its filename, so the query shows too.
+    # An 80-column line: the path gives up room, keeping its filename, so the query shows too.
     assert header.endswith(' · from …Atlas.md · searched "why we pick…"')
 
 
