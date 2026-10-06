@@ -132,7 +132,10 @@ _EDIT_MARKER = (
     '"find" is copied from the note exactly, character for character, and appears in the note exactly once '
     "(include a neighbouring word if it does not on its own); write line breaks in strings as \\n."
 )
-_NOTE_TOOL = "To suggest a new note, call propose_note with its whole text, a title of three to five words and one sentence in say."
+_NOTE_TOOL = (
+    "To suggest a new note, call propose_note with its whole text, a title of three to five words and one sentence in say. "
+    "If the user asked for it in a particular folder, give that folder's path in folder."
+)
 _NOTE_MARKER = (
     "To suggest a new note, add one line in this form: "
     '<!-- propose_note: {"text": "...", "title": "three to five words", "say": "..."} --> write line breaks in strings as \\n.'

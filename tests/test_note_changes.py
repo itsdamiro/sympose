@@ -824,3 +824,18 @@ def test_a_change_whose_words_are_gone_from_a_note_written_since_is_deleted_but_
     nc.prune(H, "a.md", "three times and three times", NEWER)  # in the note twice: unclear, not gone
     assert [p["find"] for p in store.read(H, "a.md")["proposals"]] == ["three times"]
 
+
+def test_a_new_note_remembers_the_folder_she_was_asked_to_make_it_in():
+    nc.propose_create(H, "new/aaa.md", "# Plan\n", say="", title="Plan", folder=" /Projects/Sympose/ ")
+    nc.propose_create(H, "new/bbb.md", "# Other\n", say="", title="Other")
+
+    by_path = {d["path"]: d["folder"] for d in nc.drafts(H)}
+
+    assert by_path == {"new/aaa.md": "Projects/Sympose", "new/bbb.md": None}
+
+
+def test_a_folder_that_leaves_the_vault_or_cannot_be_one_is_dropped_not_followed():
+    for bad in ("../outside", "Projects/../../x", "C:/x", "a//b", "a/b?", "..", "   ", ""):
+        assert nc.clean_folder(bad) is None, bad
+    assert nc.clean_folder("Projects\\Sympose") == "Projects/Sympose"
+

@@ -44,7 +44,9 @@ TOOLS: list[dict[str, Any]] = [
     _tool(
         NOTE,
         "Propose a new note. The user reads it as a draft and accepts or declines it; no file exists before that.",
-        {"text": "The whole text of the new note.", "title": "A name of three to five words.", "say": "One sentence telling the user what it is."},
+        {"text": "The whole text of the new note.", "title": "A name of three to five words.", "say": "One sentence telling the user what it is.",
+         "folder": "Only if the user asked for a place: the folder to make it in, as a path of the vault such as Projects/Sympose (it is made there "
+                   "when they accept, and the folder with it if it is not there yet). Leave it out to make it in the folder the user is in."},
         ["text", "say"],
     ),
     _tool(
@@ -67,8 +69,8 @@ def _arguments(name: str, raw: str | dict[str, Any] | None) -> dict[str, str] | 
         return None
     if not isinstance(data, dict) or not all(isinstance(data.get(k), str) for k in _FIELDS[name]):
         return None
-    title = data.get("title")
-    return {**{k: data[k] for k in _FIELDS[name]}, "title": title if isinstance(title, str) else ""}
+    title, folder = data.get("title"), data.get("folder")
+    return {**{k: data[k] for k in _FIELDS[name]}, "title": title if isinstance(title, str) else "", "folder": folder if isinstance(folder, str) else ""}
 
 
 def _propose(handle: str, path: str | None, text: str | None, name: str, raw: str | dict[str, Any] | None) -> tuple[bool, str]:
@@ -82,7 +84,7 @@ def _propose(handle: str, path: str | None, text: str | None, name: str, raw: st
                 return False, _NO_NOTE
             note_changes.comment_on(handle, path, text, quote=args["find"], text=args["text"], author="persona")
         elif name == NOTE:
-            note_changes.propose_create(handle, f"new/{note_changes._id()}", args["text"], say=args["say"], title=args["title"] or None)
+            note_changes.propose_create(handle, f"new/{note_changes._id()}", args["text"], say=args["say"], title=args["title"] or None, folder=args["folder"] or None)
         elif path is None or text is None:
             return False, _NO_NOTE
         else:

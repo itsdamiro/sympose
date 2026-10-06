@@ -216,3 +216,19 @@ def test_a_comment_and_a_change_in_one_reply_are_both_made():
     _, records = et.apply_marker(H, PATH, NOTE, reply)
 
     assert [r["saved"] for r in records] == [True, True] and len(comments()) == 1 and len(proposals()) == 1
+
+
+def test_a_new_note_proposed_with_a_folder_keeps_it_and_one_without_does_not():
+    et.run(H, None, None, "propose_note", {"text": "# Plan\n", "say": "A plan.", "title": "Plan", "folder": "Projects/Sympose"})
+    et.run(H, None, None, "propose_note", {"text": "# Other\n", "say": "Another."})
+
+    folders = sorted((d["name"], d["folder"]) for d in nc.drafts(H))
+
+    assert folders == [("Other", None), ("Plan", "Projects/Sympose")]
+
+
+def test_the_new_note_tool_offers_a_folder_but_does_not_require_one():
+    (tool,) = [t["function"] for t in et.TOOLS if t["function"]["name"] == "propose_note"]
+
+    assert "folder" in tool["parameters"]["properties"] and "folder" not in tool["parameters"]["required"]
+

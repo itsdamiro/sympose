@@ -115,8 +115,23 @@ def working_name(text: str, title: str | None = None) -> str:
     return " ".join(words[:_NAME_WORDS]) or "Untitled"
 
 
-def propose_create(handle: str, note_path: str, text: str, *, say: str, title: str | None = None) -> dict[str, Any]:
+def clean_folder(folder: str | None) -> str | None:
+    """A folder path the persona named for a new note, as a vault-relative path: `None` when it names nothing, leaves the vault
+    (`..`, a drive or a leading slash) or holds a character a folder name cannot."""
+    if not folder or not folder.strip():
+        return None
+    parts = [part.strip() for part in folder.strip().replace("\\", "/").strip("/").split("/")]
+    if not parts or any(not part or part in (".", "..") or re.search(r'[:*?"<>|]', part) for part in parts):
+        return None
+    return "/".join(parts)
+
+
+def propose_create(handle: str, note_path: str, text: str, *, say: str, title: str | None = None, folder: str | None = None) -> dict[str, Any]:
+    """A new note she proposes. `folder` is where she was asked to make it (a vault path such as `Projects/Sympose`; made when
+    the user accepts, with the folder if it is not there yet): without one it is made in the folder the user is in."""
     proposal = {"id": _id(), "time": _now(), "kind": "create", "text": text, "name": working_name(text, title), "say": say}
+    if cleaned := clean_folder(folder):
+        proposal["folder"] = cleaned
     store.update(handle, note_path, lambda entry: entry["proposals"].append(proposal))
     return proposal
 
@@ -282,6 +297,7 @@ def drafts(handle: str, text_of: Callable[[str], str | None] | None = None) -> l
             "path": entry["path"],
             "name": creates[0].get("name") if creates else None,
             "is_new": bool(creates),
+            "folder": creates[0].get("folder") if creates else None,
             "count": count,
             "comments": len(comments),
             "items": count + len(comments),
