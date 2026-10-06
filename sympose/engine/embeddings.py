@@ -11,12 +11,14 @@ from typing import Any, Sequence
 import litellm
 
 from sympose import settings_store
+from sympose.engine import network
 
 log = logging.getLogger(__name__)
 
 # litellm prints a "Give Feedback / Get Help" banner to the terminal when a call fails; the CLI is
 # drawing on that terminal, and a missing embedding model is an expected, handled case here.
 litellm.suppress_debug_info = True
+network.prefer_ipv4()
 
 MODE_SETTING = "grounding_search"
 MODEL_SETTING = "embedding_model"

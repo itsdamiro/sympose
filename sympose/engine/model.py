@@ -13,10 +13,12 @@ import httpx
 import litellm
 
 from sympose import settings_store
-from sympose.engine import model_tools, model_wait, reply_text, turn_cancel
+from sympose.engine import model_tools, model_wait, network, reply_text, turn_cancel
 from sympose.engine.model_tools import ToolCall
 
 log = logging.getLogger(__name__)
+
+network.prefer_ipv4()  # a dead IPv6 route must not cost a reply minutes (see engine/network.py)
 
 DEFAULT_LOCAL_MODEL = "ollama_chat/gemma2:9b"
 
