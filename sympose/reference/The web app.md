@@ -30,7 +30,7 @@ In a table, a persona can propose a change to the words of one cell. She cannot 
 
 ## How do I point the persona at a part of my note?
 
-Click the paperclip on a tracked change, or in the box that opens on a comment. The words appear as a chip under your message, and the persona is sent that part of the note, so she knows which one you mean. Remove the chip with its own button; it goes when you send the message.
+Click the paperclip on a tracked change, in the box that opens on a comment, or above commented words when you point at them. The words appear as a chip under your message, and the persona is sent that part of the note, so she knows which one you mean. Remove the chip with its own button. A message you sent with a chip shows a paperclip beside its time.
 
 Without a chip she is sent the whole open note. With one, a model that can use tools gets the note's headings and the section the words are in, and can open the rest if it needs it.
 

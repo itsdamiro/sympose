@@ -21,3 +21,10 @@ A persona that edits the user's note is sent the open note and its open comments
 - The `leave_out` request field and the per-turn comments switch of ADR 075 go; `attached` (path, quote, context) replaces them on `POST /api/chat/turn`.
 - The user no longer sees, on the composer, that the note goes with a message. This is deliberate (see Context); the reply header still names what was sent.
 - The reference library says how to attach (and drops the chips of 075).
+
+## As built (2026-10-06)
+
+- **Where the paperclip is:** in the small tab above a waiting change (with Accept and Decline), in the box that opens on a comment, and, so that attaching a commented passage is one click, as a small icon above the end of the commented words, shown when the words are pointed at (or the icon is reached by keyboard). It is not drawn all the time because, on tight lines, it sits over the line above. Words a waiting change covers have no second one (the tab has it).
+- **The sent message shows it:** beside the time on the user's message, a paperclip, with the count when more than one passage went. The turn record keeps the count as `sent.attached` (never the words, like the rest of that record), so it shows after a reload too.
+- **Text fields share one focus style:** the composer's (a plain border that turns the brand colour), also in the comment box, the workspace rename field and the frontmatter fields, in place of the heavy ring.
+- Checked in real Chrome (a scratch vault, a local model, the reply faked): the tab, one highlight on words with both a comment and a change, attaching from the tab, the card and the words, the chip, the request body, the mark on the sent message, and that accepting a change takes away the comment it answered (the editor now reads the comments again after an accept).
