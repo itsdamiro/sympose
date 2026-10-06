@@ -38,6 +38,7 @@ class Edit:
     decided: tuple[open_comments.Decision, ...] = ()  # what the user decided on her comments since her last reply
     persona_name: str = "She"
     source: OpenNote | None = None  # the whole open note, which a change is placed in (she is shown `note`, within the cap)
+    attached: int = 0  # how many passages of the note the user attached to this message (docs/decisions/076), for the record
 
     @property
     def active(self) -> bool:
@@ -116,6 +117,7 @@ def resolve(
         comments=found.items if may_see_comments else (), comments_left_out=found.left_out if may_see_comments else 0,
         decided=found.decided if may_see_comments else (),
         comments_withheld=0 if may_see_comments else len(found.items), persona_name=name, source=open_note,
+        attached=len(attached),
     )
 
 

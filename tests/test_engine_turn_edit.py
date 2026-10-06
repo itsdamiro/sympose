@@ -201,6 +201,16 @@ def test_a_model_with_tools_gets_the_section_of_an_attached_passage_not_the_whol
     assert "## Schedule" in sent  # but the headings are
 
 
+def test_the_turn_record_counts_the_passages_attached_and_keeps_none_of_their_words(monkeypatch):
+    model_that(monkeypatch, ModelReply("ok", 5), ModelReply("ok", 5))
+
+    attached = turn.run_turn("samantha", "make this bold", model=LOCAL, open_note=LONG, attached=[POINTED, turn.edit_turn.Attached("Water every morning.")])
+    plain = turn.run_turn("samantha", "hi", model=LOCAL, open_note=LONG)
+
+    assert attached.sent["attached"] == 2 and "attached" not in plain.sent
+    assert "Carrots" not in str(attached.sent)
+
+
 def test_a_model_without_tools_gets_the_whole_note_whatever_is_attached(monkeypatch):
     seen = model_that(monkeypatch, ModelReply("ok", 5))
 

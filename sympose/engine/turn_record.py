@@ -15,6 +15,7 @@ def sent_record(
     memory: list[str] | None = None,
     chats: list[dict[str, Any]] | None = None,
     chats_mode: str | None = None,
+    attached: int = 0,
 ) -> dict[str, Any]:
     """What reached the model besides the messages, for the session record
     (docs/decisions/025): where each note came from, never its text. `cloud`, for a model that is
@@ -54,4 +55,6 @@ def sent_record(
         "memory": memory or [],
         **({"chats": [{"session": c["session"], "turn": c["turn"], "how": c.get("how", "auto")} for c in chats]} if chats else {}),
         **({"chats_mode": chats_mode} if chats_mode else {}),
+        # How many passages of the open note the user attached (docs/decisions/076): a count, never their words.
+        **({"attached": attached} if attached else {}),
     }

@@ -197,6 +197,7 @@ def _run(
         grounding_results, recaps_sent, searched_used, dropped, found.rewrite, cloud,
         (lookup.ASK if ask else lookup.AUTO) if chose_ask else None, lookups, memory_sent, chats_sent,
         (past_chats.ASK if modes.chats else past_chats.AUTO) if modes.chose_chats else None,
+        modes.edit.attached if modes.edit else 0,
     )
     saved = session.append_turn(
         handle,
