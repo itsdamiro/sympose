@@ -51,6 +51,10 @@ export function attachedComments(text: string, annotations: Annotation[]): { ann
   return found
 }
 
+function passageOf(a: Annotation): { quote: string; before: string; after: string } {
+  return { quote: a.quote, before: a.before, after: a.after }
+}
+
 /** Whether a change of hers, still waiting, covers any of `from`-`to`: the words are then drawn as that change, not also as a
  *  comment's highlight (two highlights on top of each other say nothing more than one). The comment stays: it opens on a
  *  click and keeps its dot in the margin. */
@@ -352,6 +356,45 @@ class ChangeWidget extends WidgetType {
   }
 }
 
+/** A small paperclip above the end of a commented passage, shown when the words are pointed at: one click attaches them to the
+ *  next chat message, without opening the comment first (docs/decisions/076). */
+class ClipWidget extends WidgetType {
+  readonly id: string
+  readonly passage: { quote: string; before: string; after: string }
+
+  constructor(id: string, passage: { quote: string; before: string; after: string }) {
+    super()
+    this.id = id
+    this.passage = passage
+  }
+
+  eq(other: ClipWidget): boolean {
+    return other.id === this.id && other.passage.quote === this.passage.quote
+  }
+
+  toDOM(view: EditorView): HTMLElement {
+    const anchor = document.createElement("span")
+    anchor.className = "sy-anchor"
+    const b = document.createElement("button")
+    b.type = "button"
+    b.className = "sy-clip"
+    b.setAttribute("aria-label", "Attach to your message")
+    b.title = "Attach to your message"
+    b.append(icon(Attachment01Icon))
+    b.addEventListener("mousedown", (e) => e.preventDefault()) // keep the caret where it is
+    b.addEventListener("click", (e) => {
+      e.stopPropagation() // not a click on the commented words, which would open the comment
+      view.state.facet(attachFacet)?.(this.passage)
+    })
+    anchor.append(b)
+    return anchor
+  }
+
+  ignoreEvent(): boolean {
+    return true
+  }
+}
+
 const attachFacet = Facet.define<(passage: { quote: string; before: string; after: string }) => void, ((passage: { quote: string; before: string; after: string }) => void) | undefined>({
   combine: (values) => values[0],
 })
@@ -471,6 +514,14 @@ export function cellWidgets(state: EditorState): CellWidget[] {
   for (const item of state.field(appliedField).items) {
     widgets.push({ pos: item.to, key: `applied:${item.id}:${item.say}`, toDOM: (view) => new UndoWidget(item).toDOM(view) })
   }
+  if (state.facet(attachFacet)) {
+    const placed = classify(state.doc.toString(), data.proposals).placed
+    for (const { annotations, from, to } of commentHighlights(state.doc.toString(), data.annotations)) {
+      if (underChange(placed, from, to)) continue
+      const widget = new ClipWidget(annotations[0].id, passageOf(annotations[0]))
+      widgets.push({ pos: to, key: `clip:${annotations[0].id}:${annotations[0].quote}`, toDOM: (view) => widget.toDOM(view) })
+    }
+  }
   return widgets
 }
 
@@ -491,6 +542,7 @@ function decorate(state: EditorState): DecorationSet {
     const by = annotations.every((a) => a.author === "persona") ? "sy-by-persona" : "sy-by-user"
     const under = underChange(placed, from, to) ? " sy-under-change" : ""
     ranges.push(Decoration.mark({ class: `sy-comment-hl ${by}${under}`, attributes: highlightAttributes(annotations) }).range(from, to))
+    if (!under && state.facet(attachFacet)) ranges.push(Decoration.widget({ widget: new ClipWidget(annotations[0].id, passageOf(annotations[0])), side: 1 }).range(to))
     // A dot beside each line the comment touches, drawn in the line's own left space so the editor never changes width.
     for (let line = state.doc.lineAt(from); ; line = state.doc.line(line.number + 1)) {
       ranges.push(Decoration.line({ class: `sy-comment-line ${by}` }).range(line.from))
@@ -544,6 +596,30 @@ const theme = EditorView.baseTheme({
   },
   ".sy-tab button::before": { content: "attr(data-label)" },
   ".sy-tab button svg": { width: "0.85rem", height: "0.85rem", stroke: "currentColor", strokeWidth: "2", verticalAlign: "middle" },
+  // The paperclip above a commented passage: small and quiet until it is pointed at.
+  ".sy-clip": {
+    position: "absolute",
+    insetInlineEnd: "0",
+    bottom: "calc(100% - 0.15rem)",
+    zIndex: "4",
+    display: "grid",
+    placeItems: "center",
+    width: "1.1rem",
+    height: "1.1rem",
+    padding: "0",
+    border: "0",
+    borderRadius: "var(--radius-sm, 3px)",
+    background: "var(--background)",
+    color: "var(--muted-foreground)",
+    opacity: "0",
+    cursor: "pointer",
+    userSelect: "none",
+  },
+  // Out of sight until the commented words (or the paperclip itself) are pointed at or reached by keyboard, so it does not sit on
+  // the line above all the time.
+  ".sy-comment-hl:hover ~ .sy-anchor .sy-clip, .sy-anchor:hover .sy-clip, .sy-clip:focus-visible": { opacity: "1" },
+  ".sy-clip:hover": { opacity: "1", background: "var(--accent)", color: "var(--foreground)" },
+  ".sy-clip svg": { width: "0.75rem", height: "0.75rem", stroke: "currentColor", strokeWidth: "2" },
   ".sy-tab button + button": { borderInlineStart: "1px solid var(--border)" },
   ".sy-tab button:hover": { background: "var(--accent)" },
 

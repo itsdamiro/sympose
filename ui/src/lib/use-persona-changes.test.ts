@@ -126,6 +126,26 @@ describe("usePersonaChanges", () => {
     expect(api.resolveChanges).toHaveBeenCalledWith("a.md", "samantha", ["2"])
   })
 
+  it("reads the changes again after an accept, since accepting settles the comments on those words, and not after a decline", async () => {
+    api.fetchChanges.mockResolvedValue(noteChanges("a.md", ["1", "2"]))
+    api.resolveChanges.mockResolvedValue({ ok: true, resolved: ["1"] })
+    const { result } = renderHook(() => usePersonaChanges({ path: "a.md", persona: "samantha" }))
+    await waitFor(() => expect(result.current.changes?.proposals).toHaveLength(2))
+    const reads = () => api.fetchChanges.mock.calls.length
+
+    const before = reads()
+    await act(async () => {
+      await result.current.resolve(["1"])
+    })
+    expect(reads()).toBe(before) // declined: nothing else was settled
+
+    await act(async () => {
+      await result.current.resolve(["2"], true)
+    })
+    await waitFor(() => expect(reads()).toBe(before + 1))
+    expect(api.resolveChanges).toHaveBeenLastCalledWith("a.md", "samantha", ["2"], true)
+  })
+
   it("forgets every proposal for all and keeps the comments", async () => {
     api.fetchChanges.mockResolvedValue({ ...noteChanges("a.md", ["1", "2"]), annotations: [{ id: "c" }] })
     api.resolveChanges.mockResolvedValue({ ok: true, resolved: ["1", "2"] })

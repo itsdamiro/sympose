@@ -10,7 +10,7 @@ import {
   type ChatPhase,
   type SessionPage,
 } from "@/lib/chat-api"
-import { takeAttached } from "@/lib/attachments"
+import { takeAttached, type Passage } from "@/lib/attachments"
 import { getOpenNote } from "@/lib/open-note-source"
 import { announcePersonaActed } from "@/lib/use-persona-changes"
 import type { ChatTurn, SystemKind } from "@/lib/chat-types"
@@ -83,7 +83,7 @@ function turnsFromPage(handle: string, page: SessionPage): ChatTurn[] {
         : []
     return [
       ...marker,
-      { id: `saved-${page.session_id}-${saved.index}-user`, role: "user" as const, body: saved.user, timestamp: at },
+      { id: `saved-${page.session_id}-${saved.index}-user`, role: "user" as const, body: saved.user, timestamp: at, attached: saved.sent?.attached },
       {
         id: `saved-${page.session_id}-${saved.index}-reply`,
         role: "persona" as const,
@@ -126,7 +126,7 @@ export function useChat(persona: string) {
   })
   const inFlight = React.useRef(new Set<string>())
   /** Messages sent while a conversation's reply is in flight; they go out together as one turn when it lands. */
-  const waiting = React.useRef(new Map<string, { id: string; text: string }[]>())
+  const waiting = React.useRef(new Map<string, { id: string; text: string; passages: Passage[] }[]>())
   /** The wait of each conversation's reply in flight, which `stop` aborts once the backend accepted the stop. */
   const aborts = React.useRef(new Map<string, AbortController>())
   const resuming = React.useRef(new Set<string>())
@@ -205,24 +205,25 @@ export function useChat(persona: string) {
     const message = convo.draft.trim()
     if (!message) return
     const key = activeKey
-    const shown = { role: "user" as const, body: message, timestamp: time(new Date()) }
+    const passages = takeAttached() // what the user attached goes with this message and is shown on it
+    const shown = { role: "user" as const, body: message, timestamp: time(new Date()), ...(passages.length > 0 ? { attached: passages.length } : {}) }
     const shownId = newId()
     // A message sent while this conversation's reply is in flight shows at once and waits; everything that waited
     // goes out as one turn when the reply lands (ADR 008, 044: amendments of 2026-10-01).
     if (inFlight.current.has(key)) {
-      waiting.current.set(key, [...(waiting.current.get(key) ?? []), { id: shownId, text: message }])
+      waiting.current.set(key, [...(waiting.current.get(key) ?? []), { id: shownId, text: message, passages }])
       update(key, (c) => ({ ...addTo(c, shown, shownId), draft: "" }))
       return
     }
     inFlight.current.add(key)
     update(key, (c) => ({ ...addTo(c, shown, shownId), draft: "", sending: true, phase: null, indexing: null }))
-    let batch = [{ id: shownId, text: message }]
+    let batch = [{ id: shownId, text: message, passages }]
     let sessionId = convo.sessionId
     for (;;) {
       const text = batch.map((b) => b.text).join("\n\n")
       const controller = new AbortController()
       aborts.current.set(key, controller)
-      const result = await sendChatTurn(text, persona, sessionId, controller.signal, getOpenNote(), takeAttached())
+      const result = await sendChatTurn(text, persona, sessionId, controller.signal, getOpenNote(), batch.flatMap((b) => b.passages))
       aborts.current.delete(key)
       const next = waiting.current.get(key) ?? []
       waiting.current.delete(key)

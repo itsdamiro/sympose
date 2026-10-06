@@ -47,7 +47,7 @@ function AddFieldButton({ existingKeys, onAdd }: { existingKeys: string[]; onAdd
           }
         }}
         placeholder="key"
-        className="h-5 w-24 rounded border border-border bg-background px-1 text-xs normal-case outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        className="h-5 w-24 rounded border border-border bg-background px-1 text-xs normal-case outline-none transition-colors focus-visible:border-brand"
       />
     )
   }
@@ -164,7 +164,7 @@ function PillRow({
                 setAdding(false)
               }
             }}
-            className="h-5 w-20 rounded-full border border-border bg-background px-2 text-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            className="h-5 w-20 rounded-full border border-border bg-background px-2 text-xs outline-none transition-colors focus-visible:border-brand"
           />
         ) : (
           <button

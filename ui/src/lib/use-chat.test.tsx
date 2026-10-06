@@ -90,6 +90,26 @@ describe("useChat", () => {
     setAttachmentsNote(undefined)
   })
 
+  it("marks the user's message with how many passages were attached, and only that one", async () => {
+    api.sendChatTurn.mockResolvedValue(ok("one", "s9"))
+    const { result } = renderHook(() => useChat("samantha"))
+    setAttachmentsNote("a.md")
+    attach({ quote: "three times", before: "I run ", after: "." })
+    attach({ quote: "raised", before: "", after: "" })
+    await say(result, "first")
+    await say(result, "second")
+    const users = result.current.turns.filter((t) => t.role === "user")
+    expect(users.map((t) => t.attached)).toEqual([2, undefined])
+    setAttachmentsNote(undefined)
+  })
+
+  it("shows the mark on a resumed message too, from the saved record", async () => {
+    api.fetchChatSession.mockResolvedValue(pageOf([saved(0, { sent: { notes: [], attached: 1 } }), saved(1)], 0, false))
+    const { result } = renderHook(() => useChat("samantha"))
+    await waitFor(() => expect(result.current.turns).toHaveLength(4))
+    expect(result.current.turns.filter((t) => t.role === "user").map((t) => t.attached)).toEqual([1, undefined])
+  })
+
   it("shows a refusal as a system error line, not as a persona reply", async () => {
     api.sendChatTurn.mockResolvedValue({ ok: false, error: "local models only" })
     const { result } = renderHook(() => useChat("samantha"))

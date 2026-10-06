@@ -401,6 +401,26 @@ describe("comments in the text", () => {
     expect(onAttach).toHaveBeenCalledWith(expect.objectContaining({ quote: "three times" }))
   })
 
+  it("puts a paperclip above a commented passage that attaches it in one click, without opening the comment", () => {
+    const onAttach = vi.fn()
+    const onOpenComment = vi.fn()
+    const { view } = mount({ proposals: [], annotations: [comment("c1", "raised")] }, { onAttach, onOpenComment })
+
+    const clip = view.dom.querySelector(".sy-clip") as HTMLElement
+    clip.click()
+
+    expect(onAttach).toHaveBeenCalledWith(expect.objectContaining({ quote: "raised" }))
+    expect(onOpenComment).not.toHaveBeenCalled()
+  })
+
+  it("has no second paperclip on words a waiting change covers (the change's tab has one), nor when nothing takes an attachment", () => {
+    const onAttach = vi.fn()
+    const { view } = mount({ proposals: [edit("p", "three times", "four times")], annotations: [comment("c1", "three times"), comment("c2", "raised")] }, { onAttach })
+
+    expect(view.dom.querySelectorAll(".sy-clip")).toHaveLength(1) // only "raised"
+    expect(mount({ proposals: [], annotations: [comment("c1", "raised")] }).view.dom.querySelector(".sy-clip")).toBeNull()
+  })
+
   it("has no paperclip when nothing takes an attachment", () => {
     const { view } = mount({ proposals: [edit("p", "three times", "four times")], annotations: [] })
     expect(view.dom.querySelector(".sy-change-attach")).toBeNull()

@@ -101,7 +101,7 @@ function WorkspaceSwitcher({
                 void submit()
               }
             }}
-            className="h-7 min-w-0 flex-1 rounded-md border border-border bg-card px-2 text-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-50"
+            className="h-7 min-w-0 flex-1 rounded-md border border-border bg-card px-2 text-xs outline-none transition-colors focus-visible:border-brand disabled:opacity-50"
           />
           <button
             type="button"

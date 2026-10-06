@@ -15,6 +15,9 @@ export interface Attachment {
   after: string
 }
 
+/** The words pointed at, and the text around them: what a message carries. */
+export type Passage = Pick<Attachment, "quote" | "before" | "after">
+
 let items: readonly Attachment[] = []
 let openPath: string | undefined
 const listeners = new Set<() => void>()

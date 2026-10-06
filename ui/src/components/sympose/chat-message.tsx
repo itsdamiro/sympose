@@ -1,4 +1,5 @@
 import * as React from "react"
+import { Attachment01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 
 import { cn } from "@/lib/utils"
@@ -29,6 +30,8 @@ interface ChatMessageProps extends React.ComponentProps<"div"> {
   /** Marks the reply in its header, beside the avatar (the reply's model chip, with the cloud mark on a cloud model's reply, ADR 060) — `role: "persona"` only. */
   indicator?: React.ReactNode
   timestamp?: string
+  /** How many passages of the open note were attached to this message, shown as a paperclip beside the time — `role: "user"` only. */
+  attached?: number
   /** How long the model took to start answering (time to first token), as "0.82s" — `role: "persona"` only, shown before the time. */
   latency?: string
   streaming?: boolean
@@ -49,6 +52,7 @@ function ChatMessage({
   handle,
   indicator,
   timestamp,
+  attached,
   latency,
   streaming = false,
   actions,
@@ -67,8 +71,20 @@ function ChatMessage({
         <div className="max-w-[80%] rounded-tl-lg rounded-br-lg rounded-bl-lg bg-panel px-4 py-3 text-sm leading-relaxed text-muted-foreground">
           {children}
         </div>
-        {timestamp && (
-          <span className="font-mono text-xs text-fg-muted tabular-nums">
+        {(timestamp || attached) && (
+          <span className="flex items-center gap-1.5 font-mono text-xs text-fg-muted tabular-nums">
+            {attached ? (
+              <span
+                role="img"
+                data-slot="attached-mark"
+                className="flex items-center gap-0.5"
+                aria-label={attached === 1 ? "1 passage of the note attached" : `${attached} passages of the note attached`}
+                title={attached === 1 ? "1 passage of the note attached" : `${attached} passages of the note attached`}
+              >
+                <HugeiconsIcon icon={Attachment01Icon} className="size-3" aria-hidden />
+                {attached > 1 && attached}
+              </span>
+            ) : null}
             {timestamp}
           </span>
         )}

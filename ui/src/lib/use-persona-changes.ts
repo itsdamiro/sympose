@@ -61,6 +61,8 @@ export function usePersonaChanges({ path, persona, enabled = true }: { path?: st
       if (!result.ok) {
         notify.error(result.error)
         setReloadKey((k) => k + 1)
+      } else if (accepted) {
+        setReloadKey((k) => k + 1) // accepting settles the comments on those words on the server: read them again
       }
     },
     [path, persona]

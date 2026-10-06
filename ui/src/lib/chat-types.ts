@@ -51,6 +51,8 @@ export interface SentRecord {
   recaps?: string[]
   /** Which of her memory files were sent: `profile`, `context`, `decisions`. */
   memory?: string[]
+  /** How many passages of the open note the user attached to the message that asked (ADR 076). */
+  attached?: number
   /** What she looked up or remembered herself. */
   lookups?: SentLookup[]
   /** `ask` for notes, when chosen; `auto` when the model could not take tools and Sympose searched instead. */
@@ -77,6 +79,8 @@ export interface ChatTurn {
   handle?: string
   body: string
   timestamp?: string
+  /** `role: "user"` only: how many passages of the open note were attached to this message (ADR 076). */
+  attached?: number
   /** The model that made this reply — `role: "persona"` only; each reply keeps its own, so an old one does not take
    *  on a model chosen later. */
   model?: string

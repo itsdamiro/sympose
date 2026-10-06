@@ -16,7 +16,7 @@ import type { CommentTarget } from "@/lib/review-extensions"
 export type CommentBox = { kind: "compose"; target: CommentTarget } | { kind: "thread"; id: string; ids?: string[]; rect: DOMRect }
 
 const FIELD =
-  "w-full resize-none rounded-md border border-border bg-background px-2 py-1.5 text-sm text-foreground outline-none placeholder:text-fg-muted focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+  "w-full resize-none rounded-lg border border-border bg-background px-2.5 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-fg-muted focus-visible:border-brand"
 
 function Quote({ text }: { text: string }) {
   return (
