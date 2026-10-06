@@ -264,7 +264,7 @@ def test_show_note_refuses_a_note_that_is_missing_or_outside_her_folders(vault):
         result = et.run(H, None, None, "show_note", {"path": given}, vault)
 
         assert result.lookup == {"tool": "show_note", "saved": False}, given
-        assert "nothing was opened" in result.text
+        assert "nothing was opened" in result.text and "Ask the user which note" in result.text  # said to the model
 
 
 def test_show_note_with_unreadable_arguments_is_a_result_not_an_error(vault):
@@ -287,3 +287,4 @@ def test_a_show_note_marker_alone_leaves_a_short_line_and_a_failed_one_says_why(
 
     shown, records = et.apply_marker(H, None, None, '<!-- show_note: {"path": "Missing"} -->', vault)
     assert records[0]["saved"] is False and "nothing was opened" in shown
+    assert "Ask the user" not in shown  # what the user reads is not an instruction to the model

@@ -24,7 +24,8 @@ from sympose.engine.lookup_result import Result
 EDIT, NOTE, COMMENT, SHOW = "propose_edit", "propose_note", "comment_on", "show_note"
 _NO_NOTE = "No note is open in the editor, so there is nothing to change; ask the user to open it."
 _BAD = "The arguments of {name} could not be read: give {fields} as text."
-_NO_SUCH_NOTE = "No note called {path} was found in the vault, so nothing was opened: ask the user which note they mean."
+_NO_SUCH_NOTE = "No note called {path} was found in the vault, so nothing was opened."  # a marker's failure is shown to the user as it is
+_ASK_WHICH = " Ask the user which note they mean."  # said to a model that called the tool, not to the user
 _DONE = {COMMENT: "Commented.", SHOW: "Opened."}
 _FIELDS = {EDIT: ("find", "replace", "say"), NOTE: ("text", "say"), COMMENT: ("find", "text"), SHOW: ("path",)}
 
@@ -126,7 +127,7 @@ def run(
         return None
     if name == SHOW:
         opened, said, path = _show(profile, raw)
-        return Result(said, lookup={"tool": name, "saved": opened, **({"path": path} if path else {})})
+        return Result(said if opened else said + _ASK_WHICH, lookup={"tool": name, "saved": opened, **({"path": path} if path else {})})
     saved, said = _propose(handle, note_path, note_text, name, raw)
     return Result(said, lookup={"tool": name, "saved": saved})
 
