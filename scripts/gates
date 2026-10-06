@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Run every gate of the project and say which failed, with the failing output. Reads scripts/gates.conf:
+#   name | directory (relative to the repo root) | command
+# Usage: scripts/gates            all gates
+#        scripts/gates lint test  only these
+# Each gate's whole output goes to a temp file and only a failing gate's last lines are shown, so a pass is one line
+# and a failure is specific. Exit 1 if any gate failed.
+set -u
+root="$(cd "$(dirname "$0")/.." && pwd)"
+conf="$root/scripts/gates.conf"
+[ -f "$conf" ] || { echo "no $conf: copy scripts/gates.conf.template and fill it in" >&2; exit 2; }
+only=" $* "
+failed=0
+while IFS='|' read -r name dir cmd; do
+  name="$(echo "$name" | xargs)"; dir="$(echo "$dir" | xargs)"; cmd="$(echo "$cmd" | sed 's/^ *//;s/ *$//')"
+  [ -z "$name" ] || [[ "$name" == \#* ]] && continue
+  [ "$#" -gt 0 ] && [[ "$only" != *" $name "* ]] && continue
+  out="$(mktemp)"; start=$(date +%s)
+  if (cd "$root/$dir" && eval "$cmd") >"$out" 2>&1; then
+    printf 'PASS  %-12s %ss\n' "$name" "$(( $(date +%s) - start ))"
+  else
+    failed=1
+    printf 'FAIL  %-12s %ss   (%s)\n' "$name" "$(( $(date +%s) - start ))" "$cmd"
+    tail -n 25 "$out" | sed 's/^/      /'
+  fi
+  rm -f "$out"
+done < "$conf"
+exit $failed
