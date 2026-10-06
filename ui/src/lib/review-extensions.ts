@@ -195,18 +195,16 @@ class UndoWidget extends WidgetType {
   }
 
   toDOM(view: EditorView): HTMLElement {
+    // The same small square as the paperclip, in the same place (right edge on the end of the words, just above them).
     const anchor = document.createElement("span")
     anchor.className = "sy-anchor"
-    const tab = document.createElement("span")
-    tab.className = "sy-tab"
-    anchor.append(tab)
     const b = document.createElement("button")
     b.type = "button"
-    b.className = "sy-applied-undo"
+    b.className = "sy-clip sy-applied-undo"
     b.setAttribute("aria-label", "Undo this change")
     b.title = this.item.say ? `Undo: ${this.item.say}` : "Undo this change"
     b.append(icon(ArrowTurnBackwardIcon)) // an icon, not a word: the label is its title and its accessible name
-    tab.append(b)
+    anchor.append(b)
     b.addEventListener("mousedown", (e) => e.preventDefault()) // keep the caret where it is
     b.addEventListener("click", () => {
       const now = view.state.field(appliedField).items.find((i) => i.id === this.item.id)
@@ -596,7 +594,7 @@ const theme = EditorView.baseTheme({
   },
   ".sy-tab button::before": { content: "attr(data-label)" },
   ".sy-tab button svg": { width: "0.85rem", height: "0.85rem", stroke: "currentColor", strokeWidth: "2", verticalAlign: "middle" },
-  // The paperclip above a commented passage: small and quiet until it is pointed at.
+  // The paperclip above a commented passage, and the Undo above an applied edit: small and quiet until the words are pointed at.
   ".sy-clip": {
     position: "absolute",
     insetInlineEnd: "0",
@@ -619,15 +617,9 @@ const theme = EditorView.baseTheme({
   },
   // Out of sight until the commented words (or the paperclip itself) are pointed at or reached by keyboard, so it does not sit on
   // the line above all the time.
-  ".sy-comment-hl:hover ~ .sy-anchor .sy-clip, .sy-anchor:hover .sy-clip, .sy-clip:focus-visible": { opacity: "1", visibility: "visible", transition: "opacity 0.12s, visibility 0s" },
+  ".sy-comment-hl:hover ~ .sy-anchor .sy-clip, .sy-applied:hover ~ .sy-anchor .sy-clip, .sy-anchor:hover .sy-clip, .sy-clip:focus-visible": { opacity: "1", visibility: "visible", transition: "opacity 0.12s, visibility 0s" },
   ".sy-clip:hover": { opacity: "1", background: "var(--accent)", color: "var(--foreground)" },
   ".sy-clip svg": { width: "0.75rem", height: "0.75rem", stroke: "currentColor", strokeWidth: "2" },
-  // The Undo tab of an applied edit is quiet like the paperclip: out of sight until its words (or the tab) are pointed at or reached
-  // by keyboard, so it is not always on top of the line above.
-  // `visibility`, not just opacity: while hidden it takes no clicks, so the line above can be clicked; it hides after a short delay, so the
-  // pointer can travel from the words up to it.
-  ".sy-anchor .sy-tab": { opacity: "0", visibility: "hidden", transition: "opacity 0.12s, visibility 0s 0.3s" },
-  ".sy-applied:hover ~ .sy-anchor .sy-tab, .sy-anchor .sy-tab:hover, .sy-anchor .sy-tab:focus-within": { opacity: "1", visibility: "visible", transition: "opacity 0.12s, visibility 0s" },
   ".sy-tab button + button": { borderInlineStart: "1px solid var(--border)" },
   ".sy-tab button:hover": { background: "var(--accent)" },
 
@@ -637,7 +629,7 @@ const theme = EditorView.baseTheme({
   },
 
 
-  ".sy-applied-undo:hover": { color: "var(--danger)", borderColor: "var(--danger)" },
+  ".sy-applied-undo:hover": { color: "var(--danger)" },
   ".sy-change-accept:hover": { color: "var(--ok)", borderColor: "var(--ok)" },
   ".sy-change-decline:hover": { color: "var(--danger)", borderColor: "var(--danger)" },
   // A light tint, so the text stays readable on it (measured: 14% keeps the note's text above 4.2:1 in light and 5.7:1 in dark);
