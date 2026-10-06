@@ -38,6 +38,14 @@ Yes. On the Persona page the FILES chip lists the soul and the three memory file
 
 Yes. `vault_folders` in `persona.yaml` lists the top-level folders a persona may read, or `'*'` for all of them. It is a hard boundary: searching, note grounding, the web app and the graph all stay inside it. A folder listed there that is not in the vault is not created: the persona simply sees nothing in it, and `sympose doctor` names the entry so a misspelt folder is easy to find.
 
+## Can a persona edit my notes?
+
+A persona can propose changes, new notes and comments in the web app, and you accept or decline each one; it never writes to your vault by itself.
+
+How much it does before your Accept is its `edit_mode`: `plan`, `manual` (the default), `accept` or `auto`. Set it for one persona in its own `persona.yaml` (or in `persona.local.yaml`, which is yours and untracked), or for all personas with the `edit_mode` setting; the Persona page also lets you choose.
+
+`accept` and `auto` show a note about how well the persona's current model edits, so read each change before you accept it.
+
 ## How do I switch persona or make one the default?
 
 `/persona` switches persona. `/default` makes the current persona the one Sympose starts with, and remembers it in `settings.json` as `default_persona`.

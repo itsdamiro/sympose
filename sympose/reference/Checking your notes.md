@@ -2,9 +2,15 @@
 
 ## How do I check my notes for problems?
 
-Run `sympose vault --health`. It reads your notes and reports what it finds, grouped by folder: empty notes, links to no note, titles that are not the file name, and files that are not notes. It only reads: it never changes a note and never calls a model.
+Run `sympose vault --health`, or choose Notes check in the web app's Settings. It reads your notes and reports what it finds, grouped by folder: empty notes, links to no note, titles that are not the file name, and files that are not notes. It only reads: it never changes a note and never calls a model.
 
 `--persona` followed by a handle reads what that persona can read. Without it, the default persona is used.
+
+## What do the notes check's notices about moved folders mean?
+
+They are observations, not faults. "Folder notes inside sub-folders" lists a note named after its folder (like `Projects/Garden/Garden.md`) in a folder that is not at the top: only a top-level folder's note is read as its description, so it may be a description that stopped applying after a move.
+
+"Possible duplicate notes" lists a note like a note called Recipe (2) beside one called Recipe, which is what a folder merge makes of two notes with one name. Combine them by hand if they are duplicates.
 
 ## What counts as an empty note?
 

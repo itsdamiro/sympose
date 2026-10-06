@@ -52,7 +52,7 @@ If a proposal is staged for review, "Review pending change" also appears: it sho
 
 ## /share
 
-/share lists what a cloud model may receive from your vault (your notes, their properties, your recaps, your earlier conversations word for word) and whether each is allowed. Choose a row to allow or stop it; Esc closes the list. Nothing is allowed by default.
+/share lists what a cloud model may receive from your vault (passages of your notes, their properties, your recaps, your earlier conversations word for word, the shape of your vault, how notes connect, the persona's memory, the open note and your comments on it) and whether each is allowed. Choose a row to allow or stop it; Esc closes the list. Nothing is allowed by default.
 
 ## /settings
 

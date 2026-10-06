@@ -296,7 +296,7 @@ REF_CASES: list[RefCase] = [
         "start-the-web-app",
         "how do I start the web app?",
         find=("sympose web",),
-        first="The web app.md",
+        first="Getting started.md",  # its heading is the question itself (it was The web app.md before that note grew)
     ),
     RefCase(
         "start-the-dashboard",
@@ -349,7 +349,7 @@ REF_CASES: list[RefCase] = [
     RefCase(
         "writes-notes",
         "can Samantha write or edit my notes for me in the chat?",
-        find=("cannot",),
+        find=("Accept",),
         first="Not built yet.md",
     ),
     # Checking the notes (ADR 034)

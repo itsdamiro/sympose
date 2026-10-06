@@ -58,6 +58,10 @@ _RAW = [
     ("sympose", "how do I set up a new vault?", True, "Add or switch vaults.md"),
     ("sympose", "can you show me the settings for the model?", True, None),
     ("sympose", "how do you use my notes?", True, "How Samantha uses your notes.md"),
+    # --- editing, comments and folders (ADR 069 to 074) ---
+    ("sympose", "what is the Drafts section?", True, "The web app.md"),
+    ("sympose", "how do I move a folder?", True, "The web app.md"),
+    ("sympose", "can a cloud model see the note I have open?", True, "Privacy and data.md"),
 ]
 
 _VAULT = [

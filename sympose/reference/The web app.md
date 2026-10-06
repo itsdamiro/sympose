@@ -4,11 +4,29 @@ The web app, also called the dashboard, is Sympose's browser app for your vault.
 
 ## What can I do in the web app?
 
-Browse your notes and folders in a tree, edit notes in a markdown editor, create, rename and delete notes and folders, search the whole vault from the search bar, and switch or add vaults from the workspace switcher.
+Browse your notes and folders in a tree, edit notes in a markdown editor, create, rename, move and delete notes and folders, search the whole vault from the search bar, and switch or add vaults from the workspace switcher.
 
 ## What happens to links when I rename a note?
 
 The web app updates the wikilinks (the double-bracket kind) in every other note that points at it, and touches nothing else in those notes. Two limits: links written as Markdown links, like [text](Target.md), are not updated, and a wikilink you show as an example inside a code block or in inline code is changed too, which Obsidian would not do. Check such a note after a rename.
+
+## How do I rename or move a folder?
+
+Rename it from its ⋯ menu (or a right-click) in the tree. To move it, drag its row onto another folder, onto the heading of the folder you are in, onto a root folder in the main menu, or onto the vault name or the empty space below the root folders to move it to the top of the vault.
+
+Sympose asks first when something needs your word: a folder with that name is already there (merge into it, or move it under another name), files are in both (the incoming ones are renamed, for example Recipe (2), and nothing is overwritten), or the move changes which notes a persona may read.
+
+It then rewrites the wikilinks that name the folder, and updates the personas' folder lists, the hidden list, pending changes, pins and recent notes. Links written as Markdown links, like [text](Folder/Note.md), are not changed.
+
+## What are tracked changes and comments?
+
+When a persona proposes a change to the note you have open, the editor shows it as a tracked change: the old text struck through and the new text beside it, each with Accept and Decline. The toolbar has Accept all and save, and Decline all, for the whole note. A change you edited underneath is marked outdated, not merged.
+
+To leave a comment, select text and choose Comment; the persona reads your open comments with your next message and can reply or propose a change. A comment can be resolved, and a persona's own comment can be accepted or declined (declining needs your reply first). Nothing reaches the file until you accept or save. This is web app only.
+
+## What is the Drafts section?
+
+At the top of the notes list, the Drafts section lists the notes in the folder you are viewing that a persona has proposed changes to, the new notes she has proposed, and the notes with an open comment. Choose one to open it. A new note she proposed has no file yet: it is created when you accept it.
 
 ## How do I get back a note I deleted?
 

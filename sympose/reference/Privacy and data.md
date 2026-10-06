@@ -6,11 +6,19 @@ Not by default. With the default local model, run by Ollama, everything stays on
 
 ## What is sent when I use a cloud model?
 
-Your messages and the conversation so far are always sent to that provider. What comes from your vault is sent only if you allow it, one kind at a time: your notes, their properties, your recaps and your earlier conversations word for word. None is allowed by default. The vault itself is never uploaded as a whole.
+Your messages and the conversation so far are always sent to that provider. What comes from your vault is sent only if you allow it, one kind at a time. None is allowed by default. The vault itself is never uploaded as a whole.
+
+The kinds are: passages of your notes, their properties, your recaps, your earlier conversations word for word, the shape of your vault, how notes connect, the persona's memory, the text of the note open in the editor, and your open comments on it.
 
 ## How do I let a cloud model use my notes?
 
 When you switch from a local model to a cloud one with /model, Sympose asks about each kind. Type /share to see or change what is allowed; it is kept in `cloud_share` in `settings.json`. A cloud reply's header shows `cloud:` for what was sent and `withheld:` for what was held back.
+
+## Does a cloud model see the note I have open?
+
+Only if you allow it. So that it can propose changes, a persona is sent the text of the note shown in the web app's editor, and your comments on it, with your message. On your own computer that goes nowhere.
+
+A cloud provider gets the text only after you allow `open_note`, and your comments only after you allow `annotations`, with /share. The persona says so when they were not sent. Even then, nothing it proposes reaches your file until you click Accept.
 
 ## Is a recap sent to a cloud model?
 

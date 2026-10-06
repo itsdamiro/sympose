@@ -10,7 +10,7 @@ The list has `show_grounding`, `show_trim_notice`, `show_context_meter`, `show_b
 
 It also has `grounding_search`, `embedding_min_similarity`, `embedding_margin`, `vault_lookup`, `vault_lookup_rounds`, `auto_compact`, `compact_at`, `compact_to` and `parallel_replies`.
 
-`memory_remember`, `memory_rewrite` and `memory_auto_refresh` are the memory settings. The model, the persona and what a cloud model may receive have /model, /persona and /share.
+`edit_mode`, `open_note_cap` and `annotations_cap` are the editing settings. `memory_remember`, `memory_rewrite` and `memory_auto_refresh` are the memory settings. The model, the persona and what a cloud model may receive have /model, /persona and /share.
 
 ## Where are my settings stored?
 
@@ -58,7 +58,11 @@ The `cloud_helper_limit` setting is how many tokens a cloud model may use for th
 
 ## cloud_share
 
-The `cloud_share` setting lists what a cloud model may receive from your vault: `"notes"`, `"properties"` and `"recaps"`. It is empty by default, so it receives none. Change it with /share, or edit it by hand, for example `["notes"]`. A local model always receives everything.
+The `cloud_share` setting lists what a cloud model may receive from your vault, one kind at a time. It is empty by default, so a cloud model receives none. Change it with /share, or edit it by hand, for example `["notes"]`. A local model always receives everything.
+
+The kinds are `"notes"` (passages found for a message), `"properties"`, `"recaps"`, `"chats"` (earlier conversations word for word), `"vault_map"` (folder names, purposes and note counts) and `"connections"` (how a note links to others).
+
+Also `"memory"` (the persona's own memory of you), `"open_note"` (the text of the note open in the editor, which lets a persona propose changes to it) and `"annotations"` (your open comments on that note). When a kind is held back the persona is told it was not sent, and how to allow it.
 
 ## show_grounding
 
@@ -177,6 +181,20 @@ The `memory_rewrite` setting is how a context.md update is applied: `"ask"` (the
 ## memory_auto_refresh
 
 Setting `memory_auto_refresh` to `true` makes Samantha check for a context.md/profile.md update on her own at launch and when you switch persona. Off by default, since unlike recaps this shares the same model your first message needs. /memory refresh always works regardless of this setting.
+
+## edit_mode
+
+The `edit_mode` setting is what a persona does with your notes before your Accept: `"plan"` (it only talks about a change), `"manual"` (the default: it proposes tracked changes when you ask, and you accept or decline each), `"accept"` (its edits are applied in the editor as it makes them, and your save keeps them) or `"auto"` (it may propose a change on its own).
+
+In every mode the file changes only when you click Accept or save. A persona can have its own `edit_mode` in its `persona.yaml` or in `persona.local.yaml`; that wins over this setting. This is the web app only.
+
+## open_note_cap
+
+The `open_note_cap` setting is how many characters of the open note a persona is sent with your message, 12000 by default (20 or more). A longer note is cut at the cap. The note is sent only when it is open in the web app's editor, and to a cloud model only if `"open_note"` is allowed in `cloud_share`.
+
+## annotations_cap
+
+The `annotations_cap` setting is how many of your open comments on the open note travel with one message, 20 by default (1 or more). Each comment is sent with the passage it is about and is marked new or earlier. To a cloud model they travel only if `"annotations"` is allowed in `cloud_share`.
 
 ## How do the true or false settings work?
 

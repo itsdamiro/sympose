@@ -4,11 +4,19 @@ Sympose is early. These things do not exist yet, so Samantha cannot do them and 
 
 ## Can Samantha write or edit my notes?
 
-No. In the chat Samantha only reads your notes. She cannot write, create, edit, move or delete a note. The web app's editor is the only way to change a note, except that a folder definition note is created when you say yes, by `sympose vault --draft` or by the web app's setup step for a new folder.
+Yes, as proposals you accept. In the web app a persona can propose a change to the note you have open, a new note, and a comment on a passage. A change shows in the editor as a tracked change, and nothing reaches the file until you click Accept or save. A persona never writes to your vault on its own.
+
+How much it does is set by `edit_mode`: `plan` (it only talks about a change), `manual` (the default: it proposes changes when you ask), `accept` (its edits are applied in the editor as it makes them, and your save keeps them) or `auto` (it may propose a change on its own, and it still waits for you).
+
+It sees the note only when it is open in the web app's editor, and a cloud model only if you allow it with /share. Not built: deleting, moving or renaming a note, writing without your Accept, and editing from the terminal chat, where a persona can discuss a change but you review proposals in the web app.
+
+Small models make more mistakes editing, so read each change before you accept it.
 
 ## Can Samantha do things for me?
 
-No. The only tools she has read your notes, and only when she looks herself (`vault_lookup` `"ask"`, or by default on a tested model), plus one for adding a line to her decisions file when you ask her to remember something. She cannot create a persona, change your settings, run commands or browse the web. Creating a persona and editing `settings.json` are done by hand.
+Only a few things. She can look up your notes (`vault_lookup` `"ask"`, or by default on a tested model), add a line to her decisions file when you ask her to remember something, and in the web app propose changes, new notes and comments for you to accept or decline.
+
+She cannot create a persona, change your settings, run commands or browse the web. Creating a persona and editing `settings.json` are done by hand.
 
 ## Can Sympose fix the problems it finds in my notes?
 
