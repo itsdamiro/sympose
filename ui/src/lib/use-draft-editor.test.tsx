@@ -90,6 +90,72 @@ describe("useDraftEditor", () => {
     expect(result.current.current).toBeNull()
   })
 
+  describe("a new note she proposed, which has only a working path", () => {
+    const WORKING = "new/741e5dad7a59.md"
+    function fresh(folder?: string) {
+      const onAccepted = vi.fn()
+      changes.fetchChanges.mockResolvedValue({ proposals: [{ ...proposal, name: "Collaboration: note / ideas" }] })
+      changes.resolveChanges.mockResolvedValue({ ok: true, resolved: ["p"] })
+      vault.createVaultNote.mockResolvedValue({ ok: true, path: "x" })
+      vault.saveVaultNote.mockResolvedValue({ ok: true })
+      guard.getUnsavedGuard.mockReturnValue(null)
+      const hook = renderHook(() => useDraftEditor({ handle: "samantha", personaName: "Samantha", folder: () => folder, onAccepted }))
+      act(() => hook.result.current.open(WORKING))
+      return { ...hook, onAccepted }
+    }
+
+    it("is made in the folder the user is in, named by its title, not under the working path", async () => {
+      const { result, onAccepted } = fresh("Garden")
+
+      await act(async () => result.current.accept())
+
+      expect(vault.createVaultNote).toHaveBeenCalledWith("Garden/Collaboration note ideas", "samantha")
+      expect(vault.saveVaultNote).toHaveBeenCalledWith("Garden/Collaboration note ideas.md", proposal.text, "samantha")
+      expect(changes.resolveChanges).toHaveBeenCalledWith(WORKING, "samantha", "all") // the proposal under its working path is the one forgotten
+      expect(onAccepted).toHaveBeenCalledWith("Garden/Collaboration note ideas.md")
+    })
+
+    it("is made in the folder she was asked for, even a new one, and not in the one the user is in", async () => {
+      const { result, onAccepted } = fresh("Garden")
+      changes.fetchChanges.mockResolvedValue({ proposals: [{ ...proposal, name: "Plan", folder: "Projects/Sympose" }] })
+
+      await act(async () => result.current.accept())
+
+      expect(vault.createVaultNote).toHaveBeenCalledWith("Projects/Sympose/Plan", "samantha")
+      expect(onAccepted).toHaveBeenCalledWith("Projects/Sympose/Plan.md")
+    })
+
+    it("goes to the top of the vault when no folder is in view", async () => {
+      const { result } = fresh(undefined)
+      await act(async () => result.current.accept())
+      expect(vault.createVaultNote).toHaveBeenCalledWith("Collaboration note ideas", "samantha")
+    })
+
+    it("takes the next number when a note of that name exists, and says so only when they all do", async () => {
+      const { result, onAccepted } = fresh("Garden")
+      vault.createVaultNote
+        .mockResolvedValueOnce({ ok: false, error: "A note with that name already exists." })
+        .mockResolvedValueOnce({ ok: false, error: "A note with that name already exists." })
+        .mockResolvedValueOnce({ ok: true, path: "x" })
+
+      await act(async () => result.current.accept())
+
+      expect(vault.createVaultNote.mock.calls.map((c) => c[0])).toEqual(["Garden/Collaboration note ideas", "Garden/Collaboration note ideas (2)", "Garden/Collaboration note ideas (3)"])
+      expect(onAccepted).toHaveBeenCalledWith("Garden/Collaboration note ideas (3).md")
+    })
+
+    it("stops at an error that is not a name taken, and keeps the draft", async () => {
+      const { result, onAccepted } = fresh("Garden")
+      vault.createVaultNote.mockResolvedValue({ ok: false, error: "That folder is outside this persona's reach." })
+
+      await act(async () => result.current.accept())
+
+      expect(vault.createVaultNote).toHaveBeenCalledTimes(1)
+      expect(notify.notify.error).toHaveBeenCalledWith("That folder is outside this persona's reach.")
+      expect(onAccepted).not.toHaveBeenCalled()
+    })
+  })
+
   it("accepts the text as the user edited it, flushing the editor first", async () => {
     const { result } = setup()
     guard.getUnsavedGuard.mockReturnValue({ save: async () => (await result.current.file!.save("x", "typed just now"), true) })

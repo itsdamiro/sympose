@@ -11,7 +11,7 @@ export function DraftBanner({ name, onAccept, onDecline }: { name: string; onAcc
   return (
     <div className="flex items-center justify-between gap-3 rounded-md bg-chip px-3 py-2 text-xs text-fg-muted">
       <div className="flex min-w-0 flex-col gap-0.5">
-        <span className="truncate font-mono text-foreground">{name}</span>
+        <span className="truncate font-medium text-foreground">{name}</span>
         <span>A note proposed for you. It is not in your vault until you accept it.</span>
       </div>
       <div className="flex shrink-0 items-center gap-1">

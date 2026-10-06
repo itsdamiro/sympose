@@ -73,4 +73,13 @@ describe("draftsInFolder: the drafts of the folder in view", () => {
   it("lists nothing for a folder with no drafts", () => {
     expect(draftsInFolder(all, "Empty")).toEqual([])
   })
+
+  it("lists a new note she proposed in every folder and at the root, since it has no folder to be found in yet", () => {
+    const fresh = { ...draft("new/741e5dad7a59.md"), is_new: true, name: "Collaboration note" }
+    const withNew = [...all, fresh]
+
+    expect(draftsInFolder(withNew, "Notes").map((d) => d.path)).toEqual(["Notes/a.md", "Notes/Sub/b.md", "new/741e5dad7a59.md"])
+    expect(draftsInFolder(withNew, "Empty").map((d) => d.path)).toEqual(["new/741e5dad7a59.md"])
+    expect(draftsInFolder(withNew, undefined).map((d) => d.path)).toEqual(["root.md", "new/741e5dad7a59.md"])
+  })
 })

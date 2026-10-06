@@ -15,13 +15,22 @@ import type { PanelFile } from "@/lib/use-note-document"
  * the proposal. `path` is the key the editor is
  * given, `draft:<handle>/<note path>`, never a vault path.
  */
+/** A proposed note's title as a file name: no characters a file name or a link cannot hold, no runs of spaces, not empty. */
+function fileNameOf(title: string | null | undefined): string {
+  const name = (title ?? "").replace(/[\\/:*?"<>|#^[\]]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80)
+  return name || "Untitled"
+}
+
 export function useDraftEditor({
   handle,
   personaName,
+  folder,
   onAccepted,
 }: {
   handle: string
   personaName: string
+  /** The folder the user is in, where a new note that has no folder yet is made when accepted (none: the vault's top). */
+  folder?: () => string | undefined
   /** The note was created: its vault path, for the caller to open it and refresh the vault. */
   onAccepted: (path: string) => void
 }) {
@@ -72,16 +81,36 @@ export function useDraftEditor({
   const accept = React.useCallback(async () => {
     if (!notePath) return
     await getUnsavedGuard()?.save() // what is in the editor right now reaches `texts`
-    const text = texts.current.get(`${handle}:${notePath}`) ?? (await fetchChanges(notePath, handle))?.proposals.find((p) => p.kind === "create")?.text
+    const proposed = (await fetchChanges(notePath, handle))?.proposals.find((p) => p.kind === "create")
+    const text = texts.current.get(`${handle}:${notePath}`) ?? proposed?.text
     if (text === undefined) return notify.error("That draft no longer exists, so no note was created.")
-    const created = await createVaultNote(notePath.replace(/\.md$/, ""), handle)
-    if (!created.ok) return notify.error(created.error) // a note of that name exists: the draft stays
-    const written = await saveVaultNote(notePath, text, handle)
+    // A note she proposed lives under a working path (`new/<id>.md`) that is nothing to keep: it is made in the folder the user
+    // is in, named by its title, and under another number when that name is taken. A draft that already has a real path keeps it.
+    let target = notePath.replace(/\.md$/, "")
+    if (notePath.startsWith("new/")) {
+      // The folder she was asked to make it in, else the one the user is in.
+      const base = [proposed?.folder || folder?.(), fileNameOf(proposed?.name)].filter(Boolean).join("/")
+      let made = false
+      for (let n = 1; n <= 20 && !made; n++) {
+        const candidate = n === 1 ? base : `${base} (${n})`
+        const created = await createVaultNote(candidate, handle)
+        if (created.ok) {
+          target = candidate
+          made = true
+        } else if (!/already exists/i.test(created.error)) return notify.error(created.error)
+      }
+      if (!made) return notify.error("A note with that name already exists, and so do the numbered ones. Rename one and try again.")
+    } else {
+      const created = await createVaultNote(target, handle)
+      if (!created.ok) return notify.error(created.error) // a note of that name exists: the draft stays
+    }
+    const path = `${target}.md`
+    const written = await saveVaultNote(path, text, handle)
     if (!written.ok) return notify.error(`The note was created but its text couldn't be saved. Open it and try again. (${written.error})`)
     await forget(notePath)
     notify.success("Draft accepted")
-    onAccepted(notePath)
-  }, [notePath, handle, forget, onAccepted])
+    onAccepted(path)
+  }, [notePath, handle, folder, forget, onAccepted])
 
   const decline = React.useCallback(async () => {
     if (!notePath) return

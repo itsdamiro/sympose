@@ -19,6 +19,8 @@ export interface Proposal {
   /** A new note: its whole text and the working name it is listed under. */
   text?: string
   name?: string
+  /** A new note: the folder she was asked to make it in (a vault path), when she was. */
+  folder?: string
   /** Against the note on disk when it was fetched. */
   status: "pending" | "outdated"
 }
@@ -51,6 +53,8 @@ export interface Draft {
   path: string
   name: string | null
   is_new: boolean
+  /** A new note: the folder she was asked to make it in (a vault path), `null` when she was not. */
+  folder?: string | null
   /** Changes waiting; 0 for a note listed only for its open comments. */
   count: number
   /** Open comments on words still in the note, other than those on the words of a change (a comment her change answers is

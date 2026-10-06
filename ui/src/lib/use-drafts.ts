@@ -43,11 +43,16 @@ export function useDrafts(persona: string, refreshKey: number) {
   return state.persona === persona ? state.drafts : []
 }
 
+/** A new note she proposed, still under its working path (`new/…`): it belongs to no folder yet. */
+const unplaced = (d: Draft) => d.is_new && d.path.startsWith("new/")
+
 /** The drafts that belong to the folder in view, at any depth (`Notes and Pets/` is not in `Notes/`), as Pinned is
  *  scoped to its root folder. With no folder in view (the vault's own root notes) only the drafts of notes outside
- *  every folder are listed. */
+ *  every folder are listed. A new note she proposed is in every list. */
 export function draftsInFolder(drafts: Draft[], folder: string | undefined): Draft[] {
-  if (folder === undefined) return drafts.filter((d) => !d.path.includes("/"))
+  // A new note a persona proposed has no folder yet (it is kept under a working path until it is accepted): it is listed
+  // wherever the user is, or it could not be found at all.
+  if (folder === undefined) return drafts.filter((d) => unplaced(d) || !d.path.includes("/"))
   const prefix = `${folder}/`
-  return drafts.filter((d) => d.path.startsWith(prefix))
+  return drafts.filter((d) => unplaced(d) || d.path.startsWith(prefix))
 }
