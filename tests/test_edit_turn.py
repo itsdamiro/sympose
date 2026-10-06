@@ -163,3 +163,19 @@ def test_with_no_note_open_there_is_nothing_to_comment_on():
 
 def test_plan_does_not_mention_comment_markers():
     assert "comment_on" not in edit_turn.message(edit_turn.resolve(persona("plan"), False, NOTE), "x")
+
+
+TABLE_NOTE = OpenNote("Garden plan.md", "Plan.\n\n| Column 1 | Column 2 |\n| -------- | -------- |\n| test     | document |\n")
+
+
+def test_a_model_with_tools_is_told_how_far_a_change_goes_in_a_table_only_when_the_note_has_one():
+    with_table = edit_turn.message(edit_turn.resolve(SAMANTHA, True, TABLE_NOTE), "delete the table")
+    without = edit_turn.message(edit_turn.resolve(SAMANTHA, True, NOTE), "x")
+
+    assert "cannot propose removing a table" in with_table and "leave a comment" in with_table
+    assert "table" not in without
+
+
+def test_a_model_without_tools_gets_no_table_line_which_cost_it_edits_in_the_measurement():
+    assert "table" not in edit_turn.message(edit_turn.resolve(SAMANTHA, False, TABLE_NOTE), "x").split("The user's request:")[1]
+

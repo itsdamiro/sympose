@@ -185,6 +185,49 @@ def test_the_users_open_comments_come_with_the_message_for_a_local_model(monkeyp
     assert "Is that every week?" in seen[0]["messages"][-1]["content"]
 
 
+LONG = OpenNote("Garden plan.md", "# Garden\n\nIntro words.\n\n## Beds\n\nTomatoes by the fence.\nCarrots in the long bed.\n\n## Schedule\n\nWater every morning.\n")
+POINTED = turn.edit_turn.Attached("Carrots in the long bed.")
+
+
+def test_a_model_with_tools_gets_the_section_of_an_attached_passage_not_the_whole_note(monkeypatch):
+    sharing.set_approved(sharing.OPEN_NOTE, True)
+    seen = model_that(monkeypatch, ModelReply("ok", 5))
+
+    turn.run_turn("samantha", "make this bold", model=CLOUD, open_note=LONG, attached=[POINTED])
+
+    sent = seen[0]["messages"][-1]["content"]
+    assert "Carrots in the long bed." in sent and "Tomatoes by the fence." in sent  # the section it is in
+    assert "Water every morning." not in sent and "Intro words." not in sent  # not the rest
+    assert "## Schedule" in sent  # but the headings are
+
+
+def test_a_model_without_tools_gets_the_whole_note_whatever_is_attached(monkeypatch):
+    seen = model_that(monkeypatch, ModelReply("ok", 5))
+
+    turn.run_turn("samantha", "make this bold", model=LOCAL, open_note=LONG, attached=[POINTED])
+
+    assert "Water every morning." in seen[0]["messages"][-1]["content"]
+
+
+def test_nothing_attached_or_an_attachment_not_in_the_note_sends_the_whole_note(monkeypatch):
+    sharing.set_approved(sharing.OPEN_NOTE, True)
+    seen = model_that(monkeypatch, ModelReply("ok", 5), ModelReply("ok", 5))
+
+    turn.run_turn("samantha", "tidy", model=CLOUD, open_note=LONG)
+    turn.run_turn("samantha", "tidy", model=CLOUD, open_note=LONG, attached=[turn.edit_turn.Attached("words that are not there")])
+
+    assert all("Water every morning." in s["messages"][-1]["content"] for s in seen)
+
+
+def test_an_attachment_does_not_change_which_note_her_changes_are_checked_against(monkeypatch):
+    marker = '<!-- propose_edit: {"find": "Water every morning.", "replace": "Water at dawn.", "say": "Changed."} -->'
+    model_that(monkeypatch, ModelReply(f"ok\n{marker}", 5))
+
+    result = turn.run_turn("samantha", "change the schedule", model=LOCAL, open_note=LONG, attached=[POINTED])
+
+    assert result.lookups == [{"tool": "propose_edit", "saved": True}]
+
+
 def test_a_cloud_model_is_not_sent_the_comments_until_approved_and_the_turn_says_so(monkeypatch):
     note_changes.annotate("samantha", NOTE.path, NOTE.text, quote="three times", text="Is that every week?", author="user")
     sharing.set_approved(sharing.OPEN_NOTE, True)

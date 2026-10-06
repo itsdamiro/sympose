@@ -151,6 +151,34 @@ def test_a_comment_marker_files_a_comment_of_hers_on_the_passage_and_leaves_the_
     assert records == [{"tool": "comment_on", "saved": True}] and proposals() == []
 
 
+def test_her_comment_on_words_the_user_already_commented_on_is_an_answer_under_theirs():
+    mine = nc.annotate(H, PATH, NOTE, quote="three times", text="Delete this.", author="user")
+
+    et.run(H, PATH, NOTE, "comment_on", {"find": "three times", "text": "I cannot do that in one change."})
+
+    roots = [c for c in comments() if not c["reply_to"]]
+    (answer,) = [c for c in comments() if c["reply_to"]]
+    assert [r["id"] for r in roots] == [mine["id"]]
+    assert answer["author"] == "persona" and answer["reply_to"] == mine["id"] and answer["text"] == "I cannot do that in one change."
+
+
+def test_her_comment_on_other_words_is_a_comment_of_its_own():
+    nc.annotate(H, PATH, NOTE, quote="three times", text="Delete this.", author="user")
+
+    et.run(H, PATH, NOTE, "comment_on", {"find": "Phone", "text": "A phone?"})
+
+    assert [c["reply_to"] for c in comments()] == [None, None]
+
+
+def test_her_comment_does_not_go_under_a_resolved_one_on_the_same_words():
+    done = nc.annotate(H, PATH, NOTE, quote="three times", text="Old.", author="user")
+    nc.set_annotation_state(H, PATH, done["id"], nc.RESOLVED)
+
+    et.run(H, PATH, NOTE, "comment_on", {"find": "three times", "text": "New thought."})
+
+    assert [c["reply_to"] for c in comments()] == [None, None]
+
+
 def test_a_comment_on_a_passage_found_twice_is_refused_and_told():
     shown, records = et.apply_marker(H, PATH, NOTE, "Hm.\n" + comment_marker(find="- Pack charger", text="Twice?"))
 

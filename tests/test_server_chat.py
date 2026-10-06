@@ -478,6 +478,24 @@ def test_the_open_note_sent_with_a_message_reaches_the_persona_and_a_marker_come
     assert len(drafts["proposals"]) == 1
 
 
+def test_a_passage_attached_to_a_message_reaches_the_turn(client, monkeypatch):
+    seen = []
+    monkeypatch.setattr(ch.turn, "run_turn", lambda *a, **kw: seen.append(kw["attached"]) or (_ for _ in ()).throw(RuntimeError("stop")))
+    body = {"message": "hi", "persona": "samantha", "open_note": {"path": "a.md", "text": "I run three times."},
+            "attached": [{"quote": "three times", "before": "I run ", "after": "."}]}
+
+    with pytest.raises(RuntimeError):
+        client.post("/api/chat/turn", json=body)
+
+    assert [(a.quote, a.before, a.after) for a in seen[0]] == [("three times", "I run ", ".")]
+
+
+def test_an_attachment_the_app_does_not_understand_is_refused(client):
+    r = client.post("/api/chat/turn", json={"message": "hi", "persona": "samantha", "attached": [{"quote": ""}]})
+
+    assert r.status_code == 422
+
+
 def test_a_message_that_sends_no_note_and_no_edits_flag_is_sent_as_it_was(client, monkeypatch):
     seen = []
     monkeypatch.setattr(turn.model_mod, "call_model", lambda messages, model=None, **_: seen.append(messages[-1]["content"]) or ModelReply("Hi", 1))

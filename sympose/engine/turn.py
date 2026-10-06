@@ -42,9 +42,11 @@ def run_turn(
     model: str | None = None,
     open_note: edit_turn.OpenNote | None = None,
     edits: bool = False,
+    attached: list[edit_turn.Attached] | None = None,
 ) -> TurnResult:
     """`open_note` is the note open in the editor, and `edits` says the caller can show a proposal at all (the web
-    app); the terminal passes neither, so a persona there is never given the edit tool (docs/decisions/072)."""
+    app); the terminal passes neither, so a persona there is never given the edit tool (docs/decisions/072).
+    `attached` are the passages of the open note the user pointed at (docs/decisions/076)."""
     persona = profile_mod.resolve_profile(handle)
     if persona is None:
         raise PersonaNotFoundError(f"No persona named '{handle}' was found.")
@@ -66,7 +68,7 @@ def run_turn(
     # checked against what this model can actually do and, for `ask`, whether the persona has a
     # vault to look up at all -- see `persona_tools.resolve`.
     since = existing["turns"][-1].get("timestamp") if existing and existing.get("turns") else None  # when the previous turn was recorded
-    modes = persona_tools.resolve(persona, target_model, open_note, edits, since)
+    modes = persona_tools.resolve(persona, target_model, open_note, edits, since, attached)
     # Cleared in `finally`, not just on the normal path: an exception from `_run` (a raised
     # `EngineModelError`, or anything else) must not leave the busy indicator (docs/decisions/043)
     # showing a phase forever for a turn that's already over. `_run` narrows this further (searching,

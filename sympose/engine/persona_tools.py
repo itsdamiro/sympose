@@ -24,7 +24,7 @@ class Modes:
 
 def resolve(
     persona: dict[str, Any], target_model: str, open_note: edit_turn.OpenNote | None = None, edits: bool = False,
-    since: str | None = None,
+    since: str | None = None, attached: list[edit_turn.Attached] | None = None,
 ) -> Modes:
     """What this turn's `ask`/`remember` actually are, given `target_model`'s own tool-calling
     capability and a persona with or without a vault -- the one place `run_turn` needs to check
@@ -37,7 +37,7 @@ def resolve(
     can_call_tools = (chose_ask or chose_chats or wants_edit or memory.remember_enabled()) and tool_support.can_call_tools(target_model)
     edit = edit_turn.resolve(
         persona, can_call_tools, open_note, sharing.OPEN_NOTE in sharing.allowed(target_model),
-        persona.get("handle"), sharing.ANNOTATIONS in sharing.allowed(target_model), since,
+        persona.get("handle"), sharing.ANNOTATIONS in sharing.allowed(target_model), since, attached or (),
     ) if edits or open_note is not None else None
     return Modes(
         ask=chose_ask and can_call_tools,

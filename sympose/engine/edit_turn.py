@@ -7,7 +7,10 @@ this. Nothing here writes: a proposal waits for the user's Accept."""
 import re
 from dataclasses import dataclass
 
-from sympose import settings_store
+from collections.abc import Sequence
+
+from sympose import passage_finder as finder
+from sympose import settings_store, table_spans
 from sympose.engine import edit_mode, open_comments
 
 CAP_SETTING = "open_note_cap"
@@ -55,9 +58,45 @@ def _within(text: str, limit: int) -> tuple[str, bool]:
     return (head[:newline] if newline > limit // 2 else head), True
 
 
+@dataclass(frozen=True)
+class Attached:
+    """Words of the open note the user pointed at (docs/decisions/076), with the text around them to find them by."""
+
+    quote: str
+    before: str = ""
+    after: str = ""
+
+
+_HEADING = re.compile(r"^#{1,6} ", re.M)
+
+
+def focus_text(note_text: str, attached: Sequence[Attached]) -> str | None:
+    """What a model that can call tools is sent instead of the whole note when the user attached passages: the note's
+    headings, the words pointed at, and the section (up to the next heading) each is in. `None` when none of the passages
+    is found in the note exactly once, so the whole note goes."""
+    starts = [m.start() for m in _HEADING.finditer(note_text)]
+    spans, pointed = [], []
+    for a in attached:
+        here = finder.locate(note_text, a.quote, a.before, a.after)
+        if here.status != finder.ONE:
+            continue
+        span = (max([x for x in starts if x <= here.start], default=0), min([x for x in starts if x > here.start], default=len(note_text)))
+        if span not in spans:
+            spans.append(span)
+        pointed.append(a.quote)
+    if not spans:
+        return None
+    outline = "\n".join(line for line in note_text.splitlines() if _HEADING.match(line))
+    named = "; ".join(f'"{q}"' for q in pointed)
+    shown = "\n\n".join(note_text[a:b].strip("\n") for a, b in sorted(spans))
+    return (f"[The note's headings:\n{outline}\n\nThe user pointed at: {named}. Only the section each is in is shown below; "
+            f"the rest of the note is not, and you can open it if you need it.]\n\n{shown}")
+
+
 def resolve(
     persona: dict, can_call_tools: bool, open_note: OpenNote | None, may_see: bool = True,
     comments_from: str | None = None, may_see_comments: bool = True, since: str | None = None,
+    attached: Sequence[Attached] = (),
 ) -> Edit:
     """What this turn gives her. In `plan` she is given no tool and no note; otherwise the tool or the marker, and
     the open note when there is one, cut to the cap."""
@@ -68,7 +107,8 @@ def resolve(
         return Edit(mode, can_call_tools)
     if not may_see:
         return Edit(mode, can_call_tools, withheld=True)
-    text, cut = _within(open_note.text, cap())
+    focus = focus_text(open_note.text, attached) if attached and can_call_tools else None  # a model without tools cannot ask for the rest
+    text, cut = _within(focus if focus is not None else open_note.text, cap())
     found = open_comments.gather(comments_from, open_note, since) if comments_from else open_comments.Found()
     name = persona.get("name") or str(persona.get("handle") or "She").title()
     return Edit(
@@ -98,6 +138,11 @@ _NOTE_MARKER = (
 _COMMENT_TOOL = (
     "To comment on a passage without changing it (a question or a doubt for the user, when they ask for one), call "
     "comment_on with find, copied from the note exactly and found in it once, and text."
+)
+_TABLES = (
+    "The note has a table. A change inside a table can only be one cell's own words, replaced by words that stay in that "
+    "cell. You cannot propose removing a table or a row, or reshaping one: if asked to, say plainly that you cannot, and "
+    "leave a comment on it instead of offering the edit."
 )
 _REVIEW = "The user reviews each change before anything is saved. Do not rewrite the note."
 _ASKED = (
@@ -133,6 +178,8 @@ def message(edit: Edit, user_message: str) -> str:
     # measured (ADR 072, 18 of 36 right with it alone, 8 with the new-note and comment lines), and it is the one
     # the user asks for most. A model with tools has them described outside the prompt.
     rules = [_EDIT_TOOL, new_note, _COMMENT_TOOL, _REVIEW] if edit.tool else [_EDIT_MARKER, _REVIEW]
+    if edit.tool and table_spans.has_table(edit.note.text):
+        rules.insert(1, _TABLES)  # learnt from a refusal otherwise, after she had offered it (the table rule is in `table_spans`)
     if edit.cut:
         rules.append(_CUT.format(n=len(edit.note.text)))
     rules.append(_UNASKED if edit.mode == edit_mode.AUTO else _ASKED)

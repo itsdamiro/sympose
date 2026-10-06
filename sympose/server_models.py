@@ -158,6 +158,14 @@ class OpenNoteBody(BaseModel):
     text: str
 
 
+class AttachedPassage(BaseModel):
+    """Words of the open note the user pointed at: the quote and the text around it, as the editor holds them."""
+
+    quote: str = Field(..., min_length=1)
+    before: str = ""
+    after: str = ""
+
+
 class ChatTurn(BaseModel):
     """Body of `POST /api/chat/turn` — one message to a persona. `session_id` continues a conversation;
     omitted, a new one starts and its id comes back in the reply. `edits` says the screen can show a proposal
@@ -168,6 +176,8 @@ class ChatTurn(BaseModel):
     session_id: str | None = None
     edits: bool = False
     open_note: OpenNoteBody | None = None
+    # Passages of the open note the user attached to this message (docs/decisions/076).
+    attached: list[AttachedPassage] = Field(default_factory=list, max_length=8)
 
 
 class ChatCompact(BaseModel):

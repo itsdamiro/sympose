@@ -63,6 +63,11 @@ def _tables(text: str) -> list[list[tuple[int, str, bool]]]:
     return found
 
 
+def has_table(text: str) -> bool:
+    """Whether `text` holds a table (so the persona is told how far her changes may go in it)."""
+    return bool(_tables(text))
+
+
 def problem(text: str, start: int, end: int, replace: str) -> str | None:
     """Why a change to `text[start:end]` cannot be drawn, or `None` when it can (outside a table, or inside one cell)."""
     for rows in _tables(text):

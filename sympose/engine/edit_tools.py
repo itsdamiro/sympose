@@ -80,7 +80,7 @@ def _propose(handle: str, path: str | None, text: str | None, name: str, raw: st
         if name == COMMENT:
             if path is None or text is None:
                 return False, _NO_NOTE
-            note_changes.annotate(handle, path, text, quote=args["find"], text=args["text"], author="persona")
+            note_changes.comment_on(handle, path, text, quote=args["find"], text=args["text"], author="persona")
         elif name == NOTE:
             note_changes.propose_create(handle, f"new/{note_changes._id()}", args["text"], say=args["say"], title=args["title"] or None)
         elif path is None or text is None:
