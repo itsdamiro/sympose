@@ -98,7 +98,9 @@ const ACTS: Record<string, string> = {
   comment_on: "left a comment",
 }
 const isAct = (l: SentLookup) => l.tool in ACTS
-const searches = (sent: SentRecord | null | undefined) => (sent?.lookups ?? []).filter((l) => !isRemember(l) && !isAct(l))
+// Opening a note for the user shows in the editor itself, so it adds nothing to the reply's footer.
+const calls = (sent: SentRecord | null | undefined) => (sent?.lookups ?? []).filter((l) => l.tool !== "show_note")
+const searches = (sent: SentRecord | null | undefined) => calls(sent).filter((l) => !isRemember(l) && !isAct(l))
 const fellBack = (sent: SentRecord | null | undefined) => sent?.mode === "auto" || sent?.chats_mode === "auto"
 
 function lookupLine(l: SentLookup): string {
@@ -115,9 +117,9 @@ export function groundedLookups(sent: SentRecord | null | undefined): string[] {
   if (sent.mode === "auto") lines.push(ASK_FALLBACK)
   if (sent.chats_mode === "auto") lines.push(CHATS_ASK_FALLBACK)
   if (lines.length > 0) return lines
-  const calls = sent.lookups ?? []
+  const made = calls(sent)
   if (searches(sent).length === 0 && (sent.mode === "ask" || sent.chats_mode === "ask")) lines.push("Looked nothing up for this message.")
-  return [...lines, ...calls.map(lookupLine)]
+  return [...lines, ...made.map(lookupLine)]
 }
 
 /** The standing context a reply carried, listed only inside an open row: recaps, her memory files, the follow-up
@@ -138,7 +140,7 @@ export function groundedContext(sent: SentRecord | null | undefined): string[] {
 /** Whether a reply gets a row under it: something specific to it was used (a note, an earlier exchange, a lookup or
  *  a remember, the fallback). The standing context alone never makes one, so a plain reply stays clean. */
 export function hasFooterRow(sent: SentRecord | null | undefined): boolean {
-  return groundedNotes(sent).length > 0 || groundedChats(sent) > 0 || (sent?.lookups?.length ?? 0) > 0 || fellBack(sent)
+  return groundedNotes(sent).length > 0 || groundedChats(sent) > 0 || calls(sent).length > 0 || fellBack(sent)
 }
 
 /** "Proposed 2 changes", "Proposed a change and left a comment", or that none could be placed. */
@@ -164,9 +166,9 @@ export function rowSummary(sent: SentRecord | null | undefined): string | null {
   if (notes.length > 0 || chats > 0) return groundedSummary(notes, chats)
   const looked = searches(sent).length
   if (looked > 0) return `Looked up ${looked === 1 ? "one thing" : `${looked} things`}`
-  const acts = (sent?.lookups ?? []).filter(isAct)
+  const acts = calls(sent).filter(isAct)
   if (acts.length > 0) return actsSummary(acts)
-  const remembered = (sent?.lookups ?? []).filter(isRemember)
+  const remembered = calls(sent).filter(isRemember)
   if (remembered.length > 0) return remembered.some((l) => l.saved) ? "Remembered something" : "Tried to remember something"
   return "Sympose searched for the message"
 }

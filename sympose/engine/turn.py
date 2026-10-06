@@ -176,7 +176,7 @@ def _run(
     if modes.edit and modes.edit.active and not modes.edit.tool:  # the same for a proposal (docs/decisions/072)
         opened = modes.edit.source
         reply_text, edit_lookups = edit_tools.apply_marker(
-            handle, opened.path if opened else None, opened.text if opened else None, reply_text,
+            handle, opened.path if opened else None, opened.text if opened else None, reply_text, persona,
         )
         lookups += edit_lookups
 

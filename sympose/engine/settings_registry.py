@@ -129,6 +129,10 @@ SETTINGS: list[Setting] = [
         edit_mode.SETTING, CHOICE, "what the persona does to notes before you accept",
         edit_mode.mode, lambda: edit_mode.DEFAULT, choices=edit_mode.MODES, group=EDITING,
     ),
+    toggle(
+        edit_turn.SHOW_MARKER_SETTING, "opening notes, on a model without tools",
+        edit_turn.show_marker_enabled, default=False, group=EDITING,
+    ),
     Setting(
         edit_turn.CAP_SETTING, NUMBER, "open note text the persona sees", edit_turn.cap,
         lambda: edit_turn.DEFAULT_CAP, hint=f"characters, {edit_turn.MIN_CAP} or more", whole=True, group=EDITING,

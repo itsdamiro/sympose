@@ -69,6 +69,27 @@ describe("useChat", () => {
     window.removeEventListener("sympose:persona-acted", heard)
   })
 
+  it("asks for the note she showed, the last one, when the reply lands in the conversation in view", async () => {
+    const reply = ok("Here it is.")
+    api.sendChatTurn.mockResolvedValue({
+      ...reply,
+      reply: {
+        ...reply.reply,
+        sent: { notes: [], lookups: [{ tool: "show_note", path: "A.md", saved: true }, { tool: "show_note", path: "Projects/Atlas.md", saved: true }, { tool: "show_note", saved: false }] },
+      },
+    })
+    const { result } = renderHook(() => useChat("samantha"))
+    await say(result, "open the Atlas note")
+    expect(result.current.shownNote).toEqual({ path: "Projects/Atlas.md", n: 1 })
+  })
+
+  it("opens nothing when she did not, or could not", async () => {
+    api.sendChatTurn.mockResolvedValue(ok("No such note."))
+    const { result } = renderHook(() => useChat("samantha"))
+    await say(result, "open it")
+    expect(result.current.shownNote).toBeNull()
+  })
+
   it("continues the conversation with the session id the backend returned", async () => {
     api.sendChatTurn.mockResolvedValueOnce(ok("one", "s9")).mockResolvedValueOnce(ok("two", "s9"))
     const { result } = renderHook(() => useChat("samantha"))

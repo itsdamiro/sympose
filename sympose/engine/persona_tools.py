@@ -75,7 +75,7 @@ def for_turn(
                 return result
         if giving_edit:
             opened = edit.source
-            result = edit_tools.run(persona["handle"], opened.path if opened else None, opened.text if opened else None, name, raw_arguments)
+            result = edit_tools.run(persona["handle"], opened.path if opened else None, opened.text if opened else None, name, raw_arguments, persona)
             if result is not None:
                 return result
         if chats and name in (chat_tools.SEARCH, chat_tools.OPEN):
@@ -88,5 +88,5 @@ def for_turn(
 
 
 def _edit_tools(edit: edit_turn.Edit) -> list[dict[str, Any]]:
-    """With no note open she is given only the one that proposes a new note."""
-    return edit_tools.TOOLS if edit.note is not None else [t for t in edit_tools.TOOLS if t["function"]["name"] == edit_tools.NOTE]
+    """With no note open she is given only the two that need none: proposing a new note and showing one."""
+    return edit_tools.TOOLS if edit.note is not None else [t for t in edit_tools.TOOLS if t["function"]["name"] in (edit_tools.NOTE, edit_tools.SHOW)]

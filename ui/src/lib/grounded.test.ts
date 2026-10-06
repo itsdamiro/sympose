@@ -175,3 +175,12 @@ describe("grounded notes", () => {
   })
 })
 
+
+describe("opening a note for the user", () => {
+  it("adds nothing to a reply's footer: the editor showing it is the sign", () => {
+    const sent = { notes: [], lookups: [{ tool: "show_note", path: "Projects/Atlas.md", saved: true }] }
+
+    expect(hasFooterRow(sent)).toBe(false)
+    expect(groundedLookups(sent)).toEqual([])
+  })
+})

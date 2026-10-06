@@ -5,23 +5,28 @@ and for one that cannot, the same arguments as a marked block in its reply,
     <!-- propose_edit: {"find": "...", "replace": "...", "say": "..."} -->
     <!-- propose_note: {"text": "...", "title": "...", "say": "..."} -->
     <!-- comment_on: {"find": "...", "text": "..."} -->
+    <!-- show_note: {"path": "..."} -->
 
 which is read, filed and removed from what is shown. They end in `note_changes.propose_edit` / `propose_create` /
 `annotate` (ADR 070, 069), which refuse a passage not found exactly once. A comment is hers on a passage, kept apart
 from the note's text like the user's own. Nothing here writes the vault: a proposal waits for the
-user's Accept. A change that could not be placed is told to the user, in the open, never dropped silently."""
+user's Accept. `show_note(path)` writes nothing at all: it only tells the web app to open a note of the persona's scope
+in the editor (the path is returned in the record). A change that could not be placed is told to the user, in the open, never dropped silently."""
 
 import json
 import re
 from typing import Any
 
 from sympose import note_changes
+from sympose.engine import lookup_scope
 from sympose.engine.lookup_result import Result
 
-EDIT, NOTE, COMMENT = "propose_edit", "propose_note", "comment_on"
+EDIT, NOTE, COMMENT, SHOW = "propose_edit", "propose_note", "comment_on", "show_note"
 _NO_NOTE = "No note is open in the editor, so there is nothing to change; ask the user to open it."
 _BAD = "The arguments of {name} could not be read: give {fields} as text."
-_FIELDS = {EDIT: ("find", "replace", "say"), NOTE: ("text", "say"), COMMENT: ("find", "text")}
+_NO_SUCH_NOTE = "No note called {path} was found in the vault, so nothing was opened: ask the user which note they mean."
+_DONE = {COMMENT: "Commented.", SHOW: "Opened."}
+_FIELDS = {EDIT: ("find", "replace", "say"), NOTE: ("text", "say"), COMMENT: ("find", "text"), SHOW: ("path",)}
 
 
 def _tool(name: str, description: str, properties: dict[str, str], required: list[str]) -> dict[str, Any]:
@@ -57,9 +62,16 @@ TOOLS: list[dict[str, Any]] = [
          "text": "What you want to say about it, in a sentence or two."},
         ["find", "text"],
     ),
+    _tool(
+        SHOW,
+        "Open a note in the editor beside this conversation, for the user to read or edit. Use it when the user asks you to "
+        "open or show a note. It does not change anything.",
+        {"path": "The note's path in the vault, as it was given to you (for example Projects/Sympose/Plan.md), or its name."},
+        ["path"],
+    ),
 ]
 
-_MARKER = re.compile(r"<!--\s*(propose_edit|propose_note|comment_on):\s*(\{.*?\})\s*-->", re.IGNORECASE | re.DOTALL)
+_MARKER = re.compile(r"<!--\s*(propose_edit|propose_note|comment_on|show_note):\s*(\{.*?\})\s*-->", re.IGNORECASE | re.DOTALL)
 
 
 def _arguments(name: str, raw: str | dict[str, Any] | None) -> dict[str, str] | None:
@@ -94,15 +106,34 @@ def _propose(handle: str, path: str | None, text: str | None, name: str, raw: st
     return True, "Commented." if name == COMMENT else "Proposed; the user decides."
 
 
-def run(handle: str, note_path: str | None, note_text: str | None, name: str, raw: str | dict[str, Any] | None) -> Result | None:
+def _show(profile: dict[str, Any] | None, raw: str | dict[str, Any] | None) -> tuple[bool, str, str | None]:
+    """`(opened, what happened, the note's path in the vault)`: the note `path` names within the persona's scope."""
+    args = _arguments(SHOW, raw)
+    if args is None:
+        return False, _BAD.format(name=SHOW, fields="path"), None
+    note = lookup_scope.find(profile, args["path"]) if profile is not None else None
+    if note is None:
+        return False, _NO_SUCH_NOTE.format(path=repr(args["path"])), None
+    return True, f"Opened {note['rel_path']} in the editor for the user.", note["rel_path"]
+
+
+def run(
+    handle: str, note_path: str | None, note_text: str | None, name: str, raw: str | dict[str, Any] | None,
+    profile: dict[str, Any] | None = None,
+) -> Result | None:
     """The tool's result, or `None` for a name that is not ours so it composes in `persona_tools`."""
     if name not in _FIELDS:
         return None
+    if name == SHOW:
+        opened, said, path = _show(profile, raw)
+        return Result(said, lookup={"tool": name, "saved": opened, **({"path": path} if path else {})})
     saved, said = _propose(handle, note_path, note_text, name, raw)
     return Result(said, lookup={"tool": name, "saved": saved})
 
 
-def apply_marker(handle: str, note_path: str | None, note_text: str | None, reply: str) -> tuple[str, list[dict[str, Any]]]:
+def apply_marker(
+    handle: str, note_path: str | None, note_text: str | None, reply: str, profile: dict[str, Any] | None = None,
+) -> tuple[str, list[dict[str, Any]]]:
     """`reply` with every marker removed and filed as a proposal, and a record per marker (the same shape a tool
     call leaves). A marker that could not be placed adds one line saying so to what is shown. A reply with no marker
     is returned exactly as given."""
@@ -112,17 +143,22 @@ def apply_marker(handle: str, note_path: str | None, note_text: str | None, repl
     records, failures = [], []
     for found in matches:
         name = found.group(1).lower()
-        saved, said = _propose(handle, note_path, note_text, name, found.group(2))
-        record: dict[str, Any] = {"tool": name, "saved": saved}
+        if name == SHOW:
+            saved, said, shown_path = _show(profile, found.group(2))
+            record: dict[str, Any] = {"tool": name, "saved": saved, **({"path": shown_path} if shown_path else {})}
+        else:
+            saved, said = _propose(handle, note_path, note_text, name, found.group(2))
+            record = {"tool": name, "saved": saved}
         if not saved:
             record["reason"] = said
-            failures.append(said)
+            failures.append(said if name == SHOW else f"A change could not be placed: {said}")
         records.append(record)
     shown = re.sub(r"\n{3,}", "\n\n", _MARKER.sub("", reply)).strip()
     if not shown and len(failures) < len(matches):
-        shown = next((m for m in (_say(f.group(2)) for f in matches) if m), "Commented." if all(f.group(1).lower() == COMMENT for f in matches) else "Proposed.")
+        kinds = {f.group(1).lower() for f in matches}
+        shown = next((m for m in (_say(f.group(2)) for f in matches) if m), _DONE.get(kinds.pop(), "Proposed.") if len(kinds) == 1 else "Proposed.")
     if failures:
-        shown = "\n\n".join(filter(None, [shown, *(f"A change could not be placed: {why}" for why in failures)]))
+        shown = "\n\n".join(filter(None, [shown, *failures]))
     return shown, records
 
 

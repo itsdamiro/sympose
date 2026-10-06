@@ -321,6 +321,12 @@ export function AppShell() {
       selectNote,
       openEditor: () => panels.open("editor"),
     })
+  // She opened a note for the user: show it, once for each request.
+  const shownNote = chat.shownNote
+  React.useEffect(() => {
+    if (shownNote) openGroundedNote(shownNote.path)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only a new request opens a note, not a new tree
+  }, [shownNote])
   // The notes close in meaning to the vault note open in the editor (docs/decisions/066): a section of the notes
   // panel's footer, never asked for while a persona's own file is open.
   const related = useRelatedNotes(fileEditor.path ? undefined : openableNote, activePersona)

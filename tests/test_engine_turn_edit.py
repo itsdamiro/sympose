@@ -167,13 +167,13 @@ def test_a_comment_marker_in_a_turn_becomes_her_comment_on_the_open_note(monkeyp
     assert result.lookups == [{"tool": "comment_on", "saved": True}]
 
 
-def test_with_no_note_open_she_is_not_given_the_comment_tool(monkeypatch):
+def test_with_no_note_open_she_is_given_only_the_tools_that_need_no_note(monkeypatch):
     seen = model_that(monkeypatch, ModelReply("ok", 5))
     sharing.set_approved(sharing.OPEN_NOTE, True)
 
     turn.run_turn("samantha", "hi", model=CLOUD, edits=True)
 
-    assert [t["function"]["name"] for t in seen[0]["tools"]] == ["propose_note"]
+    assert [t["function"]["name"] for t in seen[0]["tools"]] == ["propose_note", "show_note"]
 
 
 def test_the_users_open_comments_come_with_the_message_for_a_local_model(monkeypatch):

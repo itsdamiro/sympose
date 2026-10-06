@@ -124,6 +124,8 @@ export function useChat(persona: string) {
     allRef.current = all
     activeRef.current = activeKeys
   })
+  /** A note she opened for the user (ADR 072 amendment); `n` makes the same note opened twice two requests. */
+  const [shownNote, setShownNote] = React.useState<{ path: string; n: number } | null>(null)
   const inFlight = React.useRef(new Set<string>())
   /** Messages sent while a conversation's reply is in flight; they go out together as one turn when it lands. */
   const waiting = React.useRef(new Map<string, { id: string; text: string; passages: Passage[] }[]>())
@@ -232,6 +234,10 @@ export function useChat(persona: string) {
       if (result.ok) {
         sessionId = result.reply.session_id
         announcePersonaActed() // she may have proposed or commented on the note, or made a draft, during the turn
+        // She may have opened a note for the user (ADR 072 amendment): the last one, only from the conversation in view.
+        const inView = (activeRef.current[persona] ?? firstKey(persona)) === key
+        const shown = (result.reply.sent?.lookups ?? []).filter((l) => l.tool === "show_note" && l.saved && l.path).pop()
+        if (shown?.path && inView) setShownNote((c) => ({ path: shown.path!, n: (c?.n ?? 0) + 1 }))
       }
       const asked = new Set(batch.map((b) => b.id)) // read now: `batch` moves on below, before React runs the update
       const elsewhere = activeRef.current[persona] !== undefined ? activeRef.current[persona] !== key : key !== firstKey(persona)
@@ -423,6 +429,7 @@ export function useChat(persona: string) {
     sessionId: convo.sessionId,
     context: convo.context,
     turns: convo.turns,
+    shownNote,
     draft: convo.draft,
     setDraft,
     send,

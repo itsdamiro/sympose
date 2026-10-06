@@ -4,6 +4,8 @@ exactly once. Nothing here writes the vault."""
 
 import json
 
+import pytest
+
 from sympose import note_changes as nc
 from sympose import note_changes_store as store
 from sympose.engine import edit_tools as et
@@ -124,10 +126,10 @@ def test_another_tool_name_is_not_ours():
     assert et.run(H, PATH, NOTE, "remember", {"text": "x"}) is None
 
 
-def test_the_tools_are_the_pair_and_the_descriptions_carry_no_marker_text():
+def test_the_tools_are_named_and_the_descriptions_carry_no_marker_text():
     names = [t["function"]["name"] for t in et.TOOLS]
 
-    assert names == ["propose_edit", "propose_note", "comment_on"]
+    assert names == ["propose_edit", "propose_note", "comment_on", "show_note"]
     assert "<!--" not in json.dumps(et.TOOLS)
 
 
@@ -232,3 +234,56 @@ def test_the_new_note_tool_offers_a_folder_but_does_not_require_one():
 
     assert "folder" in tool["parameters"]["properties"] and "folder" not in tool["parameters"]["required"]
 
+
+
+# show_note: opening a note for the user writes nothing and names the note's path for the web app to open.
+
+
+@pytest.fixture
+def vault(tmp_path, monkeypatch):
+    root = tmp_path / "vault"
+    (root / "Projects").mkdir(parents=True)
+    (root / "Projects" / "Atlas.md").write_text("# Atlas\nbody", encoding="utf-8")
+    (root / "People").mkdir()
+    (root / "People" / "Priya.md").write_text("private", encoding="utf-8")
+    monkeypatch.setenv("VAULT_PATHS", str(root))
+    monkeypatch.setenv("SYMPOSE_SETTINGS_PATH", str(tmp_path / "settings.json"))
+    return {"vault_folders": ["Projects"]}
+
+
+def test_show_note_names_the_note_by_its_path_or_its_name(vault):
+    for given in ("Projects/Atlas.md", "atlas"):
+        result = et.run(H, None, None, "show_note", {"path": given}, vault)
+
+        assert result.lookup == {"tool": "show_note", "saved": True, "path": "Projects/Atlas.md"}, given
+    assert proposals() == [] and nc.drafts(H) == []
+
+
+def test_show_note_refuses_a_note_that_is_missing_or_outside_her_folders(vault):
+    for given in ("Projects/Nope.md", "People/Priya.md"):
+        result = et.run(H, None, None, "show_note", {"path": given}, vault)
+
+        assert result.lookup == {"tool": "show_note", "saved": False}, given
+        assert "nothing was opened" in result.text
+
+
+def test_show_note_with_unreadable_arguments_is_a_result_not_an_error(vault):
+    assert et.run(H, None, None, "show_note", {"path": 3}, vault).lookup["saved"] is False
+    assert et.run(H, None, None, "show_note", "{not json", vault).lookup["saved"] is False
+
+
+def test_a_show_note_marker_opens_the_note_and_leaves_the_reply(vault):
+    reply = 'Here it is.\n<!-- show_note: {"path": "Projects/Atlas.md"} -->'
+
+    shown, records = et.apply_marker(H, None, None, reply, vault)
+
+    assert shown == "Here it is."
+    assert records == [{"tool": "show_note", "saved": True, "path": "Projects/Atlas.md"}]
+
+
+def test_a_show_note_marker_alone_leaves_a_short_line_and_a_failed_one_says_why(vault):
+    shown, _ = et.apply_marker(H, None, None, '<!-- show_note: {"path": "Atlas"} -->', vault)
+    assert shown == "Opened."
+
+    shown, records = et.apply_marker(H, None, None, '<!-- show_note: {"path": "Missing"} -->', vault)
+    assert records[0]["saved"] is False and "nothing was opened" in shown

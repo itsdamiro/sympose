@@ -38,6 +38,10 @@ Click the paperclip on a tracked change, in the box that opens on a comment, or 
 
 Without a chip she is sent the whole open note. With one, a model that can use tools gets the note's headings and the section the words are in, and can open the rest if it needs it.
 
+## Can she bring a note up on screen for me?
+
+Yes. Give her a note's name or path and the web app shows it in the editor panel, for reading. A model that can call tools does it as is. For one that cannot, such as gemma2:9b, turn on the setting for opening notes on a model without tools; it costs that model some edits. Nothing in your vault changes, and she says so when there is no such note.
+
 ## What is the Drafts section?
 
 At the top of the notes list, the Drafts section lists the notes in the folder you are viewing that a persona has proposed changes to, the new notes she has proposed, and the notes with an open comment. Choose one to open it. Right-click a note in it for the same menu as in the notes list, such as rename or delete.

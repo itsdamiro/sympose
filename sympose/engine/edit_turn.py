@@ -14,6 +14,7 @@ from sympose import settings_store, table_spans
 from sympose.engine import edit_mode, open_comments
 
 CAP_SETTING = "open_note_cap"
+SHOW_MARKER_SETTING = "show_note_marker"
 DEFAULT_CAP, MIN_CAP = 12000, 20  # characters of the open note she is shown
 
 
@@ -38,11 +39,19 @@ class Edit:
     decided: tuple[open_comments.Decision, ...] = ()  # what the user decided on her comments since her last reply
     persona_name: str = "She"
     source: OpenNote | None = None  # the whole open note, which a change is placed in (she is shown `note`, within the cap)
+    show_marker: bool = False  # a model without tools is told how to open a note for the user (the user's setting; it costs such a model edits)
     attached: int = 0  # how many passages of the note the user attached to this message (docs/decisions/076), for the record
 
     @property
     def active(self) -> bool:
         return self.mode != edit_mode.PLAN
+
+
+def show_marker_enabled() -> bool:
+    """Whether a model that cannot call tools is told how to open a note for the user. Off until the user turns it on:
+    the line cost `gemma2:9b` about half its edits when measured (ADR 072, amendment of 2026-10-06), so trading edits for
+    it is the user's call. A model that can call tools has the tool whatever this says."""
+    return settings_store.flag(SHOW_MARKER_SETTING, False)
 
 
 def cap() -> int:
@@ -105,15 +114,15 @@ def resolve(
     if mode == edit_mode.PLAN:
         return Edit(mode, False)
     if open_note is None:
-        return Edit(mode, can_call_tools)
+        return Edit(mode, can_call_tools, show_marker=show_marker_enabled())
     if not may_see:
-        return Edit(mode, can_call_tools, withheld=True)
+        return Edit(mode, can_call_tools, withheld=True, show_marker=show_marker_enabled())
     focus = focus_text(open_note.text, attached) if attached and can_call_tools else None  # a model without tools cannot ask for the rest
     text, cut = _within(focus if focus is not None else open_note.text, cap())
     found = open_comments.gather(comments_from, open_note, since) if comments_from else open_comments.Found()
     name = persona.get("name") or str(persona.get("handle") or "She").title()
     return Edit(
-        mode, can_call_tools, OpenNote(open_note.path, text), cut,
+        mode, can_call_tools, OpenNote(open_note.path, text), cut, show_marker=show_marker_enabled(),
         comments=found.items if may_see_comments else (), comments_left_out=found.left_out if may_see_comments else 0,
         decided=found.decided if may_see_comments else (),
         comments_withheld=0 if may_see_comments else len(found.items), persona_name=name, source=open_note,
@@ -143,6 +152,11 @@ _NOTE_MARKER = (
 _COMMENT_TOOL = (
     "To comment on a passage without changing it (a question or a doubt for the user, when they ask for one), call "
     "comment_on with find, copied from the note exactly and found in it once, and text."
+)
+_SHOW_TOOL = "To open a note for the user in the editor, when they ask you to, call show_note with its path."
+_SHOW_MARKER = (
+    "To open a note for the user in the editor, when they ask you to, add one line in this form: "
+    '<!-- show_note: {"path": "Folder/Note.md"} -->'
 )
 _TABLES = (
     "The note has a table. A change inside a table can only be one cell's own words, replaced by words that stay in that "
@@ -176,13 +190,14 @@ def message(edit: Edit, user_message: str) -> str:
     if not edit.active:
         return f"{user_message}\n\n{_PLAN}"
     new_note = _NOTE_TOOL if edit.tool else _NOTE_MARKER
+    show = _SHOW_TOOL if edit.tool else (_SHOW_MARKER if edit.show_marker else "")
     if edit.note is None:
         held = f"{_WITHHELD} " if edit.withheld else ""
-        return f"{user_message}\n\n{held}{new_note} {_REVIEW}"
+        return f"{user_message}\n\n{held}" + " ".join(filter(None, [new_note, show, _REVIEW]))
     # A model without tools gets the edit rule alone beside a note: every further line cost `gemma2:9b` edits when
     # measured (ADR 072, 18 of 36 right with it alone, 8 with the new-note and comment lines), and it is the one
     # the user asks for most. A model with tools has them described outside the prompt.
-    rules = [_EDIT_TOOL, new_note, _COMMENT_TOOL, _REVIEW] if edit.tool else [_EDIT_MARKER, _REVIEW]
+    rules = [_EDIT_TOOL, new_note, _COMMENT_TOOL, show, _REVIEW] if edit.tool else [_EDIT_MARKER, *([show] if show else []), _REVIEW]
     if edit.tool and table_spans.has_table(edit.note.text):
         rules.insert(1, _TABLES)  # learnt from a refusal otherwise, after she had offered it (the table rule is in `table_spans`)
     if edit.cut:

@@ -157,6 +157,37 @@ def test_a_model_with_tools_is_told_how_to_comment_and_one_without_is_given_the_
     assert "comment_on" not in marker and "propose_note" not in marker and '<!-- propose_edit:' in marker
 
 
+def test_a_model_with_tools_is_always_told_how_to_open_a_note_for_the_user():
+    for note in (NOTE, None):
+        tool = edit_turn.message(edit_turn.resolve(SAMANTHA, True, note), "x")
+
+        assert "show_note" in tool and "<!--" not in tool
+
+
+def test_a_model_without_tools_is_told_only_when_the_user_turned_it_on():
+    for note in (NOTE, None):
+        assert "show_note" not in edit_turn.message(edit_turn.resolve(SAMANTHA, False, note), "x")
+
+    settings_store.set(edit_turn.SHOW_MARKER_SETTING, True)
+    try:
+        for note in (NOTE, None):
+            assert '<!-- show_note: {"path"' in edit_turn.message(edit_turn.resolve(SAMANTHA, False, note), "x")
+    finally:
+        settings_store.remove(edit_turn.SHOW_MARKER_SETTING)
+
+
+def test_the_setting_is_off_until_turned_on_and_is_listed_with_the_editing_settings():
+    from sympose.engine import settings_registry as reg
+
+    assert edit_turn.show_marker_enabled() is False
+    row = next(r for r in reg.SETTINGS if r.key == edit_turn.SHOW_MARKER_SETTING)
+    assert (row.kind, row.group, row.default()) == (reg.TOGGLE, reg.EDITING, False)
+
+
+def test_plan_does_not_offer_to_open_a_note():
+    assert "show_note" not in edit_turn.message(edit_turn.resolve(persona("plan"), True, NOTE), "x")
+
+
 def test_with_no_note_open_there_is_nothing_to_comment_on():
     assert "comment_on" not in edit_turn.message(edit_turn.resolve(SAMANTHA, False, None), "x")
 

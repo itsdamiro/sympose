@@ -37,7 +37,7 @@ export interface SentLookup {
   path?: string
   id?: string
   found?: number
-  /** `remember` only: whether it was written. */
+  /** `remember` and the acts on a note: whether it was written, placed or opened. */
   saved?: boolean
 }
 

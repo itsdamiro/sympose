@@ -353,6 +353,18 @@ REF_CASES: list[RefCase] = [
         first="Creating notes.md",
     ),
     RefCase(
+        "open-a-note-for-me",
+        "can she bring a note up on screen when I ask?",
+        find=("shows it in the editor panel",),
+        first="The web app.md",
+    ),
+    RefCase(
+        "open-a-note-in-the-editor",
+        "can you open a note for me in the editor panel?",
+        find=("shows it in the editor panel",),
+        first="The web app.md",
+    ),
+    RefCase(
         "new-note-folder",
         "can you make the new note in a subfolder I choose?",
         find=("Projects/Sympose",),
