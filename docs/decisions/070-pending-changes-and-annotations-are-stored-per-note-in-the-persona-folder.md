@@ -1,6 +1,6 @@
 # 070 — Pending changes and annotations are stored per note in the persona's own folder
 
-> **Status: Proposed (2026-10-04).** Not built. The storage and API half of the design in ADR 042 (amended 2026-10-04) and ADR 069: what is kept, where, how a proposal knows it has gone outdated, and what the editor and the Drafts section read. Turn-based, web app only.
+> **Status: Accepted, built (2026-10-05).** Proposed 2026-10-04. The storage and API half of the design in ADR 042 (amended 2026-10-04) and ADR 069: what is kept, where, how a proposal knows it has gone outdated, and what the editor and the Drafts section read. Turn-based, web app only.
 
 ## Context
 

@@ -57,3 +57,9 @@ The first build kept a draft's edits only in the page for the session, and said 
 - **A second group for commented notes (2026-10-05).** Weighed with the user and set aside: they preferred one place for everything that needs a look; the row and caption say which kind each is.
 - **Listing only the comments waiting on the user, or only the user's waiting on her.** Rejected by the user for the simpler rule: any open comment.
 - **Only changing the notice to say the draft is not in the vault (2026-10-05).** Rejected: the edit would still be lost on a reload.
+
+## Amendment (2026-10-06): the section lists the drafts of the folder in view
+
+The Drafts section listed every draft of the persona in every folder, so a comment on a note in `Projects/` showed above the notes of `Archive/`. It now lists only the drafts whose note is inside the folder in view, at any depth (the same scope as Pinned); `Notes and Pets/` is not in `Notes/`. With no folder in view (a note at the vault's root) it lists the drafts of root notes. A draft of another folder is still reachable from that folder, and a new-note draft appears under the folder its working path is in.
+
+When the Drafts section is shown the notes list under it is captioned ("Notes in {folder}") even with nothing pinned, so the two are told apart: before, only Pinned above the list gave it a caption and the notes ran on from the Drafts rows. The gap from the last draft to that caption is the same as from Drafts to Pinned (measured in headless Chrome: 45 px).

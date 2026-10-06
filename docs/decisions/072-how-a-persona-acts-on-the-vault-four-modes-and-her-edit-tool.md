@@ -1,6 +1,6 @@
 # 072 — How a persona acts on the vault: four modes the user chooses, all ending in the user's Accept, and her edit tool in two shapes
 
-> **Status: Proposed (2026-10-04).** Not built. Slice 5 of #21: the persona's side of ADR 042 (amended), ADR 069 (comments) and ADR 070 (the store). Web app only; the terminal is not expected to edit notes.
+> **Status: Accepted, built (2026-10-05); the lines below that say "not built yet" are the state when each part was written.** Proposed 2026-10-04. Slice 5 of #21: the persona's side of ADR 042 (amended), ADR 069 (comments) and ADR 070 (the store). Web app only; the terminal is not expected to edit notes.
 
 ## Context
 

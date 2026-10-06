@@ -1,6 +1,6 @@
 # 069 — Highlights and comments on a note: kept out of the vault, sent with the next message, read by the persona
 
-> **Status: Proposed (2026-10-04).** Not built. Part of #21 (a persona that acts on the vault) and the companion of the ADR 042 amendment of the same date: tracked changes are what the persona writes into a note, and this is what the user marks in it for her to read. Turn-based throughout.
+> **Status: Accepted, built (2026-10-05); the table-cell amendments are in the sections below.** Proposed 2026-10-04. Part of #21 (a persona that acts on the vault) and the companion of the ADR 042 amendment of the same date: tracked changes are what the persona writes into a note, and this is what the user marks in it for her to read. Turn-based throughout.
 
 ## Context
 
