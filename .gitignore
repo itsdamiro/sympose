@@ -51,6 +51,10 @@ profiles/samantha/*
 # during development, not a product doc; would just be commit noise every
 # time a checkbox flips.
 docs/CHECKLIST.md
+# The working handoff and its reference notes (private paths, local setup): local-only, like the checklist.
+docs/HANDOFF.md
+docs/CLOSING_A_SLICE.md
+docs/reference/
 
 # macOS
 .DS_Store
