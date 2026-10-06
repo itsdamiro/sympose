@@ -12,7 +12,7 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-const draft = (path: string) => ({ path, name: null, is_new: false, count: 1, comments: 0, time: "t" })
+const draft = (path: string) => ({ path, name: null, is_new: false, count: 1, comments: 0, items: 1, time: "t" })
 
 describe("useDrafts", () => {
   it("reads the persona's drafts when it mounts", async () => {

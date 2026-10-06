@@ -45,6 +45,8 @@ interface ChatPanelProps extends React.ComponentProps<"div"> {
   typeStatus?: boolean
   /** Shown above the message box, always in view (the cloud notice, ADR 031). */
   notice?: React.ReactNode
+  /** Shown inside the message box, under the text: what the user attached to the next message (ADR 076). */
+  chips?: React.ReactNode
   /** Starts a fresh conversation: the icon at the left of the row under the message box, which has nothing to do
    *  (and is disabled) until there is a conversation to leave behind. */
   onNewConversation?: () => void
@@ -119,6 +121,7 @@ function ChatPanel({
   statusPhrases = [],
   typeStatus = true,
   notice,
+  chips,
   draft,
   onDraftChange,
   onSubmit,
@@ -331,40 +334,43 @@ function ChatPanel({
       <div className="shrink-0">
         <div className="mx-auto w-full max-w-[42rem] px-6 pb-6 sm:px-8">
           {notice}
-          <div className="relative rounded-lg border border-border bg-background transition-colors focus-within:border-brand">
-            <textarea
-              ref={inputRef}
-              rows={1}
-              value={draft}
-              onChange={(e) => onDraftChange(e.target.value)}
-              onKeyDown={(e) => {
-                if (
-                  e.key === "Enter" &&
-                  !e.shiftKey &&
-                  !e.nativeEvent.isComposing
-                ) {
-                  e.preventDefault()
-                  submit()
-                }
-              }}
-              placeholder={`Ask ${personaName}.`}
-              aria-label="Message"
-              className={cn(
-                "block w-full resize-none bg-transparent px-3.5 py-3 text-sm outline-none placeholder:text-muted-foreground",
-                showStop && "pr-12"
+          <div className="rounded-lg border border-border bg-background transition-colors focus-within:border-brand">
+            <div className="relative">
+              <textarea
+                ref={inputRef}
+                rows={1}
+                value={draft}
+                onChange={(e) => onDraftChange(e.target.value)}
+                onKeyDown={(e) => {
+                  if (
+                    e.key === "Enter" &&
+                    !e.shiftKey &&
+                    !e.nativeEvent.isComposing
+                  ) {
+                    e.preventDefault()
+                    submit()
+                  }
+                }}
+                placeholder={`Ask ${personaName}.`}
+                aria-label="Message"
+                className={cn(
+                  "block w-full resize-none bg-transparent px-3.5 py-3 text-sm outline-none placeholder:text-muted-foreground",
+                  showStop && "pr-12"
+                )}
+              />
+              {showStop && (
+                <button
+                  type="button"
+                  onClick={onStop}
+                  title="Stop the reply"
+                  aria-label="Stop the reply"
+                  className="absolute right-2 bottom-2 grid size-7 place-items-center rounded-full bg-foreground text-background transition-opacity hover:opacity-80"
+                >
+                  <HugeiconsIcon icon={StopIcon} className="size-3.5" />
+                </button>
               )}
-            />
-            {showStop && (
-              <button
-                type="button"
-                onClick={onStop}
-                title="Stop the reply"
-                aria-label="Stop the reply"
-                className="absolute right-2 bottom-2 grid size-7 place-items-center rounded-full bg-foreground text-background transition-opacity hover:opacity-80"
-              >
-                <HugeiconsIcon icon={StopIcon} className="size-3.5" />
-              </button>
-            )}
+            </div>
+            {chips}
           </div>
           <div className="mt-2 flex items-center justify-between px-1">
             <div role="group" aria-label="Conversation controls" className="flex items-center gap-0.5">

@@ -53,8 +53,11 @@ export interface Draft {
   is_new: boolean
   /** Changes waiting; 0 for a note listed only for its open comments. */
   count: number
-  /** Open comments, by the user or by her (the answers under one are not counted). */
+  /** Open comments on words still in the note, other than those on the words of a change (a comment her change answers is
+   *  the same item as the change). */
   comments: number
+  /** How many different marks the note shows: `count` plus `comments`. */
+  items: number
   time: string
 }
 
@@ -88,12 +91,12 @@ export type ResolveResult = { ok: true; resolved: string[] } | { ok: false; erro
  * `POST /api/vault/changes/resolve`: the user accepted or declined these proposals (`ids`), or every one the note has
  * (`"all"`). An accepted one has already been applied to the editor's own text; the server only forgets it.
  */
-export async function resolveChanges(path: string, persona: string, which: string[] | "all"): Promise<ResolveResult> {
+export async function resolveChanges(path: string, persona: string, which: string[] | "all", accepted = false): Promise<ResolveResult> {
   try {
     const res = await fetch("/api/vault/changes/resolve", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ path, persona, ...(which === "all" ? { all: true } : { ids: which }) }),
+      body: JSON.stringify({ path, persona, ...(which === "all" ? { all: true } : { ids: which }), ...(accepted ? { accepted: true } : {}) }),
     })
     if (!res.ok) return { ok: false, error: (await detailOf(res)) || `Something failed on Sympose's side (code ${res.status}). Try again.` }
     return { ok: true, resolved: ((await res.json()) as { resolved: string[] }).resolved }

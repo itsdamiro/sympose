@@ -9,6 +9,7 @@ vi.mock("@/lib/persona-changes-api", () => api)
 vi.mock("@/lib/confirm-store", () => confirmStore)
 vi.mock("@/lib/notify", () => ({ notify: toast }))
 
+import { setAttachmentsNote, takeAttached } from "@/lib/attachments"
 import type { Annotation } from "@/lib/persona-changes-api"
 import type { CommentTarget } from "@/lib/review-extensions"
 
@@ -342,6 +343,44 @@ describe("CommentPopover: the thread's buttons are one row (Resolve on the left,
 
     expect(actions.textContent).not.toMatch(/to decline/i)
     expect(screen.getByText(/to decline, reply first/i)).toBeTruthy()
+  })
+})
+
+describe("CommentPopover: comments on the same words", () => {
+  it("shows every thread on the highlight, each with its own answers, the clicked one first", () => {
+    const mine = note("a", { text: "please delete this entire table" })
+    const hers = note("b", { author: "persona", text: "I cannot remove a table in one change" })
+    const answer = note("c", { reply_to: "b", text: "ok then" })
+    show({ kind: "thread", id: "a", ids: ["a", "b"], rect }, [mine, hers, answer])
+
+    const threads = screen.getAllByTestId("comment-thread")
+    expect(threads).toHaveLength(2)
+    expect(threads[0].textContent).toContain("please delete this entire table")
+    expect(threads[1].textContent).toContain("I cannot remove a table in one change")
+    expect(threads[1].textContent).toContain("ok then")
+  })
+
+  it("answers only the thread whose box it is", async () => {
+    show({ kind: "thread", id: "a", ids: ["a", "b"], rect }, [note("a"), note("b", { author: "persona" })])
+
+    const boxes = screen.getAllByLabelText("Reply") as HTMLTextAreaElement[]
+    fireEvent.change(boxes[1], { target: { value: "answer to her" } })
+    fireEvent.keyDown(boxes[1], { key: "Enter", metaKey: true })
+
+    await waitFor(() => expect(api.replyToComment).toHaveBeenCalledTimes(1))
+    expect(api.replyToComment).toHaveBeenCalledWith(expect.objectContaining({ replyTo: "b", text: "answer to her" }))
+  })
+})
+
+describe("CommentPopover: attaching to the message", () => {
+  it("has a paperclip that attaches the comment's words to the next message", () => {
+    setAttachmentsNote("n.md")
+    show({ kind: "thread", id: "a", rect }, [note("a", { quote: "raised", before: "The beds are ", after: "." })])
+
+    fireEvent.click(screen.getByRole("button", { name: "Attach to your message" }))
+
+    expect(takeAttached()).toEqual([{ quote: "raised", before: "The beds are ", after: "." }])
+    setAttachmentsNote(undefined)
   })
 })
 

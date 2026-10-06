@@ -195,7 +195,7 @@ describe("MarkdownPanel with the persona's suggested changes", () => {
     await act(async () => fireEvent.click(screen.getByTestId("cm").querySelector(".sy-change-accept") as HTMLElement))
 
     expect(doc()).toContain("four times a week")
-    await waitFor(() => expect(changesApi.resolveChanges).toHaveBeenCalledWith("Garden plan.md", "samantha", ["p1"]))
+    await waitFor(() => expect(changesApi.resolveChanges).toHaveBeenCalledWith("Garden plan.md", "samantha", ["p1"], true))
     expect(api.saveVaultNote).not.toHaveBeenCalled()
   })
 
@@ -221,7 +221,7 @@ describe("MarkdownPanel with the persona's suggested changes", () => {
 
     await waitFor(() => expect(api.saveVaultNote).toHaveBeenCalledTimes(1))
     expect(api.saveVaultNote.mock.calls[0][1]).toContain("four times a week. The beds are sunken.")
-    expect(changesApi.resolveChanges).toHaveBeenCalledWith("Garden plan.md", "samantha", expect.arrayContaining(["p1", "p2"]))
+    expect(changesApi.resolveChanges).toHaveBeenCalledWith("Garden plan.md", "samantha", expect.arrayContaining(["p1", "p2"]), true)
   })
 
   it("declines the whole note from the toolbar, forgetting every suggestion and leaving the text", async () => {

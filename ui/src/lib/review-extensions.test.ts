@@ -15,6 +15,7 @@ import {
   clearApplied,
   attachedComments,
   cellMarks,
+  commentHighlights,
   classify,
   declineChanges,
   hasPending,
@@ -54,11 +55,12 @@ function mount(
     doc = NOTE,
     onResolve = vi.fn(),
     onOpenComment,
+    onAttach,
     onApplied,
-  }: { doc?: string; onResolve?: (ids: string[]) => void; onOpenComment?: (id: string, rect: DOMRect) => void; onApplied?: (ids: string[], untouched: boolean) => void } = {}
+  }: { doc?: string; onResolve?: (ids: string[]) => void; onOpenComment?: (id: string, rect: DOMRect, ids: string[]) => void; onAttach?: (p: { quote: string; before: string; after: string }) => void; onApplied?: (ids: string[], untouched: boolean) => void } = {}
 ) {
   const view = new EditorView({
-    state: EditorState.create({ doc, extensions: [history(), reviewExtensions({ initial: () => data, onResolve, onOpenComment, onApplied })] }),
+    state: EditorState.create({ doc, extensions: [history(), reviewExtensions({ initial: () => data, onResolve, onOpenComment, onAttach, onApplied })] }),
     parent: document.body,
   })
   views.push(view)
@@ -104,6 +106,13 @@ describe("attachedComments", () => {
   })
 })
 
+describe("commentHighlights", () => {
+  it("puts comments on exactly the same words together and keeps different words apart", () => {
+    const found = commentHighlights(NOTE, [comment("a", "raised"), comment("b", "raised"), comment("c", "three times")])
+    expect(found.map((f) => f.annotations.map((x) => x.id))).toEqual([["a", "b"], ["c"]])
+  })
+})
+
 describe("the drawn changes", () => {
   it("strikes the quoted passage and draws her replacement beside it, from the first paint", () => {
     const { view } = mount({ proposals: [edit("a", "three times", "four times")], annotations: [] })
@@ -126,7 +135,7 @@ describe("the drawn changes", () => {
     const { view } = mount({ proposals: [edit("a", "three times", "four times")], annotations: [] })
     expect(view.dom.querySelector(".sy-change-accept")?.getAttribute("aria-label")).toBe("Accept this change")
     expect(view.dom.querySelector(".sy-change-decline")?.getAttribute("aria-label")).toBe("Decline this change")
-    expect(view.dom.querySelectorAll(".sy-change-btn svg")).toHaveLength(2)
+    expect([...view.dom.querySelectorAll(".sy-change-btn")].map((b) => (b as HTMLElement).dataset.label)).toEqual(["Accept", "Decline"])
   })
 
   it("updates when new data arrives and when the user types", () => {
@@ -228,7 +237,7 @@ describe("accepting and declining", () => {
     ;(view.dom.querySelector(".sy-change-accept") as HTMLButtonElement).click()
 
     expect(view.state.doc.toString()).toBe(NOTE.replace("three times", "four times"))
-    expect(onResolve).toHaveBeenCalledWith(["a"])
+    expect(onResolve).toHaveBeenCalledWith(["a"], true)
     undo(view)
     expect(view.state.doc.toString()).toBe(NOTE)
   })
@@ -265,7 +274,7 @@ describe("accepting and declining", () => {
 
     expect(acceptChanges(view, ["a", "s"])).toEqual(["a"])
     expect(view.state.doc.toString()).toBe(NOTE.replace("raised", "dug").replace("three times", "four times"))
-    expect(onResolve).toHaveBeenCalledWith(["a"])
+    expect(onResolve).toHaveBeenCalledWith(["a"], true)
   })
 
   it("accepts only the one named and leaves another that could be placed alone", () => {
@@ -274,7 +283,7 @@ describe("accepting and declining", () => {
     expect(acceptChanges(view, ["a"])).toEqual(["a"])
 
     expect(view.state.doc.toString()).toBe(NOTE.replace("three times", "four times"))
-    expect(onResolve).toHaveBeenCalledWith(["a"])
+    expect(onResolve).toHaveBeenCalledWith(["a"], true)
     expect(pendingIds(view.state)).toEqual(["b"])
   })
 
@@ -287,7 +296,7 @@ describe("accepting and declining", () => {
     expect(acceptChanges(view, ["a", "b"])).toEqual(["a"])
 
     expect(view.state.doc.toString()).toBe(NOTE.replace("three times", "four times"))
-    expect(onResolve).toHaveBeenCalledWith(["a"])
+    expect(onResolve).toHaveBeenCalledWith(["a"], true)
   })
 
   it("applies the earlier of two proposals whose passages overlap", () => {
@@ -351,6 +360,57 @@ describe("comments in the text", () => {
     expect(onOpenComment.mock.calls[0][0]).toBe("c1")
     expect(onOpenComment.mock.calls[0][1]).toHaveProperty("width")
     expect(click.defaultPrevented).toBe(false)
+  })
+
+  it("draws comments on exactly the same words as one highlight, and a click names every thread on it", () => {
+    const onOpenComment = vi.fn()
+    const hers: Annotation = { ...comment("c2", "raised"), author: "persona" }
+    const { view } = mount({ proposals: [], annotations: [comment("c1", "raised"), hers] }, { onOpenComment })
+
+    const marks = view.dom.querySelectorAll(".sy-comment-hl")
+    expect(marks).toHaveLength(1)
+    expect(marks[0].getAttribute("data-comment-ids")).toBe("c1 c2")
+    marks[0].dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }))
+
+    expect(onOpenComment.mock.calls[0][0]).toBe("c1")
+    expect(onOpenComment.mock.calls[0][2]).toEqual(["c1", "c2"])
+  })
+
+  it("draws words a waiting change of hers covers as that change only: the comment's highlight yields, the comment stays reachable", () => {
+    const onOpenComment = vi.fn()
+    const { view } = mount({ proposals: [edit("p", "three times", "four times")], annotations: [comment("c1", "three times"), comment("c2", "raised")] }, { onOpenComment })
+
+    const marks = [...view.dom.querySelectorAll(".sy-comment-hl")] as HTMLElement[]
+    const covered = marks.find((m) => m.textContent === "three times")!
+    const alone = marks.find((m) => m.textContent === "raised")!
+
+    expect(covered.classList.contains("sy-under-change")).toBe(true)
+    expect(alone.classList.contains("sy-under-change")).toBe(false)
+    covered.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+    expect(onOpenComment.mock.calls[0][0]).toBe("c1")
+  })
+
+  it("puts a paperclip in the tab of a change, which attaches the change's words to the message", () => {
+    const onAttach = vi.fn()
+    const { view } = mount({ proposals: [edit("p", "three times", "four times")], annotations: [] }, { onAttach })
+
+    const clip = view.dom.querySelector(".sy-change-attach") as HTMLElement
+    expect(clip.getAttribute("aria-label")).toBe("Attach to your message")
+    clip.click()
+
+    expect(onAttach).toHaveBeenCalledWith(expect.objectContaining({ quote: "three times" }))
+  })
+
+  it("has no paperclip when nothing takes an attachment", () => {
+    const { view } = mount({ proposals: [edit("p", "three times", "four times")], annotations: [] })
+    expect(view.dom.querySelector(".sy-change-attach")).toBeNull()
+  })
+
+  it("a lone comment's click names just its own thread", () => {
+    const onOpenComment = vi.fn()
+    const { view } = mount({ proposals: [], annotations: [comment("c1", "raised")] }, { onOpenComment })
+    view.dom.querySelector(".sy-comment-hl")!.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+    expect(onOpenComment.mock.calls[0][2]).toEqual(["c1"])
   })
 
   it("opens the thread on a click inside a table cell as well (stylo 0.20.1 sends the click there)", () => {
@@ -624,6 +684,24 @@ describe("cellMarks (stylo's marks inside table cells)", () => {
     ])
   })
 
+  it("gives comments on the same words in a cell one mark with every id, so neither is out of reach", () => {
+    const hers: Annotation = { ...comment("c2", "raised"), author: "persona" }
+    const marks = cellMarks(withData({ proposals: [], annotations: [comment("c1", "raised"), hers] }))
+
+    expect(marks).toHaveLength(1)
+    expect(marks[0].attributes).toEqual({ "data-comment-id": "c1", "data-comment-ids": "c1 c2" })
+    expect(marks[0].class).toBe("sy-comment-hl") // not hers alone, so it is drawn as the user's
+  })
+
+  it("marks a comment's words in a cell as under a change when one of hers waiting covers them", () => {
+    const state = withData({ proposals: [edit("p", "three times", "four times")], annotations: [comment("c1", "three times"), comment("c2", "raised")] })
+
+    const [under, plain] = cellMarks(state).filter((m) => m.class.includes("sy-comment-hl"))
+
+    expect(under.class).toContain("sy-under-change")
+    expect(plain.class).not.toContain("sy-under-change")
+  })
+
   it("never gives a cell mark the margin-dot class, which would drop a stray dot at the cell's edge for every highlighted word", () => {
     const hers: Annotation = { ...comment("c2", "raised"), author: "persona" }
     const state = withData({ proposals: [], annotations: [comment("c1", "three times"), hers] })
@@ -743,9 +821,9 @@ describe("a change of hers inside a table cell (stylo's cellMarks and cellWidget
 
     expect(widgets).toHaveLength(1)
     expect(widgets[0].pos).toBe(view.state.doc.toString().indexOf("Parsnips") + "Parsnips".length)
-    const el = widgets[0].toDOM(view)
-    expect(el.getAttribute("aria-label")).toBe("Undo this change")
-    el.click()
+    const button = widgets[0].toDOM(view).querySelector("button") as HTMLElement
+    expect(button.getAttribute("aria-label")).toBe("Undo this change")
+    button.click()
     expect(view.state.doc.toString()).toBe(TABLE_NOTE)
   })
 

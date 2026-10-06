@@ -7,10 +7,10 @@ import { DraftsSection } from "./drafts-section"
 
 afterEach(cleanup)
 
-const created: Draft = { path: "Ideas/New plan.md", name: "New plan", is_new: true, count: 1, comments: 0, time: "2" }
-const edited: Draft = { path: "Garden/Beds.md", name: null, is_new: false, count: 3, comments: 0, time: "1" }
-const commented: Draft = { path: "Garden/Soil.md", name: null, is_new: false, count: 0, comments: 2, time: "0" }
-const both: Draft = { path: "Garden/Seeds.md", name: null, is_new: false, count: 1, comments: 4, time: "0" }
+const created: Draft = { path: "Ideas/New plan.md", name: "New plan", is_new: true, count: 1, comments: 0, items: 1, time: "2" }
+const edited: Draft = { path: "Garden/Beds.md", name: null, is_new: false, count: 3, comments: 0, items: 3, time: "1" }
+const commented: Draft = { path: "Garden/Soil.md", name: null, is_new: false, count: 0, comments: 2, items: 2, time: "0" }
+const both: Draft = { path: "Garden/Seeds.md", name: null, is_new: false, count: 1, comments: 4, items: 5, time: "0" }
 const show = (drafts: Draft[], onOpen = vi.fn(), selectedPath?: string) =>
   render(<DraftsSection drafts={drafts} onOpen={onOpen} selectedPath={selectedPath} hideExtension />)
 
@@ -26,7 +26,7 @@ describe("DraftsSection", () => {
     expect(screen.getByText("New plan")).toBeTruthy()
     expect(screen.getByText("new")).toBeTruthy()
     expect(screen.getByText("Garden/Beds")).toBeTruthy()
-    expect(screen.getByText("3")).toBeTruthy()
+    expect(screen.getByLabelText("3 to review")).toBeTruthy()
   })
 
   it("keeps the order it is given", () => {
@@ -72,23 +72,21 @@ describe("DraftsSection rows", () => {
     show([commented])
     const row = screen.getByRole("treeitem")
     expect(row.textContent).toContain("Garden/Soil")
-    expect(row.textContent).toContain("2")
-    expect(row.querySelector("svg")).not.toBeNull()
-    expect(screen.getByLabelText("2 open comments")).toBeTruthy()
-    expect(screen.queryByLabelText(/change/)).toBeNull()
+    expect(screen.getByLabelText("2 to review")).toBeTruthy()
   })
 
   it("shows both the changes waiting and the open comments on a note that has both", () => {
     show([both])
-    expect(screen.getByLabelText("1 change waiting")).toBeTruthy()
-    expect(screen.getByLabelText("4 open comments")).toBeTruthy()
+    expect(screen.getByLabelText("5 to review")).toBeTruthy() // one number: the changes and the comments together
+    expect(screen.getByRole("treeitem").textContent).not.toMatch(/review|change|comment/) // an icon and a number, no words
   })
 
-  it("says 1 open comment in the singular, and a note with changes only shows no comment mark", () => {
-    show([{ ...commented, comments: 1 }, edited])
-    expect(screen.getByLabelText("1 open comment")).toBeTruthy()
+  it("counts the items on each row on its own", () => {
+    show([{ ...commented, comments: 1, items: 1 }, edited])
     const rows = screen.getAllByRole("treeitem")
-    expect(rows[1].querySelector('[aria-label$="open comments"], [aria-label$="open comment"]')).toBeNull()
+    expect(rows[0].textContent).toContain("1")
+    expect(rows[1].textContent).toContain("3")
+    expect(rows[1].querySelector("svg")).not.toBeNull()
   })
 
   it("opens a note that has only comments like any other draft", () => {
@@ -96,5 +94,28 @@ describe("DraftsSection rows", () => {
     show([commented], onOpen)
     fireEvent.click(screen.getByText("Garden/Soil"))
     expect(onOpen).toHaveBeenCalledWith(commented)
+  })
+
+  describe("the note's own menu (right-click)", () => {
+    const actions = () => ({ persona: "samantha", onRenamed: vi.fn(), onDeleted: vi.fn(), onCreated: vi.fn(), hideExtension: true })
+
+    it("is on the row of a note that exists, with rename and delete", async () => {
+      render(<DraftsSection drafts={[commented]} onOpen={vi.fn()} hideExtension actions={actions()} />)
+      fireEvent.contextMenu(screen.getByText("Garden/Soil"))
+      expect(await screen.findByText("Rename")).toBeTruthy()
+      expect(screen.getByText("Delete")).toBeTruthy()
+    })
+
+    it("is not on a new note that has no file yet", () => {
+      render(<DraftsSection drafts={[created]} onOpen={vi.fn()} hideExtension actions={actions()} />)
+      fireEvent.contextMenu(screen.getByText("New plan"))
+      expect(screen.queryByText("Rename")).toBeNull()
+    })
+
+    it("has no menu when no actions are given", () => {
+      show([commented])
+      fireEvent.contextMenu(screen.getByText("Garden/Soil"))
+      expect(screen.queryByText("Rename")).toBeNull()
+    })
   })
 })

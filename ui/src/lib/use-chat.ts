@@ -10,6 +10,7 @@ import {
   type ChatPhase,
   type SessionPage,
 } from "@/lib/chat-api"
+import { takeAttached } from "@/lib/attachments"
 import { getOpenNote } from "@/lib/open-note-source"
 import { announcePersonaActed } from "@/lib/use-persona-changes"
 import type { ChatTurn, SystemKind } from "@/lib/chat-types"
@@ -221,7 +222,7 @@ export function useChat(persona: string) {
       const text = batch.map((b) => b.text).join("\n\n")
       const controller = new AbortController()
       aborts.current.set(key, controller)
-      const result = await sendChatTurn(text, persona, sessionId, controller.signal, getOpenNote())
+      const result = await sendChatTurn(text, persona, sessionId, controller.signal, getOpenNote(), takeAttached())
       aborts.current.delete(key)
       const next = waiting.current.get(key) ?? []
       waiting.current.delete(key)

@@ -1,6 +1,6 @@
+import { ArrowTurnBackwardIcon, Attachment01Icon } from "@hugeicons/core-free-icons"
 import { Decoration, EditorView, ViewPlugin, WidgetType, type DecorationSet } from "@codemirror/view"
 import { Facet, StateEffect, StateField, type EditorState, type Extension, type Range } from "@codemirror/state"
-import { Cancel01Icon, Tick02Icon } from "@hugeicons/core-free-icons"
 import type { CellMark, CellWidget } from "@damiro/stylo"
 
 import { captureContext, locate } from "@/lib/passage-finder"
@@ -51,15 +51,45 @@ export function attachedComments(text: string, annotations: Annotation[]): { ann
   return found
 }
 
+/** Whether a change of hers, still waiting, covers any of `from`-`to`: the words are then drawn as that change, not also as a
+ *  comment's highlight (two highlights on top of each other say nothing more than one). The comment stays: it opens on a
+ *  click and keeps its dot in the margin. */
+function underChange(placed: { from: number; to: number }[], from: number, to: number): boolean {
+  return placed.some((p) => p.from < to && from < p.to)
+}
+
+/**
+ * `attachedComments` with the comments on exactly the same words put together: they are one highlight, which carries
+ * every thread's id (a click opens them all). Two highlights on one range would be drawn on top of each other, and
+ * a click would reach only one of the threads.
+ */
+export function commentHighlights(text: string, annotations: Annotation[]): { annotations: Annotation[]; from: number; to: number }[] {
+  const groups = new Map<string, { annotations: Annotation[]; from: number; to: number }>()
+  for (const { annotation, from, to } of attachedComments(text, annotations)) {
+    const group = groups.get(`${from}:${to}`)
+    if (group) group.annotations.push(annotation)
+    else groups.set(`${from}:${to}`, { annotations: [annotation], from, to })
+  }
+  return [...groups.values()]
+}
+
+/** The attributes of a highlight: the first thread's id (what a click on it opens first), and every id when there are several. */
+function highlightAttributes(annotations: Annotation[]): Record<string, string> {
+  const first = { "data-comment-id": annotations[0].id }
+  return annotations.length > 1 ? { ...first, "data-comment-ids": annotations.map((a) => a.id).join(" ") } : first
+}
+
 export const setReviewData = StateEffect.define<ReviewData>()
 
 export interface ReviewOptions {
   /** The data to start from: read when a view is made, so a remount of the editor shows it at once. */
   initial: () => ReviewData
   /** Told which proposals were just accepted or declined from the text, to forget them on the server. */
-  onResolve: (ids: string[]) => void
+  onResolve: (ids: string[], accepted?: boolean) => void
   /** Told when the user clicks a highlighted passage: the comment's id and where the passage is on screen. */
-  onOpenComment?: (id: string, rect: DOMRect) => void
+  onOpenComment?: (id: string, rect: DOMRect, ids: string[]) => void
+  /** The paperclip on a change: the user attached its words to the next chat message (docs/decisions/076). */
+  onAttach?: (passage: { quote: string; before: string; after: string }) => void
   /** Told when the set of her applied edits (`accept` mode) changes, and whether the user has touched the note since. */
   onApplied?: (ids: string[], untouched: boolean) => void
   /** Told once when a view has been made with these extensions (after the current update, so it may dispatch): stylo
@@ -135,6 +165,19 @@ const appliedField = StateField.define<AppliedState>({
   },
 })
 
+function icon(data: typeof Attachment01Icon): SVGSVGElement {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg")
+  svg.setAttribute("viewBox", "0 0 24 24")
+  svg.setAttribute("fill", "none")
+  svg.setAttribute("aria-hidden", "true")
+  for (const [tag, attrs] of data) {
+    const child = document.createElementNS("http://www.w3.org/2000/svg", tag)
+    for (const [name, value] of Object.entries(attrs)) if (name !== "key") child.setAttribute(name, String(value))
+    svg.append(child)
+  }
+  return svg
+}
+
 class UndoWidget extends WidgetType {
   readonly item: Applied
 
@@ -148,19 +191,25 @@ class UndoWidget extends WidgetType {
   }
 
   toDOM(view: EditorView): HTMLElement {
+    const anchor = document.createElement("span")
+    anchor.className = "sy-anchor"
+    const tab = document.createElement("span")
+    tab.className = "sy-tab"
+    anchor.append(tab)
     const b = document.createElement("button")
     b.type = "button"
     b.className = "sy-applied-undo"
     b.setAttribute("aria-label", "Undo this change")
     b.title = this.item.say ? `Undo: ${this.item.say}` : "Undo this change"
-    b.append(icon(Cancel01Icon))
+    b.append(icon(ArrowTurnBackwardIcon)) // an icon, not a word: the label is its title and its accessible name
+    tab.append(b)
     b.addEventListener("mousedown", (e) => e.preventDefault()) // keep the caret where it is
     b.addEventListener("click", () => {
       const now = view.state.field(appliedField).items.find((i) => i.id === this.item.id)
       if (!now) return
       view.dispatch({ changes: { from: now.from, to: now.to, insert: now.find }, userEvent: "input.undo-applied" })
     })
-    return b
+    return anchor
   }
 
   ignoreEvent(): boolean {
@@ -246,19 +295,6 @@ export function clearApplied(view: EditorView): string[] {
   return ids
 }
 
-function icon(data: typeof Tick02Icon): SVGSVGElement {
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg")
-  svg.setAttribute("viewBox", "0 0 24 24")
-  svg.setAttribute("fill", "none")
-  svg.setAttribute("aria-hidden", "true")
-  for (const [tag, attrs] of data) {
-    const child = document.createElementNS("http://www.w3.org/2000/svg", tag)
-    for (const [name, value] of Object.entries(attrs)) if (name !== "key") child.setAttribute(name, String(value))
-    svg.append(child)
-  }
-  return svg
-}
-
 class ChangeWidget extends WidgetType {
   readonly proposal: Proposal
 
@@ -279,20 +315,35 @@ class ChangeWidget extends WidgetType {
     const added = document.createElement("span")
     added.className = "sy-change-add"
     added.textContent = this.proposal.replace ?? ""
-    wrap.append(added)
-    const button = (kind: "accept" | "decline", label: string, glyph: typeof Tick02Icon) => {
+    // The buttons sit in a small tab above the words, joined to them by a short line, not in the line of text: after a
+    // sentence a bare ✕ reads as part of it and says nothing of what it would close. Their words are drawn by the style
+    // (`data-label`), so they are not part of the note's text when it is read or copied.
+    const tab = document.createElement("span")
+    tab.className = "sy-tab"
+    wrap.append(added, tab)
+    const button = (kind: "accept" | "decline", label: string, word: string) => {
       const b = document.createElement("button")
       b.type = "button"
       b.className = `sy-change-btn sy-change-${kind}`
       b.setAttribute("aria-label", label)
       b.title = label
-      b.append(icon(glyph))
+      b.dataset.label = word
       b.addEventListener("mousedown", (e) => e.preventDefault()) // keep the caret where it is
       b.addEventListener("click", () => (kind === "accept" ? acceptChanges(view, [this.proposal.id]) : declineChanges(view, [this.proposal.id])))
-      wrap.append(b)
+      tab.append(b)
     }
-    button("accept", "Accept this change", Tick02Icon)
-    button("decline", "Decline this change", Cancel01Icon)
+    // The paperclip: attach these words to the next chat message, so Sam knows which part is meant.
+    const clip = document.createElement("button")
+    clip.type = "button"
+    clip.className = "sy-change-btn sy-change-attach"
+    clip.setAttribute("aria-label", "Attach to your message")
+    clip.title = "Attach to your message"
+    clip.append(icon(Attachment01Icon))
+    clip.addEventListener("mousedown", (e) => e.preventDefault())
+    clip.addEventListener("click", () => view.state.facet(attachFacet)?.({ quote: this.proposal.find ?? "", before: this.proposal.before ?? "", after: this.proposal.after ?? "" }))
+    if (view.state.facet(attachFacet) && this.proposal.find) tab.append(clip)
+    button("accept", "Accept this change", "Accept")
+    button("decline", "Decline this change", "Decline")
     return wrap
   }
 
@@ -301,12 +352,17 @@ class ChangeWidget extends WidgetType {
   }
 }
 
-const openCommentFacet = Facet.define<(id: string, rect: DOMRect) => void, ((id: string, rect: DOMRect) => void) | undefined>({
+const attachFacet = Facet.define<(passage: { quote: string; before: string; after: string }) => void, ((passage: { quote: string; before: string; after: string }) => void) | undefined>({
+  combine: (values) => values[0],
+})
+
+const openCommentFacet = Facet.define<(id: string, rect: DOMRect, ids: string[]) => void, ((id: string, rect: DOMRect, ids: string[]) => void) | undefined>({
   combine: (values) => values[0],
 })
 
 // Who is told when proposals are accepted or declined from the text; one per editor, set by `reviewExtensions`.
-const resolveFacet = Facet.define<(ids: string[]) => void, ((ids: string[]) => void) | undefined>({
+// `accepted`: the user accepted them (so the comments they answered are settled), not declined or undone.
+const resolveFacet = Facet.define<(ids: string[], accepted?: boolean) => void, ((ids: string[], accepted?: boolean) => void) | undefined>({
   combine: (values) => values[0],
 })
 
@@ -324,7 +380,7 @@ export function acceptChanges(view: EditorView, ids: string[]): string[] {
     userEvent: "input.accept",
   })
   const done = chosen.map((p) => p.proposal.id)
-  view.state.facet(resolveFacet)?.(done)
+  view.state.facet(resolveFacet)?.(done, true)
   return done
 }
 
@@ -382,11 +438,13 @@ export function cellMarks(state: EditorState): CellMark[] {
   const data = state.field(reviewField, false)
   if (!data) return []
   const text = state.doc.toString()
-  const struck: CellMark[] = classify(text, data.proposals).placed.map(({ from, to }) => ({ from, to, class: "sy-change-del" }))
-  const marks: CellMark[] = attachedComments(text, data.annotations).map(({ annotation, from, to }) => {
-    const by = annotation.author === "persona" ? "persona" : "user"
+  const placed = classify(text, data.proposals).placed
+  const struck: CellMark[] = placed.map(({ from, to }) => ({ from, to, class: "sy-change-del" }))
+  const marks: CellMark[] = commentHighlights(text, data.annotations).map(({ annotations, from, to }) => {
+    const by = annotations.every((a) => a.author === "persona") ? "persona" : "user"
     // Not `sy-by-*`: that class also draws the margin dot of a line, which a cell must not get on every highlighted word.
-    return { from, to, class: by === "persona" ? "sy-comment-hl sy-hl-persona" : "sy-comment-hl", attributes: { "data-comment-id": annotation.id }, cellClass: `sy-cell-by-${by}` }
+    const base = by === "persona" ? "sy-comment-hl sy-hl-persona" : "sy-comment-hl"
+    return { from, to, class: underChange(placed, from, to) ? `${base} sy-under-change` : base, attributes: highlightAttributes(annotations), cellClass: `sy-cell-by-${by}` }
   })
   for (const item of state.field(appliedField).items) {
     if (item.from < item.to) marks.push({ from: item.from, to: item.to, class: "sy-applied", ...(item.say ? { attributes: { title: item.say } } : {}) })
@@ -420,7 +478,8 @@ function decorate(state: EditorState): DecorationSet {
   const data = state.field(reviewField)
   const text = state.doc.toString()
   const ranges: Range<Decoration>[] = []
-  for (const { proposal, from, to } of classify(text, data.proposals).placed) {
+  const placed = classify(text, data.proposals).placed
+  for (const { proposal, from, to } of placed) {
     ranges.push(Decoration.mark({ class: "sy-change-del" }).range(from, to))
     ranges.push(Decoration.widget({ widget: new ChangeWidget(proposal), side: 1 }).range(to))
   }
@@ -428,9 +487,10 @@ function decorate(state: EditorState): DecorationSet {
     if (item.from < item.to) ranges.push(Decoration.mark({ class: "sy-applied", attributes: item.say ? { title: item.say } : undefined }).range(item.from, item.to))
     ranges.push(Decoration.widget({ widget: new UndoWidget(item), side: 1 }).range(item.to))
   }
-  for (const { annotation, from, to } of attachedComments(text, data.annotations)) {
-    const by = annotation.author === "persona" ? "sy-by-persona" : "sy-by-user"
-    ranges.push(Decoration.mark({ class: `sy-comment-hl ${by}`, attributes: { "data-comment-id": annotation.id } }).range(from, to))
+  for (const { annotations, from, to } of commentHighlights(text, data.annotations)) {
+    const by = annotations.every((a) => a.author === "persona") ? "sy-by-persona" : "sy-by-user"
+    const under = underChange(placed, from, to) ? " sy-under-change" : ""
+    ranges.push(Decoration.mark({ class: `sy-comment-hl ${by}${under}`, attributes: highlightAttributes(annotations) }).range(from, to))
     // A dot beside each line the comment touches, drawn in the line's own left space so the editor never changes width.
     for (let line = state.doc.lineAt(from); ; line = state.doc.line(line.number + 1)) {
       ranges.push(Decoration.line({ class: `sy-comment-line ${by}` }).range(line.from))
@@ -445,48 +505,55 @@ const theme = EditorView.baseTheme({
     textDecoration: "line-through",
     backgroundColor: "color-mix(in srgb, var(--danger) 16%, transparent)",
   },
-  ".sy-change": { whiteSpace: "pre-wrap" },
   ".sy-change-add": {
     backgroundColor: "color-mix(in srgb, var(--ok) 20%, transparent)",
-    borderRadius: "var(--radius-sm, 3px)",
   },
-  ".sy-change-btn": {
+  ".sy-change": { whiteSpace: "pre-wrap", position: "relative" },
+  ".sy-anchor": { position: "relative" },
+  // The tab with the buttons, above the words it is about: a short line joins it to them.
+  ".sy-tab": {
+    position: "absolute",
+    insetInlineStart: "0",
+    bottom: "calc(100% + 0.4rem)",
+    zIndex: "5",
     display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    width: "1.25rem",
-    height: "1.25rem",
-    marginInlineStart: "0.25rem",
-    padding: "0",
+    alignItems: "stretch",
+    whiteSpace: "nowrap",
     border: "1px solid var(--border)",
     borderRadius: "var(--radius-sm, 3px)",
     background: "var(--background)",
-    color: "var(--muted-foreground)",
-    cursor: "pointer",
-    verticalAlign: "middle",
+    boxShadow: "0 1px 3px color-mix(in srgb, var(--foreground) 14%, transparent)",
+    userSelect: "none",
   },
+  ".sy-tab::after": {
+    content: '""',
+    position: "absolute",
+    insetInlineStart: "0.7rem",
+    top: "100%",
+    width: "1px",
+    height: "0.4rem",
+    background: "var(--border)",
+  },
+  ".sy-tab button": {
+    padding: "0 0.5rem",
+    border: "0",
+    background: "transparent",
+    color: "var(--muted-foreground)",
+    font: "500 0.6875rem/1.3rem var(--font-sans, system-ui, sans-serif)",
+    cursor: "pointer",
+  },
+  ".sy-tab button::before": { content: "attr(data-label)" },
+  ".sy-tab button svg": { width: "0.85rem", height: "0.85rem", stroke: "currentColor", strokeWidth: "2", verticalAlign: "middle" },
+  ".sy-tab button + button": { borderInlineStart: "1px solid var(--border)" },
+  ".sy-tab button:hover": { background: "var(--accent)" },
+
+
   ".sy-applied": {
     backgroundColor: "color-mix(in srgb, var(--ok) 20%, transparent)",
-    borderRadius: "var(--radius-sm, 3px)",
   },
-  ".sy-applied-undo": {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    width: "1.25rem",
-    height: "1.25rem",
-    marginInlineStart: "0.25rem",
-    padding: "0",
-    border: "1px solid var(--border)",
-    borderRadius: "var(--radius-sm, 3px)",
-    background: "var(--background)",
-    color: "var(--muted-foreground)",
-    cursor: "pointer",
-    verticalAlign: "middle",
-  },
-  ".sy-applied-undo svg": { width: "0.8rem", height: "0.8rem", stroke: "currentColor", strokeWidth: "2" },
+
+
   ".sy-applied-undo:hover": { color: "var(--danger)", borderColor: "var(--danger)" },
-  ".sy-change-btn svg": { width: "0.8rem", height: "0.8rem", stroke: "currentColor", strokeWidth: "2" },
   ".sy-change-accept:hover": { color: "var(--ok)", borderColor: "var(--ok)" },
   ".sy-change-decline:hover": { color: "var(--danger)", borderColor: "var(--danger)" },
   // A light tint, so the text stays readable on it (measured: 14% keeps the note's text above 4.2:1 in light and 5.7:1 in dark);
@@ -498,7 +565,9 @@ const theme = EditorView.baseTheme({
   ".sy-comment-hl.sy-by-persona, .sy-comment-hl.sy-hl-persona": {
     backgroundColor: "color-mix(in srgb, var(--brand) 14%, transparent)",
     boxShadow: "inset 0 -1.5px 0 color-mix(in srgb, var(--brand) 60%, transparent)",
-  },
+  },  // After the authors own colours, which would otherwise win: words under a waiting change are drawn as the change.
+  ".sy-comment-hl.sy-under-change.sy-under-change": { backgroundColor: "transparent", boxShadow: "none" },
+
   // The dot beside a commented line is drawn in the line's own left space; a line holding both authors shows two.
   ".cm-line.sy-comment-line": { position: "relative" },
   ".sy-by-user::before, .sy-by-persona::after": {
@@ -530,7 +599,7 @@ const theme = EditorView.baseTheme({
 })
 
 /** The extensions for stylo's `extensions` prop. Memoize the array; it reconfigures the live editor when it changes. */
-export function reviewExtensions({ initial, onResolve, onOpenComment, onApplied, onReady }: ReviewOptions): Extension[] {
+export function reviewExtensions({ initial, onResolve, onOpenComment, onAttach, onApplied, onReady }: ReviewOptions): Extension[] {
   const decorations = EditorView.decorations.compute(["doc", reviewField, appliedField], decorate)
   return [
     reviewField.init(() => initial()),
@@ -549,6 +618,7 @@ export function reviewExtensions({ initial, onResolve, onOpenComment, onApplied,
         ]
       : []),
     ...(onOpenComment ? [openCommentFacet.of(onOpenComment)] : []),
+    ...(onAttach ? [attachFacet.of(onAttach)] : []),
     // A listener on the editor's own element rather than `domEventHandlers`: a click inside a table cell (stylo's own
     // contenteditable DOM) is not passed to the editor's handlers, but it still reaches the element around them (stylo
     // 0.20.1 keeps the pressed word in place until after the release, so the click is sent there too).
@@ -556,7 +626,9 @@ export function reviewExtensions({ initial, onResolve, onOpenComment, onApplied,
       const click = (event: MouseEvent) => {
         const hit = (event.target as HTMLElement | null)?.closest?.<HTMLElement>(".sy-comment-hl")
         const id = hit?.dataset.commentId
-        if (hit && id) view.state.facet(openCommentFacet)?.(id, hit.getBoundingClientRect()) // the click still places the caret
+        // Every thread on these words, the first one first.
+        const ids = hit?.dataset.commentIds?.split(" ").filter(Boolean) ?? (id ? [id] : [])
+        if (hit && id) view.state.facet(openCommentFacet)?.(id, hit.getBoundingClientRect(), ids) // the click still places the caret
       }
       view.dom.addEventListener("click", click)
       return { destroy: () => view.dom.removeEventListener("click", click) }

@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { attach, setAttachmentsNote } from "@/lib/attachments"
 import { setOpenNoteSource } from "@/lib/open-note-source"
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
@@ -73,8 +74,20 @@ describe("useChat", () => {
     const { result } = renderHook(() => useChat("samantha"))
     await say(result, "first")
     await say(result, "second")
-    expect(api.sendChatTurn.mock.calls[0]).toEqual(["first", "samantha", undefined, expect.any(AbortSignal), null])
-    expect(api.sendChatTurn.mock.calls[1]).toEqual(["second", "samantha", "s9", expect.any(AbortSignal), null])
+    expect(api.sendChatTurn.mock.calls[0]).toEqual(["first", "samantha", undefined, expect.any(AbortSignal), null, []])
+    expect(api.sendChatTurn.mock.calls[1]).toEqual(["second", "samantha", "s9", expect.any(AbortSignal), null, []])
+  })
+
+  it("sends what the user attached with one message only", async () => {
+    api.sendChatTurn.mockResolvedValueOnce(ok("one", "s9")).mockResolvedValueOnce(ok("two", "s9"))
+    const { result } = renderHook(() => useChat("samantha"))
+    setAttachmentsNote("a.md")
+    attach({ quote: "three times", before: "I run ", after: "." })
+    await say(result, "first")
+    await say(result, "second")
+    expect(api.sendChatTurn.mock.calls[0][5]).toEqual([{ quote: "three times", before: "I run ", after: "." }])
+    expect(api.sendChatTurn.mock.calls[1][5]).toEqual([])
+    setAttachmentsNote(undefined)
   })
 
   it("shows a refusal as a system error line, not as a persona reply", async () => {
@@ -156,7 +169,7 @@ describe("useChat", () => {
       await first
     })
     expect(api.sendChatTurn).toHaveBeenCalledTimes(2)
-    expect(api.sendChatTurn.mock.calls[1]).toEqual(["second\n\nthird", "samantha", "s1", expect.any(AbortSignal), null])
+    expect(api.sendChatTurn.mock.calls[1]).toEqual(["second\n\nthird", "samantha", "s1", expect.any(AbortSignal), null, []])
     expect(result.current.turns.map((t) => t.body)).toEqual(["first", "second", "third", "to the first", "both answered"])
     expect(result.current.sending).toBe(false)
   })
@@ -177,7 +190,7 @@ describe("useChat", () => {
       release({ ok: false, error: "model down" })
       await first
     })
-    expect(api.sendChatTurn.mock.calls[1]).toEqual(["second", "samantha", undefined, expect.any(AbortSignal), null])
+    expect(api.sendChatTurn.mock.calls[1]).toEqual(["second", "samantha", undefined, expect.any(AbortSignal), null, []])
     expect(result.current.sending).toBe(false)
   })
 
@@ -260,7 +273,7 @@ describe("useChat resuming", () => {
     const { result } = renderHook(() => useChat("samantha"))
     await waitFor(() => expect(result.current.turns).toHaveLength(2))
     await say(result, "and then?")
-    expect(api.sendChatTurn.mock.calls[0]).toEqual(["and then?", "samantha", "s7", expect.any(AbortSignal), null])
+    expect(api.sendChatTurn.mock.calls[0]).toEqual(["and then?", "samantha", "s7", expect.any(AbortSignal), null, []])
   })
 
   it("asks for a persona's conversation once, however often it is shown", async () => {
@@ -317,7 +330,7 @@ describe("useChat resuming", () => {
     expect(result.current.turns).toEqual([])
     expect(result.current.hasMore).toBe(false)
     await say(result, "hello again")
-    expect(api.sendChatTurn.mock.calls[0]).toEqual(["hello again", "samantha", "s-blank", expect.any(AbortSignal), null])
+    expect(api.sendChatTurn.mock.calls[0]).toEqual(["hello again", "samantha", "s-blank", expect.any(AbortSignal), null, []])
     expect(api.fetchChatSession).toHaveBeenCalledTimes(1)
   })
 
@@ -332,7 +345,7 @@ describe("useChat resuming", () => {
     })
     expect(result.current.turns).toEqual([])
     await say(result, "hello again")
-    expect(api.sendChatTurn.mock.calls[0]).toEqual(["hello again", "samantha", undefined, expect.any(AbortSignal), null])
+    expect(api.sendChatTurn.mock.calls[0]).toEqual(["hello again", "samantha", undefined, expect.any(AbortSignal), null, []])
   })
 
   it("keeps the conversation the user has started when the backend's blank one arrives late", async () => {
@@ -350,7 +363,7 @@ describe("useChat resuming", () => {
       await starting
     })
     await say(result, "second")
-    expect(api.sendChatTurn.mock.calls[1]).toEqual(["second", "samantha", "s-real", expect.any(AbortSignal), null])
+    expect(api.sendChatTurn.mock.calls[1]).toEqual(["second", "samantha", "s-real", expect.any(AbortSignal), null, []])
   })
 
   it("resumes a conversation that was left blank as blank, and continues it", async () => {
@@ -360,7 +373,7 @@ describe("useChat resuming", () => {
     await waitFor(() => expect(api.fetchChatSession).toHaveBeenCalled())
     expect(result.current.turns).toEqual([])
     await say(result, "hello")
-    expect(api.sendChatTurn.mock.calls[0]).toEqual(["hello", "samantha", "s-blank", expect.any(AbortSignal), null])
+    expect(api.sendChatTurn.mock.calls[0]).toEqual(["hello", "samantha", "s-blank", expect.any(AbortSignal), null, []])
   })
 
   it("does not put a saved conversation in front of one the user has already started", async () => {

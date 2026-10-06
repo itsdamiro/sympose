@@ -46,14 +46,15 @@ export async function sendChatTurn(
   persona: string,
   sessionId?: string,
   signal?: AbortSignal,
-  openNote?: { path: string; text: string } | null
+  openNote?: { path: string; text: string } | null,
+  attached: { quote: string; before: string; after: string }[] = []
 ): Promise<SendChatTurnResult> {
   try {
     const res = await fetch("/api/chat/turn", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       // `edits`: this screen can show a proposal, so the persona may make one (ADR 072); `open_note` is the note in the editor.
-      body: JSON.stringify({ message, persona, session_id: sessionId, edits: true, open_note: openNote ?? undefined }),
+      body: JSON.stringify({ message, persona, session_id: sessionId, edits: true, open_note: openNote ?? undefined, attached: attached.length > 0 ? attached : undefined }),
       signal,
     })
     if (res.ok) {

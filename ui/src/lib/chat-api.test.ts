@@ -31,6 +31,13 @@ describe("sendChatTurn", () => {
     })
   })
 
+  it("sends the passages the user attached to this message, and nothing when none", async () => {
+    const fetchMock = stub({ ok: true, status: 200, json: () => Promise.resolve(reply) })
+    await sendChatTurn("hi", "samantha", "s0", undefined, { path: "a.md", text: "x" }, [{ quote: "three times", before: "I run ", after: "." }])
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(JSON.parse(init.body as string).attached).toEqual([{ quote: "three times", before: "I run ", after: "." }])
+  })
+
   it("returns the backend's own reason when it refuses", async () => {
     stub({ ok: false, status: 409, json: () => Promise.resolve({ detail: "local models only" }) })
     expect(await sendChatTurn("hello", "samantha")).toEqual({ ok: false, error: "local models only" })

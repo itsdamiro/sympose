@@ -148,7 +148,7 @@ export function VaultFolderView({
         {trashView && <BinSectionPills section={bin.section} onChange={(next) => setBin("section", next)} />}
         </div>
         {folderDrafts.length > 0 && (
-          <DraftsSection drafts={folderDrafts} selectedPath={draftSelectedPath} onOpen={onOpenDraft} hideExtension={!!vaultTreeActions.hideExtension} />
+          <DraftsSection drafts={folderDrafts} selectedPath={draftSelectedPath} onOpen={onOpenDraft} hideExtension={!!vaultTreeActions.hideExtension} actions={vaultTreeActions} />
         )}
         {trashView ? (
           <BinView

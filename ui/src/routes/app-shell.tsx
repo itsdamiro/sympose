@@ -55,6 +55,7 @@ import {
   SettingsView,
   VaultFolderView,
   CloudNotice,
+  AttachedChips,
   ModelPicker,
   FolderSetupDialog,
   FolderMoveDialog,
@@ -833,6 +834,7 @@ export function AppShell() {
               contextFigure={chatDisplayPrefs.showMeter ? contextFigure : null}
               typeStatus={chatDisplayPrefs.typeStatus}
               notice={noticeIn("chat") ? cloudNoticeBox : undefined}
+              chips={<AttachedChips />}
               draft={chat.draft}
               onDraftChange={chat.setDraft}
               onSubmit={chat.send}

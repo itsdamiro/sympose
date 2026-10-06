@@ -49,14 +49,14 @@ export function usePersonaChanges({ path, persona, enabled = true }: { path?: st
   const changes = enabled && state.key === want ? state.data : null
 
   const resolve = React.useCallback(
-    async (which: string[] | "all") => {
+    async (which: string[] | "all", accepted = false) => {
       if (!path) return
       setState((s) =>
         s.data && s.key === `${persona}:${path}`
           ? { ...s, data: { ...s.data, proposals: which === "all" ? [] : s.data.proposals.filter((p) => !which.includes(p.id)) } }
           : s
       )
-      const result = await resolveChanges(path, persona, which)
+      const result = await (accepted ? resolveChanges(path, persona, which, true) : resolveChanges(path, persona, which))
       announceDraftsChanged() // the note may no longer be a draft
       if (!result.ok) {
         notify.error(result.error)

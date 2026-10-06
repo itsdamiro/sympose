@@ -31,6 +31,7 @@ import { applyProposals, cellMarks, cellWidgets, classify, clearApplied, pending
 import { useEditMode } from "@/lib/use-edit-mode"
 import { OutdatedChanges } from "@/components/sympose/outdated-changes"
 import { CommentPopover, type CommentBox } from "@/components/sympose/comment-popover"
+import { attach, setAttachmentsNote } from "@/lib/attachments"
 import { setOpenNoteSource } from "@/lib/open-note-source"
 import { commentMenuItem, commentToolbarItem, reviewToolbarItems } from "@/components/sympose/review-toolbar"
 import type { EditorPreferences } from "@/lib/use-editor-preferences"
@@ -311,6 +312,13 @@ function MarkdownPanel({
     }),
     [changes, appliedIds]
   )
+  // What the user attaches to the next chat message belongs to the note that is open (docs/decisions/076); not for a
+  // persona's own file or a draft.
+  React.useEffect(() => {
+    if (!path || file) return
+    setAttachmentsNote(path)
+    return () => setAttachmentsNote(undefined)
+  }, [path, file])
   const reviewDataRef = React.useRef(reviewData)
   const resolveRef = React.useRef(resolveChanges)
   const proposalsRef = React.useRef<Proposal[]>([])
@@ -341,13 +349,14 @@ function MarkdownPanel({
       // eslint-disable-next-line react-hooks/refs -- the two callbacks run when the editor is made and when a change is accepted or declined, never during render
       reviewExtensions({
         initial: () => reviewDataRef.current,
-        onResolve: (ids) => void resolveRef.current(ids),
+        onResolve: (ids, accepted) => void (accepted ? resolveRef.current(ids, true) : resolveRef.current(ids)),
         onReady: () => setEditorMade((n) => n + 1),
         onApplied: (ids, untouched) => {
           appliedRef.current = { ids, untouched }
           setApplied({ path: pathRef.current, ids })
         },
-        onOpenComment: (id, rect) => setCommentBox({ kind: "thread", id, rect }),
+        onOpenComment: (id, rect, ids) => setCommentBox({ kind: "thread", id, ids, rect }),
+        onAttach: attach,
       }),
     []
   )
