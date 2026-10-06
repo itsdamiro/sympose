@@ -20,7 +20,7 @@ It then rewrites the wikilinks that name the folder, and updates the personas' f
 
 ## What are tracked changes and comments?
 
-When a persona proposes a change to the note you have open, the editor shows it as a tracked change: the old text struck through and the new text beside it, each with Accept and Decline. The toolbar has Accept all and save, and Decline all, for the whole note. A change you edited underneath is marked outdated, not merged.
+When a persona proposes a change to the note you have open, the editor shows it as a tracked change: the old text struck through and the new text beside it. A small tab above it holds Accept and Decline (and a paperclip). The toolbar has Accept all and save, and Decline all, for the whole note. A change you edited underneath is marked outdated, not merged.
 
 To leave a comment, select text and choose Comment; the persona reads your open comments with your next message and can reply or propose a change. A comment can be resolved, and a persona's own comment can be accepted or declined (declining needs your reply first). Nothing reaches the file until you accept or save. This is web app only.
 
@@ -28,15 +28,21 @@ A comment's words are highlighted in the note. Click the highlight to open the t
 
 In a table, a persona can propose a change to the words of one cell. She cannot propose removing a table or a row, or reshaping it, so she says so and leaves a comment; you make that change yourself in the editor.
 
+## Where do I click Accept or Decline on a change?
+
+In the note, a small tab above the changed words holds Accept and Decline, and a paperclip. For a new note she proposed, the bar above the draft has Accept and Decline. The toolbar has Accept all and Decline all for the whole note.
+
 ## How do I point the persona at a part of my note?
 
-Click the paperclip on a tracked change, in the box that opens on a comment, or above commented words when you point at them. The words appear as a chip under your message, and the persona is sent that part of the note, so she knows which one you mean. Remove the chip with its own button. A message you sent with a chip shows a paperclip beside its time.
+Click the paperclip on a tracked change, in the box that opens on a comment, or above commented words when you point at them. The words appear as a chip floating above the message box, and the persona is sent that part of the note, so she knows which one you mean. Remove the chip with its own button. A message you sent with a chip shows a paperclip beside its time.
 
 Without a chip she is sent the whole open note. With one, a model that can use tools gets the note's headings and the section the words are in, and can open the rest if it needs it.
 
 ## What is the Drafts section?
 
-At the top of the notes list, the Drafts section lists the notes in the folder you are viewing that a persona has proposed changes to, the new notes she has proposed, and the notes with an open comment. Choose one to open it. Right-click a note in it for the same menu as in the notes list, such as rename or delete. A new note she proposed has no file yet: it is created when you accept it.
+At the top of the notes list, the Drafts section lists the notes in the folder you are viewing that a persona has proposed changes to, the new notes she has proposed, and the notes with an open comment. Choose one to open it. Right-click a note in it for the same menu as in the notes list, such as rename or delete.
+
+A new note she proposed has no file yet: it is listed here in whichever folder you are in, and it is created when you accept it.
 
 ## How do I get back a note I deleted?
 

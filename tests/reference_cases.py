@@ -347,6 +347,24 @@ REF_CASES: list[RefCase] = [
         find=("session_recaps",),  # the setting's own section and the privacy answer both say it
     ),
     RefCase(
+        "new-note-where",
+        "where does the note you propose get saved when I accept it?",
+        find=("takes the note's title",),
+        first="Creating notes.md",
+    ),
+    RefCase(
+        "new-note-folder",
+        "can you make the new note in a subfolder I choose?",
+        find=("Projects/Sympose",),
+        first="Creating notes.md",
+    ),
+    RefCase(
+        "new-note-not-listed",
+        "I asked you to create a note but I cannot see it anywhere",
+        find=("Drafts group",),
+        first="Creating notes.md",
+    ),
+    RefCase(
         "writes-notes",
         "can Samantha write or edit my notes for me in the chat?",
         find=("Accept",),

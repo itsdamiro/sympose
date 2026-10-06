@@ -47,7 +47,7 @@ _RAW = [
     ("sympose", "what does the context meter show?", True, "The context meter.md"),
     ("sympose", "what commands can I use in the chat?", True, "Chat commands.md"),
     ("sympose", "is my data sent anywhere?", True, "Privacy and data.md"),
-    ("sympose", "can you create a note in my vault?", True, "Not built yet.md"),
+    ("sympose", "can you create a note in my vault?", True, "Creating notes.md"),
     ("sympose", "how do I change which persona I talk to?", True, None),
     ("sympose", "what model are you running on?", True, None),
     ("sympose", "why is the reply so slow?", True, "Troubleshooting.md"),
@@ -63,6 +63,9 @@ _RAW = [
     ("sympose", "how do I move a folder?", True, "The web app.md"),
     ("sympose", "can a cloud model see the note I have open?", True, "Privacy and data.md"),
     ("sympose", "how do I point you at one part of my note?", True, "The web app.md"),
+    ("sympose", "where do I click accept on your change?", True, "The web app.md"),
+    ("sympose", "where does the note you created for me get saved?", True, "Creating notes.md"),
+    ("sympose", "can you create the new note in a folder I pick?", True, "Creating notes.md"),
     ("sympose", "how do I open a comment you left on my note?", True, "The web app.md"),
     ("sympose", "can you delete a table from my note?", True, "The web app.md"),
 ]

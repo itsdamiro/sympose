@@ -64,6 +64,18 @@ The Drafts section listed every draft of the persona in every folder, so a comme
 
 When the Drafts section is shown the notes list under it is captioned ("Notes in {folder}") even with nothing pinned, so the two are told apart: before, only Pinned above the list gave it a caption and the notes ran on from the Drafts rows. The gap from the last draft to that caption is the same as from Drafts to Pinned (measured in headless Chrome: 45 px).
 
+## Amendment (2026-10-06): a new note she proposed is listed in every folder
+
+The amendment above (only the drafts of the folder in view) hid every new note: a note she proposes is kept under a working path (`new/<id>`) until it is accepted, which is inside no folder, so it was listed nowhere and the user, who had asked her for one, could not find it. A new-note draft is now listed whichever folder is in view, and at the vault root.
+
 ## Amendment (2026-10-06): a row of a note that exists has the note's own menu
 
 The section's rows had no menu, on the reasoning that a draft is not a note until it is accepted. That holds for a new note a persona proposed (no file yet), but a row for a note that exists, with changes waiting or open comments, is that note. Right-click, long-press or the ⋯ button on such a row now gives the same menu as a row in the notes list or Pinned (rename, delete, pin, hide), from the same actions. A new-note row still has none. After a rename or a delete the drafts are read again, since the note's changes and comments move or go with it (ADR 070).
+
+## Amendment (2026-10-06): where an accepted new note is made, and a folder she can be asked for
+
+The first built Accept made the file at the draft's working path, `new/<id>.md`: a new top-level folder called `new` and a note with a random name, which nobody asked for. Accept now makes the note in the folder the persona was asked for, else the folder the user is in, else the top of the vault; named by its title (the characters a file name cannot hold are taken out), under the next number (`Plan (2)`) when that title is taken, and never over an existing note. `propose_note` has an optional `folder` (a vault path such as `Projects/Sympose`; made with its parent folders when the user accepts; refused when it leaves the vault), kept on the proposal and listed with the draft. A draft that already has a real path (older drafts) keeps it. The banner above a draft shows its title, not the working path. The reference library has a page on this (`Creating notes.md`) so the persona can say what happens.
+
+## Amendment (2026-10-06): where an accepted new note is made, and a folder she can be asked for
+
+The first built Accept made the file at the draft's working path, `new/<id>.md`: a new top-level folder called `new` and a note with a random name, which nobody asked for. Accept now makes the note in the folder the persona was asked for, else the folder the user is in, else the top of the vault; named by its title (the characters a file name cannot hold are taken out), under the next number (`Plan (2)`) when that title is taken, and never over an existing note. `propose_note` has an optional `folder` (a vault path such as `Projects/Sympose`; made with its parent folders when the user accepts; refused when it leaves the vault), kept on the proposal and listed with the draft. A draft that already has a real path (older drafts) keeps it. The banner above a draft shows its title, not the working path. The reference library has a page on this (`Creating notes.md`) so the persona can say what happens.
