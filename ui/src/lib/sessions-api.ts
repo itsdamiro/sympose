@@ -26,13 +26,13 @@ export interface BinnedSession {
 
 export type SessionResult<T = undefined> = { ok: true; value: T } | { ok: false; error: string }
 
-const DOWN = "the Sympose backend is not reachable"
+const DOWN = "Sympose isn't responding. Check that it's still running, then try again."
 
 async function call<T>(url: string, init: RequestInit | undefined, pick: (body: unknown) => T): Promise<SessionResult<T>> {
   try {
     const res = await fetch(url, init)
     if (res.ok) return { ok: true, value: pick(await res.json()) }
-    return { ok: false, error: (await detailOf(res)) || `HTTP ${res.status}` }
+    return { ok: false, error: (await detailOf(res)) || `Something failed on Sympose's side (code ${res.status}). Try again.` }
   } catch (err) {
     return { ok: false, error: `${DOWN} (${err})` }
   }

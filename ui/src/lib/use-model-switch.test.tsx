@@ -49,7 +49,7 @@ describe("useModelSwitch", () => {
     expect(choose).not.toHaveBeenCalled()
     const request = confirmMock.mock.calls[0][0]
     expect(request.message).toBe("Switch to Gemini Flash — cloud?")
-    expect(request.description).toContain("sent to a cloud model as history")
+    expect(request.description).toContain("will be sent to the cloud model")
     expect(request.tone).toBe("default")
     expect(request.permanent).toBeUndefined() // the app's own confirmation, as the user's preference has it
     await act(async () => request.onConfirm())

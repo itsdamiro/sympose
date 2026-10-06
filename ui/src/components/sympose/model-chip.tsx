@@ -45,7 +45,7 @@ function ModelChip({
         isLocal ? "text-ok" : "text-fg-muted",
         className
       )}
-      title={isLocal ? "On-device — private, air-gapped" : "Cloud model"}
+      title={isLocal ? "On your computer: nothing leaves it" : "Cloud model"}
       {...props}
     >
       <HugeiconsIcon icon={isLocal ? ComputerIcon : CloudIcon} />

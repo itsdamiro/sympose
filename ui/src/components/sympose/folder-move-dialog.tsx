@@ -106,7 +106,7 @@ function FolderMoveDialog({ ask, onClose }: { ask: FolderMoveAsk | null; onClose
         {ask?.kind === "clash" && <ClashForm key={ask.name} ask={ask} close={close} />}
         {ask?.kind === "notes" && (
           <Confirm
-            title={`${ask.files.length} ${ask.files.length === 1 ? "file is" : "files are"} in both folders`}
+            title={`${ask.files.length} ${ask.files.length === 1 ? "file has" : "files have"} the same name in both folders`}
             confirmLabel="Rename them and merge"
             onAnswer={(ok) => {
               ask.resolve(ok)
@@ -124,7 +124,7 @@ function FolderMoveDialog({ ask, onClose }: { ask: FolderMoveAsk | null; onClose
         )}
         {ask?.kind === "reach" && (
           <Confirm
-            title="This changes what a persona can read"
+            title="Moving this folder changes which notes some personas can read"
             confirmLabel="Move anyway"
             onAnswer={(ok) => {
               ask.resolve(ok)

@@ -57,7 +57,7 @@ export function useVaultTree({
       if (!alive) return
       const samePersona = treeOfPersona.current === activePersona
       if (!result) {
-        notify.error("Couldn't load the vault. Is the backend running?", { id: "vault-tree" })
+        notify.error("Couldn't load the vault. Check that Sympose is running, then try again.", { id: "vault-tree" })
         if (!samePersona) {
           setVaultTree([])
           setVaultName(null)

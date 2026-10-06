@@ -137,11 +137,11 @@ export function useCreateSubmit({
   const openDefinition = async (name: string) => {
     const template = await fetchNoteTemplate(name, activePersona)
     if (!template) {
-      notify.error("Couldn't read the folder. Is the backend running?")
+      notify.error("Couldn't read the folder. Check that Sympose is running, then try again.")
       return
     }
     if (!template.definable) {
-      notify.info(`${name} cannot be given a definition: it has one already, or is not a folder of your own notes.`)
+      notify.info(`${name} can't be described: it already has a description, or it isn't one of your own folders.`)
       return
     }
     setFolderSetup({ folder: name, template, manual: true })

@@ -26,7 +26,7 @@ const TITLE = "Samantha · file.md"
 describe("PersonaFileBanner", () => {
   it("says the soul being edited is the shipped one, and that saving makes the user's own copy", () => {
     render(<PersonaFileBanner title={TITLE} handle="samantha" name="soul.md" info={info("soul.md")} onChanged={() => {}} />)
-    expect(screen.getByText(/shipped soul/i)).toBeTruthy()
+    expect(screen.getByText(/default persona description/i)).toBeTruthy()
     expect(screen.queryByRole("button", { name: "Reset to default" })).toBeNull()
   })
 
@@ -37,7 +37,7 @@ describe("PersonaFileBanner", () => {
     expect(screen.getByText(/your own version/i)).toBeTruthy()
     fireEvent.click(screen.getByRole("button", { name: "Reset to default" }))
     const ask = confirmMock.mock.calls[0][0]
-    expect(ask.message).toMatch(/shipped soul/i)
+    expect(ask.message).toMatch(/restore the default/i)
     expect(String(ask.description)).toMatch(/kept/i) // the user's text is set aside, not thrown away
     expect(api.resetPersonaSoul).not.toHaveBeenCalled() // nothing happens before it is confirmed
     await ask.onConfirm()

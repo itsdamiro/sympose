@@ -39,7 +39,7 @@ export function useModelSwitch({
         confirm({
           message: `Switch to ${label}?`,
           description:
-            "Earlier replies in this conversation, which may quote your notes, are sent to a cloud model as history, whatever you allow for it. Start a new conversation first to leave them out.",
+            "Earlier replies in this chat, which may quote your notes, will be sent to the cloud model even if you've limited what it can see. Start a new chat to leave them out.",
           confirmLabel: "Switch model",
           cancelLabel: "Keep the current model",
           tone: "default",

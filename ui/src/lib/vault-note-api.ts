@@ -72,11 +72,11 @@ export async function saveVaultNote(
     if (res.ok) return { ok: true, mtime: ((await res.json()) as { mtime?: number }).mtime }
     return {
       ok: false,
-      error: (await detailOf(res)) || `Save failed (HTTP ${res.status})`,
+      error: (await detailOf(res)) || `Save failed (code ${res.status}). Try again.`,
       conflict: res.status === 409,
     }
-  } catch (err) {
-    return { ok: false, error: `Save failed — backend unreachable (${err})` }
+  } catch {
+    return { ok: false, error: `Save failed: Sympose isn't responding. Check that it's still running, then try again.` }
   }
 }
 
@@ -103,10 +103,10 @@ export async function createVaultNote(
     if (res.ok) return { ok: true, path }
     return {
       ok: false,
-      error: (await detailOf(res)) || `Couldn't create note (HTTP ${res.status})`,
+      error: (await detailOf(res)) || `Couldn't create note (code ${res.status}). Try again.`,
     }
-  } catch (err) {
-    return { ok: false, error: `Couldn't create note — backend unreachable (${err})` }
+  } catch {
+    return { ok: false, error: `Couldn't create note: Sympose isn't responding. Check that it's still running, then try again.` }
   }
 }
 
@@ -133,10 +133,10 @@ export async function createVaultFolder(
     if (res.ok) return { ok: true, path }
     return {
       ok: false,
-      error: (await detailOf(res)) || `Couldn't create folder (HTTP ${res.status})`,
+      error: (await detailOf(res)) || `Couldn't create folder (code ${res.status}). Try again.`,
     }
-  } catch (err) {
-    return { ok: false, error: `Couldn't create folder — backend unreachable (${err})` }
+  } catch {
+    return { ok: false, error: `Couldn't create folder: Sympose isn't responding. Check that it's still running, then try again.` }
   }
 }
 
@@ -165,9 +165,9 @@ export async function renameVaultFolder(
       const body = (await res.json()) as { path: string; detail: string; personas: string[]; personas_unchanged: string[]; failed: number }
       return { ok: true, path: body.path, detail: body.detail, personas: body.personas, personasUnchanged: body.personas_unchanged, relinkFailed: body.failed }
     }
-    return { ok: false, error: (await detailOf(res)) || `Rename failed (HTTP ${res.status})` }
-  } catch (err) {
-    return { ok: false, error: `Rename failed — backend unreachable (${err})` }
+    return { ok: false, error: (await detailOf(res)) || `Rename failed (code ${res.status}). Try again.` }
+  } catch {
+    return { ok: false, error: `Rename failed: Sympose isn't responding. Check that it's still running, then try again.` }
   }
 }
 
@@ -199,10 +199,10 @@ export async function renameVaultNote(
     }
     return {
       ok: false,
-      error: (await detailOf(res)) || `Rename failed (HTTP ${res.status})`,
+      error: (await detailOf(res)) || `Rename failed (code ${res.status}). Try again.`,
     }
-  } catch (err) {
-    return { ok: false, error: `Rename failed — backend unreachable (${err})` }
+  } catch {
+    return { ok: false, error: `Rename failed: Sympose isn't responding. Check that it's still running, then try again.` }
   }
 }
 
@@ -255,10 +255,10 @@ export async function deleteVaultNote(
     }
     return {
       ok: false,
-      error: (await detailOf(res)) || `Delete failed (HTTP ${res.status})`,
+      error: (await detailOf(res)) || `Delete failed (code ${res.status}). Try again.`,
     }
-  } catch (err) {
-    return { ok: false, error: `Delete failed — backend unreachable (${err})` }
+  } catch {
+    return { ok: false, error: `Delete failed: Sympose isn't responding. Check that it's still running, then try again.` }
   }
 }
 
@@ -287,9 +287,9 @@ export async function deleteVaultFolder(
     }
     return {
       ok: false,
-      error: (await detailOf(res)) || `Delete failed (HTTP ${res.status})`,
+      error: (await detailOf(res)) || `Delete failed (code ${res.status}). Try again.`,
     }
-  } catch (err) {
-    return { ok: false, error: `Delete failed — backend unreachable (${err})` }
+  } catch {
+    return { ok: false, error: `Delete failed: Sympose isn't responding. Check that it's still running, then try again.` }
   }
 }

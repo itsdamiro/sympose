@@ -68,7 +68,7 @@ def test_the_save_route_answers_422_for_such_a_note_and_saves_a_crlf_one_whole(v
     client = TestClient(create_app())
     old = put(vault, "Old.md", b"caf\xe9\n")
     r = client.put("/api/vault/note", json={"path": "Old.md", "content": "x", "persona": "samantha"})
-    assert r.status_code == 422 and "Old.md" in r.json()["detail"] and "not valid text" in r.json()["detail"]
+    assert r.status_code == 422 and "Old.md" in r.json()["detail"] and "isn't plain text" in r.json()["detail"]
     assert old.read_bytes() == b"caf\xe9\n"
     win = put(vault, "Win.md", b"a\r\n")
     r = client.put("/api/vault/note", json={"path": "Win.md", "content": "a\nb", "persona": "samantha"})

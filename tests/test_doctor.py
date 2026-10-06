@@ -93,7 +93,7 @@ def test_a_lower_case_name_that_is_already_taken_is_not_renamed_over(base, monke
 
     code, out = _run(fix=True)
 
-    assert code == 1 and "a different folder 'grace' exists" in out and "needs you" in out
+    assert code == 1 and "a different folder 'grace' exists" in out and "needs your attention" in out
     assert os.listdir(base) == ["Grace"]
 
 
@@ -103,7 +103,7 @@ def test_a_persona_file_that_cannot_be_read_is_reported_and_never_changed(base, 
 
     code, out = _run(fix=True)
 
-    assert code == 1 and "ada" in out and "the persona is missing" in out and "needs you" in out
+    assert code == 1 and "ada" in out and "the persona is missing" in out and "needs your attention" in out
     assert (folder / "persona.yaml").read_text() == body
 
 
@@ -142,7 +142,7 @@ def test_fix_removes_a_setting_that_is_not_a_name_and_keeps_the_others(base, key
     code_only, out_only = _run()
     code, out = _run(fix=True)
 
-    assert code_only == 1 and f"the {key} setting is" in out_only and "--fix would: remove" in out_only
+    assert code_only == 1 and f"({key}) is" in out_only and "--fix would: remove" in out_only
     assert code == 0 and f"fixed: remove {key}" in out
     assert json.loads((base.parent / "settings.json").read_text()) == {"grounding_search": "keywords"}
 
@@ -153,7 +153,7 @@ def test_fix_removes_a_default_persona_that_names_no_persona(base):
 
     code, out = _run(fix=True)
 
-    assert code == 0 and "'nobody' names no persona" in out
+    assert code == 0 and "'nobody' does not match any persona" in out
     assert json.loads((base.parent / "settings.json").read_text()) == {"chat_model": "ollama_chat/x"}
 
 
@@ -239,7 +239,7 @@ def test_a_default_persona_with_a_stray_space_is_not_a_name_the_roster_has(base)
 
     code, out = _run(fix=True)
 
-    assert code == 0 and "'grace ' names no persona" in out
+    assert code == 0 and "'grace ' does not match any persona" in out
     assert json.loads((base.parent / "settings.json").read_text()) == {}
 
 
@@ -250,7 +250,7 @@ def test_a_default_persona_that_is_not_a_plain_name_names_no_persona(base, handl
 
     code, out = _run(fix=True)
 
-    assert code == 0 and "names no persona" in out
+    assert code == 0 and "does not match any persona" in out
     assert json.loads((base.parent / "settings.json").read_text()) == {}
 
 
@@ -269,7 +269,7 @@ def test_a_default_persona_whose_file_is_unreadable_keeps_the_persons_choice(bas
 
     code, out = _run(fix=True)
 
-    assert code == 1 and "names no persona" not in out  # the broken file is the finding, once
+    assert code == 1 and "does not match any persona" not in out  # the broken file is the finding, once
     assert json.loads(path.read_text()) == {"default_persona": "ada"}
 
 
@@ -291,7 +291,7 @@ def test_the_default_setup_says_that_nothing_leaves_the_computer(base):
     assert code == 0
     assert "Models and what leaves this computer:" in out
     assert "chat model: ollama_chat/gemma2:9b: local, nothing leaves this computer" in out
-    assert "embedding model: ollama/nomic-embed-text: local, nothing leaves this computer" in out
+    assert "search model: ollama/nomic-embed-text: local, nothing leaves this computer" in out
 
 
 def test_a_cloud_chat_model_with_nothing_approved_is_reported_but_is_not_a_problem(base):
@@ -341,8 +341,8 @@ def test_a_cloud_embedding_model_without_approval_for_notes_is_a_finding_that_ne
     code, out = _run(fix=True)
 
     assert code == 1
-    assert "embedding model: gemini/text-embedding: cloud, it would receive every passage of your notes" in out
-    assert "notes are searched by keyword" in out and "needs you" in out
+    assert "search model: gemini/text-embedding: cloud: it would send every part of your notes" in out
+    assert "found by keyword only" in out and "needs your attention" in out
 
 
 def test_a_cloud_embedding_model_with_notes_approved_is_not_a_finding(base):
@@ -351,7 +351,7 @@ def test_a_cloud_embedding_model_with_notes_approved_is_not_a_finding(base):
 
     code, out = _run()
 
-    assert code == 0 and "cloud, it would receive every passage of your notes and every message" in out
+    assert code == 0 and "cloud: it would send every part of your notes to the cloud service" in out
 
 
 # -- a persona's folder that is not in the vault (ADR 029, issue #51) ----------------------------------------
@@ -372,7 +372,7 @@ def test_a_vault_folder_that_is_not_in_the_vault_is_reported_and_nothing_is_crea
 
     assert code == 1
     assert "the persona 'grace' lists the folder 'Note', which is not in any of your vaults" in out
-    assert "needs you" in out
+    assert "needs your attention" in out
     assert os.listdir(vault) == ["Notes"]
 
 

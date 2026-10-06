@@ -73,11 +73,11 @@ export function useDraftEditor({
     if (!notePath) return
     await getUnsavedGuard()?.save() // what is in the editor right now reaches `texts`
     const text = texts.current.get(`${handle}:${notePath}`) ?? (await fetchChanges(notePath, handle))?.proposals.find((p) => p.kind === "create")?.text
-    if (text === undefined) return notify.error("The draft is gone; nothing was created.")
+    if (text === undefined) return notify.error("That draft no longer exists, so no note was created.")
     const created = await createVaultNote(notePath.replace(/\.md$/, ""), handle)
     if (!created.ok) return notify.error(created.error) // a note of that name exists: the draft stays
     const written = await saveVaultNote(notePath, text, handle)
-    if (!written.ok) return notify.error(`The note was created but its text was not saved: ${written.error}`)
+    if (!written.ok) return notify.error(`The note was created but its text couldn't be saved. Open it and try again. (${written.error})`)
     await forget(notePath)
     notify.success("Draft accepted")
     onAccepted(notePath)

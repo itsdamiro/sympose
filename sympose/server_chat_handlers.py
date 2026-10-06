@@ -31,9 +31,9 @@ def send_turn(body: ChatTurn) -> dict[str, Any]:
             opened = OpenNote(body.open_note.path, body.open_note.text) if body.open_note else None
             result = turn.run_turn(handle, body.message, body.session_id, open_note=opened, edits=body.edits)
         except turn.PersonaNotFoundError as e:
-            raise HTTPException(status_code=404, detail=str(e))
+            raise HTTPException(status_code=404, detail=f"{e} Run `sympose doctor` in a terminal to see why.")
         except turn.EngineModelError as e:
-            raise HTTPException(status_code=502, detail=str(e))
+            raise HTTPException(status_code=502, detail=f"{e} Check that the model is running and reachable, then try again.")
         except turn.TurnCancelled:  # stopped by the user (docs/decisions/054): nothing was saved
             return {"cancelled": True}
     finally:
@@ -78,7 +78,7 @@ def compact_session(body: ChatCompact) -> dict[str, Any]:
     except ValueError:
         found = None
     if found is None:
-        raise HTTPException(status_code=404, detail=f"No session `{body.session_id}` for `{handle}`.")
+        raise HTTPException(status_code=404, detail="That conversation is no longer there. Start a new one.")
     outcome = compaction.compact_now(handle, body.session_id, model_mod.resolve_model(profile.get("model")))
     # `text` is always the notes in force afterwards (the new ones on `done`, else any that already stood).
     text = outcome.text or session_compaction.notes(session.load_session(handle, body.session_id)) or ""
@@ -169,7 +169,7 @@ def get_session(persona: str | None, session_id: str | None, before: int | None,
         except ValueError:
             loaded = None
         if loaded is None:
-            raise HTTPException(status_code=404, detail=f"No session `{session_id}` for `{handle}`.")
+            raise HTTPException(status_code=404, detail="That conversation is no longer there. Start a new one.")
     else:
         found = _latest_session(handle)
         if found is None:

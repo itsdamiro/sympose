@@ -143,7 +143,7 @@ describe("usePersonaChanges", () => {
 
   it("reads the real state back and says why when the server could not forget", async () => {
     api.fetchChanges.mockResolvedValue(noteChanges("a.md", ["1", "2"]))
-    api.resolveChanges.mockResolvedValue({ ok: false, error: "the Sympose backend is not reachable" })
+    api.resolveChanges.mockResolvedValue({ ok: false, error: "Sympose isn't responding. Check that it's still running, then try again." })
     const { result } = renderHook(() => usePersonaChanges({ path: "a.md", persona: "samantha" }))
     await waitFor(() => expect(result.current.changes?.proposals).toHaveLength(2))
 
@@ -151,7 +151,7 @@ describe("usePersonaChanges", () => {
       await result.current.resolve(["1"])
     })
 
-    expect(toast.error).toHaveBeenCalledWith("the Sympose backend is not reachable")
+    expect(toast.error).toHaveBeenCalledWith("Sympose isn't responding. Check that it's still running, then try again.")
     await waitFor(() => expect(api.fetchChanges).toHaveBeenCalledTimes(2))
     await waitFor(() => expect(result.current.changes?.proposals).toHaveLength(2))
   })

@@ -5,13 +5,13 @@ import { getNotificationPreferences } from "@/lib/use-notification-preferences"
 
 const ASKS: Partial<Record<EditModeId, { persona: (name: string) => string; global: string; confirmLabel: string }>> = {
   accept: {
-    persona: (name) => `Let ${name} apply her edits in the editor?`,
+    persona: (name) => `Let ${name} apply edits in the editor?`,
     global: "Let the personas that follow this setting apply their edits in the editor?",
     confirmLabel: "Use Accept edits",
   },
   auto: {
-    persona: (name) => `Let ${name} act on her own initiative?`,
-    global: "Let the personas that follow this setting act on their own initiative?",
+    persona: (name) => `Let ${name} act on their own?`,
+    global: "Let the personas that follow this setting act on their own?",
     confirmLabel: "Use Auto",
   },
 }

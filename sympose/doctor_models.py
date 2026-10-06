@@ -28,8 +28,8 @@ def _chat(model: str) -> str:
 def _embedding(model: str) -> str:
     if sharing.is_local(model):
         return _LOCAL
-    said = "cloud, it would receive every passage of your notes and every message"
-    return said if sharing.embeds_notes(model) else f"{said}, but notes are not approved, so notes are searched by keyword"
+    said = "cloud: it would send every part of your notes to the cloud service"
+    return said if sharing.embeds_notes(model) else f"{said}, but your notes are not shared with cloud models, so notes are found by keyword only"
 
 
 def embedding_finding() -> str | None:
@@ -38,9 +38,9 @@ def embedding_finding() -> str | None:
     if sharing.embeds_notes(model):
         return None
     return (
-        f"the embedding model {model!r} is a cloud model and notes are not approved for cloud models, so notes "
-        "are searched by keyword and search by meaning is off (approve with /share in the chat, "
-        "or add \"notes\" to cloud_share in the settings file)"
+        f"your search model {model!r} runs in the cloud and your notes are not shared with cloud models, so notes "
+        "are found by keyword only. To allow smarter search, share notes with cloud models "
+        "(type /share in the terminal chat, or Settings > Sharing in the web app)."
     )
 
 
@@ -52,5 +52,5 @@ def report() -> list[str]:
         if isinstance(own, str) and own.strip():
             lines.append(f"- persona {persona['handle']}: {own.strip()}: {_chat(own.strip())}")
     embedding = embeddings.model()
-    lines.append(f"- embedding model: {embedding}: {_embedding(embedding)}")
+    lines.append(f"- search model: {embedding}: {_embedding(embedding)}")
     return lines

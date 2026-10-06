@@ -29,7 +29,7 @@ describe("fetchModels", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json({ detail: "Unknown persona" }, false, 404)))
     expect(await fetchModels("x")).toEqual({ ok: false, error: "Unknown persona" })
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")))
-    expect(await fetchModels("x")).toEqual({ ok: false, error: "the Sympose backend is not reachable" })
+    expect(await fetchModels("x")).toEqual({ ok: false, error: "Sympose isn't responding. Check that it's still running, then try again." })
   })
 })
 
@@ -64,6 +64,6 @@ describe("chooseModel", () => {
     expect(await chooseModel("s", "a/x")).toEqual({ ok: false, error: "Couldn't save the model into samantha's persona.yaml." })
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")))
     const result = await chooseModel("s", "a/x")
-    expect(!result.ok && result.error).toContain("not reachable")
+    expect(!result.ok && result.error).toContain("isn't responding")
   })
 })

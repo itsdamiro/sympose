@@ -317,7 +317,7 @@ describe("ChatPanel", () => {
       { id: "2", role: "persona", handle: "samantha", body: "As you said.", sent: { notes: [], chats: [{ session: "s1", turn: 2, how: "auto" }] } },
     ]
     setup({ turns })
-    expect(await screen.findByText(/Based on 1 earlier exchange/)).toBeTruthy()
+    expect(await screen.findByText(/Based on 1 earlier message/)).toBeTruthy()
   })
 
   it("greets an empty conversation with the persona's icon, her name and her title, as the Bin's empty list does", () => {
@@ -335,7 +335,7 @@ describe("ChatPanel", () => {
     setup({ turns })
     const ttft = await screen.findByText("TTFT 0.82s")
     const time = screen.getByText("10:42")
-    expect(ttft.compareDocumentPosition(time) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy() // TTFT comes first
+    expect(ttft.compareDocumentPosition(time) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy() // the latency comes first
     expect(screen.getAllByText(/TTFT/)).toHaveLength(1)
     expect(ttft.nextElementSibling?.textContent).toBe("·") // a centre dot between the two, only where both are shown
     expect(screen.getByText("10:43").previousElementSibling?.textContent).not.toBe("·")

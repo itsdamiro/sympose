@@ -24,15 +24,15 @@ CATEGORIES = (NOTES, PROPERTIES, RECAPS, CHATS, VAULT_MAP, CONNECTIONS, MEMORY, 
 _PROPERTIES_KIND = "properties"
 # What each category is, in the words a user is asked about it (the CLI's `/share`, later the web app).
 DESCRIPTIONS = {
-    NOTES: "passages of your notes found for a message",
-    PROPERTIES: "the properties of your notes, with each note's name (frontmatter: emails, phone numbers, links)",
+    NOTES: "parts of your notes that match your message",
+    PROPERTIES: "the properties of your notes (such as emails, phone numbers, links), with each note's name",
     RECAPS: "recaps of your earlier conversations",
     CHATS: "your earlier conversations, word for word (what you and the persona said)",
     VAULT_MAP: "the shape of your vault (folder names, their purpose, note counts, common tags)",
-    CONNECTIONS: "how a note found for a message connects to your other notes (links, tags, folder) and which other notes are close in meaning to it",
-    MEMORY: "the persona's own memory of you (its profile, active context and decisions files, docs/decisions/041)",
-    OPEN_NOTE: "the text of the note open in the editor, sent with your message so the persona can propose changes to it (docs/decisions/072)",
-    ANNOTATIONS: "your open comments on the note open in the editor, with the passage each is about and the persona's answers (docs/decisions/069)",
+    CONNECTIONS: "how a note found for a message connects to your other notes (links, tags, folder) and which other notes are similar to it",
+    MEMORY: "the persona's own memory of you (its profile, active context and decisions files)",
+    OPEN_NOTE: "the text of the note open in the editor, sent with your message so the persona can propose changes to it",
+    ANNOTATIONS: "your open comments on the note open in the editor, with the passage each is about and the persona's answers",
 }
 _REFERENCE_SOURCE = "sympose"
 

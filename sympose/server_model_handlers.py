@@ -37,7 +37,7 @@ def put_persona_model(handle: str, body: ModelChoice) -> dict[str, Any]:
     state = _state(handle)
     # The listed models, and the one already in use or set as the default (a model named by hand).
     if body.model is not None and body.model not in {m["id"] for m in state["models"]} | {state["fallback"]}:
-        raise HTTPException(status_code=422, detail=f"{body.model} is not one of the models offered.")
+        raise HTTPException(status_code=422, detail="Pick a model from the list.")
     if not persona_model.set_model(profile["handle"], body.model):
         raise HTTPException(status_code=500, detail=f"Couldn't save the model for {profile['handle']}.")
     return _state(handle)

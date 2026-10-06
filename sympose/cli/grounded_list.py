@@ -4,8 +4,10 @@ recomputed. Split out of `runtime.py` to hold the 200-LOC-per-file cap."""
 
 from typing import Any
 
+from sympose.cli import share
+
 _VIA_LABELS = {
-    "embedding": "by meaning", "name": "named in full", "value": "by a property value",
+    "embedding": "similar topic", "name": "named in full", "value": "by a property value",
     "search": "found by the persona's search", "opened": "opened by the persona",
 }
 _TOOL_LABELS = {"search_notes": "searched", "open_note": "opened", "search_chats": "searched earlier conversations for", "open_chat": "opened earlier conversation"}
@@ -15,8 +17,6 @@ _SOURCE_LABELS = {"sympose": "the Sympose reference library"}
 def _note_line(n: int, note: dict[str, Any]) -> str:
     where = note["path"] + (f" — {note['heading']}" if note.get("heading") else "")
     bits = [b for b in (_VIA_LABELS.get(note.get("via")), _SOURCE_LABELS.get(note["source"])) if b]
-    if "similarity" in note:
-        bits.append(f"similarity {note['similarity']:.2f}")
     return f"  {n}. {where}" + (f" ({', '.join(bits)})" if bits else "")
 
 
@@ -59,11 +59,11 @@ def render(sent: dict[str, Any] | None, name: str = "The persona") -> list[str]:
     `sent` says reached the model (recaps, an older-turns drop, a rewritten query, a cloud model's
     categories) — each only when it happened. `[]` before any reply this session."""
     if sent is None:
-        return ["No reply yet this session to show what grounded it."]
+        return ["No reply yet in this conversation."]
     chats = sent.get("chats") or []
     if not sent["notes"] and not sent["recaps"] and not chats:
-        return ["Nothing from the vault grounded the last reply.", *_memory(sent), *_lookups(sent, name)]
-    lines = ["Grounded the last reply:"] if sent["notes"] else []
+        return ["No notes from your vault were used for the last reply.", *_memory(sent), *_lookups(sent, name)]
+    lines = ["Notes used for the last reply:"] if sent["notes"] else []
     lines += [_note_line(n, note) for n, note in enumerate(sent["notes"], start=1)]
     if sent["recaps"]:
         count = len(sent["recaps"])
@@ -72,13 +72,13 @@ def render(sent: dict[str, Any] | None, name: str = "The persona") -> list[str]:
         lines.append(f"Also sent: {len(chats)} {'exchange' if len(chats) == 1 else 'exchanges'} from earlier conversations, word for word.")
     lines += _memory(sent)
     if sent["searched"]:
-        lines.append(f'A follow-up rewrite searched: "{sent["searched"]}".')
+        lines.append(f'{name} searched again using: "{sent["searched"]}".')
     if sent["history_dropped"]:
         n = sent["history_dropped"]
-        lines.append(f"{n} older {'turn' if n == 1 else 'turns'} left out of context.")
+        lines.append(f"{n} older {'message' if n == 1 else 'messages'} left out (too long for the model).")
     lines += _lookups(sent, name)
     if sent.get("cloud"):
-        lines.append(f"Sent to the cloud model: {', '.join(sent['cloud'])}.")
+        lines.append(f"Sent to the cloud model: {share.plain_list(sent['cloud'])}.")
     if sent.get("withheld"):
-        lines.append(f"Held back from it: {', '.join(sent['withheld'])}.")
+        lines.append(f"Not sent to it: {share.plain_list(sent['withheld'])}.")
     return lines

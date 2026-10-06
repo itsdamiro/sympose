@@ -33,8 +33,16 @@ export function useFolderMove({
   const [ask, setAsk] = React.useState<FolderMoveAsk | null>(null)
   const busy = React.useRef(false)
 
+  // The prompt is cleared as it is answered, so the next one is never mistaken for it.
   const prompt = <T,>(make: (resolve: (value: T) => void) => FolderMoveAsk) =>
-    new Promise<T>((resolve) => setAsk(make(resolve)))
+    new Promise<T>((resolve) =>
+      setAsk(
+        make((value) => {
+          setAsk(null)
+          resolve(value)
+        })
+      )
+    )
 
   const moveFolder = async (path: string, destination: string) => {
     if (busy.current) return
@@ -56,7 +64,7 @@ export function useFolderMove({
           // What a persona reads is decided by where the folder really goes: ask again for that name.
           const renamed = await planFolderMove(path, destination, persona, choice.newName)
           if (!renamed.ok) return void notify.error(renamed.error)
-          if (renamed.clash) return void notify.error(`“${choice.newName}” is also taken in ${destination || "the vault root"}.`)
+          if (renamed.clash) return void notify.error(`A folder named “${choice.newName}” already exists in ${destination || "the vault root"}.`)
           reach = renamed.reach
         }
         if (answers.ifExists === "merge" && plan.noteClashes.length > 0) {

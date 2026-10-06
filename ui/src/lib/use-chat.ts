@@ -78,7 +78,7 @@ function turnsFromPage(handle: string, page: SessionPage): ChatTurn[] {
     // Where the notes of a compaction (ADR 055) take over from the turns above, so they can be read there.
     const marker: ChatTurn[] =
       notes && saved.index === notes.through
-        ? [{ id: `saved-${page.session_id}-notes`, role: "system", kind: "output", title: "The turns above are condensed into these notes", body: notes.text }]
+        ? [{ id: `saved-${page.session_id}-notes`, role: "system", kind: "output", title: "Earlier messages are summarised here", body: notes.text }]
         : []
     return [
       ...marker,
@@ -244,11 +244,11 @@ export function useChat(persona: string) {
               turns: done.turns.filter((t) => !asked.has(t.id)),
               draft: done.draft ? `${text}\n\n${done.draft}` : text,
             },
-            { role: "system", kind: "notice", body: `Stopped. @${persona} did not reply.` }
+            { role: "system", kind: "notice", body: "Stopped. No reply was sent." }
           )
         }
         if (!result.ok) {
-          return addTo({ ...done, unread: elsewhere || done.unread }, { role: "system", kind: "error", body: `@${persona} couldn't reply: ${result.error}` })
+          return addTo({ ...done, unread: elsewhere || done.unread }, { role: "system", kind: "error", body: `Couldn't get a reply: ${result.error}` })
         }
         const { reply, session_id, ttft_ms, sent, model, context_used, context_limit } = result.reply
         const condensed = result.reply.condensed ?? 0
@@ -259,7 +259,7 @@ export function useChat(persona: string) {
         )
         // The notes of a compaction (ADR 055) are said once, when they first reach a prompt or grow: not on every reply.
         return condensed > c.condensed
-          ? addTo(answered, { role: "system", kind: "notice", body: `${condensed} earlier ${condensed === 1 ? "turn is" : "turns are"} now condensed into notes.` })
+          ? addTo(answered, { role: "system", kind: "notice", body: "Earlier messages were summarised to make room." })
           : answered
       })
       setListVersion((v) => v + 1) // its turn count, time and (first reply) title changed
@@ -306,7 +306,7 @@ export function useChat(persona: string) {
     const key = activeKey
     if (convo.compacting) return
     if (!sessionId) {
-      update(key, (c) => addTo(c, { role: "system", kind: "notice", body: "Nothing to condense: this conversation has not started yet." }))
+      update(key, (c) => addTo(c, { role: "system", kind: "notice", body: "Nothing to condense yet. This chat is too short." }))
       return
     }
     update(key, (c) => ({ ...c, compacting: true }))
@@ -315,14 +315,14 @@ export function useChat(persona: string) {
       const done = { ...c, compacting: false }
       if (c.sessionId !== sessionId) return done // a conversation started over while the notes were being written
       if (!out.ok) return addTo(done, { role: "system", kind: "error", body: `Couldn't condense the conversation: ${out.error}` })
-      const { status, covered, text, before, after } = out.result
+      const { status, covered, text } = out.result
       if (status === "done") {
-        const said = addTo(done, { role: "system", kind: "confirmation", body: `Condensed the first ${covered} turns into notes (${before} to ${after} tokens):` })
+        const said = addTo(done, { role: "system", kind: "confirmation", body: `Summarised the first ${covered} messages to free up room:` })
         return { ...addTo(said, { role: "system", kind: "output", title: "The notes", body: text }), condensed: covered, context: undefined }
       }
       const reason = {
-        nothing: "Nothing to condense yet: the newest turns always stay as they are.",
-        too_small: "Nothing to gain yet: notes would be no shorter than the turns they replace.",
+        nothing: "Nothing to condense yet: the latest messages always stay as they are.",
+        too_small: "Nothing to gain: a summary would not be shorter.",
         failed: "The notes could not be written: the model could not be reached or gave nothing.",
         busy: "Already condensing this conversation: try again in a moment.",
       }[status]

@@ -101,7 +101,7 @@ function ConversationBin({
         className={className}
         icon={Alert02Icon}
         title="Couldn't load the deleted conversations"
-        description="Is the backend running?"
+        description="Check that Sympose is running, then try again."
         action={<EmptyAction onClick={reload}>Try again</EmptyAction>}
       />
     ) : (
@@ -136,7 +136,7 @@ function ConversationBin({
           key={row.id}
           icon={Message01Icon}
           title={row.title || "Untitled conversation"}
-          detail={`${row.turns} turn${row.turns === 1 ? "" : "s"} · deleted ${ago(row.deleted_at)}`}
+          detail={`${row.turns} message${row.turns === 1 ? "" : "s"} · deleted ${ago(row.deleted_at)}`}
           label={row.title || "the conversation"}
           actions={[
             { label: "Restore", icon: DeletePutBackIcon, disabled: busy === row.id, onSelect: () => void restore(row) },

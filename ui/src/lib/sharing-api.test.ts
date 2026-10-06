@@ -20,7 +20,7 @@ describe("fetchSharing", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json({ detail: "Unknown persona" }, false, 404)))
     expect(await fetchSharing("x")).toEqual({ ok: false, error: "Unknown persona" })
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")))
-    expect(await fetchSharing("x")).toEqual({ ok: false, error: "the Sympose backend is not reachable" })
+    expect(await fetchSharing("x")).toEqual({ ok: false, error: "Sympose isn't responding. Check that it's still running, then try again." })
   })
 })
 
@@ -50,6 +50,6 @@ describe("changeSharing", () => {
     expect(await changeSharing("s", "notes", true)).toEqual({ ok: false, error: "Couldn't save the cloud-sharing setting." })
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")))
     const result = await changeSharing("s", "notes", true)
-    expect(!result.ok && result.error).toContain("not reachable")
+    expect(!result.ok && result.error).toContain("isn't responding")
   })
 })

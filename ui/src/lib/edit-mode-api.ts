@@ -35,10 +35,10 @@ export type SaveEditModeResult = { ok: true; info: EditModeInfo } | { ok: false;
 export async function saveEditMode(handle: string, mode: EditModeId | null): Promise<SaveEditModeResult> {
   try {
     const res = await fetch(url(handle), { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode }) })
-    if (!res.ok) return { ok: false, error: (await detailOf(res)) || `HTTP ${res.status}` }
+    if (!res.ok) return { ok: false, error: (await detailOf(res)) || `Something failed on Sympose's side (code ${res.status}). Try again.` }
     return { ok: true, info: (await res.json()) as EditModeInfo }
   } catch {
-    return { ok: false, error: "the Sympose backend is not reachable" }
+    return { ok: false, error: "Sympose isn't responding. Check that it's still running, then try again." }
   }
 }
 

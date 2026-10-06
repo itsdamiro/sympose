@@ -9,26 +9,26 @@ def _sent(**over):
 
 
 def test_no_reply_yet_this_session():
-    assert grounded_list.render(None) == ["No reply yet this session to show what grounded it."]
+    assert grounded_list.render(None) == ["No reply yet in this conversation."]
 
 
 def test_a_turn_with_nothing_attached():
-    assert grounded_list.render(_sent()) == ["Nothing from the vault grounded the last reply."]
+    assert grounded_list.render(_sent()) == ["No notes from your vault were used for the last reply."]
 
 
-def test_a_note_found_by_meaning_shows_its_similarity():
+def test_a_note_found_by_meaning_says_it_is_a_similar_topic_without_a_figure():
     sent = _sent(notes=[{"path": "Atlas.md", "heading": "", "source": "vault", "via": "embedding", "similarity": 0.81}])
-    assert grounded_list.render(sent) == ["Grounded the last reply:", "  1. Atlas.md (by meaning, similarity 0.81)"]
+    assert grounded_list.render(sent) == ["Notes used for the last reply:", "  1. Atlas.md (similar topic)"]
 
 
 def test_a_note_named_in_full_has_no_similarity_to_show():
     sent = _sent(notes=[{"path": "Atlas.md", "heading": "", "source": "vault", "via": "name"}])
-    assert grounded_list.render(sent) == ["Grounded the last reply:", "  1. Atlas.md (named in full)"]
+    assert grounded_list.render(sent) == ["Notes used for the last reply:", "  1. Atlas.md (named in full)"]
 
 
 def test_a_plain_keyword_hit_names_only_the_note():
     sent = _sent(notes=[{"path": "Atlas.md", "heading": "Plans", "source": "vault"}])
-    assert grounded_list.render(sent) == ["Grounded the last reply:", "  1. Atlas.md — Plans"]
+    assert grounded_list.render(sent) == ["Notes used for the last reply:", "  1. Atlas.md — Plans"]
 
 
 def test_a_reference_library_note_says_so():
@@ -46,17 +46,17 @@ def test_recaps_a_rewrite_dropped_turns_and_cloud_categories_each_get_their_own_
     )
     lines = grounded_list.render(sent)
     assert "Also sent: 2 earlier-conversation recaps." in lines
-    assert 'A follow-up rewrite searched: "why we picked SQLite".' in lines
-    assert "3 older turns left out of context." in lines
+    assert 'The persona searched again using: "why we picked SQLite".' in lines
+    assert "3 older messages left out (too long for the model)." in lines
     assert "Sent to the cloud model: notes, recaps." in lines
-    assert "Held back from it: properties." in lines
+    assert "Not sent to it: note properties." in lines
 
 
 def test_one_recap_and_one_dropped_turn_are_singular():
     sent = _sent(recaps=["20260101T000000-aaaaaaaa"], history_dropped=1)
     lines = grounded_list.render(sent)
     assert "Also sent: 1 earlier-conversation recap." in lines
-    assert "1 older turn left out of context." in lines
+    assert "1 older message left out (too long for the model)." in lines
 
 
 def test_recaps_alone_with_no_notes_still_render():
@@ -94,7 +94,7 @@ def test_a_lookup_that_found_nothing_is_still_shown_when_nothing_grounded_the_re
     sent = {**_SENT, "mode": "ask", "lookups": [{"tool": "search_notes", "query": "tax deadline", "found": 0}]}
 
     assert grounded_list.render(sent) == [
-        "Nothing from the vault grounded the last reply.",
+        "No notes from your vault were used for the last reply.",
         'The persona looked up: searched "tax deadline" (0 found).',
     ]
 
@@ -112,7 +112,7 @@ def test_ask_that_ran_as_auto_says_why_the_search_happened():
 
 
 def test_without_the_setting_nothing_is_said_about_lookups():
-    assert grounded_list.render(_SENT) == ["Nothing from the vault grounded the last reply."]
+    assert grounded_list.render(_SENT) == ["No notes from your vault were used for the last reply."]
 
 
 def test_the_persona_is_named_not_called_she():
@@ -130,10 +130,10 @@ def test_a_remember_call_is_said_plainly_and_never_printed_as_a_query():
 
 def test_a_reply_grounded_only_in_memory_says_which_memory_files_reached_it():
     lines = grounded_list.render(_sent(memory=["profile", "decisions"]))
-    assert lines == ["Nothing from the vault grounded the last reply.", "Also sent: the persona's memory (profile.md, decisions.md)."]
+    assert lines == ["No notes from your vault were used for the last reply.", "Also sent: the persona's memory (profile.md, decisions.md)."]
     with_notes = grounded_list.render(_sent(notes=[{"path": "A.md", "heading": "", "source": "vault"}], memory=["context"]))
     assert "Also sent: the persona's memory (context.md)." in with_notes
-    assert grounded_list.render(_sent(memory=[])) == ["Nothing from the vault grounded the last reply."]
+    assert grounded_list.render(_sent(memory=[])) == ["No notes from your vault were used for the last reply."]
 
 
 def test_a_search_and_a_remember_in_one_turn_each_get_their_line():
@@ -148,4 +148,4 @@ def test_earlier_conversation_exchanges_get_a_line_even_when_nothing_else_was_se
         "Also sent: 1 exchange from earlier conversations, word for word."
     )
     assert "Also sent: 2 exchanges from" in grounded_list.render(_sent(chats=[chat, chat]))[-1]
-    assert grounded_list.render(_sent()) == ["Nothing from the vault grounded the last reply."]
+    assert grounded_list.render(_sent()) == ["No notes from your vault were used for the last reply."]

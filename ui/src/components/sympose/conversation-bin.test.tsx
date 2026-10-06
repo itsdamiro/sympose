@@ -35,8 +35,8 @@ describe("ConversationBin", () => {
   it("lists the deleted conversations with their turns and when they were deleted", async () => {
     render(<ConversationBin persona="samantha" />)
     expect(await screen.findByText("The movies")).toBeTruthy()
-    expect(screen.getByText("3 turns · deleted 2h ago")).toBeTruthy()
-    expect(screen.getByText("1 turn · deleted 2h ago")).toBeTruthy()
+    expect(screen.getByText("3 messages · deleted 2h ago")).toBeTruthy()
+    expect(screen.getByText("1 message · deleted 2h ago")).toBeTruthy()
     expect(screen.getByText("2 conversations")).toBeTruthy()
   })
 
@@ -56,7 +56,7 @@ describe("ConversationBin", () => {
     const blocks = document.querySelectorAll('[data-slot="result-text"]')
     expect(blocks).toHaveLength(2)
     expect(blocks[0].textContent).toContain("The movies")
-    expect(blocks[0].textContent).toContain("3 turns · deleted 2h ago")
+    expect(blocks[0].textContent).toContain("3 messages · deleted 2h ago")
     expect(blocks[0].querySelector("svg")).toBeTruthy()
   })
 

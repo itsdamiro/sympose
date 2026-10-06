@@ -70,7 +70,7 @@ describe("savePersonaFile", () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")))
     const res = await savePersonaFile("samantha", "soul.md", "x")
     expect(res.ok).toBe(false)
-    expect(!res.ok && res.error).toContain("unreachable")
+    expect(!res.ok && res.error).toContain("isn't responding")
   })
 })
 

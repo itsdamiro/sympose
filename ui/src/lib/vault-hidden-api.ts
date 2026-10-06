@@ -51,10 +51,10 @@ async function send(
     }
     return {
       ok: false,
-      error: (await detailOf(res)) || `${failure} (HTTP ${res.status})`,
+      error: (await detailOf(res)) || `${failure} (code ${res.status}). Try again.`,
     }
-  } catch (err) {
-    return { ok: false, error: `${failure} — backend unreachable (${err})` }
+  } catch {
+    return { ok: false, error: `${failure}: Sympose isn't responding. Check that it's still running, then try again.` }
   }
 }
 

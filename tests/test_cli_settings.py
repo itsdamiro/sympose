@@ -119,9 +119,9 @@ def test_large_and_long_numbers_read_exactly_as_saved():
 
 def test_a_toggle_turns_off_by_writing_false_and_back_on_by_removing_the_key():
     setting = _setting("show_trim_notice")
-    assert apply.flip(setting) == "show_trim_notice is now off."
+    assert apply.flip(setting) == "The notice that older messages were left out (show_trim_notice) is now off."
     assert settings_store.get("show_trim_notice") is False
-    assert apply.flip(setting) == "show_trim_notice is now on."
+    assert apply.flip(setting) == "The notice that older messages were left out (show_trim_notice) is now on."
     assert settings_store.get("show_trim_notice") is None  # the default applies again, not a copy of it
 
 
@@ -160,9 +160,9 @@ def test_the_search_choice_steps_through_all_four_and_the_default_removes_the_ke
 def test_memory_remember_ships_off_and_turns_on_by_writing_true():
     setting = _setting("memory_remember")
     assert apply.value_text(setting) == "off"
-    assert apply.flip(setting) == "memory_remember is now on."
+    assert apply.flip(setting) == "Adding to decisions.md when asked to remember (memory_remember) is now on."
     assert settings_store.get("memory_remember") is True
-    assert apply.flip(setting) == "memory_remember is now off."
+    assert apply.flip(setting) == "Adding to decisions.md when asked to remember (memory_remember) is now off."
     assert settings_store.get("memory_remember") is None
 
 
@@ -188,12 +188,12 @@ def test_a_toggle_that_ships_off_would_be_written_on_and_removed_when_off():
 
 def test_a_choice_whose_write_is_not_read_back_says_it_could_not_save(monkeypatch):
     monkeypatch.setattr(settings_store, "set", lambda key, value: False)
-    assert apply.flip(_setting("show_grounding")) == "Couldn't save show_grounding."
+    assert apply.flip(_setting("show_grounding")) == "Couldn't save The notes used for a reply, in its header (show_grounding)."
 
 
 def test_a_change_the_module_does_not_read_back_is_reported_not_claimed():
     stuck = registry.Setting("show_grounding", registry.TOGGLE, "a knob that ignores its setting", lambda: True)
-    assert apply.flip(stuck) == "Couldn't save show_grounding."
+    assert apply.flip(stuck) == "Couldn't save A knob that ignores its setting (show_grounding)."
 
 
 # -- numbers ------------------------------------------------------------------
@@ -204,20 +204,20 @@ def _type(key, text):
 
 
 def test_a_valid_number_is_saved_and_ends_the_prompt():
-    assert _type("context_window", "8192") == ("context_window is now 8192.", True)
+    assert _type("context_window", "8192") == ("How much text a local model takes (context_window) is now 8192.", True)
     assert settings_store.get("context_window") == 8192 and budget.context_setting() == 8192
 
 
 def test_a_number_the_module_raises_is_kept_and_the_line_says_what_is_in_force():
     message, done = _type("context_window", "1000")
     assert done is True
-    assert message.startswith("context_window is now 2048 (1000 was adjusted:")
+    assert message.startswith("How much text a local model takes (context_window) is now 2048 (1000 was adjusted:")
     assert budget.context_setting() == 2048
 
 
 def test_a_number_the_module_ignores_is_refused_and_leaves_things_as_they_were():
     message, done = _type("reply_limit", "10")
-    assert done is False and message.startswith("10 is not valid for reply_limit:") and "left as it was" in message
+    assert done is False and message.startswith("10 is not valid for Space kept for the reply (reply_limit):") and "left as it was" in message
     assert settings_store.get("reply_limit") is None  # nothing was there, so nothing is left behind
     _type("reply_limit", "100")
     _type("reply_limit", "10")
@@ -243,7 +243,7 @@ def test_out_of_range_values_are_refused(key, text):
 )
 def test_in_range_values_are_saved_as_typed(key, text, stored):
     message, done = _type(key, text)
-    assert done is True and message.startswith(f"{key} is now")
+    assert done is True and message.startswith(f"{apply.label(_setting(key))} is now")
     assert settings_store.get(key) == stored
     assert type(settings_store.get(key)) is type(stored)  # 35 stays a whole number, not 35.0
 
@@ -268,10 +268,10 @@ def test_whole_number_settings_say_whole_number():
 
 def test_an_empty_entry_puts_the_default_back():
     settings_store.set("context_window", 4096)
-    assert _type("context_window", "") == ("context_window is back to automatic.", True)
+    assert _type("context_window", "") == ("How much text a local model takes (context_window) is back to automatic.", True)
     assert settings_store.get("context_window") is None
     settings_store.set("reply_reveal", 10)
-    assert _type("reply_reveal", "   ") == ("reply_reveal is back to 50 (default).", True)
+    assert _type("reply_reveal", "   ") == ("How fast a reply is written out (reply_reveal) is back to 50 (default).", True)
 
 
 def test_when_the_old_value_cannot_be_put_back_it_says_so(monkeypatch):
@@ -290,7 +290,7 @@ def test_when_the_old_value_cannot_be_put_back_it_says_so(monkeypatch):
 
 def test_a_save_that_fails_says_so_and_keeps_the_prompt_open(monkeypatch):
     monkeypatch.setattr(settings_store, "set", lambda key, value: False)
-    assert _type("context_window", "8192") == ("Couldn't save context_window.", False)
+    assert _type("context_window", "8192") == ("Couldn't save How much text a local model takes (context_window).", False)
 
 
 # -- through the chat, with real key presses -----------------------------------
@@ -313,10 +313,10 @@ def test_slash_settings_lists_every_setting_with_its_value(profiles):
             assert app.panel_kind == settings_list.PICKER_KIND
             labels = [str(app.panel.get_option_at_index(i).prompt) for i in range(app.panel.option_count)]
             assert len(labels) == 32
-            assert "show_grounding — off:" in labels[0]
-            assert "status_typing — 40 (default):" in labels[4]
-            assert "reply_reveal — 50 (default):" in labels[5]
-            assert "context_window — automatic:" in labels[6]
+            assert "(show_grounding) — off" in labels[0]
+            assert "(status_typing) — 40 (default)" in labels[4]
+            assert "(reply_reveal) — 50 (default)" in labels[5]
+            assert "(context_window) — automatic" in labels[6]
 
     run_async(scenario())
 
@@ -330,12 +330,12 @@ def test_choosing_a_toggle_flips_it_and_the_list_opens_again_on_that_row(profile
             await pilot.pause()
             assert settings_store.get("show_trim_notice") is False
             assert app.panel_kind == settings_list.PICKER_KIND and app.panel.highlighted == 1
-            assert "show_trim_notice — off:" in str(app.panel.get_option_at_index(1).prompt)
-            assert "show_trim_notice is now off." in _lines(app)
+            assert "(show_trim_notice) — off" in str(app.panel.get_option_at_index(1).prompt)
+            assert "The notice that older messages were left out (show_trim_notice) is now off." in _lines(app)
             await pilot.press("2")
             await pilot.pause()
             assert settings_store.get("show_trim_notice") is None
-            assert "show_trim_notice is now on." in _lines(app)
+            assert "The notice that older messages were left out (show_trim_notice) is now on." in _lines(app)
 
     run_async(scenario())
 
@@ -354,9 +354,9 @@ def test_choosing_a_number_asks_for_it_in_the_chat_box_and_saves_it_on_enter(pro
             assert settings_store.get("context_window") == 8192
             assert app.pending_setting is None and app.composer.placeholder == DEFAULT_PLACEHOLDER
             assert app.composer.value == ""
-            assert "context_window is now 8192." in _lines(app)
+            assert "How much text a local model takes (context_window) is now 8192." in _lines(app)
             assert app.panel_kind == settings_list.PICKER_KIND and app.panel.highlighted == 6
-            assert "context_window — 8192:" in str(app.panel.get_option_at_index(6).prompt)
+            assert "(context_window) — 8192" in str(app.panel.get_option_at_index(6).prompt)
 
     run_async(scenario())
 
@@ -377,7 +377,7 @@ def test_what_is_typed_at_the_prompt_is_a_value_not_a_command_and_a_bad_one_keep
             assert app.pending_setting == "reply_limit"
             await pilot.press(*"10", "enter")
             await pilot.pause()
-            assert any("10 is not valid for reply_limit" in line for line in _lines(app))
+            assert any("10 is not valid for Space kept for the reply (reply_limit)" in line for line in _lines(app))
             assert app.pending_setting == "reply_limit" and settings_store.get("reply_limit") is None
             await pilot.press(*"512", "enter")
             await pilot.pause()
@@ -397,7 +397,7 @@ def test_an_empty_entry_at_the_prompt_resets_the_setting(profiles):
             await pilot.pause()
             assert settings_store.get("context_window") is None
             assert app.pending_setting is None
-            assert "context_window is back to automatic." in _lines(app)
+            assert "How much text a local model takes (context_window) is back to automatic." in _lines(app)
 
     run_async(scenario())
 

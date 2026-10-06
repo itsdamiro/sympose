@@ -27,7 +27,7 @@ function CloudSharingSection({
         switched on here; everything starts off. A model on your own computer receives all of it, and nothing leaves.
       </p>
       {state === null ? (
-        <p className="text-sm text-fg-muted">Couldn&apos;t load these: the Sympose backend is not reachable.</p>
+        <p className="text-sm text-fg-muted">Couldn&apos;t load these. Sympose isn't responding. Check that it's still running, then try again.</p>
       ) : (
         <>
           {state.categories.map((c) => (

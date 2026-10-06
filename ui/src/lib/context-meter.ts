@@ -33,7 +33,7 @@ export const tokens = (n: number) => Math.max(0, n).toLocaleString("en-US")
 export function explanation(figure: ContextFigure): string[] {
   return [
     `${tokens(figure.used)} of ${tokens(figure.limit)} tokens${figure.estimated ? " (estimated)" : ""}`,
-    "100% is where your next message starts leaving the oldest turns out of the conversation.",
+    "100% is where the oldest messages start to be left out of this chat.",
     figure.estimated
       ? "Worked out from the conversation so far, without asking the model; it leans low, and your next reply replaces it."
       : "It leans a little high, on purpose, so it warns you early.",

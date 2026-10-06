@@ -47,16 +47,16 @@ export function PersonaFileBanner({
 
   if (name === "soul.md") {
     if (!info?.local) {
-      return <Bar title={title}>This is the shipped soul. Saving makes your own copy of it; the shipped file is not changed.</Bar>
+      return <Bar title={title}>This is the default persona description. Saving creates your own copy.</Bar>
     }
     const reset = () =>
       confirm({
-        message: "Put the shipped soul back?",
-        description: "Your own version is kept as soul.local.md.bak, and the shipped soul is used again.",
+        message: "Restore the default?",
+        description: "Your version is kept as a backup.",
         confirmLabel: "Reset to default",
         onConfirm: async () => {
-          if ((await resetPersonaSoul(handle)) === null) return notify.error("Couldn't put the shipped soul back.")
-          notify.success("The shipped soul is back; your own version is kept aside.")
+          if ((await resetPersonaSoul(handle)) === null) return notify.error("Couldn't restore the default.")
+          notify.success("The default is back; your version is kept as a backup.")
           onChanged()
         },
       })
@@ -69,7 +69,7 @@ export function PersonaFileBanner({
           </button>
         }
       >
-        You are using your own version of the soul.
+        You are using your own version.
       </Bar>
     )
   }
@@ -85,7 +85,7 @@ export function PersonaFileBanner({
           </button>
         }
       >
-        She proposed changes to this file.
+        This persona proposed changes to this file.
       </Bar>
       <PendingRewriteDialog handle={handle} name={name} open={reviewing} onClose={() => setReviewing(false)} onResolved={onChanged} />
     </>

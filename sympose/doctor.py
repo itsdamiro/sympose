@@ -100,11 +100,11 @@ def check_settings() -> list[Finding]:
     if not isinstance(data, dict):
         return [Finding(f"{path} is not a JSON object, so every setting is at its default")]
     findings = []
-    for key in ("chat_model", "default_persona"):
+    for key, plain in (("chat_model", "default model"), ("default_persona", "default persona")):
         if key in data and not settings_store.is_name(data[key]):
             findings.append(
                 Finding(
-                    f"the {key} setting is {json.dumps(data[key])}, not a name",
+                    f"your {plain} setting ({key}) is {json.dumps(data[key])}, which is not a name",
                     f"remove {key}, so the default applies",
                     partial(_remove_setting, key),
                 )
@@ -115,8 +115,8 @@ def check_settings() -> list[Finding]:
         if chosen.lower() != profile.FACTORY_DEFAULT_PERSONA and not _has_persona_file(chosen):
             findings.append(
                 Finding(
-                    f"the default_persona setting {chosen!r} names no persona",
-                    "remove default_persona, so Samantha is the default",
+                    f"your default persona setting {chosen!r} does not match any persona",
+                    "remove default_persona, so the built-in default persona is used",
                     partial(_remove_setting, "default_persona"),
                 )
             )
@@ -193,9 +193,9 @@ def run(fix: bool = False, out: TextIO | None = None) -> int:
     for o in outcomes:
         print(f"- {o.problem}", file=out)
         if o.state == "needs_you":
-            print("    needs you: nothing here can be fixed automatically", file=out)
+            print("    needs your attention: edit it by hand, then run `sympose doctor` again", file=out)
         elif o.state == "fixable":
-            print(f"    --fix would: {o.fix}", file=out)
+            print(f"    fixable. --fix would: {o.fix}", file=out)
         elif o.state == "fixed":
             print(f"    fixed: {o.fix}", file=out)
         else:
@@ -203,8 +203,8 @@ def run(fix: bool = False, out: TextIO | None = None) -> int:
     if not found:
         print("Everything looks healthy.", file=out)
     elif left:
-        fixable = "" if fix else " (`sympose doctor --fix` corrects the ones marked --fix)"
-        print(f"\n{left} of {found} problem(s) left{fixable}.", file=out)
+        fixable = "" if fix else " Run `sympose doctor --fix` to repair the ones marked 'fixable'."
+        print(f"\n{left} of {found} problems remain.{fixable}", file=out)
     else:
         print(f"\nFixed {found} problem(s).", file=out)
     return 1 if left else 0

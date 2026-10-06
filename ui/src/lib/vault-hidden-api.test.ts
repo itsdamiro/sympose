@@ -97,6 +97,6 @@ describe("changing the list", () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")))
     const result = await hidePath("a")
     expect(result.ok).toBe(false)
-    expect(!result.ok && result.error).toContain("backend unreachable")
+    expect(!result.ok && result.error).toContain("isn't responding")
   })
 })

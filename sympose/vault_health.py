@@ -70,7 +70,7 @@ def check_definition_icons(scope: Scope) -> list[Finding]:
         lines = folder_looks.offer(folder, scope.notes)
         if lines:
             colours = " and its colours" if len(lines) > 1 else ""
-            found.append(Finding(folder, defs.definition_path(folder), f"has no icon; can add {lines[0]}{colours}", tuple(lines)))
+            found.append(Finding(folder, defs.definition_path(folder), f"has no icon; one can be added: {lines[0]}{colours}", tuple(lines)))
     return found
 
 
@@ -167,8 +167,8 @@ CHECKS: list[Check] = [
     Check("Links to no note", check_broken_links),
     Check("Titles that are not the file name", check_titles),
     Check("Other files (clutter)", check_other_files, problem=False, of_notes=False),
-    Check("Notes named after a folder that is not top-level", check_stale_definitions, problem=False),
-    Check("Numbered twins of a note", check_numbered_twins, problem=False),
+    Check("Folder notes inside sub-folders", check_stale_definitions, problem=False),
+    Check("Possible duplicate notes (name (2))", check_numbered_twins, problem=False),
 ]
 
 

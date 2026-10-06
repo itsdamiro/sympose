@@ -34,8 +34,8 @@ afterEach(cleanup)
 describe("ConversationList", () => {
   it("lists each conversation with its turns and age, and opens one on a click", () => {
     const spies = setup([row("a"), row("b", { turns: 1 })])
-    expect(screen.getByText("2 turns · 3h ago")).toBeTruthy()
-    expect(screen.getByText("1 turn · 3h ago")).toBeTruthy()
+    expect(screen.getByText("2 messages · 3h ago")).toBeTruthy()
+    expect(screen.getByText("1 message · 3h ago")).toBeTruthy()
     fireEvent.click(screen.getByText("Title b"))
     expect(spies.onOpen).toHaveBeenCalledWith("b")
   })
@@ -46,7 +46,7 @@ describe("ConversationList", () => {
     expect(blocks).toHaveLength(2)
     expect(blocks[0].querySelector('svg[aria-label="Pinned"]')).toBeTruthy() // a pinned one shows the pin in the icon's place
     expect(blocks[1].textContent).toContain("Title a")
-    expect(blocks[1].textContent).toContain("2 turns · 3h ago")
+    expect(blocks[1].textContent).toContain("2 messages · 3h ago")
     expect(blocks[1].querySelector("svg")).toBeTruthy()
   })
 

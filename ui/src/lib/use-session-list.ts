@@ -74,7 +74,7 @@ export function useSessionList(persona: string, chat: ChatForList) {
     (row: SessionRow) =>
       confirm({
         message: `Move “${row.title || "this conversation"}” to the bin?`,
-        description: "You can restore it from the bin later. Until then she does not remember it.",
+        description: "You can restore it from the bin later. Until then the persona won't remember it.",
         confirmLabel: "Move to bin",
         onConfirm: async () => {
           const out = await deleteSession(persona, row.id)

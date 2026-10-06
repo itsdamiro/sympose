@@ -32,37 +32,37 @@ def toggle(key: str, summary: str, current: Callable[[], bool], default: bool = 
     return Setting(key, TOGGLE, summary, current, lambda: default, group=group)
 
 
-CONTEXT, SEARCH, LOOKUP, MEMORY, CONVERSATIONS, EDITING = "Context", "Search", "Note lookup", "Memory", "Conversations", "Editing"
+CONTEXT, SEARCH, LOOKUP, MEMORY, CONVERSATIONS, EDITING = "Conversation memory", "Search", "Searching notes", "Memory", "Conversations", "Editing"
 GROUPS = (CONTEXT, SEARCH, LOOKUP, MEMORY, CONVERSATIONS, EDITING)
 
 SETTINGS: list[Setting] = [
     Setting(
-        budget.CONTEXT_SETTING, NUMBER, "the window a local model is given", budget.context_setting,
-        hint="tokens, 2048 or more; empty for automatic", whole=True, group=CONTEXT,
+        budget.CONTEXT_SETTING, NUMBER, "how much text a local model takes", budget.context_setting,
+        hint="a number, 2048 or more (a token is roughly a word); leave empty for automatic", whole=True, group=CONTEXT,
     ),
     Setting(
-        budget.REPLY_SETTING, NUMBER, "the room kept for the reply", budget.reply_setting,
-        hint="tokens, 64 or more; empty for automatic", whole=True, group=CONTEXT,
+        budget.REPLY_SETTING, NUMBER, "space kept for the reply", budget.reply_setting,
+        hint="a number, 64 or more (a token is roughly a word); leave empty for automatic", whole=True, group=CONTEXT,
     ),
     Setting(
-        history_cap.SETTING, NUMBER, "most tokens of earlier turns sent", history_cap.chosen,
-        hint=f"tokens, {history_cap.MIN_TOKENS} or more; empty for no cap", whole=True, group=CONTEXT,
+        history_cap.SETTING, NUMBER, "most earlier chat sent per message", history_cap.chosen,
+        hint=f"a number, {history_cap.MIN_TOKENS} or more (a token is roughly a word); leave empty for no limit", whole=True, group=CONTEXT,
     ),
     Setting(
         model_wait.SETTING, NUMBER, "how long a model may take to answer", model_wait.chosen,
         hint=f"seconds, {model_wait.MIN_SECONDS} to {model_wait.MAX_SECONDS}; empty for automatic", whole=True, group=CONTEXT,
     ),
     Setting(
-        followup.SETTING, CHOICE, "the extra search for follow-ups",
+        followup.SETTING, CHOICE, "a second search for follow-up questions",
         lambda: ON if followup.enabled() else OFF, lambda: ON, choices=(ON, OFF), group=CONTEXT,
     ),
     toggle(recap.SETTING, "recaps of your earlier conversations", recap.enabled, group=CONTEXT),
     Setting(
-        recap.COUNT_SETTING, NUMBER, "how many recaps she reads", recap.read_count,
+        recap.COUNT_SETTING, NUMBER, "how many recaps are read", recap.read_count,
         lambda: recap.DEFAULT_COUNT, hint=f"a whole number, {recap.COUNT_RANGE[0]} to {recap.COUNT_RANGE[1]}", whole=True, group=CONTEXT,
     ),
     Setting(
-        recap.CHARS_SETTING, NUMBER, "how much of each recap she reads", recap.read_chars,
+        recap.CHARS_SETTING, NUMBER, "how much of each recap is read", recap.read_chars,
         lambda: recap.DEFAULT_CHARS, hint=f"characters, {recap.CHARS_RANGE[0]} to {recap.CHARS_RANGE[1]}", whole=True, group=CONTEXT,
     ),
     Setting(
@@ -70,29 +70,29 @@ SETTINGS: list[Setting] = [
         lambda: past_chats.OFF, choices=past_chats.MODES, group=CONTEXT,
     ),
     Setting(
-        related.SETTING, CHOICE, "notes close in meaning", related.mode,
+        related.SETTING, CHOICE, "suggest related notes", related.mode,
         lambda: related.AUTO, choices=related.MODES, group=CONTEXT,
     ),
     Setting(
-        related.LEVEL_SETTING, CHOICE, "how close they must be", related.level,
+        related.LEVEL_SETTING, CHOICE, "how similar they must be", related.level,
         lambda: related.BALANCED, choices=related.LEVELS, group=CONTEXT,
     ),
     toggle(compaction.SETTING, "condensing a long conversation on its own", compaction.enabled, group=CONTEXT),
     Setting(
         compaction.AT_SETTING, NUMBER, "percent full when it is condensed", compaction.at_percent,
-        lambda: compaction.DEFAULT_AT, hint="percent of the prompt budget, 10 to 95", whole=True, group=CONTEXT,
+        lambda: compaction.DEFAULT_AT, hint="percent of the space the model has for the conversation, 10 to 95", whole=True, group=CONTEXT,
     ),
     Setting(
         compaction.TO_SETTING, NUMBER, "percent full after it is condensed", compaction.to_percent,
         lambda: compaction.DEFAULT_TO, hint="percent, 10 to 95, below the one above", whole=True, group=CONTEXT,
     ),
     Setting(
-        embeddings.MODE_SETTING, CHOICE, "how notes are found", embeddings.mode,
+        embeddings.MODE_SETTING, CHOICE, "how notes are searched", embeddings.mode,
         lambda: embeddings.DEFAULT_MODE, group=SEARCH,
         choices=(embeddings.AUTO, embeddings.KEYWORDS, embeddings.EMBEDDINGS, embeddings.HYBRID),
     ),
     Setting(
-        embeddings.THRESHOLD_SETTING, NUMBER, "how close a note must be", embeddings.min_similarity,
+        embeddings.THRESHOLD_SETTING, NUMBER, "how alike a note must be", embeddings.min_similarity,
         lambda: embeddings.DEFAULT_THRESHOLD, hint="a number between 0 and 1, not including them", group=SEARCH,
     ),
     Setting(
@@ -100,11 +100,11 @@ SETTINGS: list[Setting] = [
         lambda: embeddings.DEFAULT_MARGIN, hint="a number from 0 to 1", group=SEARCH,
     ),
     Setting(
-        lookup.SETTING, CHOICE, "who looks in your notes",
+        lookup.SETTING, CHOICE, "who searches your notes (persona/auto/ask)",
         lookup.mode, lambda: lookup.BY_MODEL, choices=(lookup.BY_MODEL, lookup.AUTO, lookup.ASK), group=LOOKUP,
     ),
     Setting(
-        lookup.ROUNDS_SETTING, NUMBER, "lookups the persona may make (ask)",
+        lookup.ROUNDS_SETTING, NUMBER, "searches allowed per message",
         lookup.rounds, lambda: lookup.DEFAULT_ROUNDS, group=LOOKUP,
         hint=f"a whole number, 1 to {lookup.MAX_ROUNDS}", whole=True,
     ),
@@ -113,7 +113,7 @@ SETTINGS: list[Setting] = [
         memory.remember_enabled, default=False, group=MEMORY,
     ),
     Setting(
-        memory_refresh.SETTING, CHOICE, "context.md updates: staged for review or direct",
+        memory_refresh.SETTING, CHOICE, "memory updates: ask first, or apply directly",
         memory_refresh.mode, lambda: memory_refresh.ASK, group=MEMORY,
         choices=(memory_refresh.ASK, memory_refresh.AUTO),
     ),
@@ -126,15 +126,15 @@ SETTINGS: list[Setting] = [
         parallel.mode, lambda: parallel.AUTO, choices=(parallel.AUTO, parallel.ON, parallel.OFF), group=CONVERSATIONS,
     ),
     Setting(
-        edit_mode.SETTING, CHOICE, "what she does on notes before your Accept",
+        edit_mode.SETTING, CHOICE, "what the persona does to notes before you accept",
         edit_mode.mode, lambda: edit_mode.DEFAULT, choices=edit_mode.MODES, group=EDITING,
     ),
     Setting(
-        edit_turn.CAP_SETTING, NUMBER, "how much of the open note she sees", edit_turn.cap,
+        edit_turn.CAP_SETTING, NUMBER, "open note text the persona sees", edit_turn.cap,
         lambda: edit_turn.DEFAULT_CAP, hint=f"characters, {edit_turn.MIN_CAP} or more", whole=True, group=EDITING,
     ),
     Setting(
-        open_comments.CAP_SETTING, NUMBER, "how many open comments she is shown", open_comments.cap,
+        open_comments.CAP_SETTING, NUMBER, "open comments the persona is shown", open_comments.cap,
         lambda: open_comments.DEFAULT_CAP, hint="a whole number, 1 or more", whole=True, group=EDITING,
     ),
 ]

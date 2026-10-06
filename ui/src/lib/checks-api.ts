@@ -45,13 +45,13 @@ export interface HealthReport {
 
 export type CheckResult<T> = { ok: true; report: T } | { ok: false; error: string }
 
-const BACKEND_DOWN = "the Sympose backend is not reachable"
+const BACKEND_DOWN = "Sympose isn't responding. Check that it's still running, then try again."
 
 async function call<T>(url: string, init?: RequestInit): Promise<CheckResult<T>> {
   try {
     const res = await fetch(url, init)
     if (res.ok) return { ok: true, report: (await res.json()) as T }
-    return { ok: false, error: (await detailOf(res)) || `HTTP ${res.status}` }
+    return { ok: false, error: (await detailOf(res)) || `Something failed on Sympose's side (code ${res.status}). Try again.` }
   } catch {
     return { ok: false, error: BACKEND_DOWN }
   }

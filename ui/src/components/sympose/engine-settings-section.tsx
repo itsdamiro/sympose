@@ -30,7 +30,7 @@ function NumberField({ setting, change }: { setting: EngineSetting; change: Chan
     if (wanted === shown) return
     const value = wanted === "" ? null : Number(wanted)
     if (value !== null && !Number.isFinite(value)) {
-      notify.error(`'${wanted}' is not a number: ${setting.hint}.`)
+      notify.error(`Enter a number. ${setting.hint}`)
       return
     }
     await change(setting.key, value)
@@ -120,7 +120,7 @@ function EngineSettingsSections() {
   if (state.status === "loading") return null
   if (state.status === "error") {
     return (
-      <ControlSection title="Engine settings" defaultOpen>
+      <ControlSection title="Advanced" defaultOpen>
         <p className="text-sm text-fg-muted">
           Couldn&apos;t load these: {state.error}.
         </p>

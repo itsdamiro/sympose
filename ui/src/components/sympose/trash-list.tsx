@@ -144,7 +144,7 @@ function TrashList({
         className={className}
         icon={Alert02Icon}
         title="Couldn't load the bin"
-        description="Is the backend running?"
+        description="Check that Sympose is running, then try again."
         action={<EmptyAction onClick={reload}>Try again</EmptyAction>}
       />
     ) : (

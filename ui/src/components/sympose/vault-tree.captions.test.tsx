@@ -29,4 +29,19 @@ describe("VaultTree: captions", () => {
     expect(captions()).toEqual(["Pinned"])
     expect(screen.queryByText("All notes")).toBeNull()
   })
+
+  it("captions the plain tree when something else sits above it, even with no Pinned, so the notes do not run on from it", () => {
+    render(<VaultTree nodes={[note("a.md")]} captionList listLabel="Notes in Movies" />)
+    expect(captions()).toEqual(["Notes in Movies"])
+  })
+
+  it("has one caption, not two, when Pinned and the Drafts section are both above the tree", () => {
+    render(<VaultTree nodes={[note("a.md")]} pinnedNodes={[note("p.md")]} captionList />)
+    expect(captions()).toEqual(["Pinned", "All notes"])
+  })
+
+  it("captions nothing when the tree itself is empty, whatever sits above it", () => {
+    render(<VaultTree nodes={[]} captionList />)
+    expect(captions()).toEqual([])
+  })
 })

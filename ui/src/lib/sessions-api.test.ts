@@ -49,7 +49,7 @@ describe("the conversation list", () => {
   it("says the backend is not reachable when the request fails", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("down")))
     const out = await deleteSession("samantha", "a")
-    expect(!out.ok && out.error).toContain("not reachable")
+    expect(!out.ok && out.error).toContain("isn't responding")
   })
 
   it("deletes with DELETE on the conversation, naming the persona", async () => {

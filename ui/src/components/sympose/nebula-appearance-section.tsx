@@ -92,7 +92,7 @@ function NebulaAppearanceSection({
         max={1}
         step={0.05}
         format={(v) => `${Math.round(v * 100)}%`}
-        hint="Let the nebula show through the vault and editor panels (not chat). Below 100% they turn translucent — limited by how much Focus tint already hides."
+        hint="Let the nebula show through the vault and editor panels (not chat). At lower values the panels turn see-through."
         layout="inline"
         prefs={prefs}
         setPref={setPref}
@@ -111,9 +111,8 @@ function NebulaAppearanceSection({
         />
       </ControlRow>
       <p className="text-xs text-fg-muted">
-        Every knob below is also the floating dock shown in Explore — turn it
-        off there for an unobstructed view once you're tuning from here
-        instead.
+        These controls also appear as a floating panel in Explore. Turn it off
+        there for a clearer view.
       </p>
 
       <NebulaControls

@@ -41,7 +41,7 @@ describe("ReplyFooter: the references", () => {
     expect(toggle.getAttribute("aria-expanded")).toBe("true")
     expect(screen.getByText("Projects/Atlas.md")).toBeTruthy()
     expect(screen.getByText(/Goals/)).toBeTruthy()
-    expect(screen.getByText("by meaning · similarity 0.81")).toBeTruthy()
+    expect(screen.getByText("found by topic · close match")).toBeTruthy()
     fireEvent.click(toggle)
     expect(screen.queryByText("Projects/Atlas.md")).toBeNull()
   })
@@ -73,28 +73,28 @@ describe("ReplyFooter: the references", () => {
 
   it("shows a reply built only from earlier conversations, and says how many exchanges, word for word", async () => {
     render(<ReplyFooter sent={chatsOnly} />)
-    expect(screen.getByText(/Based on 2 earlier exchanges/)).toBeTruthy()
-    fireEvent.click(screen.getByRole("button", { name: "More about what she used" }))
-    expect(await screen.findByText("2 exchanges from earlier conversations, word for word")).toBeTruthy()
+    expect(screen.getByText(/Based on 2 earlier messages/)).toBeTruthy()
+    fireEvent.click(screen.getByRole("button", { name: "More about what this reply used" }))
+    expect(await screen.findByText("2 messages from earlier chats, quoted exactly")).toBeTruthy()
   })
 
   it("lists what she looked up herself, and names a row that found nothing by what she did", async () => {
     const sent: SentRecord = { notes: [], mode: "ask", lookups: [{ tool: "search_notes", query: "atlas", found: 0 }] }
     render(<ReplyFooter sent={sent} />)
     expect(screen.getByText(/Looked up one thing/)).toBeTruthy()
-    fireEvent.click(screen.getByRole("button", { name: "More about what she used" }))
+    fireEvent.click(screen.getByRole("button", { name: "More about what this reply used" }))
     expect(await screen.findByText('searched "atlas" (0 found)')).toBeTruthy()
   })
 
   it("keeps the standing context, and the follow-up query, behind the info icon, off the opened notes", async () => {
     render(<ReplyFooter sent={{ ...two, recaps: ["s1", "s2"], memory: ["profile"], history_dropped: 1 }} />)
     fireEvent.click(screen.getByRole("button", { name: /Based on 2 notes/ }))
-    expect(screen.queryByText("her memory (profile.md)")).toBeNull()
-    fireEvent.click(screen.getByRole("button", { name: "More about what she used" }))
-    expect(await screen.findByText("Searched for “atlas database”")).toBeTruthy()
+    expect(screen.queryByText("the persona's memory (profile.md)")).toBeNull()
+    fireEvent.click(screen.getByRole("button", { name: "More about what this reply used" }))
+    expect(await screen.findByText("Also searched for “atlas database”")).toBeTruthy()
     expect(screen.getByText("2 earlier-conversation recaps")).toBeTruthy()
-    expect(screen.getByText("her memory (profile.md)")).toBeTruthy()
-    expect(screen.getByText("1 older turn left out of context")).toBeTruthy()
+    expect(screen.getByText("the persona's memory (profile.md)")).toBeTruthy()
+    expect(screen.getByText("1 older message didn't fit in this chat")).toBeTruthy()
   })
 
   it("keeps the note icon before the line, whether it opens notes or is plain text", () => {
@@ -107,7 +107,7 @@ describe("ReplyFooter: the references", () => {
 
   it("draws no info icon when there is nothing but notes", () => {
     render(<ReplyFooter sent={one} />)
-    expect(screen.queryByRole("button", { name: "More about what she used" })).toBeNull()
+    expect(screen.queryByRole("button", { name: "More about what this reply used" })).toBeNull()
   })
 
   it("keeps the closed line to one line however many notes: it truncates and never wraps", () => {

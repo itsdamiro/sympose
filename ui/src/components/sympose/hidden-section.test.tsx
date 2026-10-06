@@ -53,7 +53,7 @@ describe("HiddenSection", () => {
 
   it("shows the definition-notes switch as it stands and reports a change", () => {
     const { onShowDefinitionNotes } = setup({ showDefinitionNotes: false })
-    const group = screen.getByRole("radiogroup", { name: "Show folder definition notes" })
+    const group = screen.getByRole("radiogroup", { name: "Show folder description notes" })
     expect(group.querySelector('[aria-checked="true"]')?.textContent).toBe("Hidden")
     fireEvent.click(screen.getByRole("radio", { name: "Shown" }))
     expect(onShowDefinitionNotes).toHaveBeenCalledExactlyOnceWith(true)

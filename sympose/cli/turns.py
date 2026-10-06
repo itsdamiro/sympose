@@ -185,7 +185,7 @@ async def _run_turn(app, handle: str, generation: int, text: str, captured: tupl
 
     meter.show(app, result.context_used, result.context_limit, meter_epoch)
     if result.ttft_ms is not None:
-        reply_header += f" · TTFT {_format_ttft(result.ttft_ms)}"
+        reply_header += f" · first word after {_format_ttft(result.ttft_ms)}"
     # The notes of a compaction (docs/decisions/055) are said when they first reach a prompt, or grow: not on every reply after.
     newly_condensed = result.condensed if result.condensed > app.condensed_by_generation.get(generation, 0) else 0
     app.condensed_by_generation[generation] = result.condensed

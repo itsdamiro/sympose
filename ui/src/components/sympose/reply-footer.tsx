@@ -71,7 +71,7 @@ function ReplyFooter({ className, sent, showReferences = true, onOpenNote, ...pr
             <PopoverTrigger
               openOnHover
               delay={150}
-              aria-label="More about what she used"
+              aria-label="More about what this reply used"
               className="grid size-5 shrink-0 place-items-center rounded outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
             >
               <HugeiconsIcon icon={InformationCircleIcon} aria-hidden className="size-3.5" />
@@ -84,7 +84,7 @@ function ReplyFooter({ className, sent, showReferences = true, onOpenNote, ...pr
                 </Group>
               )}
               {context.length > 0 && (
-                <Group title="Also in her context">
+                <Group title="Also included">
                   <Lines lines={context} />
                 </Group>
               )}

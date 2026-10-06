@@ -152,9 +152,9 @@ describe("useDraftEditor", () => {
 
   it("says why when the server could not forget the proposal, and still closes the draft", async () => {
     const { result } = setup()
-    changes.resolveChanges.mockResolvedValue({ ok: false, error: "the Sympose backend is not reachable" })
+    changes.resolveChanges.mockResolvedValue({ ok: false, error: "Sympose isn't responding. Check that it's still running, then try again." })
     await act(async () => result.current.decline())
-    expect(notify.notify.error).toHaveBeenCalledWith("the Sympose backend is not reachable")
+    expect(notify.notify.error).toHaveBeenCalledWith("Sympose isn't responding. Check that it's still running, then try again.")
     expect(result.current.current).toBeNull()
   })
 

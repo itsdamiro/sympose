@@ -33,7 +33,7 @@ describe("ReplyModelChip", () => {
     render(<ReplyModelChip model={M} sent={{ notes: [], cloud: ["notes", "vault_map"], withheld: ["memory"] }} />)
     fireEvent.click(chip())
     expect(await screen.findByText("Sent to the cloud model: notes, vault map")).toBeTruthy()
-    expect(screen.getByText("Held back: her memory")).toBeTruthy()
+    expect(screen.getByText("Held back: the persona's memory")).toBeTruthy()
   })
 
   it("says no held-back line when nothing was held back", async () => {

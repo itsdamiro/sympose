@@ -51,7 +51,7 @@ function ModelPicker({
           state.currentCloud ? "text-fg-muted" : "text-ok",
           className
         )}
-        title={state.currentCloud ? "Cloud model — change" : "On-device — private. Change"}
+        title={state.currentCloud ? "Cloud model. Click to change." : "On your computer. Click to change."}
       >
         <HugeiconsIcon icon={state.currentCloud ? CloudIcon : ComputerIcon} />
         {short}

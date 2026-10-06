@@ -40,7 +40,7 @@ def test_a_mixed_case_persona_folder_is_missed_on_a_file_system_that_keeps_case(
 
     assert persona_files.missed_folders() == ["Anais", "Grace"]
     notice = persona_files.missed_notice()
-    assert "'Anais', 'Grace'" in notice and "not lower case" in notice and "sympose doctor --fix" in notice
+    assert "'Anais', 'Grace'" in notice and "must be lower case" in notice and "sympose doctor --fix" in notice
 
 
 def test_a_folder_the_roster_finds_under_its_lower_case_name_is_not_missed(base, monkeypatch):

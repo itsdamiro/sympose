@@ -85,8 +85,8 @@ class SymposeCLI(App):
             # (docs/decisions/009) -- `personas[0]` below would be a
             # cryptic IndexError instead of an actionable message.
             raise RuntimeError(
-                "No personas configured -- check SYMPOSE_PROFILES_DIR points "
-                "at a directory containing at least one <handle>/persona.yaml."
+                "No personas found. Check that SYMPOSE_PROFILES_DIR points to a folder "
+                "with at least one persona folder containing persona.yaml."
             )
         # The configured default persona (factory default: Samantha, see
         # `CLAUDE.md`'s project rules) — picked explicitly rather than

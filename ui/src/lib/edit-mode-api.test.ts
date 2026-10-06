@@ -42,6 +42,6 @@ describe("saveEditMode", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 422, json: async () => ({ detail: "not one of the modes" }), clone() { return this } }))
     expect(await saveEditMode("samantha", "auto")).toEqual({ ok: false, error: "not one of the modes" })
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("down")))
-    expect(await saveEditMode("samantha", "auto")).toEqual({ ok: false, error: "the Sympose backend is not reachable" })
+    expect(await saveEditMode("samantha", "auto")).toEqual({ ok: false, error: "Sympose isn't responding. Check that it's still running, then try again." })
   })
 })

@@ -564,4 +564,4 @@ def test_the_route_refuses_a_verdict_on_the_users_own_comment_and_an_unknown_ver
     unknown = client.patch("/api/vault/annotations", json={"path": "Garden plan.md", "id": hers["id"], "persona": "samantha", "verdict": "maybe"})
 
     assert (on_mine.status_code, unknown.status_code) == (400, 400)
-    assert "Only her comments" in on_mine.json()["detail"]
+    assert "Only the persona's comments" in on_mine.json()["detail"]

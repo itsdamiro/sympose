@@ -24,13 +24,13 @@ export type SharingResult =
   | { ok: true; state: SharingState }
   | { ok: false; error: string }
 
-const BACKEND_DOWN = "the Sympose backend is not reachable"
+const BACKEND_DOWN = "Sympose isn't responding. Check that it's still running, then try again."
 
 /** `GET /api/sharing`. */
 export async function fetchSharing(persona: string): Promise<SharingResult> {
   try {
     const res = await fetch(`/api/sharing?persona=${encodeURIComponent(persona)}`)
-    if (!res.ok) return { ok: false, error: (await detailOf(res)) || `HTTP ${res.status}` }
+    if (!res.ok) return { ok: false, error: (await detailOf(res)) || `Something failed on Sympose's side (code ${res.status}). Try again.` }
     return { ok: true, state: (await res.json()) as SharingState }
   } catch {
     return { ok: false, error: BACKEND_DOWN }
@@ -52,7 +52,7 @@ export async function changeSharing(
         body: JSON.stringify({ shared }),
       }
     )
-    if (!res.ok) return { ok: false, error: (await detailOf(res)) || `Couldn't save ${category} (HTTP ${res.status})` }
+    if (!res.ok) return { ok: false, error: (await detailOf(res)) || `Couldn't save ${category} (code ${res.status}). Try again.` }
     return { ok: true, state: (await res.json()) as SharingState }
   } catch {
     return { ok: false, error: `Couldn't save ${category}: ${BACKEND_DOWN}` }

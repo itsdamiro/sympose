@@ -9,7 +9,7 @@ from sympose.vault_health import Check, Finding, Scope, folder_of
 
 SHOWN_PER_FOLDER = 3
 ROOT = "(vault root)"
-LIMITS = "Links written as [text](Note.md) are not checked, and a link inside a code block is read like any other."
+LIMITS = "Limits: only [[wiki links]] are checked."
 
 
 def _folder_lines(findings: list[Finding], totals: Counter, of_notes: bool) -> list[str]:

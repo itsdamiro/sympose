@@ -645,7 +645,7 @@ def test_only_her_root_comments_can_be_given_a_verdict():
     answer = nc.reply(H, "a.md", hers()["id"], text="a", author="user")
 
     for target in (mine["id"], answer["id"]):
-        with pytest.raises(ValueError, match="Only her comments"):
+        with pytest.raises(ValueError, match="Only the persona's comments"):
             nc.change_annotation(H, "a.md", target, verdict=nc.ACCEPTED)
 
 

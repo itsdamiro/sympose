@@ -331,7 +331,7 @@ describe("VaultFolderView: dropping a note on the heading", () => {
 })
 
 describe("VaultFolderView: the Drafts section", () => {
-  const draft = { path: "Ideas/New plan.md", name: "New plan", is_new: true, count: 1, comments: 0, time: "t" }
+  const draft = { path: "Notes/Ideas/New plan.md", name: "New plan", is_new: true, count: 1, comments: 0, time: "t" }
 
   it("lists the drafts above the notes, and opens one when its row is chosen", () => {
     const s = setup({ drafts: [draft], vaultTreeActions: { persona: "samantha", hideExtension: true } as React.ComponentProps<typeof VaultFolderView>["vaultTreeActions"] })
@@ -348,6 +348,36 @@ describe("VaultFolderView: the Drafts section", () => {
     cleanup()
     setup({ drafts: [draft], vaultSearchQuery: "plan" })
     expect(screen.queryByText("Drafts")).toBeNull()
+  })
+
+  it("lists only the drafts of the folder in view, at any depth, and nothing for another folder's", () => {
+    const other = { ...draft, path: "Daily/Today.md", name: "Today" }
+    const lookalike = { ...draft, path: "Notes and Pets/Rex.md", name: "Rex" }
+    setup({ drafts: [draft, other, lookalike] })
+    expect(screen.getByText(/New plan/)).toBeTruthy()
+    expect(screen.queryByText(/Today/)).toBeNull()
+    expect(screen.queryByText(/Rex/)).toBeNull()
+  })
+
+  it("captions the notes list under the Drafts section, so the two are told apart with nothing pinned", () => {
+    setup({ drafts: [draft], pinnedNodes: [] })
+    expect(treeProps.at(-1)!.captionList).toBe(true)
+  })
+
+  it("does not caption the list when there is no Drafts section: another folder's drafts, none, the Bin or a search", () => {
+    setup({ drafts: [{ ...draft, path: "Daily/Today.md" }] })
+    expect(treeProps.at(-1)!.captionList).toBe(false)
+    cleanup()
+    setup({ drafts: [] })
+    expect(treeProps.at(-1)!.captionList).toBe(false)
+    cleanup()
+    setup({ drafts: [draft], vaultSearchQuery: "plan" })
+    expect(treeProps.at(-1)!.captionList).toBe(false)
+  })
+
+  it("shows no Drafts section when every draft belongs to another folder", () => {
+    setup({ drafts: [{ ...draft, path: "Daily/Today.md", name: "Today" }] })
+    expect(document.querySelector('[data-slot="drafts-section"]')).toBeNull()
   })
 
   it("shows nothing when there are no drafts", () => {

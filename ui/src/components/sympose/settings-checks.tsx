@@ -31,8 +31,8 @@ export function SettingsChecks({ className, onChanged }: { className?: string; o
     setRunning("doctor")
     const result = await fetchDoctor()
     setRunning(null)
-    if (!result.ok) return notify.error(`Doctor: ${result.error}`)
-    if (result.report.findings.length === 0) return say("Doctor: everything looks healthy.")
+    if (!result.ok) return notify.error(`Setup check: ${result.error}`)
+    if (result.report.findings.length === 0) return say("Setup check: everything looks fine.")
     setDialog({ kind: "doctor", report: result.report })
   }
 
@@ -40,9 +40,9 @@ export function SettingsChecks({ className, onChanged }: { className?: string; o
     setRunning("health")
     const result = await fetchHealth()
     setRunning(null)
-    if (!result.ok) return notify.error(`Vault health: ${result.error}`)
+    if (!result.ok) return notify.error(`Notes check: ${result.error}`)
     const offered = result.report.checks.some((c) => c.findings.some((f) => f.adds.length > 0))
-    if (result.report.problems === 0 && !offered) return say(`Vault health: nothing wrong in ${result.report.notes} notes.`)
+    if (result.report.problems === 0 && !offered) return say(`Notes check: no problems in ${result.report.notes} notes.`)
     setDialog({ kind: "health", report: result.report })
   }
 
@@ -50,10 +50,10 @@ export function SettingsChecks({ className, onChanged }: { className?: string; o
     setRunning("fix")
     const result = await fixDoctor()
     setRunning(null)
-    if (!result.ok) return notify.error(`Doctor: ${result.error}`)
+    if (!result.ok) return notify.error(`Setup check: ${result.error}`)
     if (leftOver(result.report).length === 0) {
       setDialog(null)
-      return say(`Doctor: fixed ${result.report.findings.length} problem(s).`)
+      return say(`Fixed ${result.report.findings.length} ${result.report.findings.length === 1 ? "problem" : "problems"}.`)
     }
     setDialog({ kind: "doctor", report: result.report })
   }
@@ -65,7 +65,7 @@ export function SettingsChecks({ className, onChanged }: { className?: string; o
       data-slot={`${kind}-pill`}
       disabled={busy}
       onClick={onClick}
-      title={kind === "doctor" ? "Check the installation" : "Check the notes"}
+      title={kind === "doctor" ? "Check that Sympose is set up correctly" : "Check the notes"}
       className={PILL}
     >
       <HugeiconsIcon icon={running === kind ? Loading03Icon : icon} className={cn("size-3.5", running === kind && "animate-spin")} />
@@ -75,8 +75,8 @@ export function SettingsChecks({ className, onChanged }: { className?: string; o
 
   return (
     <div className={cn("flex items-center gap-2", className)}>
-      {pill("doctor", "Doctor", StethoscopeIcon, () => void checkDoctor())}
-      {pill("health", "Vault health", FolderCheckIcon, () => void checkHealth())}
+      {pill("doctor", "Setup check", StethoscopeIcon, () => void checkDoctor())}
+      {pill("health", "Notes check", FolderCheckIcon, () => void checkHealth())}
       <ChecksDialog
         state={dialog}
         fixing={running === "fix"}

@@ -128,7 +128,7 @@ export function ChecksDialog({
         {state && (
           <>
             <DialogHeader>
-              <DialogTitle>{doctor ? "Doctor" : "Vault health"}</DialogTitle>
+              <DialogTitle>{doctor ? "Setup check" : "Notes check"}</DialogTitle>
               <DialogDescription>
                 {state.kind === "doctor"
                   ? "Fix corrects Sympose's own persona folders and settings file, never your notes."

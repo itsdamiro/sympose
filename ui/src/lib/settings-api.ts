@@ -43,13 +43,13 @@ const toSetting = ({ is_default, ...rest }: RawSetting): EngineSetting => ({
   isDefault: is_default,
 })
 
-const BACKEND_DOWN = "the Sympose backend is not reachable"
+const BACKEND_DOWN = "Sympose isn't responding. Check that it's still running, then try again."
 
 /** `GET /api/settings`. */
 export async function fetchSettings(): Promise<SettingsResult> {
   try {
     const res = await fetch("/api/settings")
-    if (!res.ok) return { ok: false, error: `HTTP ${res.status}` }
+    if (!res.ok) return { ok: false, error: `Something failed on Sympose's side (code ${res.status}). Try again.` }
     const body = (await res.json()) as {
       groups: { name: string; settings: RawSetting[] }[]
     }
@@ -77,7 +77,7 @@ export async function changeSetting(
       const body = (await res.json()) as { setting: RawSetting }
       return { ok: true, setting: toSetting(body.setting) }
     }
-    return { ok: false, error: (await detailOf(res)) || `Couldn't save ${key} (HTTP ${res.status})` }
+    return { ok: false, error: (await detailOf(res)) || `Couldn't save ${key} (code ${res.status}). Try again.` }
   } catch {
     return { ok: false, error: `Couldn't save ${key}: ${BACKEND_DOWN}` }
   }

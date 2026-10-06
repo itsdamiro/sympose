@@ -13,8 +13,8 @@ _ERRORS = {
     session_manage.NOT_FOUND: (404, "No such conversation."),
     session_manage.BAD_TITLE: (422, f"A title is one line of 1 to {session_manage.MAX_TITLE} characters."),
     session_manage.BUSY: (409, "A reply is being written in that conversation. Stop it first."),
-    session_manage.FAILED: (500, "Could not save the change."),
-    session_manage.EXISTS: (409, "A conversation with that id is already there."),
+    session_manage.FAILED: (500, "Couldn't save the change. Check that the folder can be written to."),
+    session_manage.EXISTS: (409, "That conversation is already there, so nothing was replaced."),
     session_manage.BAD_ID: (404, "No such conversation in the Bin."),
 }
 

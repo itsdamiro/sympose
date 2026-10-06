@@ -79,7 +79,7 @@ describe("EngineSettingsSections", () => {
     const input = await screen.findByLabelText("The room kept for the reply")
     fireEvent.change(input, { target: { value: "lots" } })
     fireEvent.blur(input)
-    await waitFor(() => expect(notifyError).toHaveBeenCalledWith(expect.stringContaining("'lots' is not a number")))
+    await waitFor(() => expect(notifyError).toHaveBeenCalledWith(expect.stringContaining("Enter a number")))
     expect(calls.some((c) => c.init?.method === "PUT")).toBe(false)
     expect((input as HTMLInputElement).value).toBe("")
   })
@@ -139,6 +139,6 @@ describe("EngineSettingsSections", () => {
   it("says when the settings could not be loaded", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")))
     render(<EngineSettingsSections />)
-    expect(await screen.findByText(/Couldn't load these: the Sympose backend is not reachable/)).toBeTruthy()
+    expect(await screen.findByText(/Couldn't load these. Sympose isn't responding/)).toBeTruthy()
   })
 })

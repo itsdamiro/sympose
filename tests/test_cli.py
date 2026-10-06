@@ -188,7 +188,7 @@ def test_on_mount_raises_a_clear_error_on_an_empty_roster(tmp_path, monkeypatch)
     (tmp_path / "profiles").mkdir()
 
     app = SymposeCLI()
-    with pytest.raises(RuntimeError, match="No personas configured"):
+    with pytest.raises(RuntimeError, match="No personas found"):
         app.on_mount()
 
 
@@ -1893,15 +1893,15 @@ def test_memory_refresh_reports_nothing_to_update(profiles, monkeypatch):
 
 
 def test_memory_refresh_reports_a_failure_instead_of_nothing_to_update(profiles, monkeypatch):
-    _refresh_says(monkeypatch, "failed", "did not work")
+    _refresh_says(monkeypatch, "failed", "didn't work")
 
 
 def test_memory_refresh_that_raised_is_reported_as_a_failure(profiles, monkeypatch):
-    _refresh_says(monkeypatch, None, "did not work")
+    _refresh_says(monkeypatch, None, "didn't work")
 
 
 def test_memory_refresh_says_why_it_was_skipped(profiles, monkeypatch):
-    _refresh_says(monkeypatch, "skipped", "no recaps to learn from")
+    _refresh_says(monkeypatch, "skipped", "no conversation summaries to learn from")
 
 
 def test_a_memory_wait_runs_on_its_own_pool_not_the_default_one_quit_waits_on(profiles, monkeypatch):
@@ -2125,7 +2125,7 @@ def test_memory_review_discard_leaves_the_real_file_untouched(profiles):
     run_async(scenario())
 
 
-# -- TTFT beside the model (docs/decisions/013) --
+# -- first word after beside the model (docs/decisions/013) --
 
 
 def test_format_ttft_uses_ms_under_a_second_and_seconds_above():
@@ -2151,7 +2151,7 @@ def test_the_reply_header_shows_ttft_beside_the_model(profiles, monkeypatch):
             await pilot.pause(0.5)
             lines = [plain_text(c) for c in app.transcript.children]
             header = next(line for line in lines if line.startswith("@samantha"))
-            assert "Gemma2:9b · TTFT 1.8s" in header
+            assert "Gemma2:9b · first word after 1.8s" in header
 
     run_async(scenario())
 
@@ -2166,7 +2166,7 @@ def test_the_reply_header_omits_ttft_when_the_engine_gave_none(profiles):
             await pilot.pause(0.5)
             lines = [plain_text(c) for c in app.transcript.children]
             header = next(line for line in lines if line.startswith("@samantha"))
-            assert "TTFT" not in header
+            assert "first word after" not in header
 
     run_async(scenario())
 
@@ -2222,7 +2222,7 @@ def test_grounding_header_segment_keeps_the_whole_line_within_the_terminal():
 
 
 def test_grounding_is_omitted_rather_than_overflow_a_line_the_notices_already_filled():
-    # TTFT, the trim notice's two lines, and the share notices can, together, already reach or
+    # the TTFT, the trim notice's two lines, and the share notices can, together, already reach or
     # pass an ordinary 80-column terminal on their own, before the grounded note is even
     # considered (#28); forcing the note's floor-width path on top would overflow every such
     # reply, not just a narrow terminal's, which is the case the floor exists to accept.
@@ -2318,12 +2318,12 @@ def _run_and_get_header(monkeypatch, grounding) -> str:
 
 def test_the_reply_header_shows_the_grounded_note_after_the_ttft(profiles, monkeypatch):
     header = _run_and_get_header(monkeypatch, [_hit("Projects/Atlas.md"), _hit("Work/Budget.md")])
-    assert "TTFT 1.8s · from Projects/Atlas.md +1" in header
+    assert "first word after 1.8s · from Projects/Atlas.md +1" in header
 
 
 def test_the_reply_header_shows_nothing_when_nothing_grounded(profiles, monkeypatch):
     header = _run_and_get_header(monkeypatch, [])
-    assert header.endswith("TTFT 1.8s")
+    assert header.endswith("first word after 1.8s")
     assert "no notes" not in header and "from" not in header
 
 
@@ -2332,7 +2332,7 @@ def test_the_reply_header_hides_grounding_when_the_knob_is_off(profiles, monkeyp
 
     settings_store.set(grounding_line.SETTING, False)
     header = _run_and_get_header(monkeypatch, [_hit("Projects/Atlas.md")])
-    assert header.endswith("TTFT 1.8s")
+    assert header.endswith("first word after 1.8s")
 
 
 def test_grounded_command_lists_the_last_replys_notes(profiles, monkeypatch):
@@ -2357,7 +2357,7 @@ def test_grounded_command_lists_the_last_replys_notes(profiles, monkeypatch):
             return [plain_text(c) for c in app.transcript.children]
 
     lines = run_async(scenario())
-    assert any("Atlas.md — Plans" in line and "similarity 0.81" in line for line in lines)
+    assert any("Atlas.md — Plans" in line and "similar topic" in line for line in lines)
 
 
 def test_grounded_command_before_any_reply_says_so(profiles):
@@ -2370,7 +2370,7 @@ def test_grounded_command_before_any_reply_says_so(profiles):
             await pilot.pause()
             return [plain_text(c) for c in app.transcript.children]
 
-    assert any("No reply yet this session" in line for line in run_async(scenario()))
+    assert any("No reply yet in this conversation" in line for line in run_async(scenario()))
 
 
 def test_grounded_survives_a_clear(profiles, monkeypatch):
@@ -2419,8 +2419,8 @@ def test_grounding_command_toggles_and_persists_the_setting(profiles):
 
 
 def test_trim_notice_names_how_many_turns_were_left_out():
-    assert trim_notice.segment(3) == " · 3 older turns out of context"
-    assert trim_notice.segment(1) == " · 1 older turn out of context"
+    assert trim_notice.segment(3) == " · 3 older messages left out (too long for the model)"
+    assert trim_notice.segment(1) == " · 1 older message left out (too long for the model)"
 
 
 def test_trim_notice_is_silent_when_nothing_was_left_out_or_when_turned_off():
@@ -2433,7 +2433,7 @@ def test_trim_notice_is_silent_when_nothing_was_left_out_or_when_turned_off():
     assert trim_notice.segment(3) != ""
 
 
-def _run_with_result(monkeypatch, **fields) -> str:
+def _run_with_result(monkeypatch, size=(80, 24), **fields) -> str:
     def fake_run_turn(handle, user_message, session_id=None, model=None):
         return engine.TurnResult(reply="ok", session_id="s", ttft_ms=1840, model="m", **fields)
 
@@ -2442,7 +2442,7 @@ def _run_with_result(monkeypatch, **fields) -> str:
 
     async def scenario():
         app = SymposeCLI()
-        async with app.run_test() as pilot:
+        async with app.run_test(size=size) as pilot:
             await pilot.pause()
             app.composer.focus()
             await pilot.press(*"hi", "enter")
@@ -2460,18 +2460,18 @@ def _run_with_result(monkeypatch, **fields) -> str:
 
 def test_the_reply_header_shows_the_trim_notice_before_the_grounded_note(profiles, monkeypatch):
     header = _run_with_result(
-        monkeypatch, history_dropped=3, grounding=[_hit("Projects/Atlas.md")]
+        monkeypatch, size=(140, 24), history_dropped=3, grounding=[_hit("Projects/Atlas.md")]
     )
-    # The notice comes first and takes its room; the grounded path then keeps only what fits.
-    assert "TTFT 1.8s · 3 older turns out of context · from " in header
+    # The notice comes first and takes its room; the grounded path then keeps only what fits (a wider terminal here: the notice is long).
+    assert "first word after 1.8s · 3 older messages left out (too long for the model) · from " in header
     assert header.endswith("Atlas.md")
 
 
 def test_the_reply_header_shows_the_query_a_follow_up_was_rewritten_into(profiles, monkeypatch):
     header = _run_with_result(
-        monkeypatch, grounding=[_hit("Projects/Atlas.md")], searched="why we picked SQLite"
+        monkeypatch, size=(92, 24), grounding=[_hit("Projects/Atlas.md")], searched="why we picked SQLite"
     )
-    # An 80-column line: the path gives up room, keeping its filename, so the query shows too.
+    # A 92-column line: the path gives up room, keeping its filename, so the query shows too.
     assert header.endswith(' · from …Atlas.md · searched "why we pick…"')
 
 
@@ -2501,15 +2501,15 @@ def test_a_window_too_small_for_the_persona_is_shown_as_a_failure_line(profiles,
 
 
 def test_trim_notice_also_says_when_a_reply_was_cut_at_the_length_limit():
-    assert trim_notice.segment(0, truncated=True) == " · reply cut at the length limit"
+    assert trim_notice.segment(0, truncated=True) == " · reply cut short at the length limit (raise it in /settings)"
     assert trim_notice.segment(2, truncated=True) == (
-        " · 2 older turns out of context · reply cut at the length limit"
+        " · 2 older messages left out (too long for the model) · reply cut short at the length limit (raise it in /settings)"
     )
     assert trim_notice.segment(0, truncated=False) == ""
 
 
 def test_the_reply_header_shows_a_reply_cut_at_the_length_limit(profiles, monkeypatch):
-    assert "reply cut at the length limit" in _run_with_result(monkeypatch, truncated=True)
+    assert "reply cut short at the length limit (raise it in /settings)" in _run_with_result(monkeypatch, truncated=True)
 
 
 # --- the context meter (docs/decisions/018) ---
@@ -2878,8 +2878,8 @@ def _lines(app):
 def test_share_header_segments_name_what_was_sent_and_what_was_held_back():
     from sympose.cli import share
 
-    assert share.header_segment(["notes", "recaps"], ["properties"]) == " · cloud: notes, recaps · withheld: properties"
-    assert share.header_segment([], ["notes"]) == " · withheld: notes"
+    assert share.header_segment(["notes", "recaps"], ["properties"]) == " · cloud: notes, recaps · not sent: note properties"
+    assert share.header_segment([], ["notes"]) == " · not sent: notes"
     assert share.header_segment(["notes"], []) == " · cloud: notes"
     assert share.header_segment([], []) == ""  # a local turn, or nothing of the vault involved
 
@@ -2904,7 +2904,7 @@ def test_choosing_a_cloud_model_says_what_it_receives_and_asks_about_the_vault(p
             await pilot.pause()
             assert settings_store.get("cloud_share") == ["notes"]
             assert app.panel_kind == "share"  # still open, so another can be flipped
-            assert any("may now receive passages of your notes" in line for line in _lines(app))
+            assert any("may now receive parts of your notes" in line for line in _lines(app))
             await pilot.press("escape")
             assert app.panel is None
 
@@ -3007,7 +3007,7 @@ def test_no_question_when_everything_is_already_allowed(profiles):
             await pilot.pause()
             assert app.panel is None
             assert any(
-                "may receive: notes, properties, recaps, chats, vault_map, connections, memory" in line
+                "may receive: notes, note properties, recaps, earlier conversations, folder overview, related notes, persona memory" in line
                 for line in _lines(app)
             )
 
@@ -3098,7 +3098,7 @@ def test_a_cloud_turns_header_says_what_was_sent_and_held_back(profiles, monkeyp
             await pilot.press(*"hi", "enter")
             await pilot.pause(0.5)
             header = next(line for line in _lines(app) if line.startswith("@samantha"))
-            assert " · cloud: notes · withheld: recaps" in header
+            assert " · cloud: notes · not sent: recaps" in header
 
     run_async(scenario())
 
@@ -3112,7 +3112,7 @@ def test_a_local_turns_header_has_no_cloud_segments(profiles):
             await pilot.press(*"hi", "enter")
             await pilot.pause(0.5)
             header = next(line for line in _lines(app) if line.startswith("@samantha"))
-            assert "cloud:" not in header and "withheld:" not in header
+            assert "cloud:" not in header and "not sent:" not in header
 
     run_async(scenario())
 
@@ -3193,7 +3193,7 @@ def test_context_before_any_reply_says_the_meter_fills_after_the_first_one(profi
         return await _run_context_command(app, pilot)
 
     seen = _run_meter_scenario(monkeypatch, [], then=then)
-    assert any("No context figure yet" in line for line in seen["then"])
+    assert any("No memory figure yet" in line for line in seen["then"])
 
 
 def test_context_gives_the_figures_in_full_and_says_what_they_mean(profiles, monkeypatch):
@@ -3201,9 +3201,9 @@ def test_context_gives_the_figures_in_full_and_says_what_they_mean(profiles, mon
         return await _run_context_command(app, pilot)
 
     lines = _run_meter_scenario(monkeypatch, [_result(3100, 5000)], then=then)["then"]
-    assert any("3,100 of 5,000 tokens" in line and "(62%)" in line for line in lines)
-    assert any("leans high" in line for line in lines)
-    assert any("At 100% the next message starts leaving older turns out" in line for line in lines)
+    assert any("3,100 of 5,000" in line and "(62%)" in line for line in lines)
+    assert any("read a little high" in line for line in lines)
+    assert any("At 100% the next message starts leaving out the oldest messages" in line for line in lines)
     assert not any("estimate" in line for line in lines)
 
 
@@ -3217,8 +3217,8 @@ def test_context_still_gives_the_figures_when_the_meter_line_is_hidden(profiles,
 
     seen = _run_meter_scenario(monkeypatch, [_result(3100, 5000)], then=then)
     assert seen["text"] == ""
-    assert any("3,100 of 5,000 tokens" in line for line in seen["then"])
-    assert any(meter.SETTING in line for line in seen["then"])
+    assert any("3,100 of 5,000" in line for line in seen["then"])
+    assert any("/settings" in line and "Display" in line for line in seen["then"])
 
 
 def _switch_model_and_wait(app, pilot):
@@ -3247,7 +3247,7 @@ def test_switching_the_model_shows_an_estimate_for_the_new_one_and_context_says_
     text, seen_calls, lines = _run_meter_scenario(monkeypatch, [_result(3100, 5000)], then=then)["then"]
     assert text == "context ██░░░░░░░░ 25% · 2.0k of 8.0k"
     assert seen_calls == [("samantha", "s", options.MODEL_OPTIONS[1].id)]  # the session in progress, the new model
-    assert any("2,000 of 8,000 tokens" in line for line in lines)
+    assert any("2,000 of 8,000" in line for line in lines)
     assert any("estimate for the model you switched to" in line for line in lines)
 
 
@@ -3379,7 +3379,7 @@ def test_context_forgets_the_old_figures_when_the_persona_is_switched(profiles, 
         return await _run_context_command(app, pilot)
 
     lines = _run_meter_scenario(monkeypatch, [_result(3100, 5000)], then=then)["then"]
-    assert any("No context figure yet" in line for line in lines)
+    assert any("No memory figure yet" in line for line in lines)
     assert not any("3,100" in line for line in lines)
 
 

@@ -42,6 +42,6 @@ def is_timeout(error: BaseException) -> bool:
 
 def message(model: str, waited: int) -> str:
     return (
-        f"No answer from '{model}' in {waited} seconds. A long conversation on a slow computer can need longer: "
-        f"`{SETTING}` sets the wait."
+        f"No answer from '{model}' in {waited} seconds. A long conversation on a slow computer can need longer. "
+        f"Raise 'how long a model may take to answer' in Settings ({SETTING})."
     )

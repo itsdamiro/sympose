@@ -30,7 +30,7 @@ def _path(raw: str) -> str:
 
 def _saved(ok: bool) -> dict[str, Any]:
     if not ok:
-        raise HTTPException(status_code=500, detail="Could not save: the settings file could not be written, or `hidden_paths` in it is not one Sympose wrote.")
+        raise HTTPException(status_code=500, detail="Couldn't save. The settings file can't be written, or its list of hidden items was edited by hand into a form Sympose can't read.")
     return _state()
 
 

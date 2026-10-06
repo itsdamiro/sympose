@@ -38,7 +38,7 @@ def put_edit_mode(persona: str, body: EditModeChoice) -> dict[str, Any]:
 
 
 _NO_FOLLOWER = (
-    "No persona follows this setting right now: each has a mode of her own, chosen on the Persona page. "
+    "No persona follows this setting right now: each has a mode of its own, chosen on the Persona page. "
     "It applies to a persona that has none."
 )
 

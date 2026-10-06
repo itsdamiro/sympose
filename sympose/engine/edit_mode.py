@@ -19,31 +19,33 @@ PLAN, MANUAL, ACCEPT, AUTO = "plan", "manual", "accept", "auto"
 MODES = (PLAN, MANUAL, ACCEPT, AUTO)
 DEFAULT = MANUAL
 
-# One line each, for a screen that lists the modes (the persona page, docs/decisions/072).
+# One line each, for a screen that lists the modes (docs/decisions/072). Plain words for any user and any persona: no
+# "she", no numbers from a test, nothing that needs the project's history to follow.
 SUMMARIES = {
-    PLAN: "She talks about a change and proposes nothing.",
-    MANUAL: "She proposes changes when you ask, and you accept or decline each.",
-    ACCEPT: "Her edits are applied in the editor as she makes them; your save is what keeps them.",
-    AUTO: "She acts on her own initiative; everything waits for your Accept.",
+    PLAN: "Talks about a change and proposes nothing.",
+    MANUAL: "Proposes changes when you ask; you accept or decline each one.",
+    ACCEPT: "Edits appear in the editor as they are made; saving is what keeps them.",
+    AUTO: "Proposes changes on its own; nothing is kept until you accept it.",
 }
 _READ_EACH = "Read each change before you accept it."
 _GEMMA = (
-    "On this model, measured on invented notes with her real prompt, a change was right 18 times out of 36 and "
-    "placed but wrong 3 times out of 36; most of the others she talked about the change instead of proposing it. "
-    "In an earlier, shorter test it invented a price the note did not hold once in 4. " + _READ_EACH
+    "This model often makes mistakes when editing notes. In our tests it sometimes described a change instead of "
+    "making it, put a change in the wrong place, or added details the note did not contain. Check every change "
+    "carefully before you accept it."
 )
-# What was measured, by model (docs/decisions/072, Measured). A model joins by a measurement and a line here.
+# What we know about editing, by model (docs/decisions/072, Measured, holds the figures). A model joins by a
+# measurement and a line here.
 MEASURED = {
     "ollama_chat/gemma2:9b": _GEMMA,
     "ollama/gemma2:9b": _GEMMA,
     "gemini/gemini-flash-latest": (
-        "Measured on a small set of invented notes only, with her real prompt: a change was right 35 times out of 36 (once it "
-        "added a list item without its marker). " + _READ_EACH
+        "This model edited notes accurately in our tests, but it can still slip, for example by leaving out a list "
+        "marker. " + _READ_EACH
     ),
 }
 _UNMEASURED = (
-    "This model has not been measured for editing notes. Models smaller than gemma2:9b are expected to be worse, "
-    "not better. " + _READ_EACH
+    "This model has not been tested for editing notes, so it may make more mistakes, small models especially. "
+    + _READ_EACH
 )
 
 

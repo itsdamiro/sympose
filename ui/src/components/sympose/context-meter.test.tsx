@@ -69,7 +69,7 @@ describe("ContextMeter", () => {
     expect(meter().tabIndex).toBe(0)
     fireEvent.focus(meter())
     expect(await screen.findByText("3,812 of 6,144 tokens")).toBeTruthy()
-    expect(screen.getByText(/100% is where your next message starts leaving the oldest turns out/)).toBeTruthy()
+    expect(screen.getByText(/100% is where the oldest messages start to be left out/)).toBeTruthy()
   })
 
   it("says in the tooltip when the figure is an estimate", async () => {

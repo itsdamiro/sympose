@@ -50,7 +50,7 @@ describe("resolveChanges", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json({ detail: "No such pending change." }, false, 404)))
     expect(await resolveChanges("n.md", "x", ["a"])).toEqual({ ok: false, error: "No such pending change." })
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")))
-    expect(await resolveChanges("n.md", "x", "all")).toEqual({ ok: false, error: "the Sympose backend is not reachable" })
+    expect(await resolveChanges("n.md", "x", "all")).toEqual({ ok: false, error: "Sympose isn't responding. Check that it's still running, then try again." })
   })
 })
 
@@ -102,7 +102,7 @@ describe("comments", () => {
     expect(await deleteComment("n.md", "x", "z")).toEqual({ ok: false, error: "No such comment." })
 
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")))
-    const down = { ok: false, error: "the Sympose backend is not reachable" }
+    const down = { ok: false, error: "Sympose isn't responding. Check that it's still running, then try again." }
     expect(await addComment({ path: "n.md", persona: "x", quote: "q", before: "", after: "", text: "" })).toEqual(down)
     expect(await changeComment({ path: "n.md", persona: "x", id: "z", state: "open" })).toEqual(down)
     expect(await deleteComment("n.md", "x", "z")).toEqual(down)
@@ -124,6 +124,6 @@ describe("saveDraftText", () => {
     expect(await saveDraftText("N.md", "samantha", "x")).toEqual({ ok: false, error: "That note has no new-note draft." })
 
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("down")))
-    expect(await saveDraftText("N.md", "samantha", "x")).toEqual({ ok: false, error: "the Sympose backend is not reachable" })
+    expect(await saveDraftText("N.md", "samantha", "x")).toEqual({ ok: false, error: "Sympose isn't responding. Check that it's still running, then try again." })
   })
 })

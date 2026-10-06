@@ -61,9 +61,9 @@ export async function savePersonaFile(
       const saved = (await res.json()) as { mtime?: number; local?: boolean }
       return { ok: true, mtime: saved.mtime, local: saved.local ?? false }
     }
-    return { ok: false, error: (await detailOf(res)) || `Save failed (HTTP ${res.status})`, conflict: res.status === 409 }
-  } catch (err) {
-    return { ok: false, error: `Save failed — backend unreachable (${err})` }
+    return { ok: false, error: (await detailOf(res)) || `Save failed (code ${res.status}). Try again.`, conflict: res.status === 409 }
+  } catch {
+    return { ok: false, error: `Save failed: Sympose isn't responding. Check that it's still running, then try again.` }
   }
 }
 
@@ -94,7 +94,7 @@ export async function resolvePendingRewrite(
   try {
     const res = await fetch(`${base(handle)}/${name}/pending/${action}`, { method: "POST" })
     if (res.ok) return { ok: true }
-    return { ok: false, error: (await detailOf(res)) || `HTTP ${res.status}` }
+    return { ok: false, error: (await detailOf(res)) || `Something failed on Sympose's side (code ${res.status}). Try again.` }
   } catch (err) {
     return { ok: false, error: `Backend unreachable (${err})` }
   }

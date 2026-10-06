@@ -39,11 +39,11 @@ from sympose.vault_write_status import (
 
 
 def _not_found(noun: str, path: str) -> str:
-    return f"{noun} `{path}` not found in allowed vault folders."
+    return f"{noun} `{path}` was not found in the folders this persona can read."
 
 
 def sandbox_denied(path: str) -> str:
-    return f"Path `{path}` is outside the assigned sandbox."
+    return "That path is outside the folders this persona can use."
 
 
 def require_profile(persona: str | None) -> dict[str, Any]:
@@ -142,7 +142,7 @@ def write_note(body: NoteWrite) -> dict[str, Any]:
         not_found=_not_found("Note", body.path),
         denied=sandbox_denied(body.path),
         conflict=f"Note `{body.path}` changed on disk since it was opened — reload before saving.",
-        not_text=f"`{body.path}` has bytes that are not valid text, so saving it here would change them. Edit it in another editor.",
+        not_text=f"`{body.path}` isn't plain text, so saving it here could damage it. Edit it in another editor.",
     )
     # The mtime the editor's next save must present: what this write left on disk.
     target = resolve_existing_note(profile, body.path)

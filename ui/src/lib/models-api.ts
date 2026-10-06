@@ -39,13 +39,13 @@ const toState = ({ current_cloud, fallback_cloud, ...rest }: RawModels): ModelsS
   fallbackCloud: fallback_cloud,
 })
 
-const BACKEND_DOWN = "the Sympose backend is not reachable"
+const BACKEND_DOWN = "Sympose isn't responding. Check that it's still running, then try again."
 
 /** `GET /api/models`. */
 export async function fetchModels(persona: string): Promise<ModelsResult> {
   try {
     const res = await fetch(`/api/models?persona=${encodeURIComponent(persona)}`)
-    if (!res.ok) return { ok: false, error: (await detailOf(res)) || `HTTP ${res.status}` }
+    if (!res.ok) return { ok: false, error: (await detailOf(res)) || `Something failed on Sympose's side (code ${res.status}). Try again.` }
     return { ok: true, state: toState((await res.json()) as RawModels) }
   } catch {
     return { ok: false, error: BACKEND_DOWN }
@@ -60,7 +60,7 @@ export async function chooseModel(persona: string, model: string | null): Promis
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ model }),
     })
-    if (!res.ok) return { ok: false, error: (await detailOf(res)) || `Couldn't save the model (HTTP ${res.status})` }
+    if (!res.ok) return { ok: false, error: (await detailOf(res)) || `Couldn't save the model (code ${res.status}). Try again.` }
     return { ok: true, state: toState((await res.json()) as RawModels) }
   } catch {
     return { ok: false, error: `Couldn't save the model: ${BACKEND_DOWN}` }

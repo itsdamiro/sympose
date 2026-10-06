@@ -21,8 +21,8 @@ _STAGED_LINE = 'A memory update is ready to review: /memory, then "Review pendin
 
 _SAID = {
     memory_refresh.UNCHANGED: "Nothing to update.",
-    memory_refresh.SKIPPED: "Nothing to update from yet: no recaps to learn from, or the model in use is not approved for memory and recaps (/share).",
-    memory_refresh.FAILED: "The memory update did not work: the model could not be reached or the files could not be written (see the log).",
+    memory_refresh.SKIPPED: "Nothing to update yet: there are no conversation summaries to learn from, or this cloud model isn't allowed to see them (/share).",
+    memory_refresh.FAILED: "The memory update didn't work. Check that the model is running, then try again.",
 }
 
 

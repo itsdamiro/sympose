@@ -51,8 +51,7 @@ function Body({ handle, name, onClose, onResolved }: Props) {
       <DialogHeader>
         <DialogTitle>Proposed changes to {name}</DialogTitle>
         <DialogDescription>
-          She wrote this after your conversations. Nothing changes until you accept it, and the file as it is now is kept as{" "}
-          {name}.bak.
+          The persona wrote this after your chats. Nothing changes until you accept it, and your current version is saved as a backup.
         </DialogDescription>
       </DialogHeader>
       {rewrite === undefined && <p className="text-fg-muted">Loading…</p>}

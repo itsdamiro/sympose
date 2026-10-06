@@ -30,10 +30,10 @@ def fix_doctor() -> dict[str, Any]:
 def get_vault_health() -> dict[str, Any]:
     found = profiles.resolve_profile(None)
     if found is None:
-        raise HTTPException(status_code=409, detail="The default persona cannot be found (run `sympose doctor`).")
+        raise HTTPException(status_code=409, detail="No default persona was found. Run `sympose doctor` in a terminal to see why.")
     scanned = vault_health.scan(found)
     if scanned is None:
-        raise HTTPException(status_code=409, detail="No vault is set up (see VAULT_PATHS in .env.example).")
+        raise HTTPException(status_code=409, detail="No vault is set up yet. Set VAULT_PATHS in your .env file to the folder of your Obsidian vault (see .env.example).")
     scope, results = scanned
     return {
         "persona": found.get("handle", ""),
@@ -57,7 +57,7 @@ def add_folder_look(folder: str) -> dict[str, Any]:
     lines written, or why not. As with the report, the default persona."""
     found = profiles.resolve_profile(None)
     if found is None:
-        raise HTTPException(status_code=409, detail="The default persona cannot be found (run `sympose doctor`).")
+        raise HTTPException(status_code=409, detail="No default persona was found. Run `sympose doctor` in a terminal to see why.")
     try:
         return {"folder": folder, "added": folder_looks_write.add_look(found, folder)}
     except folder_looks_write.Refused as reason:

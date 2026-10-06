@@ -41,7 +41,7 @@ describe("planFolderMove", () => {
   it("says the backend is unreachable when the request throws", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("down")))
     const res = await planFolderMove("A", "B", "p")
-    expect(res.ok === false && res.error).toContain("unreachable")
+    expect(res.ok === false && res.error).toContain("isn't responding")
   })
 })
 
@@ -71,6 +71,6 @@ describe("moveVaultFolder", () => {
     stub(false, { detail: "confirm to move anyway" })
     expect(await moveVaultFolder("A", "B", "p")).toEqual({ ok: false, error: "confirm to move anyway" })
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 500, json: () => Promise.reject(new Error("x")) } as Response))
-    expect(await moveVaultFolder("A", "B", "p")).toEqual({ ok: false, error: "Move failed (HTTP 500)" })
+    expect(await moveVaultFolder("A", "B", "p")).toEqual({ ok: false, error: "Move failed (code 500). Try again." })
   })
 })

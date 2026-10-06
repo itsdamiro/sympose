@@ -3,6 +3,7 @@ import { Folder01Icon, Search01Icon } from "@hugeicons/core-free-icons"
 
 import { EmptyState } from "@/components/sympose/empty-state"
 import { DraftsSection } from "@/components/sympose/drafts-section"
+import { draftsInFolder } from "@/lib/use-drafts"
 import type { Draft } from "@/lib/persona-changes-api"
 import { cn, stripMdExtension } from "@/lib/utils"
 import { vaultScopedKey } from "@/lib/cookies"
@@ -81,7 +82,7 @@ export function VaultFolderView({
   beyondFolderMatches: VaultSearchResult[]
   pinnedNodes: VaultNode[]
   pinnedShowPath: boolean
-  /** The persona's drafts, for the Drafts section above the notes (docs/decisions/071). */
+  /** The persona's drafts; the Drafts section above the notes lists those of the folder in view (docs/decisions/071). */
   drafts: Draft[]
   /** The path of the draft open in the editor, if one is. */
   draftSelectedPath?: string
@@ -129,6 +130,8 @@ export function VaultFolderView({
       }
     : {}
   const [bin, setBin] = useBinPreferences()
+  // The drafts of the folder in view, shown above the notes while browsing (docs/decisions/071).
+  const folderDrafts = !trashView && !vaultSearchQuery ? draftsInFolder(drafts, activeRootFolder?.path) : []
   return (
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-2">
@@ -144,8 +147,8 @@ export function VaultFolderView({
         </h2>
         {trashView && <BinSectionPills section={bin.section} onChange={(next) => setBin("section", next)} />}
         </div>
-        {!trashView && !vaultSearchQuery && (
-          <DraftsSection drafts={drafts} selectedPath={draftSelectedPath} onOpen={onOpenDraft} hideExtension={!!vaultTreeActions.hideExtension} />
+        {folderDrafts.length > 0 && (
+          <DraftsSection drafts={folderDrafts} selectedPath={draftSelectedPath} onOpen={onOpenDraft} hideExtension={!!vaultTreeActions.hideExtension} />
         )}
         {trashView ? (
           <BinView
@@ -190,6 +193,7 @@ export function VaultFolderView({
                 pinnedShowPath={pinnedShowPath}
                 listLabel={activeLabel ? `Notes in ${activeLabel}` : undefined}
                 listIcon={folderIconFor(activeLabel, activeRootFolder?.icon)}
+                captionList={folderDrafts.length > 0}
                 defaultExpanded={
                   vaultSearchQuery
                     ? collectFolderPaths(searchedPanelNodes)

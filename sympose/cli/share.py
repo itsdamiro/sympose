@@ -13,6 +13,22 @@ CONFIRM_KIND = "model_confirm"  # the yes/no before a local-to-cloud switch in a
 KEEP = "keep"
 
 
+# What each category is called on screen; the ids (the keys) are what is saved in settings.json.
+PLAIN_NAMES = {
+    "notes": "notes", "properties": "note properties", "recaps": "recaps", "chats": "earlier conversations",
+    "vault_map": "folder overview", "connections": "related notes", "memory": "persona memory",
+    "open_note": "open note", "annotations": "comments",
+}
+
+
+def plain(name: str) -> str:
+    return PLAIN_NAMES.get(name, name)
+
+
+def plain_list(names: list[str]) -> str:
+    return ", ".join(plain(name) for name in names)
+
+
 def is_cloud(model: ModelOption) -> bool:
     return not sharing.is_local(model.id)
 
@@ -22,7 +38,7 @@ def options() -> list[SelectionOption]:
     chosen = sharing.approved()
     return [
         SelectionOption(
-            f"{name} — {'shared' if name in chosen else 'not shared'}: {sharing.DESCRIPTIONS[name]}", name
+            f"{plain(name)} — {'shared' if name in chosen else 'not shared'}: {sharing.DESCRIPTIONS[name]}", name
         )
         for name in sharing.CATEGORIES
     ]
@@ -38,14 +54,14 @@ def toggle(app, category: str) -> None:
     if sharing.set_approved(category, turned_on):
         line = f"Cloud models {'may now' if turned_on else 'may no longer'} receive {sharing.DESCRIPTIONS[category]}."
     else:
-        line = "Couldn't save the cloud-sharing setting."
+        line = "Couldn't save your cloud-sharing choice. Check that settings.json can be written to."
     transcript_mod.mount_line(app, line, "system")
 
 
 def notice(model: ModelOption) -> str:
     """What `model`, a cloud model, receives: always the messages, and from the vault what is allowed."""
     allowed = [name for name in sharing.CATEGORIES if name in sharing.approved()]
-    vault = ", ".join(allowed) if allowed else "nothing"
+    vault = plain_list(allowed) if allowed else "nothing"
     return (
         f"{model.short} is a cloud model: it receives your messages and this conversation. "
         f"From your vault it may receive: {vault}. Change this with /share."
@@ -88,12 +104,12 @@ def history_question(app, model_id: str) -> str | None:
         return None
     return (
         f"Switching to {model_option_for(model_id).short}: earlier replies in this conversation, which may quote "
-        "your notes, are sent to it as history whatever /share allows. Start a new conversation to leave them out."
+        "your notes, will be sent to it even if you haven't allowed sharing. Start a new conversation to keep them private."
     )
 
 
 def header_segment(cloud: list[str], withheld: list[str]) -> str:
-    """` · cloud: notes, recaps · withheld: properties` for a cloud turn, `""` when the turn was local or
+    """` · cloud: notes, recaps · not sent: note properties` for a cloud turn, `""` when the turn was local or
     nothing of the vault was involved."""
-    parts = [f"{label}: {', '.join(names)}" for label, names in (("cloud", cloud), ("withheld", withheld)) if names]
+    parts = [f"{label}: {plain_list(names)}" for label, names in (("cloud", cloud), ("not sent", withheld)) if names]
     return "".join(f" · {part}" for part in parts)

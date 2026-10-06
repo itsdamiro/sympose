@@ -82,7 +82,7 @@ describe("useChat", () => {
     const { result } = renderHook(() => useChat("samantha"))
     await say(result, "hi")
     const last = result.current.turns[result.current.turns.length - 1]
-    expect(last).toMatchObject({ role: "system", kind: "error", body: "@samantha couldn't reply: local models only" })
+    expect(last).toMatchObject({ role: "system", kind: "error", body: "Couldn't get a reply: local models only" })
   })
 
   it("keeps the last reply's token count and the model that made it, for the context meter", async () => {
@@ -452,7 +452,7 @@ describe("useChat: stopping a reply in flight (ADR 054)", () => {
       await sending
     })
     expect(api.cancelChatTurn).toHaveBeenCalledWith("samantha", undefined)
-    expect(result.current.turns.map((t) => [t.role, t.body])).toEqual([["system", "Stopped. @samantha did not reply."]])
+    expect(result.current.turns.map((t) => [t.role, t.body])).toEqual([["system", "Stopped. No reply was sent."]])
     expect(result.current.draft).toBe("hi there")
     expect(result.current.sending).toBe(false)
     expect(result.current.sessionId).toBeUndefined()
@@ -514,7 +514,7 @@ describe("useChat: stopping a reply in flight (ADR 054)", () => {
     expect(api.sendChatTurn.mock.calls[1].slice(0, 2)).toEqual(["second", "samantha"])
     expect(result.current.turns.map((t) => [t.role, t.body])).toEqual([
       ["user", "second"],
-      ["system", "Stopped. @samantha did not reply."],
+      ["system", "Stopped. No reply was sent."],
       ["persona", "About the second."],
     ])
     expect(result.current.draft).toBe("first")
@@ -554,7 +554,7 @@ describe("useChat condensing (ADR 055)", () => {
     api.sendChatTurn.mockResolvedValue({ ok: true, reply: { ...ok("d").reply, condensed: 12 } })
     await say(result, "four")
     const said = result.current.turns.filter((t) => t.role === "system").map((t) => t.body)
-    expect(said).toEqual(["9 earlier turns are now condensed into notes.", "12 earlier turns are now condensed into notes."])
+    expect(said).toEqual(["Earlier messages were summarised to make room.", "Earlier messages were summarised to make room."])
   })
 
   it("puts the notes of a resumed conversation where they take over from the turns above, and keeps the count", async () => {
@@ -564,7 +564,7 @@ describe("useChat condensing (ADR 055)", () => {
     expect(result.current.turns.map((t) => [t.role, t.kind, t.title ? `${t.title}: ${t.body}` : t.body])).toEqual([
       ["user", undefined, "question 4"],
       ["persona", undefined, "answer 4"],
-      ["system", "output", "The turns above are condensed into these notes: The user likes SQLite."],
+      ["system", "output", "Earlier messages are summarised here: The user likes SQLite."],
       ["user", undefined, "question 5"],
       ["persona", undefined, "answer 5"],
     ])
@@ -590,7 +590,7 @@ describe("useChat condensing (ADR 055)", () => {
     expect(api.compactChatSession).toHaveBeenCalledWith("samantha", "s1")
     const lines = result.current.turns.filter((t) => t.role === "system")
     expect(lines.map((t) => [t.kind, t.title ? `${t.title}: ${t.body}` : t.body])).toEqual([
-      ["confirmation", "Condensed the first 11 turns into notes (600 to 120 tokens):"],
+      ["confirmation", "Summarised the first 11 messages to free up room:"],
       ["output", "The notes: The user is building Pantry."],
     ])
     expect(result.current.context).toBeUndefined()
@@ -616,14 +616,14 @@ describe("useChat condensing (ADR 055)", () => {
     })
     const lines = result.current.turns.filter((t) => t.role === "system").map((t) => [t.kind, t.title ? `${t.title}: ${t.body}` : t.body])
     expect(lines).toEqual([
-      ["notice", "Nothing to condense yet: the newest turns always stay as they are."],
+      ["notice", "Nothing to condense yet: the latest messages always stay as they are."],
       ["output", "The notes now: Earlier notes."],
     ])
     expect(result.current.context).toEqual({ used: 3000, limit: 4000, model: "m" }) // nothing changed
   })
 
   it.each([
-    ["too_small", "notice", "Nothing to gain yet"],
+    ["too_small", "notice", "Nothing to gain"],
     ["failed", "error", "The notes could not be written"],
     ["busy", "notice", "Already condensing"],
   ])("says %s in its own words", async (status, kind, words) => {
@@ -655,7 +655,7 @@ describe("useChat condensing (ADR 055)", () => {
       await result.current.compact()
     })
     expect(api.compactChatSession).not.toHaveBeenCalled()
-    expect(result.current.turns.map((t) => t.body)).toEqual(["Nothing to condense: this conversation has not started yet."])
+    expect(result.current.turns.map((t) => t.body)).toEqual(["Nothing to condense yet. This chat is too short."])
   })
 
   it("is not started a second time while the notes are being written", async () => {

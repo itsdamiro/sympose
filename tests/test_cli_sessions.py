@@ -89,8 +89,8 @@ def test_the_list_is_numbered_with_title_turns_and_pins(profiles):
     lines = drive("")["lines"][0]
 
     assert lines[0].startswith("@samantha's conversations")
-    assert lines[1].startswith("  1. Garden plans · 3 turns") and lines[1].endswith("pinned")
-    assert lines[2].startswith("  2. Trip · 1 turn ·") and "pinned" not in lines[2]
+    assert lines[1].startswith("  1. Garden plans · 3 messages") and lines[1].endswith("pinned")
+    assert lines[2].startswith("  2. Trip · 1 message ·") and "pinned" not in lines[2]
 
 
 def test_no_conversations_says_so(profiles):
@@ -130,7 +130,7 @@ def test_open_shows_where_the_conversation_stopped_and_continues_it(profiles):
 
     lines = out["lines"][0]
     assert out["session_id"] == A and out["generation"] == 1
-    assert lines[0] == "(2 earlier turns not shown)"
+    assert lines[0] == "(2 earlier messages not shown)"
     assert any("Garden plans answer 5" in line for line in lines) and not any("answer 1" in line for line in lines)
     assert lines[-1] == 'Continuing "Garden plans" (6 turns).'
 
@@ -236,7 +236,7 @@ def test_the_bin_lists_what_was_deleted_by_number(profiles):
 
     assert out[0].startswith("Deleted conversations")
     assert sorted(line[5:].split(" · ")[0] for line in out[1:]) == ["Garden plans", "Trip"]
-    assert all("turn" in line and "deleted 20" in line for line in out[1:])
+    assert all("message" in line and "deleted 20" in line for line in out[1:])
 
 
 def test_an_empty_bin_says_so(profiles):

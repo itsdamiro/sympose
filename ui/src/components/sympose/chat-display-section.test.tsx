@@ -25,7 +25,7 @@ describe("ChatDisplaySection", () => {
   it("shows the typing switch as it is and sets it from the other side, leaving the grounding one alone", () => {
     const setPref = vi.fn()
     render(<ChatDisplaySection prefs={{ showGrounding: true, typeStatus: false, showMeter: true, showCloudSent: true }} setPref={setPref} />)
-    const group = screen.getByRole("radiogroup", { name: "Type the busy line out by letters" })
+    const group = screen.getByRole("radiogroup", { name: "Animate the “thinking” text" })
     expect(group.querySelector('[aria-checked="true"]')?.textContent).toBe("Off")
     fireEvent.click(group.querySelector('[aria-checked="false"]') as HTMLElement)
     expect(setPref).toHaveBeenCalledTimes(1)

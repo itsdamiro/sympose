@@ -61,10 +61,10 @@ function HiddenSection({
           ))}
         </ul>
       )}
-      <ControlRow label="Folder definition notes">
+      <ControlRow label="Folder description notes">
         <SegmentedControl
           size="sm"
-          aria-label="Show folder definition notes"
+          aria-label="Show folder description notes"
           value={showDefinitionNotes ? "shown" : "hidden"}
           onValueChange={(v) => onShowDefinitionNotes(v === "shown")}
           options={[

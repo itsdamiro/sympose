@@ -22,15 +22,20 @@ def value_text(setting: Setting) -> str:
     return str(value) + ("" if settings_store.get(setting.key) is not None else " (default)")
 
 
+def label(setting: Setting) -> str:
+    """What a person calls the setting, with its key in brackets so it can be found in settings.json."""
+    return f"{setting.summary[:1].upper()}{setting.summary[1:]} ({setting.key})"
+
+
 def set_value(setting: Setting, wanted: object) -> tuple[str, bool]:
     """Move a toggle or a choice to `wanted`, and say what happened (with whether it was saved). The default's value removes the
     key, so the default applies again (and follows a later change of it)."""
     if setting.kind == TOGGLE and not isinstance(wanted, bool) or setting.kind == CHOICE and wanted not in setting.choices:
-        return f"{wanted} is not a value for {setting.key}.", False
+        return f"{wanted} is not a value for {label(setting)}.", False
     saved = settings_store.remove(setting.key) if wanted == setting.default() else settings_store.set(setting.key, wanted)
     if not saved or setting.current() != wanted:
-        return f"Couldn't save {setting.key}.", False
-    return f"{setting.key} is now {value_text(setting)}.", True
+        return f"Couldn't save {label(setting)}.", False
+    return f"{label(setting)} is now {value_text(setting)}.", True
 
 
 def flip(setting: Setting) -> str:
@@ -57,24 +62,24 @@ def set_number(setting: Setting, text: str) -> tuple[str, bool]:
     """Save what was typed and say what happened; `True` when that ends the prompt (saved, adjusted or
     reset), `False` when it stays open (not a number, not valid, or not saved)."""
     text = text.strip()
-    key = setting.key
+    key, name = setting.key, label(setting)
     if not text:
         if not settings_store.remove(key):
-            return f"Couldn't save {key}.", False
-        return f"{key} is back to {value_text(setting)}.", True
+            return f"Couldn't save {name}.", False
+        return f"{name} is back to {value_text(setting)}.", True
     value = _parse(setting, text)
     if value is None:
-        return f"'{text}' is not {'a whole number' if setting.whole else 'a number'}: {setting.hint}.", False
+        return f"'{text}' is not {'a whole number' if setting.whole else 'a number'} ({name}): {setting.hint}.", False
     previous = settings_store.get(key, _MISSING)
     if not settings_store.set(key, value):
-        return f"Couldn't save {key}.", False
+        return f"Couldn't save {name}.", False
     now = setting.current()
     if now == value:
-        return f"{key} is now {value_text(setting)}.", True
+        return f"{name} is now {value_text(setting)}.", True
     if now == setting.default():  # the module does not accept it: put it back as it was
         restored = settings_store.remove(key) if previous is _MISSING else settings_store.set(key, previous)
         if not restored:
-            return f"{text} is not valid for {key}: {setting.hint}. Couldn't put it back: check settings.json.", False
-        return f"{text} is not valid for {key}: {setting.hint}. It is left as it was.", False
-    return f"{key} is now {value_text(setting)} ({text} was adjusted: {setting.hint}).", True
+            return f"{text} is not valid for {name}: {setting.hint}. Couldn't put it back: check settings.json.", False
+        return f"{text} is not valid for {name}: {setting.hint}. It is left as it was.", False
+    return f"{name} is now {value_text(setting)} ({text} was adjusted: {setting.hint}).", True
 

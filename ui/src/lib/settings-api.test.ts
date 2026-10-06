@@ -31,9 +31,9 @@ describe("fetchSettings", () => {
 
   it("says the backend is unreachable, or the status it answered with", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")))
-    expect(await fetchSettings()).toEqual({ ok: false, error: "the Sympose backend is not reachable" })
+    expect(await fetchSettings()).toEqual({ ok: false, error: "Sympose isn't responding. Check that it's still running, then try again." })
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({}, false, 500)))
-    expect(await fetchSettings()).toEqual({ ok: false, error: "HTTP 500" })
+    expect(await fetchSettings()).toEqual({ ok: false, error: "Something failed on Sympose's side (code 500). Try again." })
   })
 })
 
@@ -65,6 +65,6 @@ describe("changeSetting", () => {
   it("says the backend is unreachable", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")))
     const result = await changeSetting("reply_limit", 300)
-    expect(!result.ok && result.error).toContain("not reachable")
+    expect(!result.ok && result.error).toContain("isn't responding")
   })
 })

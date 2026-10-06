@@ -95,10 +95,10 @@ export async function resolveChanges(path: string, persona: string, which: strin
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ path, persona, ...(which === "all" ? { all: true } : { ids: which }) }),
     })
-    if (!res.ok) return { ok: false, error: (await detailOf(res)) || `HTTP ${res.status}` }
+    if (!res.ok) return { ok: false, error: (await detailOf(res)) || `Something failed on Sympose's side (code ${res.status}). Try again.` }
     return { ok: true, resolved: ((await res.json()) as { resolved: string[] }).resolved }
   } catch {
-    return { ok: false, error: "the Sympose backend is not reachable" }
+    return { ok: false, error: "Sympose isn't responding. Check that it's still running, then try again." }
   }
 }
 
@@ -113,10 +113,10 @@ export async function saveDraftText(path: string, persona: string, text: string)
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ path, persona, text }),
     })
-    if (!res.ok) return { ok: false, error: (await detailOf(res)) || `HTTP ${res.status}` }
+    if (!res.ok) return { ok: false, error: (await detailOf(res)) || `Something failed on Sympose's side (code ${res.status}). Try again.` }
     return { ok: true }
   } catch {
-    return { ok: false, error: "the Sympose backend is not reachable" }
+    return { ok: false, error: "Sympose isn't responding. Check that it's still running, then try again." }
   }
 }
 
@@ -125,10 +125,10 @@ export type CommentResult = { ok: true; comment?: Annotation } | { ok: false; er
 async function sendComment(method: "POST" | "PATCH", body: Record<string, unknown>): Promise<CommentResult> {
   try {
     const res = await fetch("/api/vault/annotations", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
-    if (!res.ok) return { ok: false, error: (await detailOf(res)) || `HTTP ${res.status}` }
+    if (!res.ok) return { ok: false, error: (await detailOf(res)) || `Something failed on Sympose's side (code ${res.status}). Try again.` }
     return { ok: true, comment: method === "POST" ? ((await res.json()) as Annotation) : undefined }
   } catch {
-    return { ok: false, error: "the Sympose backend is not reachable" }
+    return { ok: false, error: "Sympose isn't responding. Check that it's still running, then try again." }
   }
 }
 
@@ -154,9 +154,9 @@ export function changeComment(args: { path: string; persona: string; id: string;
 export async function deleteComment(path: string, persona: string, id: string): Promise<CommentResult> {
   try {
     const res = await fetch(`/api/vault/annotations?path=${encodeURIComponent(path)}&id=${encodeURIComponent(id)}&persona=${encodeURIComponent(persona)}`, { method: "DELETE" })
-    if (!res.ok) return { ok: false, error: (await detailOf(res)) || `HTTP ${res.status}` }
+    if (!res.ok) return { ok: false, error: (await detailOf(res)) || `Something failed on Sympose's side (code ${res.status}). Try again.` }
     return { ok: true }
   } catch {
-    return { ok: false, error: "the Sympose backend is not reachable" }
+    return { ok: false, error: "Sympose isn't responding. Check that it's still running, then try again." }
   }
 }

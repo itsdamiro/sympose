@@ -59,7 +59,7 @@ function SetupForm({
     }
     onCreated()
     onClose()
-    notify.success(`Created ${folder}/${folder}.md`)
+    notify.success(`Created the folder description for ${folder}`)
   }
 
   return (
@@ -81,7 +81,7 @@ function SetupForm({
             maxLength={500}
             disabled={busy}
             onChange={(e) => setPurpose(e.target.value)}
-            placeholder="One or two sentences."
+            placeholder="A sentence or two about what goes in this folder"
             className={FIELD}
           />
         </label>
@@ -92,7 +92,7 @@ function SetupForm({
             value={template}
             disabled={busy}
             onChange={(e) => setTemplate(e.target.value)}
-            placeholder="One property per line."
+            placeholder="Fields each note should have, one per line"
             spellCheck={false}
             className={`${FIELD} font-mono text-xs`}
           />
@@ -112,7 +112,7 @@ function SetupForm({
           disabled={busy || nothingToWrite}
           onClick={() => void create()}
         >
-          {manual ? "Save" : "Create the definition"}
+          {manual ? "Save" : "Create the description"}
         </Button>
       </DialogFooter>
     </>
@@ -125,7 +125,7 @@ function SetupForm({
  * Open while `setup` is set, with the generic template already fetched (the
  * app shell only sets it for a folder the server says can have a definition).
  * Closing it, or Skip, writes nothing; only the user's own words are written,
- * and only on Create the definition.
+ * and only on Create the description.
  */
 export function FolderSetupDialog({
   setup,

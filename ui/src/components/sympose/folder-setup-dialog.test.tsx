@@ -35,7 +35,7 @@ const templateField = () =>
 const purposeField = () =>
   screen.getByLabelText(/What is this folder for/) as HTMLTextAreaElement
 const createButton = () =>
-  screen.getByRole("button", { name: "Create the definition" }) as HTMLButtonElement
+  screen.getByRole("button", { name: "Create the description" }) as HTMLButtonElement
 
 describe("FolderSetupDialog", () => {
   it("shows nothing while no folder was just created", () => {
@@ -85,7 +85,7 @@ describe("FolderSetupDialog", () => {
       "samantha"
     )
     expect(onClose).toHaveBeenCalledTimes(1)
-    expect(notify.success).toHaveBeenCalledWith("Created Books/Books.md")
+    expect(notify.success).toHaveBeenCalledWith("Created the folder description for Books")
   })
 
   it("writes the template alone when the purpose is left empty", async () => {

@@ -42,3 +42,12 @@ export function useDrafts(persona: string, refreshKey: number) {
   // Another persona's drafts are never shown while this one's are on their way.
   return state.persona === persona ? state.drafts : []
 }
+
+/** The drafts that belong to the folder in view, at any depth (`Notes and Pets/` is not in `Notes/`), as Pinned is
+ *  scoped to its root folder. With no folder in view (the vault's own root notes) only the drafts of notes outside
+ *  every folder are listed. */
+export function draftsInFolder(drafts: Draft[], folder: string | undefined): Draft[] {
+  if (folder === undefined) return drafts.filter((d) => !d.path.includes("/"))
+  const prefix = `${folder}/`
+  return drafts.filter((d) => d.path.startsWith(prefix))
+}

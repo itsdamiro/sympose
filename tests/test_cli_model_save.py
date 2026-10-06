@@ -139,7 +139,7 @@ def in_conversation(first):
 def test_a_local_to_cloud_switch_in_a_conversation_asks_first_and_changes_nothing_yet(profiles):
     kind, model, said = run_async(in_conversation(LOCAL)(CLOUD))
     assert kind == share.CONFIRM_KIND and model == LOCAL
-    assert "earlier replies in this conversation" in " ".join(said) and "history" in " ".join(said)
+    assert "earlier replies in this conversation" in " ".join(said) and "keep them private" in " ".join(said)
     assert saved_model(profiles, "samantha") == LOCAL  # not saved either
 
 

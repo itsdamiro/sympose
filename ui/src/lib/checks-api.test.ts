@@ -23,9 +23,9 @@ describe("checks api", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(respond({ detail: "No vault is set up." }, false, 409)))
     expect(await fetchHealth()).toEqual({ ok: false, error: "No vault is set up." })
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(respond({}, false, 500)))
-    expect(await fetchHealth()).toEqual({ ok: false, error: "HTTP 500" })
+    expect(await fetchHealth()).toEqual({ ok: false, error: "Something failed on Sympose's side (code 500). Try again." })
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")))
-    expect(await fetchHealth()).toEqual({ ok: false, error: "the Sympose backend is not reachable" })
+    expect(await fetchHealth()).toEqual({ ok: false, error: "Sympose isn't responding. Check that it's still running, then try again." })
   })
 
   it("tells what is fixable and what is left", () => {

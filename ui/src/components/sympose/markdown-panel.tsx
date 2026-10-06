@@ -483,7 +483,7 @@ function MarkdownPanel({
       {frontmatter !== null && (
         <button
           type="button"
-          aria-label={frontmatterVisible ? "Hide frontmatter" : "Show frontmatter"}
+          aria-label={frontmatterVisible ? "Hide properties" : "Show properties"}
           aria-pressed={frontmatterVisible}
           onClick={() => setFrontmatterVisible((v) => !v)}
           className={cn(

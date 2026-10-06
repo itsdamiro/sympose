@@ -55,7 +55,7 @@ async def run_command(app, command, args: str = "") -> None:
     elif command.name == "/grounding":
         turned_on = not grounding_line.enabled()
         if grounding_line.set_enabled(turned_on):
-            line = f"Grounded notes are now {'shown' if turned_on else 'hidden'} in reply headers."
+            line = f"The list of notes used is now {'shown' if turned_on else 'hidden'} in reply headers."
         else:
             line = "Couldn't save the grounded-notes setting."
         transcript_mod.mount_line(app, line, "system")

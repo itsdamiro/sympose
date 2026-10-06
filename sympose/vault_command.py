@@ -14,7 +14,7 @@ from sympose.vault_write_status import NOTE_DENIED, NOTE_EXISTS
 def _profile(persona: str | None, out: TextIO) -> dict[str, Any] | None:
     found = profiles.resolve_profile(persona)
     if found is None:
-        print(f"sympose vault: there is no persona named {persona!r}" if persona else "sympose vault: the default persona cannot be found (run `sympose doctor`)", file=out)
+        print(f"sympose vault: there is no persona named {persona!r}" if persona else "sympose vault: no default persona was found. Run `sympose doctor` to see why.", file=out)
     return found
 
 
@@ -28,7 +28,7 @@ def health(persona: str | None = None, out: TextIO | None = None, ask: Callable[
         return 1
     scanned = vault_health.scan(found)
     if scanned is None:
-        print("sympose vault: no vault is set up (see VAULT_PATHS in .env.example)", file=out)
+        print("sympose vault: no vault is set up yet. Set VAULT_PATHS in your .env file to the folder of your Obsidian vault (see .env.example).", file=out)
         return 1
     scope, results = scanned
     print("\n".join(vault_health_report.render(scope, results)), file=out)
@@ -60,9 +60,9 @@ def _why(proposal: Any) -> str:
     from sympose.engine import folder_purpose as purpose
 
     return {
-        purpose.WRITTEN: "The purpose was written by the model from the titles of the folder's notes and the names of its sub-folders.",
+        purpose.WRITTEN: "The model wrote this description from your note titles.",
         purpose.UNCLEAR: "The titles do not show what the folder is for, so its purpose is left empty for you to write.",
-        purpose.WITHHELD: "The model is a cloud model and `notes` is not approved for it (`/share`), so nothing was sent and the purpose is left empty.",
+        purpose.WITHHELD: "This is a cloud model and your notes aren't shared with cloud models (/share), so nothing was sent and the description is blank.",
         purpose.FAILED: f"The model could not write a purpose ({proposal.reason}), so it is left empty.",
     }[proposal.state]
 

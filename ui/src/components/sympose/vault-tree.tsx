@@ -327,6 +327,9 @@ interface VaultTreeProps
   listLabel?: string
   /** The caption's icon: the folder's own. */
   listIcon?: IconSvgElement
+  /** Something else sits above the tree (the Drafts section), so the plain list is captioned even with no Pinned:
+   *  without it the notes would run on from that section with nothing between them. */
+  captionList?: boolean
 }
 
 function VaultTree({
@@ -353,6 +356,7 @@ function VaultTree({
   onUnpinAll,
   listLabel = "All notes",
   listIcon = Folder01Icon,
+  captionList = false,
   ...props
 }: VaultTreeProps) {
   const [expanded, setExpanded] = React.useState<Set<string>>(() => {
@@ -444,6 +448,9 @@ function VaultTree({
             <GroupCaption icon={listIcon} label={listLabel} paddingLeft={0} />
           </>
         )}
+      {pinnedNodes.length === 0 && captionList && display.length > 0 && (
+        <GroupCaption icon={listIcon} label={listLabel} paddingLeft={0} />
+      )}
 
       {display.map(({ node, closing }) => (
         <VaultTreeRow

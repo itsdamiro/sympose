@@ -76,10 +76,10 @@ export async function restoreTrashNote(
     if (res.ok) return { ok: true, detail: (await res.json()).detail as string }
     return {
       ok: false,
-      error: (await detailOf(res)) || `Restore failed (HTTP ${res.status})`,
+      error: (await detailOf(res)) || `Restore failed (code ${res.status}). Try again.`,
     }
-  } catch (err) {
-    return { ok: false, error: `Restore failed — backend unreachable (${err})` }
+  } catch {
+    return { ok: false, error: `Restore failed: Sympose isn't responding. Check that it's still running, then try again.` }
   }
 }
 
@@ -102,9 +102,9 @@ export async function restoreTrashFolder(trashDir: string, persona: string): Pro
       const body = (await res.json()) as { detail: string; restored: string[]; skipped: { path: string; reason: string }[] }
       return { ok: true, ...body }
     }
-    return { ok: false, error: (await detailOf(res)) || `Restore failed (HTTP ${res.status})` }
-  } catch (err) {
-    return { ok: false, error: `Restore failed — backend unreachable (${err})` }
+    return { ok: false, error: (await detailOf(res)) || `Restore failed (code ${res.status}). Try again.` }
+  } catch {
+    return { ok: false, error: `Restore failed: Sympose isn't responding. Check that it's still running, then try again.` }
   }
 }
 
@@ -124,10 +124,10 @@ export async function purgeTrashNote(
     if (res.ok) return { ok: true, detail: (await res.json()).detail as string }
     return {
       ok: false,
-      error: (await detailOf(res)) || `Delete failed (HTTP ${res.status})`,
+      error: (await detailOf(res)) || `Delete failed (code ${res.status}). Try again.`,
     }
-  } catch (err) {
-    return { ok: false, error: `Delete failed — backend unreachable (${err})` }
+  } catch {
+    return { ok: false, error: `Delete failed: Sympose isn't responding. Check that it's still running, then try again.` }
   }
 }
 
@@ -147,12 +147,12 @@ export async function emptyTrash(
     if (res.ok) return { ok: true, detail: (await res.json()).detail as string }
     return {
       ok: false,
-      error: (await detailOf(res)) || `Empty trash failed (HTTP ${res.status})`,
+      error: (await detailOf(res)) || `Empty trash failed (code ${res.status}). Try again.`,
     }
-  } catch (err) {
+  } catch {
     return {
       ok: false,
-      error: `Empty trash failed — backend unreachable (${err})`,
+      error: `Empty trash failed: Sympose isn't responding. Check that it's still running, then try again.`,
     }
   }
 }

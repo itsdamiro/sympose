@@ -64,7 +64,7 @@ describe("FolderMoveDialog: the files that are in both", () => {
 
   it("lists them in one prompt and says nothing is overwritten", () => {
     show(ask(2))
-    expect(screen.getByText("2 files are in both folders")).toBeTruthy()
+    expect(screen.getByText("2 files have the same name in both folders")).toBeTruthy()
     expect(screen.getByText("Note 0.md")).toBeTruthy()
     expect(screen.getByText(/Nothing is overwritten/)).toBeTruthy()
     expect(screen.queryByText(/and \d+ more/)).toBeNull()
@@ -72,7 +72,7 @@ describe("FolderMoveDialog: the files that are in both", () => {
 
   it("says is for one, and counts the ones not shown when there are many", () => {
     show(ask(1))
-    expect(screen.getByText("1 file is in both folders")).toBeTruthy()
+    expect(screen.getByText("1 file has the same name in both folders")).toBeTruthy()
     cleanup()
     show(ask(11))
     expect(screen.getByText("and 3 more")).toBeTruthy()

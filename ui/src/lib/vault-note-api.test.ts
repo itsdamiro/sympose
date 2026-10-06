@@ -132,7 +132,7 @@ describe("renameVaultFolder", () => {
     const res = await renameVaultFolder("People", "Team", "samantha")
 
     expect(res.ok).toBe(false)
-    expect(!res.ok && res.error).toMatch(/unreachable/)
+    expect(!res.ok && res.error).toMatch(/isn't responding/)
   })
 })
 

@@ -25,7 +25,7 @@ def set_active_vault(path: str) -> dict[str, Any]:
     if not vault_registry.set_active_vault(path):
         raise HTTPException(
             status_code=404,
-            detail="Not a configured vault — check VAULT_PATHS.",
+            detail="That vault isn't set up. Add its path in your .env file under VAULT_PATHS, or use the vault switcher to add it.",
         )
     return list_vaults()
 

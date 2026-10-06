@@ -8,10 +8,10 @@ def render(figures: tuple[int, int] | None, estimated: bool, shown: bool) -> lis
     """`figures` is `(tokens in use, prompt budget)` or `None`; `estimated` while it is the figure
     worked out at a model switch; `shown` is whether the meter line is turned on."""
     if figures is None:
-        return ["No context figure yet: the meter fills after the first reply of a chat. It also stays empty "
-                "when the model's window is unknown."]
+        return ["No memory figure yet: the meter fills after the first reply of a conversation. It also stays "
+                "empty when the model's size limit is unknown."]
     used, limit = figures
-    lines = [f"Context: {used:,} of {limit:,} tokens of the prompt budget ({meter.percent(used, limit)}%)."]
+    lines = [f"Memory used: {used:,} of {limit:,} ({meter.percent(used, limit)}%)."]
     if estimated:
         lines.append(
             "This is an estimate for the model you switched to, worked out from the conversation so far. It "
@@ -19,13 +19,10 @@ def render(figures: tuple[int, int] | None, estimated: bool, shown: bool) -> lis
         )
     else:
         lines.append(
-            "Counted: the persona's instructions, the notes sent with your last message, the conversation kept "
-            "and the last reply, plus a 15% safety margin, so it leans high."
+            "This counts the persona's instructions, notes sent with your last message, the conversation and the "
+            "last reply, with a safety margin, so it may read a little high."
         )
-    lines.append(
-        "The budget is the model's window minus the room kept for the reply. At 100% the next message starts "
-        "leaving older turns out."
-    )
+    lines.append("At 100% the next message starts leaving out the oldest messages.")
     if not shown:
-        lines.append(f"The meter under the chat box is hidden ({meter.SETTING} is false in settings.json).")
+        lines.append("The meter under the chat box is hidden (turn it on in /settings under Display).")
     return lines

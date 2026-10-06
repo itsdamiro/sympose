@@ -101,7 +101,7 @@ describe("SettingsView", () => {
   it("turns the definition-notes switch into a change of the hidden list, which the shell applies", () => {
     setShowDefinitionNotes.mockReturnValue("the-request")
     const s = setup()
-    fireEvent.click(radio("Show folder definition notes", "Shown"))
+    fireEvent.click(radio("Show folder description notes", "Shown"))
     expect(setShowDefinitionNotes).toHaveBeenCalledWith(true)
     expect(s.changeHidden).toHaveBeenCalledExactlyOnceWith("the-request")
   })
@@ -115,11 +115,11 @@ describe("SettingsView", () => {
   it("shows the notice and the definition-notes switch as they stand", () => {
     setup()
     expect(radio("Notice above the message box", "Shown").getAttribute("aria-checked")).toBe("true")
-    expect(radio("Show folder definition notes", "Hidden").getAttribute("aria-checked")).toBe("true")
+    expect(radio("Show folder description notes", "Hidden").getAttribute("aria-checked")).toBe("true")
     cleanup()
     setup({ cloudNotice: { open: false, reopen: vi.fn(), close: vi.fn() }, hiddenState: { hidden: [], showDefinitionNotes: true } })
     expect(radio("Notice above the message box", "Hidden").getAttribute("aria-checked")).toBe("true")
-    expect(radio("Show folder definition notes", "Shown").getAttribute("aria-checked")).toBe("true")
+    expect(radio("Show folder description notes", "Shown").getAttribute("aria-checked")).toBe("true")
   })
 
   it("closes the cloud notice when it is switched to hidden", () => {

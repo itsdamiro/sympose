@@ -7,13 +7,13 @@ from sympose.cli import meter, picker, transcript as transcript_mod
 from sympose.cli.composer import DEFAULT_PLACEHOLDER
 from sympose.cli.selection import SelectionOption
 from sympose.cli.settings_registry import NUMBER, SETTINGS, find
-from sympose.engine.settings_apply import flip, set_number, value_text
+from sympose.engine.settings_apply import flip, label, set_number, value_text
 
 PICKER_KIND = "settings"
 
 
 def options() -> list[SelectionOption]:
-    return [SelectionOption(f"{s.key} — {value_text(s)}: {s.summary}", s.key) for s in SETTINGS]
+    return [SelectionOption(f"{label(s)} — {value_text(s)}", s.key) for s in SETTINGS]
 
 
 async def open_picker(app, highlight: str | None = None) -> None:
@@ -30,7 +30,7 @@ def choose(app, key: str) -> bool:
         return False
     if setting.kind == NUMBER:
         app.pending_setting = key
-        app.composer.placeholder = f"{key}: {setting.hint} · Esc cancels"
+        app.composer.placeholder = f"{label(setting)}: {setting.hint} · Esc cancels"
         return False
     transcript_mod.mount_line(app, flip(setting), "system")
     meter.redraw(app)  # the context meter follows its knob at once, not at the next reply (#106)

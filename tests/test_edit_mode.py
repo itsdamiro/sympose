@@ -99,10 +99,11 @@ def test_the_two_calmer_modes_have_nothing_to_warn_about():
 
 
 @pytest.mark.parametrize("mode", ["accept", "auto"])
-def test_a_measured_small_model_is_told_its_own_figures(mode):
+def test_a_measured_small_model_is_told_in_plain_words_what_goes_wrong_with_it(mode):
     text = edit_mode.note(mode, GEMMA)
-    assert "18" in text and "36" in text and "3 times" in text and "price" in text
-    assert "read each change" in text.lower()
+    assert "often makes mistakes" in text and "wrong place" in text and "did not contain" in text
+    assert "check every change" in text.lower()
+    assert not any(ch.isdigit() for ch in text)  # no figures from a test: they mean nothing to a user
 
 
 def test_gemma_is_one_model_whichever_way_ollama_names_it():
@@ -111,14 +112,16 @@ def test_gemma_is_one_model_whichever_way_ollama_names_it():
 
 def test_a_model_measured_as_faithful_gets_the_short_form_with_its_figure():
     text = edit_mode.note("auto", FLASH)
-    assert "35 times out of 36" in text and "invented notes" in text
+    assert "accurately in our tests" in text and "list marker" in text
+    assert not any(ch.isdigit() for ch in text)
     assert len(text) < len(edit_mode.note("auto", GEMMA))
 
 
 @pytest.mark.parametrize("model", ["ollama_chat/llama3.2:3b", "openai/gpt-x", None, ""])
-def test_a_model_not_measured_is_told_nothing_is_known_and_smaller_ones_are_expected_worse(model):
+def test_a_model_not_tested_is_told_so_and_that_small_models_make_more_mistakes(model):
     text = edit_mode.note("accept", model)
-    assert "not been measured" in text and "smaller" in text and "worse" in text
+    assert "not been tested" in text and "small models" in text and "more mistakes" in text
+    assert "read each change" in text.lower()
 
 
 def test_the_setting_is_a_choice_among_the_modes_defaulting_to_manual():
@@ -127,3 +130,9 @@ def test_the_setting_is_a_choice_among_the_modes_defaulting_to_manual():
     assert row.default() == "manual" and row.current() == "manual"
     assert row.group == "Editing" and row.group in GROUPS  # a group left out of GROUPS is a setting no screen lists
     assert sum(1 for s in SETTINGS if s.key == edit_mode.SETTING) == 1
+
+
+def test_the_mode_summaries_speak_of_the_persona_in_general_not_of_one_persona_or_one_person():
+    for summary in edit_mode.SUMMARIES.values():
+        words = summary.lower().replace(".", "").replace(";", "").split()
+        assert "she" not in words and "her" not in words

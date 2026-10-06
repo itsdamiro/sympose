@@ -32,5 +32,5 @@ def put_sharing(category: str, persona: str | None, body: SharingChange) -> dict
     if category not in sharing.CATEGORIES:
         raise HTTPException(status_code=404, detail=f"There is no category called {category}.")
     if not sharing.set_approved(category, body.shared):
-        raise HTTPException(status_code=500, detail="Couldn't save the cloud-sharing setting.")
+        raise HTTPException(status_code=500, detail="Couldn't save your cloud-sharing choice. Check that settings.json can be written to.")
     return _state(persona)

@@ -169,7 +169,7 @@ def change_annotation(
         annotation = _pick(entry["annotations"], annotation_id)
         if verdict is not None:
             if annotation.get("reply_to") or annotation.get("author") != "persona":
-                raise ValueError("Only her comments can be accepted or declined.")
+                raise ValueError("Only the persona's comments can be accepted or declined.")
             if verdict == DECLINED and not any(a.get("reply_to") == annotation_id and a.get("author") == "user" for a in entry["annotations"]):
                 raise ValueError("Reply first, saying why you disagree.")
         if text is not None:

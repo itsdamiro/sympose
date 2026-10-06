@@ -137,7 +137,7 @@ function ConversationRow({
                   )}
                 </>
               }
-              detail={`${row.turns} turn${row.turns === 1 ? "" : "s"}${when ? ` · ${when}` : ""}`}
+              detail={`${row.turns} message${row.turns === 1 ? "" : "s"}${when ? ` · ${when}` : ""}`}
             />
           </button>
 

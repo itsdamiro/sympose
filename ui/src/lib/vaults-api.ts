@@ -58,10 +58,10 @@ export async function setActiveVault(
     if (res.ok) return { ok: true, state: (await res.json()) as VaultsState }
     return {
       ok: false,
-      error: (await detailOf(res)) || `Switch failed (HTTP ${res.status})`,
+      error: (await detailOf(res)) || `Switch failed (code ${res.status}). Try again.`,
     }
-  } catch (err) {
-    return { ok: false, error: `Switch failed — backend unreachable (${err})` }
+  } catch {
+    return { ok: false, error: `Switch failed: Sympose isn't responding. Check that it's still running, then try again.` }
   }
 }
 
@@ -79,9 +79,9 @@ export async function addVault(path: string): Promise<SetActiveVaultResult> {
     if (res.ok) return { ok: true, state: (await res.json()) as VaultsState }
     return {
       ok: false,
-      error: (await detailOf(res)) || `Add failed (HTTP ${res.status})`,
+      error: (await detailOf(res)) || `Add failed (code ${res.status}). Try again.`,
     }
-  } catch (err) {
-    return { ok: false, error: `Add failed — backend unreachable (${err})` }
+  } catch {
+    return { ok: false, error: `Add failed: Sympose isn't responding. Check that it's still running, then try again.` }
   }
 }

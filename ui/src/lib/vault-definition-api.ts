@@ -66,12 +66,12 @@ export async function createFolderDefinition(
     return {
       ok: false,
       error:
-        (await detailOf(res)) || `Couldn't create the definition (HTTP ${res.status})`,
+        (await detailOf(res)) || `Couldn't create the folder description (code ${res.status}). Try again.`,
     }
-  } catch (err) {
+  } catch {
     return {
       ok: false,
-      error: `Couldn't create the definition — backend unreachable (${err})`,
+      error: `Couldn't create the folder description: Sympose isn't responding. Check that it's still running, then try again.`,
     }
   }
 }

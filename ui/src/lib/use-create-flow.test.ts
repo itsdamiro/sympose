@@ -268,7 +268,7 @@ describe("useCreateSubmit: define a folder by hand", () => {
     const s = setup()
     fetchNoteTemplate.mockResolvedValue({ lines: [], source: "settings", definable: false })
     await act(async () => s.result.current.openDefinition("Movies"))
-    expect(notify.info).toHaveBeenCalledWith(expect.stringContaining("Movies cannot be given a definition"))
+    expect(notify.info).toHaveBeenCalledWith(expect.stringContaining("Movies can't be described"))
     fetchNoteTemplate.mockResolvedValue(null)
     await act(async () => s.result.current.openDefinition("Movies"))
     expect(notify.error).toHaveBeenCalled()

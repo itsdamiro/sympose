@@ -27,8 +27,8 @@ _FAILED = {
     session_manage.NOT_FOUND: "That conversation is no longer there.",
     session_manage.BAD_TITLE: f"A title is one line of 1 to {session_manage.MAX_TITLE} characters.",
     session_manage.BUSY: "A reply is being written in that conversation: stop it first, or wait.",
-    session_manage.FAILED: "Could not save the change.",
-    session_manage.EXISTS: "A conversation with that id is already there, so it was not replaced.",
+    session_manage.FAILED: "Couldn't save the change. Check that the folder can be written to.",
+    session_manage.EXISTS: "That conversation is already there, so nothing was replaced.",
     session_manage.BAD_ID: "That conversation is no longer in the Bin.",
 }
 
@@ -43,7 +43,7 @@ def _when(stamp: str | None) -> str:
 def _line(number: int, row: dict, current: str | None) -> str:
     marks = [mark for mark, on in (("pinned", row["pinned_at"]), ("replying", row["replying"]), ("this one", row["id"] == current)) if on]
     title = row["title"] or "(new conversation)"
-    turns = f"{row['turns']} turn{'s' if row['turns'] != 1 else ''}"
+    turns = f"{row['turns']} message{'s' if row['turns'] != 1 else ''}"
     return f"{number:>3}. {title} · {turns} · {_when(row['updated_at'])}" + (f" · {', '.join(marks)}" if marks else "")
 
 
@@ -80,7 +80,7 @@ async def _open(app, row: dict) -> None:
     app.last_speaker = None
     turns = loaded["turns"]
     if len(turns) > _SHOWN_TURNS:
-        transcript_mod.mount_line(app, f"({len(turns) - _SHOWN_TURNS} earlier turns not shown)", "system")
+        transcript_mod.mount_line(app, f"({len(turns) - _SHOWN_TURNS} earlier messages not shown)", "system")
     for turn in turns[-_SHOWN_TURNS:]:
         transcript_mod.mount_line(app, transcript_mod.styled_line("You  ", Style(bold=True, dim=True), turn["user"]), "user")
         transcript_mod.mount_line(app, turn["assistant"], "persona")
@@ -96,7 +96,7 @@ def _show_bin(app, rows: list[dict]) -> None:
         return
     transcript_mod.mount_line(app, "Deleted conversations (/sessions restore <n>, or purge <n> to delete for good):", "system")
     for number, row in enumerate(rows, 1):
-        turns = f"{row['turns']} turn{'s' if row['turns'] != 1 else ''}"
+        turns = f"{row['turns']} message{'s' if row['turns'] != 1 else ''}"
         deleted = datetime.fromtimestamp(row["deleted_at"]).strftime("%Y-%m-%d %H:%M")
         transcript_mod.mount_line(app, f"{number:>3}. {row['title'] or '(untitled)'} · {turns} · deleted {deleted}", "system")
 

@@ -88,7 +88,7 @@ def missed_notice() -> str | None:
     names = ", ".join(repr(name) for name in missed)
     plural = len(missed) > 1
     return (
-        f"Persona folder{'s' if plural else ''} {names} {'are' if plural else 'is'} missing from the roster: "
-        f"the name is not lower case, and this file system keeps case. `sympose doctor --fix` renames "
+        f"Persona folder{'s' if plural else ''} {names} {'are' if plural else 'is'} not listed: "
+        f"{'their names' if plural else 'its name'} must be lower case; run `sympose doctor --fix` to rename "
         f"{'them' if plural else 'it'}."
     )

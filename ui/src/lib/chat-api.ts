@@ -26,7 +26,7 @@ export interface ChatReply {
   condensed?: number
 }
 
-const BACKEND_DOWN = "the Sympose backend is not reachable. Is it running (`sympose web`, or `python -m sympose.main` beside `npm run dev`)?"
+const BACKEND_DOWN = "Sympose isn't responding. Check that it's still running, then try again."
 
 export type SendChatTurnResult =
   | { ok: true; reply: ChatReply }
@@ -64,10 +64,10 @@ export async function sendChatTurn(
     if (detail) return { ok: false, error: detail }
     // A gateway error with no reason of ours in it is the dev server's proxy saying nothing is behind it.
     if ([502, 503, 504].includes(res.status)) return { ok: false, error: BACKEND_DOWN }
-    return { ok: false, error: `HTTP ${res.status}` }
-  } catch (err) {
+    return { ok: false, error: `Something failed on Sympose's side (code ${res.status}). Try again.` }
+  } catch {
     if (signal?.aborted) return { ok: false, cancelled: true }
-    return { ok: false, error: `${BACKEND_DOWN} (${err})` }
+    return { ok: false, error: `${BACKEND_DOWN}` }
   }
 }
 
@@ -234,8 +234,8 @@ export async function compactChatSession(
     const detail = await detailOf(res)
     if (detail) return { ok: false, error: detail }
     if ([502, 503, 504].includes(res.status)) return { ok: false, error: BACKEND_DOWN }
-    return { ok: false, error: `HTTP ${res.status}` }
-  } catch (err) {
-    return { ok: false, error: `${BACKEND_DOWN} (${err})` }
+    return { ok: false, error: `Something failed on Sympose's side (code ${res.status}). Try again.` }
+  } catch {
+    return { ok: false, error: `${BACKEND_DOWN}` }
   }
 }

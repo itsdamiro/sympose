@@ -33,7 +33,7 @@ export async function planFolderMove(path: string, destination: string, persona:
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ path, destination, persona, new_name: newName }),
     })
-    if (!res.ok) return { ok: false, error: (await detailOf(res)) || `Move failed (HTTP ${res.status})` }
+    if (!res.ok) return { ok: false, error: (await detailOf(res)) || `Move failed (code ${res.status}). Try again.` }
     const b = (await res.json()) as {
       path: string
       destination: string
@@ -44,8 +44,8 @@ export async function planFolderMove(path: string, destination: string, persona:
       definition: "stops" | "starts" | null
     }
     return { ok: true, path: b.path, destination: b.destination, newPath: b.new_path, clash: b.clash, noteClashes: b.note_clashes, reach: b.reach, definition: b.definition }
-  } catch (err) {
-    return { ok: false, error: `Move failed — backend unreachable (${err})` }
+  } catch {
+    return { ok: false, error: `Move failed: Sympose isn't responding. Check that it's still running, then try again.` }
   }
 }
 
@@ -83,10 +83,10 @@ export async function moveVaultFolder(
         confirm_reach: answers.confirmReach ?? false,
       }),
     })
-    if (!res.ok) return { ok: false, error: (await detailOf(res)) || `Move failed (HTTP ${res.status})` }
+    if (!res.ok) return { ok: false, error: (await detailOf(res)) || `Move failed (code ${res.status}). Try again.` }
     const b = (await res.json()) as { path: string; detail: string; personas: string[]; personas_unchanged: string[]; failed: number }
     return { ok: true, path: b.path, detail: b.detail, personas: b.personas, personasUnchanged: b.personas_unchanged, relinkFailed: b.failed }
-  } catch (err) {
-    return { ok: false, error: `Move failed — backend unreachable (${err})` }
+  } catch {
+    return { ok: false, error: `Move failed: Sympose isn't responding. Check that it's still running, then try again.` }
   }
 }

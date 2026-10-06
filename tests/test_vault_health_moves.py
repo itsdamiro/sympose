@@ -99,7 +99,7 @@ def test_both_are_observations_so_they_are_no_problem_and_come_after_the_problem
     text = "\n".join(report.render(scope, results))
 
     assert report.problem_count(results) == 1 and "1 problem(s) found." in text
-    assert text.index("Empty notes") < text.index("Notes named after a folder that is not top-level") < text.index("Numbered twins of a note")
+    assert text.index("Empty notes") < text.index("Folder notes inside sub-folders") < text.index("Possible duplicate notes (name (2))")
 
 
 def test_looking_changes_nothing(scratch):

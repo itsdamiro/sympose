@@ -86,7 +86,7 @@ def test_null_removes_the_pick_and_returns_to_the_shipped_model(client, scratch)
 def test_a_model_the_list_does_not_offer_is_refused_and_nothing_is_written(client, scratch):
     before = (scratch / "samantha" / "persona.yaml").read_text()
     r = client.put("/api/personas/samantha/model", json={"model": "evil/anything"})
-    assert r.status_code == 422 and "evil/anything" in r.json()["detail"]
+    assert r.status_code == 422 and r.json()["detail"] == "Pick a model from the list."
     assert (scratch / "samantha" / "persona.yaml").read_text() == before
 
 

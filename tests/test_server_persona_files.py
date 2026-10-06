@@ -64,7 +64,7 @@ def test_saving_over_a_change_made_meanwhile_is_a_409_that_says_so(client, home)
     opened = client.get("/api/personas/samantha/files/profile.md").json()["mtime"]
     os.utime(home / "profile.md", (opened + 50, opened + 50))
     refused = client.put("/api/personas/samantha/files/profile.md", json={"content": "mine", "expected_mtime": opened})
-    assert refused.status_code == 409 and "changed on disk" in refused.json()["detail"]
+    assert refused.status_code == 409 and "changed somewhere else" in refused.json()["detail"]
     assert (home / "profile.md").read_text() == "old"
 
 

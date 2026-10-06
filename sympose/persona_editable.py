@@ -27,8 +27,8 @@ OK, CONFLICT, FAILED, UNKNOWN = "ok", "conflict", "failed", "unknown"
 
 # The four names, in the order the menu lists them, each with what it is in a user's words.
 FILES: dict[str, tuple[str, str]] = {
-    "soul.md": ("Soul", "How she talks: her voice and temperament."),
-    "profile.md": ("Profile", "What she knows about you: stable facts and preferences."),
+    "soul.md": ("Soul", "How the persona talks: its voice and temperament."),
+    "profile.md": ("Profile", "What the persona knows about you: stable facts and preferences."),
     "context.md": ("Context", "What is active right now: projects and blockers."),
     "decisions.md": ("Decisions", "A dated log of what you decided, and why."),
 }

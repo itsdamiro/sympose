@@ -5,7 +5,7 @@ export const REFERENCE_SOURCE = "sympose"
 
 /** How a note was found, in the same words the terminal chat's `/grounded` uses. */
 const VIA_LABELS: Record<NonNullable<SentNote["via"]>, string> = {
-  embedding: "by meaning",
+  embedding: "found by topic",
   name: "named in full",
   value: "by a property value",
   search: "found by search",
@@ -31,16 +31,16 @@ export function groundedChats(sent: SentRecord | null | undefined): number {
 }
 
 export const groundedChatsLine = (count: number) =>
-  `${count} ${count === 1 ? "exchange" : "exchanges"} from earlier conversations, word for word`
+  `${count} ${count === 1 ? "message" : "messages"} from earlier chats, quoted exactly`
 
 /** The collapsed line: the note's name when one note grounded the reply, else how many; earlier exchanges follow.
  *  Notes count once each however many passages of them were used. */
 export function groundedSummary(notes: SentNote[], chats = 0): string {
   const files = [...new Set(notes.map((n) => n.path))]
   const parts: string[] = []
-  if (files.length === 1) parts.push(isReference(notes[0]) ? "the Sympose reference library" : noteTitle(files[0]))
+  if (files.length === 1) parts.push(isReference(notes[0]) ? "Sympose's built-in help" : noteTitle(files[0]))
   else if (files.length > 1) parts.push(`${files.length} notes`)
-  if (chats > 0) parts.push(`${chats} earlier ${chats === 1 ? "exchange" : "exchanges"}`)
+  if (chats > 0) parts.push(`${chats} earlier ${chats === 1 ? "message" : "messages"}`)
   return `Based on ${parts.join(" and ")}`
 }
 
@@ -48,8 +48,8 @@ export function groundedSummary(notes: SentNote[], chats = 0): string {
 export function noteDetail(note: SentNote): string {
   const bits = [
     note.via ? VIA_LABELS[note.via] : null,
-    isReference(note) ? "the Sympose reference library" : null,
-    note.similarity !== undefined ? `similarity ${note.similarity.toFixed(2)}` : null,
+    isReference(note) ? "Sympose's built-in help" : null,
+    note.similarity !== undefined ? (note.similarity >= CLOSE_MATCH ? "close match" : "partial match") : null,
   ]
   return bits.filter(Boolean).join(" · ")
 }
@@ -69,13 +69,16 @@ export function noteEntries(notes: SentNote[]): NoteEntry[] {
     byPath.set(note.path, entry)
     if (note.heading && !entry.headings.includes(note.heading)) entry.headings.push(note.heading)
     for (const bit of noteDetail(note).split(" · ").filter(Boolean)) {
-      if (!entry.details.includes(bit) && !(bit.startsWith("similarity") && entry.details.some((d) => d.startsWith("similarity")))) {
+      if (!entry.details.includes(bit) && !(bit.endsWith(" match") && entry.details.some((d) => d.endsWith(" match")))) {
         entry.details.push(bit)
       }
     }
   }
   return [...byPath.values()]
 }
+
+/** A similarity at or above this reads as a close match, below it as a partial one. */
+const CLOSE_MATCH = 0.75
 
 const TOOL_LABELS: Record<string, string> = {
   search_notes: "searched",
@@ -84,8 +87,8 @@ const TOOL_LABELS: Record<string, string> = {
   open_chat: "opened earlier conversation",
 }
 const MEMORY_FILES: Record<string, string> = { profile: "profile.md", context: "context.md", decisions: "decisions.md" }
-const ASK_FALLBACK = "You chose ask, but this model can't call tools, so Sympose searched for the message."
-const CHATS_ASK_FALLBACK = "You chose ask for earlier conversations, but this model can't call tools, so Sympose searched for the message."
+const ASK_FALLBACK = "This model can't look things up on its own, so Sympose searched your notes for you."
+const CHATS_ASK_FALLBACK = "This model can't look things up on its own, so Sympose searched your earlier chats for you."
 
 const isRemember = (l: SentLookup) => l.tool === "remember"
 // What she did to a note (docs/decisions/072), in the footer's words: not lookups.
@@ -125,10 +128,10 @@ export function groundedContext(sent: SentRecord | null | undefined): string[] {
   const recaps = sent.recaps?.length ?? 0
   if (recaps > 0) lines.push(`${recaps} earlier-conversation ${recaps === 1 ? "recap" : "recaps"}`)
   const files = (sent.memory ?? []).map((m) => MEMORY_FILES[m]).filter(Boolean)
-  if (files.length > 0) lines.push(`her memory (${files.join(", ")})`)
-  if (sent.searched) lines.push(`Searched for “${sent.searched}”`)
+  if (files.length > 0) lines.push(`the persona's memory (${files.join(", ")})`)
+  if (sent.searched) lines.push(`Also searched for “${sent.searched}”`)
   const dropped = sent.history_dropped ?? 0
-  if (dropped > 0) lines.push(`${dropped} older ${dropped === 1 ? "turn" : "turns"} left out of context`)
+  if (dropped > 0) lines.push(`${dropped} older ${dropped === 1 ? "message" : "messages"} didn't fit in this chat`)
   return lines
 }
 
@@ -175,7 +178,7 @@ const CLOUD_WORDS: Record<string, string> = {
   chats: "earlier conversations",
   vault_map: "vault map",
   connections: "note connections",
-  memory: "her memory",
+  memory: "the persona's memory",
   open_note: "the open note",
   annotations: "your comments",
 }

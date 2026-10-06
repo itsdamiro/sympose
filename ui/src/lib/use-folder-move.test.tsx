@@ -138,7 +138,7 @@ describe("moving a folder (docs/decisions/074)", () => {
     })
     await answer(result, "clash", { newName: "Taken" })
     await act(() => done)
-    expect(notify.error).toHaveBeenCalledWith("“Taken” is also taken in Archive.")
+    expect(notify.error).toHaveBeenCalledWith("A folder named “Taken” already exists in Archive.")
     expect(api.moveVaultFolder).not.toHaveBeenCalled()
 
     api.planFolderMove.mockResolvedValueOnce(plan({ clash: true })).mockResolvedValueOnce({ ok: false, error: "plain name" })
@@ -277,6 +277,21 @@ describe("moving a folder (docs/decisions/074)", () => {
     await act(() => done)
 
     expect(noteRenamedAway).not.toHaveBeenCalled()
+  })
+
+  it("clears the prompt as soon as it is answered, so the next one is never mistaken for it", async () => {
+    api.planFolderMove.mockResolvedValue(plan({ clash: true }))
+    const { result } = setup()
+
+    let done!: Promise<void>
+    act(() => {
+      done = result.current.moveFolder("People", "Archive")
+    })
+    await waitFor(() => expect(result.current.ask?.kind).toBe("clash"))
+    await act(async () => (result.current.ask!.resolve as (v: unknown) => void)(null))
+
+    expect(result.current.ask).toBeNull()
+    await act(() => done)
   })
 
   it("ignores a second drop while the first is waiting on the user", async () => {

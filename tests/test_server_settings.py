@@ -28,7 +28,7 @@ def rows(client):
 
 def test_lists_every_engine_setting_in_its_groups_and_no_terminal_display_knob(client):
     groups = client.get("/api/settings").json()["groups"]
-    assert [g["name"] for g in groups] == ["Context", "Search", "Note lookup", "Memory", "Conversations", "Editing"]
+    assert [g["name"] for g in groups] == ["Conversation memory", "Search", "Searching notes", "Memory", "Conversations", "Editing"]
     assert sum(len(g["settings"]) for g in groups) == len(settings_registry.SETTINGS)
     assert "show_grounding" not in rows(client) and "reply_reveal" not in rows(client)
 

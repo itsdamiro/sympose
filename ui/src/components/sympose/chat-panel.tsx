@@ -397,7 +397,7 @@ function ChatPanel({
                   type="button"
                   onClick={onCompact}
                   disabled={compacting}
-                  title={`The conversation is ${contextFigure ? percent(contextFigure.used, contextFigure.limit) : ""}% full: write short notes in place of the earlier turns, so it takes less room`}
+                  title={`This chat is ${contextFigure ? percent(contextFigure.used, contextFigure.limit) : ""}% full. Condense it to summarise earlier messages and free up room.`}
                   className={cn(toolbarButtonClass, "size-auto h-7 px-2 text-xs")}
                 >
                   {compacting ? "Condensing…" : "Condense"}

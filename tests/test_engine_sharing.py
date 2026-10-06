@@ -137,7 +137,7 @@ def test_a_hit_dropped_for_its_own_category_takes_its_connections_with_it_uncoun
 
 def test_the_connections_category_tells_the_user_it_includes_notes_close_in_meaning():
     # What the user approves must say what is sent (docs/decisions/066).
-    assert "close in meaning" in sharing.DESCRIPTIONS[sharing.CONNECTIONS]
+    assert "similar" in sharing.DESCRIPTIONS[sharing.CONNECTIONS]
 
 
 def test_notes_close_in_meaning_are_the_connections_category_too():

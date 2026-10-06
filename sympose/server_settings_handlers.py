@@ -35,7 +35,7 @@ def get_settings() -> dict[str, Any]:
 def put_setting(key: str, body: SettingChange) -> dict[str, Any]:
     setting = find(key)
     if setting is None:
-        raise HTTPException(status_code=404, detail=f"There is no setting called {key}.")
+        raise HTTPException(status_code=404, detail=f"Unknown setting '{key}'. Check its name in Settings.")
     if setting.kind == NUMBER:
         message, ok = settings_apply.set_number(setting, "" if body.value is None else str(body.value))
     else:

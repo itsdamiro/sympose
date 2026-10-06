@@ -49,10 +49,10 @@ function ChatDisplaySection({
         answered, what was sent and what was held back. Hiding it only hides the icon; what a cloud model may receive is set in
         sharing.
       </p>
-      <ControlRow label="Type the busy line out by letters">
+      <ControlRow label="Animate the “thinking” text">
         <SegmentedControl
           size="sm"
-          aria-label="Type the busy line out by letters"
+          aria-label="Animate the “thinking” text"
           value={prefs.typeStatus ? "on" : "off"}
           onValueChange={(v) => setPref("typeStatus", v === "on")}
           options={[
@@ -79,7 +79,7 @@ function ChatDisplaySection({
       </ControlRow>
       <p className="text-xs text-fg-muted">
         A ring and a percentage beside the message box: how much of the conversation the model can hold is in use. At
-        100% your next message starts leaving the oldest turns out.
+        100% the oldest messages are left out.
       </p>
     </ControlSection>
   )

@@ -47,7 +47,7 @@ def run_turn(
     app); the terminal passes neither, so a persona there is never given the edit tool (docs/decisions/072)."""
     persona = profile_mod.resolve_profile(handle)
     if persona is None:
-        raise PersonaNotFoundError(f"No profile found for persona '{handle}'.")
+        raise PersonaNotFoundError(f"No persona named '{handle}' was found.")
     handle = persona["handle"]  # the canonical, lower-cased key `lookup.converse` and the CLI also use
     sid = session_id or session.new_session_id()
     # A brand-new sid resolves to a file that doesn't exist yet, so this is

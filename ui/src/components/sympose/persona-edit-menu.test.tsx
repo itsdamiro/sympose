@@ -10,7 +10,7 @@ afterEach(cleanup)
 const MODES = (["plan", "manual", "accept", "auto"] as const).map((id) => ({ id, summary: `about ${id}` }))
 const info = (over: Partial<EditModeInfo> = {}): EditModeInfo => ({ mode: "manual", source: "persona", modes: MODES, notes: { accept: null, auto: null }, model: "m", ...over })
 const open = () => {
-  const trigger = screen.getByRole("button", { name: "What she may do on your notes" })
+  const trigger = screen.getByRole("button", { name: "What this persona may do to your notes" })
   fireEvent.mouseDown(trigger)
   fireEvent.mouseUp(trigger)
   fireEvent.click(trigger)
@@ -19,15 +19,15 @@ const open = () => {
 describe("PersonaEditMenu", () => {
   it("is not available until the mode is known", () => {
     render(<PersonaEditMenu info={null} onChoose={() => {}} />)
-    expect((screen.getByRole("button", { name: "What she may do on your notes" }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole("button", { name: "What this persona may do to your notes" }) as HTMLButtonElement).disabled).toBe(true)
   })
 
   it("reads the current mode, and marks it as a default when she follows the Settings page's", () => {
     render(<PersonaEditMenu info={info({ mode: "accept" })} onChoose={() => {}} />)
-    expect(screen.getByRole("button", { name: "What she may do on your notes" }).textContent).toBe("Accept edits")
+    expect(screen.getByRole("button", { name: "What this persona may do to your notes" }).textContent).toBe("Accept edits")
     cleanup()
     render(<PersonaEditMenu info={info({ mode: "auto", source: "global" })} onChoose={() => {}} />)
-    expect(screen.getByRole("button", { name: "What she may do on your notes" }).textContent).toBe("Auto (default)")
+    expect(screen.getByRole("button", { name: "What this persona may do to your notes" }).textContent).toBe("Auto (default)")
   })
 
   it("lists the four modes with a line each and the current one chosen", () => {

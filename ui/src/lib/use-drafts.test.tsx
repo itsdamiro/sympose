@@ -5,7 +5,7 @@ import { act, cleanup, renderHook, waitFor } from "@testing-library/react"
 const api = vi.hoisted(() => ({ fetchDrafts: vi.fn() }))
 vi.mock("@/lib/persona-changes-api", () => api)
 
-import { announceDraftsChanged, useDrafts } from "./use-drafts"
+import { announceDraftsChanged, draftsInFolder, useDrafts } from "./use-drafts"
 
 afterEach(() => {
   cleanup()
@@ -50,5 +50,27 @@ describe("useDrafts", () => {
     unmount()
     act(() => announceDraftsChanged())
     expect(api.fetchDrafts).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe("draftsInFolder: the drafts of the folder in view", () => {
+  const all = [draft("Notes/a.md"), draft("Notes/Sub/b.md"), draft("Notes and Pets/c.md"), draft("Daily/d.md"), draft("root.md")]
+
+  it("keeps the notes of the folder at any depth and nothing of another folder", () => {
+    expect(draftsInFolder(all, "Notes").map((d) => d.path)).toEqual(["Notes/a.md", "Notes/Sub/b.md"])
+    expect(draftsInFolder(all, "Daily").map((d) => d.path)).toEqual(["Daily/d.md"])
+  })
+
+  it("does not take a folder whose name only starts the same", () => {
+    expect(draftsInFolder(all, "Notes and Pets").map((d) => d.path)).toEqual(["Notes and Pets/c.md"])
+    expect(draftsInFolder(all, "Note")).toEqual([])
+  })
+
+  it("lists only the notes outside every folder when no folder is in view", () => {
+    expect(draftsInFolder(all, undefined).map((d) => d.path)).toEqual(["root.md"])
+  })
+
+  it("lists nothing for a folder with no drafts", () => {
+    expect(draftsInFolder(all, "Empty")).toEqual([])
   })
 })

@@ -44,9 +44,9 @@ def run_async(coro):
 
 
 def test_the_notice_says_how_many_turns_the_notes_stand_for():
-    assert trim_notice.segment(0, False, 14) == " · 14 earlier turns condensed"
-    assert trim_notice.segment(0, False, 1) == " · 1 earlier turn condensed"
-    assert trim_notice.segment(2, False, 14) == " · 14 earlier turns condensed · 2 older turns out of context"
+    assert trim_notice.segment(0, False, 14) == " · 14 earlier messages summarised"
+    assert trim_notice.segment(0, False, 1) == " · 1 earlier message summarised"
+    assert trim_notice.segment(2, False, 14) == " · 14 earlier messages summarised · 2 older messages left out (too long for the model)"
 
 
 def test_the_notice_is_silent_with_nothing_condensed_or_when_turned_off():
@@ -88,13 +88,13 @@ def _headers(monkeypatch, condensed_by_reply: list[int]) -> list[str]:
 def test_the_notice_is_shown_on_the_reply_that_first_used_the_notes_and_when_they_grow(profiles, monkeypatch):
     first, second, third = _headers(monkeypatch, [0, 9, 9])
     assert "condensed" not in first
-    assert "9 earlier turns condensed" in second
+    assert "9 earlier messages summarised" in second
     assert "condensed" not in third  # the same notes again: not said on every reply
 
 
 def test_the_notice_comes_back_when_a_later_compaction_covers_more(profiles, monkeypatch):
     _, second, third = _headers(monkeypatch, [0, 9, 12])
-    assert "9 earlier turns condensed" in second and "12 earlier turns condensed" in third
+    assert "9 earlier messages summarised" in second and "12 earlier messages summarised" in third
 
 
 # -- /compact ----------------------------------------------------------------
@@ -149,7 +149,7 @@ def test_compact_shows_the_notes_and_refreshes_the_meter(profiles, monkeypatch):
     done = compaction.Outcome(compaction.DONE, 11, "The user is building Pantry.", 600, 120)
     lines, calls, cleared, started = _compact(monkeypatch, done)
     assert calls and calls[0][:2] == ("samantha", "sess-1")
-    assert any("Condensed the first 11 turns into notes (600 to 120 tokens)" in line for line in lines)
+    assert any("Summarised the first 11 messages (600 to 120 words' worth of space)" in line for line in lines)
     assert any(line == "The user is building Pantry." for line in lines)
     assert cleared == [True] and len(started) == 1  # the meter is cleared and re-estimated
 
@@ -157,10 +157,10 @@ def test_compact_shows_the_notes_and_refreshes_the_meter(profiles, monkeypatch):
 @pytest.mark.parametrize(
     "status,words",
     [
-        (compaction.NOTHING, "Nothing to condense yet"),
-        (compaction.TOO_SMALL, "Nothing to gain yet"),
-        (compaction.FAILED, "could not be written"),
-        (compaction.BUSY, "Already condensing"),
+        (compaction.NOTHING, "Nothing to shorten yet"),
+        (compaction.TOO_SMALL, "Nothing to gain"),
+        (compaction.FAILED, "Couldn't summarise"),
+        (compaction.BUSY, "Already summarising"),
     ],
 )
 def test_compact_says_why_when_it_wrote_nothing(profiles, monkeypatch, status, words):
@@ -170,4 +170,4 @@ def test_compact_says_why_when_it_wrote_nothing(profiles, monkeypatch, status, w
 
 def test_compact_with_nothing_more_to_fold_still_shows_the_notes_in_force(profiles, monkeypatch):
     lines, *_ = _compact(monkeypatch, compaction.Outcome(compaction.NOTHING), notes_on_file="The user likes SQLite.")
-    assert any("The notes now: The user likes SQLite." in line for line in lines)
+    assert any("The summary now: The user likes SQLite." in line for line in lines)

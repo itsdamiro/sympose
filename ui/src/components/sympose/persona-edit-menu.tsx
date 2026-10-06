@@ -35,7 +35,7 @@ export function PersonaEditMenu({
   return (
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger
-        aria-label="What she may do on your notes"
+        aria-label="What this persona may do to your notes"
         disabled={!info}
         className={cn(
           chipClass,

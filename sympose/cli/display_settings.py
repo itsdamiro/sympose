@@ -8,8 +8,8 @@ from sympose.engine.settings_registry import NUMBER, Setting, toggle
 DISPLAY = "Display"
 
 SETTINGS: list[Setting] = [
-    toggle(grounding_line.SETTING, "the notes that grounded a reply, in its header", grounding_line.enabled, group=DISPLAY),
-    toggle(trim_notice.SETTING, "the notice that older turns were left out", trim_notice.enabled, group=DISPLAY),
+    toggle(grounding_line.SETTING, "the notes used for a reply, in its header", grounding_line.enabled, group=DISPLAY),
+    toggle(trim_notice.SETTING, "the notice that older messages were left out", trim_notice.enabled, group=DISPLAY),
     toggle(meter.SETTING, "the context meter under the chat box", meter.enabled, group=DISPLAY),
     toggle(background_status.SETTING, "the busy indicator above the box", background_status.enabled, group=DISPLAY),
     Setting(

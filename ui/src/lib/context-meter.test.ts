@@ -41,7 +41,7 @@ describe("explanation", () => {
   it("gives the figures in full, what 100% means, and that a real figure leans high", () => {
     const lines = explanation({ used: 3812, limit: 6144, estimated: false })
     expect(lines[0]).toBe("3,812 of 6,144 tokens")
-    expect(lines[1]).toContain("100% is where your next message starts leaving the oldest turns out")
+    expect(lines[1]).toContain("100% is where the oldest messages start to be left out")
     expect(lines[2]).toContain("leans a little high")
   })
 

@@ -40,21 +40,21 @@ describe("sendChatTurn", () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")))
     const res = await sendChatTurn("hello", "samantha")
     expect(res.ok).toBe(false)
-    expect(!res.ok && res.error).toContain("not reachable")
+    expect(!res.ok && res.error).toContain("isn't responding")
   })
 
   it("tells a dev proxy's bare 502 (nothing behind it) from the backend's own 502 with a reason", async () => {
     stub({ ok: false, status: 502, json: () => Promise.reject(new Error("not json")) })
     const bare = await sendChatTurn("hello", "samantha")
-    expect(!bare.ok && bare.error).toContain("not reachable")
-    expect(!bare.ok && bare.error).toContain("Is it running")
+    expect(!bare.ok && bare.error).toContain("isn't responding")
+    expect(!bare.ok && bare.error).toContain("Check that it's still running")
     stub({ ok: false, status: 502, json: () => Promise.resolve({ detail: "the model is not running" }) })
     expect(await sendChatTurn("hello", "samantha")).toEqual({ ok: false, error: "the model is not running" })
   })
 
   it("keeps a plain status for an error that is not a gateway one", async () => {
     stub({ ok: false, status: 500, json: () => Promise.reject(new Error("not json")) })
-    expect(await sendChatTurn("hello", "samantha")).toEqual({ ok: false, error: "HTTP 500" })
+    expect(await sendChatTurn("hello", "samantha")).toEqual({ ok: false, error: "Something failed on Sympose's side (code 500). Try again." })
   })
 
   it("reads a reply the backend says was stopped as cancelled, not as a reply", async () => {
@@ -216,9 +216,9 @@ describe("compactChatSession", () => {
   it("says the backend is not reachable instead of throwing, and tells a dev proxy's bare 502 apart", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")))
     const down = await compactChatSession("samantha", "s1")
-    expect(!down.ok && down.error).toContain("not reachable")
+    expect(!down.ok && down.error).toContain("isn't responding")
     stub({ ok: false, status: 502, json: () => Promise.reject(new Error("not json")) })
     const bare = await compactChatSession("samantha", "s1")
-    expect(!bare.ok && bare.error).toContain("not reachable")
+    expect(!bare.ok && bare.error).toContain("isn't responding")
   })
 })
