@@ -36,6 +36,20 @@ A persona that edits the user's note is sent the open note and its open comments
 
 **Now:** with an attachment, the sections she was shown (`edit_turn.focus` returns their `(start, end)` in the note, `Edit.scope`) are passed to the tool. If her passage is in the note more than once, it is placed where it is found **exactly once inside those sections**. The text around it (forty characters each side) is kept with it as for any proposal, and if that text does not tell the place from the others, so the passage could not be found again later, the change is refused ("more than once; quote more of it") rather than guessed. A passage found twice inside the sections, or not inside them, is refused as before; without an attachment nothing changes. The same applies to a comment (`note_changes._resolve`). `passage_finder.starts_within` finds the occurrences inside the sections.
 
-**Her prompt is not changed:** it still says the passage appears in the note exactly once; with an attachment, "in the section shown" is what now decides, and the stricter wording only makes her quote a little more than needed. Changing the words would need a measurement on a tool-calling model, and none was run (a cloud run needs the user's go-ahead).
+**Her prompt is not changed** (measured 2026-10-07, below): it still says the passage appears in the note exactly once; with an attachment, "in the section shown" is what now decides.
 
 **The saving on a long note, measured as characters sent (2026-10-07, 27 real notes of the repository from 3 to 31 thousand characters, a passage from the middle of each of their sections, one at a time):** the section sent is a median of 15% of the note (9 to 11% for the notes over 20,000 characters; worst case 24 to 67%). Whole-note sending is cut at `open_note_cap` (12,000 characters), so on a long note an attachment also lets her work on a passage beyond that cut, which she could not be shown before. How well a model edits in a long section was not measured (the earlier figures are for 340-character notes).
+
+
+**Measured on a long note (2026-10-07; invented 9,068-character garden note with five sections and lines repeated across them; seven requests x four runs; tool calls through the product's own prompt, tools and placement; a change counts only if the resulting text is exactly the expected one; Gemini Flash and `gemma4:e4b` on Ollama with a 16k window, the one tool-calling local model quick enough to run):**
+
+| Correct, of 28 | whole note, request says "this line" (nothing pointed at) | whole note, request names the section and the line | section attached, today's prompt | section attached, prompt reworded to "once in the part shown" |
+|---|---|---|---|---|
+| Gemini Flash | 21 | 26 | **27** | 26 |
+| `gemma4:e4b` | 5 | 4 | **20** | 22 |
+| Prompt sent, characters | about 10,250 | about 10,700 | about 3,230 | about 3,260 |
+
+- **The section is a third of the prompt and no less accurate.** On Flash it matched a request that spells out where the line is (27 of 28 against 26), and beat the unpointed one on every duplicated line (without a pointer a request for "this line" cannot be done). The local model could not work in the whole note at all (placed but refused 14 and 17 times of 28, because the lines it quoted were not unique) and did in the section (refused 0 of 28 in both section arms, on both models).
+- **The new placement rule is what makes the duplicated lines work:** every one of the 16 duplicated-line requests per model was placed in the section arms, with no refusal.
+- **The reworded prompt makes no difference** (Flash 26 against 27, `gemma4:e4b` 22 against 20, both inside the noise of four runs per case), so the wording stays as it is.
+- **Limits of this measurement.** One invented note; four runs per case, so single cases are noisy (`unique-sentence` moved between 2 and 4 of 4 on Flash with the same prompt); a request to delete a line scores 0 of 4 for `gemma4:e4b` in every arm, which is how it quotes (it leaves a blank line, and the check wants the line and its break gone), not the placement. A note over the 12,000-character cap was not tried. A first run of the local model with the default window (4,096) sent a truncated prompt and was discarded; the product sets the window for a local model, the test script did not.
