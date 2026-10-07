@@ -288,3 +288,13 @@ def test_a_show_note_marker_alone_leaves_a_short_line_and_a_failed_one_says_why(
     shown, records = et.apply_marker(H, None, None, '<!-- show_note: {"path": "Missing"} -->', vault)
     assert records[0]["saved"] is False and "nothing was opened" in shown
     assert "Ask the user" not in shown  # what the user reads is not an instruction to the model
+
+
+def test_asking_for_the_same_new_note_twice_makes_one_draft_and_the_second_is_told_why():
+    first = et.run(H, None, None, "propose_note", {"text": "# Seeds\n\nBeans.\n", "title": "Seeds", "say": "s"})
+    second = et.run(H, None, None, "propose_note", {"text": "# Seeds\n\nBeans.\n", "title": "Seeds", "say": "s"})
+
+    assert first.lookup["saved"] is True and second.lookup["saved"] is False
+    assert "already waiting" in second.text and len(nc.drafts(H)) == 1
+    shown, records = et.apply_marker(H, None, None, 'Again.\n<!-- propose_note: {"text": "# Seeds\\n\\nBeans.\\n", "title": "Seeds", "say": "s"} -->')
+    assert records[0]["saved"] is False and "already waiting" in shown and len(nc.drafts(H)) == 1

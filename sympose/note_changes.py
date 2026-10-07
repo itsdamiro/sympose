@@ -149,8 +149,26 @@ def propose_create(handle: str, note_path: str, text: str, *, say: str, title: s
     proposal = {"id": _id(), "time": _now(), "kind": "create", "text": text, "name": working_name(text, title), "say": say}
     if cleaned := clean_folder(folder):
         proposal["folder"] = cleaned
+    if waiting := _same_draft(handle, proposal):
+        raise CannotAnchor(f"A new note called {waiting['name']} is already waiting among the drafts, so a second one was not made; the user decides it first.")
     store.update(handle, note_path, lambda entry: entry["proposals"].append(proposal))
     return proposal
+
+
+def _same_draft(handle: str, proposal: dict[str, Any]) -> dict[str, Any] | None:
+    """A new note already waiting that this one would only repeat: the same name to be made in the same folder (accepting both
+    could not work, the name would be in use), or the same words whatever it is called. Only exact repeats, so a second, different
+    note is never refused."""
+    flat = lambda text: " ".join(text.split()).casefold()  # noqa: E731
+    for entry in store.entries(handle):
+        for waiting in entry["proposals"]:
+            if waiting.get("kind") != "create":
+                continue
+            if flat(waiting["text"]) == flat(proposal["text"]) or (
+                flat(waiting.get("name", "")) == flat(proposal["name"]) and waiting.get("folder") == proposal.get("folder")
+            ):
+                return waiting
+    return None
 
 
 def edit_draft(handle: str, note_path: str, text: str) -> None:

@@ -888,3 +888,52 @@ def test_without_a_section_the_passage_must_still_be_in_the_note_once():
         nc.propose_edit(H, "n.md", SECTIONS, find="Water every morning.", replace="x", say="")
     with pytest.raises(nc.CannotAnchor, match="more than once"):
         nc.comment_on(H, "n.md", SECTIONS, quote="Water every morning.", text="Why?", author="persona")
+
+
+# The same new note asked for twice is one draft, not two (a repeat would only fail at Accept: the name would be in use).
+SEEDS = "# Seed list\n\nTomatoes, beans.\n"
+
+
+def new_note(i: int, text: str = SEEDS, **kw) -> dict:
+    return nc.propose_create(H, f"new/{i}", text, say="", **kw)
+
+
+def test_the_same_new_note_asked_for_twice_is_one_draft():
+    new_note(1)
+
+    with pytest.raises(nc.CannotAnchor, match="already waiting"):
+        new_note(2)
+    assert len(nc.drafts(H)) == 1
+
+
+def test_a_new_note_with_the_same_words_is_a_repeat_whatever_it_is_called_and_however_it_is_spaced():
+    new_note(1, title="Seeds")
+
+    with pytest.raises(nc.CannotAnchor, match="already waiting"):
+        new_note(2, "# SEED LIST\n\n  tomatoes,   beans.\n", title="Another name")
+
+
+def test_the_same_name_in_the_same_folder_is_a_repeat_even_with_other_words():
+    new_note(1, title="Seeds", folder="Garden")
+
+    with pytest.raises(nc.CannotAnchor, match="Seeds"):
+        new_note(2, "# Different\n\nOther text entirely.\n", title="seeds", folder="Garden/")
+
+
+def test_a_different_note_or_the_same_name_in_another_folder_is_not_a_repeat():
+    new_note(1, title="Seeds", folder="Garden")
+
+    new_note(2, "# Tools\n\nSpade.\n", title="Tools")  # another note
+    new_note(3, "# Different\n\nOther text entirely.\n", title="Seeds", folder="Allotment")  # same name, another place
+    new_note(4, "# Different again\n\nStill other.\n", title="Seeds")  # the folder the user is in, not Garden
+
+    assert len(nc.drafts(H)) == 4
+
+
+def test_once_the_user_has_decided_a_draft_the_same_note_can_be_proposed_again():
+    new_note(1)
+    nc.forget(H, "new/1")  # declined or accepted
+
+    new_note(2)
+
+    assert len(nc.drafts(H)) == 1

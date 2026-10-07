@@ -65,6 +65,9 @@ def setup(tmp_path, monkeypatch, calls):
         return [_vector(t) for t in texts]
 
     monkeypatch.setattr(embeddings, "embed", fake_embed)
+    # The library grows with every feature; these tests are about how it is searched, not about how many passages fit in the
+    # synchronous build (above the limit the product builds in the background and searches by keyword meanwhile).
+    monkeypatch.setattr(semantic, "_LIBRARY_SYNC_LIMIT", 100_000)
     return tmp_path
 
 

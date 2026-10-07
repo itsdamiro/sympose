@@ -29,3 +29,7 @@ She picks a folder only when you asked for one. The title is the file's title: t
 ## Why can't I see the note I asked her to create?
 
 Look in the Drafts group of the folder you are in; a new note is listed in every folder. If it is not there, she may not have proposed one: say "please create it", and check that her reply says she proposed a note. A persona in plan mode only talks and proposes nothing.
+
+## What happens if I ask her for the same note twice?
+
+She does not make a second draft. If a draft with the same name in the same folder, or the same words, is still waiting under Drafts, she says it is already there: accept or decline it first, then ask again.
