@@ -169,9 +169,10 @@ _SHOW_MARKER = (
     '<!-- show_note: {"path": "Folder/Note.md"} -->'
 )
 _TABLES = (
-    "The note has a table. A change inside a table can only be one cell's own words, replaced by words that stay in that "
-    "cell. You cannot propose removing a table or a row, or reshaping one: if asked to, say plainly that you cannot, and "
-    "leave a comment on it instead of offering the edit."
+    "The note has a table. A change inside a table is one cell's own words, replaced by words that stay in that cell. To add or remove a "
+    "row or a column, quote the whole table exactly, from its first row to its last, and give the whole new table, with the same number "
+    "of cells in every row; say in your reply what you changed. You cannot propose any other change across cells or rows, or removing "
+    "the table: say so plainly and leave a comment instead of offering the edit."
 )
 _REVIEW = "The user reviews each change before anything is saved. Do not rewrite the note."
 _ASKED = (

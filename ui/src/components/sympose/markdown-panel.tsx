@@ -27,7 +27,7 @@ import { useNoteDocument, type PanelFile } from "@/lib/use-note-document"
 import type { Proposal } from "@/lib/persona-changes-api"
 import { usePersonaChanges } from "@/lib/use-persona-changes"
 import { announceDraftsChanged } from "@/lib/use-drafts"
-import { applyProposals, cellMarks, cellWidgets, classify, clearApplied, pendingIds, restoreAppliedMarks, reviewExtensions, setReviewData, type ReviewData } from "@/lib/review-extensions"
+import { applyProposals, cellMarks, cellWidgets, classify, clearApplied, isTableChange, pendingIds, restoreAppliedMarks, reviewExtensions, setReviewData, type ReviewData } from "@/lib/review-extensions"
 import { useEditMode } from "@/lib/use-edit-mode"
 import { OutdatedChanges } from "@/components/sympose/outdated-changes"
 import { CommentPopover, type CommentBox } from "@/components/sympose/comment-popover"
@@ -378,6 +378,17 @@ function MarkdownPanel({
     if (!acceptMode || !view || note.status !== "ready" || loadedPathRef.current !== path) return
     applyProposals(view, pendingIds(view.state))
   }, [acceptMode, note.status, path, loadedPathRef, reviewData, body, editorMade])
+  // A change that replaces a whole table (a row or a column added or removed, docs/decisions/069) is read in the table's source, where
+  // its new rows are drawn: the caret goes into the table once for each such change, so a change is never offered that cannot be read.
+  const revealedRef = React.useRef(new Set<string>())
+  React.useEffect(() => {
+    const view = styloRef.current?.getView()
+    if (!view || acceptMode || file || readOnly || note.status !== "ready" || loadedPathRef.current !== path) return
+    const next = classify(view.state.doc.toString(), reviewData.proposals).placed.find(({ proposal }) => isTableChange(proposal) && !revealedRef.current.has(proposal.id))
+    if (!next) return
+    revealedRef.current.add(next.proposal.id)
+    view.dispatch({ selection: { anchor: next.from }, scrollIntoView: true })
+  }, [acceptMode, file, readOnly, note.status, path, loadedPathRef, reviewData, body, editorMade])
   const outdatedProposals = React.useMemo(() => classify(body, reviewData.proposals).outdated, [body, reviewData])
   // Accepting the whole note changes the text, and the save writes what the text is by then: it waits for the
   // change to reach `body` (`saveNote` closes over it) instead of saving the text from before.

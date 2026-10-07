@@ -12,7 +12,15 @@ _OPEN = re.compile(r"(`{3,}|~{3,})(.*)$")  # a code fence's opening line: its ch
 _LIST = re.compile(r"(?:[-*+]|\d{1,9}[.)])[ \t]+")  # a list marker, which a table's header row may follow
 _MARGIN = re.compile(r"[ \t]*(?:>[ \t]?)*")  # what a line starts with before its own text: indent, blockquote markers
 _PIPE = re.compile(r"(?<!\\)\|")
-_REFUSAL = "Quote words that sit inside one cell of the table, with a replacement that stays in that cell: a table change across cells, rows or lines cannot be shown to the user, so say it in a comment instead."
+_REFUSAL = (
+    "Quote words that sit inside one cell of the table, with a replacement that stays in that cell. To add or remove a row or a column, "
+    "quote the whole table, from its first row to its last, and give the whole new table, which must keep the same number of cells in every "
+    "row: any other change across cells, rows or lines cannot be shown to the user, so say it in a comment instead."
+)
+_NOT_A_TABLE = (
+    "The whole-table replacement is not a table the user can be shown: it must be a header row, a delimiter row of dashes and the rows below, "
+    "one line each, with the same number of cells in every row and nothing before, after or between them."
+)
 
 
 def _cells(line: str) -> list[tuple[int, int]]:
@@ -63,6 +71,22 @@ def _tables(text: str) -> list[list[tuple[int, str, bool]]]:
     return found
 
 
+def _replacement_problem(text: str, rows: list[tuple[int, str, bool]], replace: str) -> str | None:
+    """Why `replace` cannot stand for the whole table of `rows` (adding or removing a row or a column), or `None`. The user is shown
+    the new table's source next to the old and accepts or declines it as one change, so it must be a plain table, line for line, and a
+    table that sits plainly in the note (no margin of a quote or a list, no Windows line ends) so its lines can be set in place."""
+    top, bottom = rows[0][0], rows[-1][0] + len(rows[-1][1])
+    if text[top:bottom] != "\n".join(line for _, line, _ in rows) or "\r" in replace:
+        return _REFUSAL
+    new = _tables(replace)
+    if len(new) != 1 or "\n".join(line for _, line, _ in new[0]) != replace or new[0][0][0] != 0:
+        return _NOT_A_TABLE
+    width = len(_cells(new[0][0][1]))
+    if any(len(_cells(line)) != width for _, line, _ in new[0]):
+        return _NOT_A_TABLE
+    return None
+
+
 def has_table(text: str) -> bool:
     """Whether `text` holds a table (so the persona is told how far her changes may go in it)."""
     return bool(_tables(text))
@@ -75,6 +99,8 @@ def problem(text: str, start: int, end: int, replace: str) -> str | None:
         bottom = rows[-1][0] + len(rows[-1][1])
         if end <= top or start >= bottom:
             continue
+        if start == top and end == bottom and "\n" in text[start:end]:
+            return _replacement_problem(text, rows, replace)
         for offset, line, delimiter in rows:
             if offset <= start and end <= offset + len(line) and not delimiter:
                 for a, b in _cells(line):

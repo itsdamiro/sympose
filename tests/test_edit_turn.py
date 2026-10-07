@@ -203,7 +203,8 @@ def test_a_model_with_tools_is_told_how_far_a_change_goes_in_a_table_only_when_t
     with_table = edit_turn.message(edit_turn.resolve(SAMANTHA, True, TABLE_NOTE), "delete the table")
     without = edit_turn.message(edit_turn.resolve(SAMANTHA, True, NOTE), "x")
 
-    assert "cannot propose removing a table" in with_table and "leave a comment" in with_table
+    assert "quote the whole table" in with_table and "same number of cells in every row" in with_table
+    assert "removing the table" in with_table and "leave a comment" in with_table
     assert "table" not in without
 
 

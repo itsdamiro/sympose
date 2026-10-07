@@ -222,3 +222,56 @@ def test_the_header_row_after_a_list_marker_keeps_its_own_cells():
 def test_a_table_ends_where_a_code_fence_opens_even_without_a_blank_line():
     text = "| a | b |\n|---|---|\n| 1 | 2 |\n```\ncode | x\n```\n"
     assert problem("code | x", "y", text) is None
+
+
+# The whole table replaced by a whole new table: how a row or a column is added or removed (docs/decisions/069, 2026-10-07).
+WHOLE = TABLE.rstrip("\n")
+ADD_ROW = WHOLE + "\n| Leeks | 2 | sow in May |"
+REMOVE_ROW = "| Item | Qty | Note |\n|------|-----|------|\n| Carrots | 3 | sow early |"
+ADD_COLUMN = "| Item | Qty | Note | Bed |\n|------|-----|------|-----|\n| Carrots | 3 | sow early | North |\n| Beets | 5 | sow late | South |"
+REMOVE_COLUMN = "| Item | Qty |\n|------|-----|\n| Carrots | 3 |\n| Beets | 5 |"
+
+
+@pytest.mark.parametrize("replace", [ADD_ROW, REMOVE_ROW, ADD_COLUMN, REMOVE_COLUMN])
+def test_the_whole_table_may_be_replaced_by_a_whole_table_with_the_same_cells_in_every_row(replace):
+    assert problem(WHOLE, replace) is None
+
+
+@pytest.mark.parametrize("replace", [
+    "| Item | Qty | Note |\n|------|-----|------|\n| Carrots | 3 |",                      # a row with too few cells
+    "| Item | Qty | Note |\n|------|-----|------|\n| Carrots | 3 | a | b |",             # a row with too many
+    "| Item | Qty | Note |\n|------|-----|\n| Carrots | 3 | sow early |",                 # the delimiter row does not match
+    "| Item | Qty | Note |\n| Carrots | 3 | sow early |",                              # no delimiter row: not a table
+    WHOLE + "\n\nA paragraph after it.",                                                   # more than the table
+    "Before.\n" + WHOLE,                                                                    # text before it
+    "no table at all",
+    WHOLE.replace("\n", "\r\n"),                                                           # Windows line ends
+    "",                                                                                     # deleting the table
+])
+def test_a_whole_table_replacement_that_is_not_a_plain_table_of_even_rows_is_refused(replace):
+    assert problem(WHOLE, replace) is not None
+
+
+def test_quoting_part_of_a_table_across_rows_is_still_refused_even_with_a_good_looking_replacement():
+    two_rows = "| Carrots | 3 | sow early |\n| Beets | 5 | sow late |"
+
+    assert problem(two_rows, "| Carrots | 3 | sow early |") is not None
+    assert problem(WHOLE + "\n", ADD_ROW) is not None  # quoting past the table's end is not the table
+
+
+def test_a_table_in_a_quote_or_a_list_is_not_replaced_whole_because_its_margin_would_be_lost():
+    quoted = "> | A | B |\n> |---|---|\n> | 1 | 2 |"
+    text = f"Intro.\n\n{quoted}\n"
+
+    start, end = text.index("| A"), text.index("| 1 | 2 |") + len("| 1 | 2 |")
+    assert ts.problem(text, start, end, "| A | B |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |") is not None
+
+
+def test_propose_edit_stores_a_whole_table_replacement_and_refuses_a_broken_one(tmp_path, monkeypatch):
+    monkeypatch.setenv("SYMPOSE_PROFILES_DIR", str(tmp_path / "profiles"))
+    nc.propose_edit("samantha", "Plan.md", NOTE, find=WHOLE, replace=ADD_ROW, say="Added Leeks.")
+    with pytest.raises(nc.CannotAnchor):
+        nc.propose_edit("samantha", "Plan.md", NOTE, find=WHOLE, replace="| Item |\n|---|\n| a | b |", say="")
+
+    (stored,) = store.read("samantha", "Plan.md")["proposals"]
+    assert (stored["find"], stored["replace"]) == (WHOLE, ADD_ROW)

@@ -618,3 +618,42 @@ describe("MarkdownPanel in accept mode (docs/decisions/072)", () => {
     expect(screen.queryByText(/outdated|changed there since/i)).toBeNull()
   })
 })
+
+describe("MarkdownPanel with a change that replaces a whole table (docs/decisions/069)", () => {
+  const OLD = "| Item | Qty |\n|------|-----|\n| Carrots | 3 |"
+  const TABLE_DOC = `The beds are raised.\n\n${OLD}\n\nDone.\n`
+  const whole = (id: string): Proposal => {
+    const at = TABLE_DOC.indexOf(OLD)
+    const [before, after] = captureContext(TABLE_DOC, at, at + OLD.length)
+    return { id, time: "t", kind: "edit", say: "Added Leeks.", find: OLD, replace: `${OLD}\n| Leeks | 2 |`, before, after, status: "pending" }
+  }
+  beforeEach(() => api.fetchVaultNote.mockResolvedValue({ path: "Garden plan.md", content: TABLE_DOC.trimEnd(), mtime: 100 }))
+
+  it("puts the caret in the table when the note opens with one, so its source (with the new rows) is what the user reads", async () => {
+    changesApi.fetchChanges.mockResolvedValue(changes([whole("t1")]))
+
+    open()
+
+    await waitFor(() => expect(editorView().state.selection.main.head).toBe(TABLE_DOC.indexOf(OLD)))
+  })
+
+  it("does that once for each change: the user's caret is theirs afterwards", async () => {
+    changesApi.fetchChanges.mockResolvedValue(changes([whole("t1")]))
+    open()
+    await waitFor(() => expect(editorView().state.selection.main.head).toBe(TABLE_DOC.indexOf(OLD)))
+
+    act(() => editorView().dispatch({ selection: { anchor: 3 } }))
+    await act(async () => {}) // let any effect run again
+
+    expect(editorView().state.selection.main.head).toBe(3)
+  })
+
+  it("leaves the caret alone for a change inside one cell or outside a table", async () => {
+    changesApi.fetchChanges.mockResolvedValue(changes([{ ...whole("t1"), find: "raised", replace: "sunken", before: "The beds are ", after: ".\n" }]))
+
+    open()
+
+    await waitFor(() => expect(screen.getByTestId("cm").querySelector(".sy-change-add")).not.toBeNull())
+    expect(editorView().state.selection.main.head).toBe(0)
+  })
+})

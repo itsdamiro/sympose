@@ -19,6 +19,8 @@ import {
   classify,
   declineChanges,
   hasPending,
+  isTableChange,
+  lastCellEnd,
   pendingIds,
   restoreAppliedMarks,
   reviewExtensions,
@@ -849,5 +851,50 @@ describe("a change of hers inside a table cell (stylo's cellMarks and cellWidget
 
   it("is empty for a state that has none of this", () => {
     expect(cellWidgets(EditorState.create({ doc: NOTE }))).toEqual([])
+  })
+})
+
+
+describe("a change that replaces a whole table (a row or a column added or removed, docs/decisions/069)", () => {
+  const OLD = "| Item | Qty |\n|------|-----|\n| Carrots | 3 |"
+  const NEW = `${OLD}\n| Leeks | 2 |`
+  const DOC = `The beds are raised.\n\n${OLD}\n\nDone.\n`
+  const whole = () => edit("t", OLD, NEW, DOC)
+
+  it("is told from a change inside a cell or a plain multi-line change", () => {
+    expect(isTableChange({ find: OLD, replace: NEW })).toBe(true)
+    expect(isTableChange({ find: "Carrots", replace: "Parsnips" })).toBe(false)
+    expect(isTableChange({ find: "one line\nanother", replace: "x\ny" })).toBe(false) // lines, but no pipes
+    expect(isTableChange({ find: OLD, replace: "single line" })).toBe(false)
+    expect(isTableChange({ find: OLD })).toBe(false)
+  })
+
+  it("puts the position inside the last cell: before the closing pipe and the padding", () => {
+    expect(lastCellEnd("| a | b |", 9)).toBe(7)
+    expect(lastCellEnd("| a | b   |  ", 13)).toBe(7)
+    expect(lastCellEnd("a | b", 5)).toBe(5) // no closing pipe: the end of the words
+  })
+
+  it("draws only the buttons in a rendered table, at the end of its last cell, with the old table struck", () => {
+    const { view } = mount({ proposals: [whole()], annotations: [] }, { doc: DOC })
+
+    const [widget] = cellWidgets(view.state)
+    const el = widget.toDOM(view)
+
+    expect(DOC.slice(0, widget.pos).endsWith("| Carrots | 3")).toBe(true)
+    expect(el.querySelector(".sy-change-add")?.textContent).toBe("") // the new rows are in the source, not repeated in a cell
+    expect(el.querySelector(".sy-change-accept")).not.toBeNull()
+    expect(el.querySelector(".sy-change-decline")).not.toBeNull()
+    expect(cellMarks(view.state)[0]).toMatchObject({ class: "sy-change-del", from: DOC.indexOf(OLD), to: DOC.indexOf(OLD) + OLD.length })
+  })
+
+  it("keeps a one-cell change as it was: the replacement is drawn in the cell, after the struck words", () => {
+    const doc = "| Item | Qty |\n|------|-----|\n| Carrots | 3 |\n"
+    const { view } = mount({ proposals: [edit("p", "Carrots", "Parsnips", doc)], annotations: [] }, { doc })
+
+    const [widget] = cellWidgets(view.state)
+
+    expect(widget.pos).toBe(doc.indexOf("Carrots") + "Carrots".length)
+    expect(widget.toDOM(view).querySelector(".sy-change-add")?.textContent).toBe("Parsnips")
   })
 })

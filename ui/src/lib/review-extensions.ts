@@ -297,16 +297,36 @@ export function clearApplied(view: EditorView): string[] {
   return ids
 }
 
+/** A change that replaces a whole table by a whole new table (a row or a column added or removed, docs/decisions/069): both its
+ *  words and their replacement run over several lines of pipes. Drawn in the table's source, where the new rows are shown. */
+export function isTableChange(proposal: { find?: string; replace?: string | null }): boolean {
+  const rows = (text: string | null | undefined) => (text ?? "").split("\n")
+  return rows(proposal.find).length > 1 && rows(proposal.replace).length > 1 && rows(proposal.find).every((line) => line.includes("|"))
+}
+
+/** A position inside the last cell of the table a change covers, for what the editor draws in a rendered table: the end of the
+ *  last row's last cell, before its closing pipe and padding (the pipe itself is hidden, and a position there is not in a cell). */
+export function lastCellEnd(text: string, to: number): number {
+  let i = to
+  while (i > 0 && /[ \t]/.test(text[i - 1])) i--
+  if (i > 0 && text[i - 1] === "|") i--
+  while (i > 0 && /[ \t]/.test(text[i - 1])) i--
+  return i
+}
+
 class ChangeWidget extends WidgetType {
   readonly proposal: Proposal
+  readonly compact: boolean
 
-  constructor(proposal: Proposal) {
+  /** `compact`: only the buttons, no copy of the replacement, in a rendered table (its new rows show in the source). */
+  constructor(proposal: Proposal, compact = false) {
     super()
     this.proposal = proposal
+    this.compact = compact
   }
 
   eq(other: ChangeWidget): boolean {
-    return other.proposal.id === this.proposal.id && other.proposal.replace === this.proposal.replace && other.proposal.say === this.proposal.say
+    return other.proposal.id === this.proposal.id && other.proposal.replace === this.proposal.replace && other.proposal.say === this.proposal.say && other.compact === this.compact
   }
 
   toDOM(view: EditorView): HTMLElement {
@@ -316,7 +336,7 @@ class ChangeWidget extends WidgetType {
     if (this.proposal.say) wrap.title = this.proposal.say
     const added = document.createElement("span")
     added.className = "sy-change-add"
-    added.textContent = this.proposal.replace ?? ""
+    added.textContent = this.compact ? "" : (this.proposal.replace ?? "")
     // The buttons sit in a small tab above the words, joined to them by a short line, not in the line of text: after a
     // sentence a bare ✕ reads as part of it and says nothing of what it would close. Their words are drawn by the style
     // (`data-label`), so they are not part of the note's text when it is read or copied.
@@ -504,13 +524,18 @@ export function cellMarks(state: EditorState): CellMark[] {
 export function cellWidgets(state: EditorState): CellWidget[] {
   const data = state.field(reviewField, false)
   if (!data) return []
-  const widgets: CellWidget[] = classify(state.doc.toString(), data.proposals).placed.map(({ proposal, to }) => ({
-    pos: to,
-    key: `change:${proposal.id}:${proposal.say}:${proposal.replace ?? ""}`,
-    toDOM: (view) => new ChangeWidget(proposal).toDOM(view),
-  }))
+  const text = state.doc.toString()
+  const widgets: CellWidget[] = classify(text, data.proposals).placed.map(({ proposal, to }) => {
+    const whole = isTableChange(proposal)
+    return {
+      pos: whole ? lastCellEnd(text, to) : to,
+      key: `change:${proposal.id}:${proposal.say}:${proposal.replace ?? ""}`,
+      toDOM: (view) => new ChangeWidget(proposal, whole).toDOM(view),
+    }
+  })
   for (const item of state.field(appliedField).items) {
-    widgets.push({ pos: item.to, key: `applied:${item.id}:${item.say}`, toDOM: (view) => new UndoWidget(item).toDOM(view) })
+    const whole = isTableChange({ find: item.find, replace: text.slice(item.from, item.to) })
+    widgets.push({ pos: whole ? lastCellEnd(text, item.to) : item.to, key: `applied:${item.id}:${item.say}`, toDOM: (view) => new UndoWidget(item).toDOM(view) })
   }
   if (state.facet(attachFacet)) {
     const placed = classify(state.doc.toString(), data.proposals).placed

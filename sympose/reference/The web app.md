@@ -26,7 +26,9 @@ To leave a comment, select text and choose Comment; the persona reads your open 
 
 A comment's words are highlighted in the note. Click the highlight to open the thread, where you can reply, resolve it or delete it; a comment the persona leaves is opened the same way. Comments on exactly the same words share one highlight and one box, with a thread for each. There is no separate comments panel.
 
-In a table, a persona can propose a change to the words of one cell. She cannot propose removing a table or a row, or reshaping it, so she says so and leaves a comment; you make that change yourself in the editor.
+In a table, a persona can change the words of one cell. A model that can use tools can also add or remove a row or a column, by replacing the whole table.
+
+You then see the table's source, the old rows struck and the new ones beside them, with one Accept and Decline for the whole table, and she says in her reply what she changed. She cannot remove the table or reshape it in other ways, so she says so and leaves a comment.
 
 ## Where do I click Accept or Decline on a change?
 
