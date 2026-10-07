@@ -6,6 +6,7 @@ where the passage is. `locate` answers one of three things: the passage is there
 (someone rewrote those words), or it is there more than once and the surrounding text cannot tell which. It never
 guesses between candidates and never matches a passage that is not there word for word."""
 
+from collections.abc import Sequence
 from typing import NamedTuple
 
 ONE, NONE, MANY = "one", "none", "many"
@@ -30,6 +31,11 @@ def _starts(text: str, quote: str):
     while at != -1:
         yield at
         at = text.find(quote, at + 1)  # one further, so overlapping occurrences count as separate
+
+
+def starts_within(text: str, quote: str, spans: Sequence[tuple[int, int]]) -> list[int]:
+    """Where `quote` starts in `text` with all of it inside one of `spans` (start, end): the part of a note a persona was shown."""
+    return [at for at in _starts(text, quote) if any(a <= at and at + len(quote) <= b for a, b in spans)] if quote else []
 
 
 def _agreeing_before(text: str, at: int, before: str) -> int:

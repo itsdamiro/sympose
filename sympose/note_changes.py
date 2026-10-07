@@ -11,7 +11,7 @@ import os
 import re
 import uuid
 from datetime import datetime, timezone
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import Any
 
 from sympose import note_changes_store as store
@@ -53,10 +53,27 @@ def _anchor(note_text: str, quote: str, start: int | None) -> tuple[str, str]:
     return finder.capture_context(note_text, found.start, found.end)
 
 
-def propose_edit(handle: str, note_path: str, note_text: str, *, find: str, replace: str, say: str) -> dict[str, Any]:
-    before, after = _anchor(note_text, find, None)
+def _resolve(note_text: str, quote: str, within: Sequence[tuple[int, int]] | None) -> tuple[str, str, finder.Match]:
+    """`(before, after, where)` for a passage she quoted. It must be in the note exactly once, unless the note has it more than
+    once and she was shown only part of it (`within`, docs/decisions/076): then once in that part is enough, and the text
+    around it, kept with the passage, is what tells it from the others later."""
+    start = None
+    if within and finder.locate(note_text, quote).status == finder.MANY:
+        inside = finder.starts_within(note_text, quote, within)
+        start = inside[0] if len(inside) == 1 else None
+    before, after = _anchor(note_text, quote, start)
+    where = finder.locate(note_text, quote, before, after)
+    if start is not None and (where.status != finder.ONE or where.start != start):
+        raise CannotAnchor("That passage is in the note more than once; quote more of it.")
+    return before, after, where
+
+
+def propose_edit(
+    handle: str, note_path: str, note_text: str, *, find: str, replace: str, say: str, within: Sequence[tuple[int, int]] | None = None,
+) -> dict[str, Any]:
+    before, after, where = _resolve(note_text, find, within)
     proposal = {"id": _id(), "time": _now(), "kind": "edit", "find": find, "replace": replace, "before": before, "after": after, "say": say}
-    start = finder.locate(note_text, find, before, after).start
+    start = where.start
     if (refusal := table_spans.problem(note_text, start, start + len(find), replace)) is not None:
         raise CannotAnchor(refusal)
 
@@ -168,19 +185,20 @@ def annotate(handle: str, note_path: str, note_text: str, *, quote: str, text: s
     return annotation
 
 
-def comment_on(handle: str, note_path: str, note_text: str, *, quote: str, text: str, author: str) -> dict[str, Any]:
+def comment_on(
+    handle: str, note_path: str, note_text: str, *, quote: str, text: str, author: str, within: Sequence[tuple[int, int]] | None = None,
+) -> dict[str, Any]:
     """A comment of the persona's on `quote`: an answer under the open comment already on exactly the same words, if there
     is one, so the two read as one thread; otherwise a comment of its own. (Two comments on one passage are drawn as one
     highlight, and a user who opens it should find the persona's words with their own.)"""
-    before, after = _anchor(note_text, quote, None)
-    here = finder.locate(note_text, quote, before, after)
+    _, _, here = _resolve(note_text, quote, within)
     for existing in store.read(handle, note_path)["annotations"]:
         if existing.get("reply_to") or existing.get("state") != OPEN:
             continue
         there = finder.locate(note_text, existing["quote"], existing.get("before", ""), existing.get("after", ""))
         if there.status == finder.ONE and (there.start, there.end) == (here.start, here.end):
             return reply(handle, note_path, existing["id"], text=text, author=author)
-    return annotate(handle, note_path, note_text, quote=quote, text=text, author=author)
+    return annotate(handle, note_path, note_text, quote=quote, text=text, author=author, start=here.start)
 
 
 def reply(handle: str, note_path: str, comment_id: str, *, text: str, author: str) -> dict[str, Any]:

@@ -839,3 +839,52 @@ def test_a_folder_that_leaves_the_vault_or_cannot_be_one_is_dropped_not_followed
         assert nc.clean_folder(bad) is None, bad
     assert nc.clean_folder("Projects\\Sympose") == "Projects/Sympose"
 
+
+
+# A passage the persona quoted that the note holds twice, when she was shown only one section of it (docs/decisions/076).
+SECTIONS = "## Beds\n\nWater every morning.\n\n## Schedule\n\nWater every morning.\n"
+SCHEDULE = (SECTIONS.index("## Schedule"), len(SECTIONS))
+
+
+def test_a_passage_found_twice_is_placed_in_the_one_section_she_was_shown():
+    p = nc.propose_edit(H, "n.md", SECTIONS, find="Water every morning.", replace="Water at dawn.", say="", within=[SCHEDULE])
+
+    assert p["before"].endswith("## Schedule\n\n")
+    assert nc.status(p, SECTIONS) == nc.PENDING
+
+
+def test_a_passage_found_twice_in_the_section_she_was_shown_is_still_refused():
+    twice_there = SECTIONS + "Water every morning.\n"
+
+    with pytest.raises(nc.CannotAnchor, match="more than once"):
+        nc.propose_edit(H, "n.md", twice_there, find="Water every morning.", replace="x", say="", within=[(SECTIONS.index("## Schedule"), len(twice_there))])
+    assert files() == []
+
+
+def test_a_passage_found_twice_and_not_in_the_section_she_was_shown_is_refused():
+    with pytest.raises(nc.CannotAnchor, match="more than once"):
+        nc.propose_edit(H, "n.md", SECTIONS, find="Water every morning.", replace="x", say="", within=[(0, 5)])
+
+
+def test_a_passage_in_a_section_that_reads_exactly_like_one_outside_it_is_refused_not_guessed():
+    line = "Water every morning.\n"
+    note = line * 8  # the words around the 4th and 5th are the same, to the forty characters kept with a passage
+    here = line * 3
+    start = len(here)
+
+    with pytest.raises(nc.CannotAnchor, match="more than once"):
+        nc.propose_edit(H, "n.md", note, find="Water every morning.", replace="x", say="", within=[(start, start + len(line))])
+    assert files() == []
+
+
+def test_a_comment_is_placed_in_the_section_she_was_shown_too():
+    a = nc.comment_on(H, "n.md", SECTIONS, quote="Water every morning.", text="Why?", author="persona", within=[SCHEDULE])
+
+    assert a["before"].endswith("## Schedule\n\n")
+
+
+def test_without_a_section_the_passage_must_still_be_in_the_note_once():
+    with pytest.raises(nc.CannotAnchor, match="more than once"):
+        nc.propose_edit(H, "n.md", SECTIONS, find="Water every morning.", replace="x", say="")
+    with pytest.raises(nc.CannotAnchor, match="more than once"):
+        nc.comment_on(H, "n.md", SECTIONS, quote="Water every morning.", text="Why?", author="persona")

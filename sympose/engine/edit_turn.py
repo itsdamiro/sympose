@@ -41,6 +41,7 @@ class Edit:
     source: OpenNote | None = None  # the whole open note, which a change is placed in (she is shown `note`, within the cap)
     show_marker: bool = False  # a model without tools is told how to open a note for the user (the user's setting; it costs such a model edits)
     attached: int = 0  # how many passages of the note the user attached to this message (docs/decisions/076), for the record
+    scope: tuple[tuple[int, int], ...] = ()  # the sections of `source` she was shown instead of the whole note: a change may be placed in one when its words are also found elsewhere
 
     @property
     def active(self) -> bool:
@@ -80,10 +81,11 @@ class Attached:
 _HEADING = re.compile(r"^#{1,6} ", re.M)
 
 
-def focus_text(note_text: str, attached: Sequence[Attached]) -> str | None:
+def focus(note_text: str, attached: Sequence[Attached]) -> tuple[str, tuple[tuple[int, int], ...]] | None:
     """What a model that can call tools is sent instead of the whole note when the user attached passages: the note's
-    headings, the words pointed at, and the section (up to the next heading) each is in. `None` when none of the passages
-    is found in the note exactly once, so the whole note goes."""
+    headings, the words pointed at, and the section (up to the next heading) each is in; and the `(start, end)` of each
+    section in the note, which is the part a change of hers may be placed in when its words are also found elsewhere
+    (ADR 076). `None` when none of the passages is found in the note exactly once, so the whole note goes."""
     starts = [m.start() for m in _HEADING.finditer(note_text)]
     spans, pointed = [], []
     for a in attached:
@@ -99,8 +101,15 @@ def focus_text(note_text: str, attached: Sequence[Attached]) -> str | None:
     outline = "\n".join(line for line in note_text.splitlines() if _HEADING.match(line))
     named = "; ".join(f'"{q}"' for q in pointed)
     shown = "\n\n".join(note_text[a:b].strip("\n") for a, b in sorted(spans))
-    return (f"[The note's headings:\n{outline}\n\nThe user pointed at: {named}. Only the section each is in is shown below; "
+    text = (f"[The note's headings:\n{outline}\n\nThe user pointed at: {named}. Only the section each is in is shown below; "
             f"the rest of the note is not, and you can open it if you need it.]\n\n{shown}")
+    return text, tuple(sorted(spans))
+
+
+def focus_text(note_text: str, attached: Sequence[Attached]) -> str | None:
+    """The text of `focus`, or `None` when the whole note goes."""
+    found = focus(note_text, attached)
+    return found[0] if found else None
 
 
 def resolve(
@@ -117,8 +126,8 @@ def resolve(
         return Edit(mode, can_call_tools, show_marker=show_marker_enabled())
     if not may_see:
         return Edit(mode, can_call_tools, withheld=True, show_marker=show_marker_enabled())
-    focus = focus_text(open_note.text, attached) if attached and can_call_tools else None  # a model without tools cannot ask for the rest
-    text, cut = _within(focus if focus is not None else open_note.text, cap())
+    focused = focus(open_note.text, attached) if attached and can_call_tools else None  # a model without tools cannot ask for the rest
+    text, cut = _within(focused[0] if focused is not None else open_note.text, cap())
     found = open_comments.gather(comments_from, open_note, since) if comments_from else open_comments.Found()
     name = persona.get("name") or str(persona.get("handle") or "She").title()
     return Edit(
@@ -126,7 +135,7 @@ def resolve(
         comments=found.items if may_see_comments else (), comments_left_out=found.left_out if may_see_comments else 0,
         decided=found.decided if may_see_comments else (),
         comments_withheld=0 if may_see_comments else len(found.items), persona_name=name, source=open_note,
-        attached=len(attached),
+        attached=len(attached), scope=focused[1] if focused is not None else (),
     )
 
 

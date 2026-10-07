@@ -75,7 +75,7 @@ def for_turn(
                 return result
         if giving_edit:
             opened = edit.source
-            result = edit_tools.run(persona["handle"], opened.path if opened else None, opened.text if opened else None, name, raw_arguments, persona)
+            result = edit_tools.run(persona["handle"], opened.path if opened else None, opened.text if opened else None, name, raw_arguments, persona, edit.scope)
             if result is not None:
                 return result
         if chats and name in (chat_tools.SEARCH, chat_tools.OPEN):

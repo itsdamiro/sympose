@@ -328,3 +328,31 @@ def test_a_decision_on_her_comment_is_told_to_her_in_the_next_message_once(monke
     second = seen[1]["messages"][-1]["content"]
     assert "On “three times”: declined, the user wrote: No, it is four." in second
     assert "decided" not in seen[2]["messages"][-1]["content"]  # told once
+
+
+TWICE = OpenNote("Garden plan.md", "# Garden\n\n## Beds\n\nWater every morning.\n\n## Schedule\n\nWater every morning.\n")
+SCHEDULE = turn.edit_turn.Attached("Water every morning.", before="## Schedule\n\n", after="\n")
+WATER = '{"find": "Water every morning.", "replace": "Water at dawn.", "say": "Changed."}'
+
+
+def test_a_passage_found_twice_in_the_note_is_placed_in_the_section_she_was_shown(monkeypatch):
+    sharing.set_approved(sharing.OPEN_NOTE, True)
+    call = ToolCall("c1", "propose_edit", WATER)
+    model_that(monkeypatch, ModelReply("", None, tool_calls=(call,)), ModelReply("Done.", 5))
+
+    result = turn.run_turn("samantha", "change this", model=CLOUD, open_note=TWICE, attached=[SCHEDULE])
+
+    assert result.lookups == [{"tool": "propose_edit", "saved": True}]
+    (p,) = waiting()
+    assert p["find"] == "Water every morning." and p["before"].endswith("## Schedule\n\n")
+    assert note_changes.status(p, TWICE.text) == note_changes.PENDING  # and the user's editor finds it in the Schedule section
+
+
+def test_the_same_request_without_an_attachment_is_still_refused(monkeypatch):
+    sharing.set_approved(sharing.OPEN_NOTE, True)
+    call = ToolCall("c1", "propose_edit", WATER)
+    model_that(monkeypatch, ModelReply("", None, tool_calls=(call,)), ModelReply("It is in twice.", 5))
+
+    result = turn.run_turn("samantha", "change it", model=CLOUD, open_note=TWICE)
+
+    assert result.lookups == [{"tool": "propose_edit", "saved": False}] and waiting() == []

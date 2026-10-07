@@ -86,7 +86,9 @@ def _arguments(name: str, raw: str | dict[str, Any] | None) -> dict[str, str] | 
     return {**{k: data[k] for k in _FIELDS[name]}, "title": title if isinstance(title, str) else "", "folder": folder if isinstance(folder, str) else ""}
 
 
-def _propose(handle: str, path: str | None, text: str | None, name: str, raw: str | dict[str, Any] | None) -> tuple[bool, str]:
+def _propose(
+    handle: str, path: str | None, text: str | None, name: str, raw: str | dict[str, Any] | None, scope: tuple[tuple[int, int], ...] = (),
+) -> tuple[bool, str]:
     """`(saved, what happened)`: the one place a tool call and a marker both end."""
     args = _arguments(name, raw)
     if args is None:
@@ -95,13 +97,13 @@ def _propose(handle: str, path: str | None, text: str | None, name: str, raw: st
         if name == COMMENT:
             if path is None or text is None:
                 return False, _NO_NOTE
-            note_changes.comment_on(handle, path, text, quote=args["find"], text=args["text"], author="persona")
+            note_changes.comment_on(handle, path, text, quote=args["find"], text=args["text"], author="persona", within=scope)
         elif name == NOTE:
             note_changes.propose_create(handle, f"new/{note_changes._id()}", args["text"], say=args["say"], title=args["title"] or None, folder=args["folder"] or None)
         elif path is None or text is None:
             return False, _NO_NOTE
         else:
-            note_changes.propose_edit(handle, path, text, find=args["find"], replace=args["replace"], say=args["say"])
+            note_changes.propose_edit(handle, path, text, find=args["find"], replace=args["replace"], say=args["say"], within=scope)
     except note_changes.CannotAnchor as error:
         return False, str(error)
     return True, "Commented." if name == COMMENT else "Proposed; the user decides."
@@ -120,7 +122,7 @@ def _show(profile: dict[str, Any] | None, raw: str | dict[str, Any] | None) -> t
 
 def run(
     handle: str, note_path: str | None, note_text: str | None, name: str, raw: str | dict[str, Any] | None,
-    profile: dict[str, Any] | None = None,
+    profile: dict[str, Any] | None = None, scope: tuple[tuple[int, int], ...] = (),
 ) -> Result | None:
     """The tool's result, or `None` for a name that is not ours so it composes in `persona_tools`."""
     if name not in _FIELDS:
@@ -128,7 +130,7 @@ def run(
     if name == SHOW:
         opened, said, path = _show(profile, raw)
         return Result(said if opened else said + _ASK_WHICH, lookup={"tool": name, "saved": opened, **({"path": path} if path else {})})
-    saved, said = _propose(handle, note_path, note_text, name, raw)
+    saved, said = _propose(handle, note_path, note_text, name, raw, scope)
     return Result(said, lookup={"tool": name, "saved": saved})
 
 

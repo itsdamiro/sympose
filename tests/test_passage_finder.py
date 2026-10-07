@@ -93,3 +93,12 @@ def test_context_near_the_top_of_the_note_keeps_what_there_is():
 def test_a_passage_at_the_very_start_is_not_compared_with_the_end_of_the_note():
     # Counting back from the start must stop at the start, not wrap round to the last characters.
     assert finder.locate("a b a z", "a", "z", "").status == finder.MANY
+
+
+def test_starts_within_lists_only_the_occurrences_that_lie_wholly_inside_a_span():
+    text = "aa bb aa bb aa"
+
+    assert finder.starts_within(text, "aa", [(0, 5)]) == [0]
+    assert finder.starts_within(text, "aa", [(0, 14)]) == [0, 6, 12]
+    assert finder.starts_within(text, "aa", [(1, 5)]) == []  # starts before the span
+    assert finder.starts_within(text, "aa", []) == [] and finder.starts_within(text, "", [(0, 14)]) == []
