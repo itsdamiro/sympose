@@ -67,7 +67,7 @@ def setup(tmp_path, monkeypatch, calls):
     monkeypatch.setattr(embeddings, "embed", fake_embed)
     # The library grows with every feature; these tests are about how it is searched, not about how many passages fit in the
     # synchronous build (above the limit the product builds in the background and searches by keyword meanwhile).
-    monkeypatch.setattr(semantic, "_LIBRARY_SYNC_LIMIT", 100_000)
+    settings_store.set(semantic.LIBRARY_SYNC_SETTING, 100_000)
     return tmp_path
 
 
@@ -1733,3 +1733,39 @@ def test_a_build_stops_when_the_user_takes_the_approval_back(setup, calls, monke
     semantic_refresh.build(grounding.scope_index(WHOLE))
 
     assert len(calls["embed"]) == 1  # the first batch was already on its way; no second one followed
+
+
+# -- the library's synchronous limit is the user's setting ---------------------------------------
+
+
+def test_the_library_limit_defaults_to_twice_its_size_and_a_bad_value_falls_back(setup):
+    settings_store.remove(semantic.LIBRARY_SYNC_SETTING)
+    passages = len(reference._index().passages)
+
+    assert semantic.library_sync_limit() == semantic.DEFAULT_LIBRARY_SYNC_LIMIT >= passages
+    for bad in (0, -5, "many", True, 2.5, None):
+        settings_store.set(semantic.LIBRARY_SYNC_SETTING, bad)
+        assert semantic.library_sync_limit() == semantic.DEFAULT_LIBRARY_SYNC_LIMIT, bad
+    settings_store.set(semantic.LIBRARY_SYNC_SETTING, 300)
+    assert semantic.library_sync_limit() == 300
+
+
+def test_a_library_over_the_limit_is_built_in_the_background_and_searched_by_keyword_meanwhile(setup, monkeypatch):
+    builds = []
+    monkeypatch.setattr(semantic_refresh, "start_build", lambda index, model=None: builds.append(len(index.passages)))
+    _mode("embeddings", threshold=0.6)
+    settings_store.set(semantic.LIBRARY_SYNC_SETTING, 1)
+
+    hits = reference.ground(LIBRARY, "how do I add another vault?")
+
+    assert builds and all(h.get("via") != "embedding" for h in hits)
+
+
+def test_a_library_within_the_limit_is_embedded_on_the_spot(setup, calls):
+    _mode("embeddings", threshold=0.6)
+    settings_store.set(semantic.LIBRARY_SYNC_SETTING, len(reference._index().passages))
+
+    hits = reference.ground(LIBRARY, "how do I add another vault?")
+
+    assert hits and all(h["via"] == "embedding" for h in hits)
+    assert any(kind == "document" and len(texts) > 100 for kind, texts in calls["embed"])

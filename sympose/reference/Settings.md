@@ -8,7 +8,7 @@ Type /settings for a list of the common ones, each with its value. Choose a row 
 
 The list has `show_grounding`, `show_trim_notice`, `show_context_meter`, `show_background_status`, `status_typing`, `reply_reveal`, `context_window`, `reply_limit`, `history_tokens`, `model_timeout`, `grounding_followups`, `session_recaps`, `recap_count`, `recap_chars` and `past_chats`.
 
-It also has `grounding_search`, `embedding_min_similarity`, `embedding_margin`, `vault_lookup`, `vault_lookup_rounds`, `auto_compact`, `compact_at`, `compact_to` and `parallel_replies`.
+It also has `grounding_search`, `embedding_min_similarity`, `embedding_margin`, `library_sync_limit`, `vault_lookup`, `vault_lookup_rounds`, `auto_compact`, `compact_at`, `compact_to` and `parallel_replies`.
 
 `edit_mode`, `open_note_cap` and `annotations_cap` are the editing settings. `memory_remember`, `memory_rewrite` and `memory_auto_refresh` are the memory settings. The model, the persona and what a cloud model may receive have /model, /persona and /share.
 
@@ -127,6 +127,12 @@ Installing numpy (`pip install "sympose[fast]"`) makes each search much faster o
 ## embedding_model
 
 The `embedding_model` setting is the embedding model used by `grounding_search`. The default is `ollama/nomic-embed-text`. Another model needs its own `embedding_min_similarity`.
+
+## library_sync_limit
+
+The `library_sync_limit` setting is how many of the help passages Sympose may prepare for searching by meaning at once, the first time they are needed. The default is 512, enough for the whole built-in help.
+
+Below the help's size, about 260, the first questions about Sympose are answered by keyword search until a background build finishes. A bigger number never hurts the search; it only makes that first preparation, a few seconds once, happen while you wait.
 
 ## embedding_min_similarity
 

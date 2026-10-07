@@ -9,6 +9,7 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
+from sympose import settings_store
 from sympose.engine import embedding_store as store
 from sympose.engine import embeddings, semantic_refresh, sharing, similarity
 from sympose.engine import semantic_pick as pick
@@ -24,10 +25,20 @@ _KEEP = -0.06
 _ADD = -0.02
 # A note edited during the chat is embedded on the spot up to this many passages; more than that (a
 # first index of a vault) is built in the background and the turn searches by keyword meanwhile. The
-# Sympose library is shipped, about 110 passages, so on its first use (a second and a half, once, and
-# only if the launch-time build has not finished) it is embedded on the spot.
+# Sympose library is shipped and is embedded on the spot on its first use (once, and only if the
+# launch-time build has not finished) up to the user's `library_sync_limit`: it took 3.7 seconds for
+# 257 passages (2026-10-07). The default keeps about twice the library's size, as 256 did for the
+# first 110 passages; below the library's size the first turns search it by keyword instead.
 _SYNC_LIMIT = 64
-_LIBRARY_SYNC_LIMIT = 256
+LIBRARY_SYNC_SETTING = "library_sync_limit"
+DEFAULT_LIBRARY_SYNC_LIMIT, MIN_LIBRARY_SYNC_LIMIT = 512, 1
+
+
+def library_sync_limit() -> int:
+    """How many of the library's passages may be embedded on the spot on its first use; more are built in the background."""
+    value = settings_store.get(LIBRARY_SYNC_SETTING)
+    ok = isinstance(value, int) and not isinstance(value, bool) and value >= MIN_LIBRARY_SYNC_LIMIT
+    return value if ok else DEFAULT_LIBRARY_SYNC_LIMIT
 _KEEP_INDEXES = 4
 # After the embedding model fails to answer, the turns search by keyword without trying it again for
 # this long: a hung Ollama must not cost every message its timeout (twice: notes and library).
@@ -120,7 +131,7 @@ def refine(
     if time.monotonic() < _UNAVAILABLE_UNTIL.get(model, 0.0):
         return keyword_hits
     try:
-        vectors = _vectors_for(index, _LIBRARY_SYNC_LIMIT if library else _SYNC_LIMIT, model)
+        vectors = _vectors_for(index, library_sync_limit() if library else _SYNC_LIMIT, model)
         if vectors is None:
             return keyword_hits
         query = _query_vector(message, model)

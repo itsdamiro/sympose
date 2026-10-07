@@ -6,7 +6,7 @@ channel's own (the terminal's are in `cli/display_settings.py`)."""
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from sympose.engine import budget, compaction, edit_mode, edit_turn, open_comments, embeddings, followup, history_cap, lookup, memory, memory_refresh, model_wait, parallel, past_chats, recap, related
+from sympose.engine import budget, compaction, edit_mode, edit_turn, open_comments, embeddings, followup, history_cap, lookup, memory, memory_refresh, model_wait, parallel, past_chats, recap, related, semantic
 
 TOGGLE, CHOICE, NUMBER = "toggle", "choice", "number"
 ON, OFF = "on", "off"
@@ -98,6 +98,11 @@ SETTINGS: list[Setting] = [
     Setting(
         embeddings.MARGIN_SETTING, NUMBER, "how near the best a note must be", embeddings.margin,
         lambda: embeddings.DEFAULT_MARGIN, hint="a number from 0 to 1", group=SEARCH,
+    ),
+    Setting(
+        semantic.LIBRARY_SYNC_SETTING, NUMBER, "help passages searched at once", semantic.library_sync_limit,
+        lambda: semantic.DEFAULT_LIBRARY_SYNC_LIMIT, group=SEARCH, whole=True,
+        hint=f"a whole number, {semantic.MIN_LIBRARY_SYNC_LIMIT} or more; below the library's size (about 260) its first searches use keywords",
     ),
     Setting(
         lookup.SETTING, CHOICE, "who searches your notes (persona/auto/ask)",
