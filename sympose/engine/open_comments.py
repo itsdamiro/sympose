@@ -29,6 +29,7 @@ class Decision:
     quote: str
     verdict: str
     reason: str | None = None
+    id: str = ""  # the comment's, so it can be removed once she has been told
 
 
 @dataclass(frozen=True)
@@ -36,6 +37,7 @@ class Found:
     items: tuple[Comment, ...] = ()
     left_out: int = 0  # older ones the cap left behind
     decided: tuple[Decision, ...] = ()
+    settle: tuple[str, ...] = ()  # decided comments to remove once this turn's reply is recorded: told to her now, or decided before her last reply and so never to be told
 
 
 def cap() -> int:
@@ -62,7 +64,17 @@ def _decided(entry: dict, answers: dict[str, list[dict]], since: str | None) -> 
     def reason(a: dict) -> str | None:
         mine = sorted((x for x in answers.get(a["id"], []) if x.get("author") == "user"), key=lambda r: str(r.get("time", "")))
         return mine[-1]["text"] if mine else None
-    return tuple(Decision(a["quote"], a["verdict"], reason(a)) for a in made[-DECIDED_CAP:])
+    return tuple(Decision(a["quote"], a["verdict"], reason(a), a["id"]) for a in made[-DECIDED_CAP:])
+
+
+def _settled(entry: dict, told: tuple[Decision, ...], since: str | None) -> tuple[str, ...]:
+    """The decided comments of her that have done their work: the ones told now, and the ones decided before her last reply
+    (a decision is told once, in the next message after it, so those can never be told). Nothing before there is an earlier
+    turn: a decision then is still waiting to be told."""
+    if since is None:
+        return ()
+    old = {a["id"] for a in entry["annotations"] if not a.get("reply_to") and a.get("verdict") and not _later(str(a.get("decided", "")), since)}
+    return tuple(sorted(old | {d.id for d in told}))
 
 
 def gather(handle: str, note, since: str | None = None) -> Found:
@@ -88,7 +100,8 @@ def gather(handle: str, note, since: str | None = None) -> Found:
         fresh = None if since is None else any(_later(str(x.get("time", "")), since) for x in thread)
         return Comment(a["quote"], tuple((x["author"], x["text"]) for x in thread), fresh)
 
-    return Found(tuple(comment(a) for a in kept), len(roots) - len(kept), _decided(entry, answers, since))
+    decided = _decided(entry, answers, since)
+    return Found(tuple(comment(a) for a in kept), len(roots) - len(kept), decided, _settled(entry, decided, since))
 
 
 def block(found: Found, persona_name: str) -> str:

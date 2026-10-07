@@ -654,22 +654,22 @@ def test_accepting_her_comment_resolves_it_with_the_verdict_and_when():
     assert (got["state"], got["verdict"]) == (nc.RESOLVED, nc.ACCEPTED) and got["decided"]
 
 
-def test_declining_needs_a_reply_from_the_user_first_and_changes_nothing_without_one():
+def test_declining_needs_no_reply_and_resolves_it_declined():
     root = hers()
 
-    with pytest.raises(ValueError, match="Reply first"):
-        nc.change_annotation(H, "a.md", root["id"], text="edited", verdict=nc.DECLINED)
+    nc.change_annotation(H, "a.md", root["id"], verdict=nc.DECLINED)
 
     got = entry_of(root["id"])
-    assert (got["state"], got["text"]) == (nc.OPEN, "Is this still true?") and "verdict" not in got
+    assert (got["state"], got["verdict"]) == (nc.RESOLVED, nc.DECLINED) and got["decided"]
 
 
-def test_an_answer_from_her_does_not_count_as_the_users_reply():
+def test_an_answer_from_her_changes_nothing_about_declining():
     root = hers()
     nc.reply(H, "a.md", root["id"], text="Let me explain.", author="persona")
 
-    with pytest.raises(ValueError, match="Reply first"):
-        nc.change_annotation(H, "a.md", root["id"], verdict=nc.DECLINED)
+    nc.change_annotation(H, "a.md", root["id"], verdict=nc.DECLINED)
+
+    assert entry_of(root["id"])["verdict"] == nc.DECLINED
 
 
 def test_declining_after_the_user_has_replied_resolves_it_declined():

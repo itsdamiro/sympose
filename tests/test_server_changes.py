@@ -596,19 +596,18 @@ def test_a_draft_is_saved_for_the_persona_who_asked_not_the_default_one(env):
     assert (text("samantha"), text("grace")) == ("# Samantha's\n", "# Grace edited\n")
 
 
-def test_a_comment_of_hers_is_accepted_through_the_route_and_a_decline_needs_the_users_reply_first(env):
+def test_a_comment_of_hers_is_declined_through_the_route_with_or_without_a_reply_of_the_users(env):
     client, _ = env
-    root = nc.annotate("samantha", "Garden plan.md", NOTE, quote="raised", text="Are you sure?", author="persona")
-    body = {"path": "Garden plan.md", "id": root["id"], "persona": "samantha"}
+    bare = nc.annotate("samantha", "Garden plan.md", NOTE, quote="raised", text="Are you sure?", author="persona")
+    said = nc.annotate("samantha", "Garden plan.md", NOTE, quote="three", text="Really?", author="persona")
+    client.post("/api/vault/annotations", json={"path": "Garden plan.md", "persona": "samantha", "reply_to": said["id"], "text": "Yes, I am."})
 
-    too_soon = client.patch("/api/vault/annotations", json={**body, "verdict": "declined"})
-    client.post("/api/vault/annotations", json={"path": "Garden plan.md", "persona": "samantha", "reply_to": root["id"], "text": "Yes, I am."})
-    declined = client.patch("/api/vault/annotations", json={**body, "verdict": "declined"})
+    results = [client.patch("/api/vault/annotations", json={"path": "Garden plan.md", "id": c["id"], "persona": "samantha", "verdict": "declined"}) for c in (bare, said)]
 
-    assert (too_soon.status_code, declined.status_code) == (400, 200)
-    assert "Reply first" in too_soon.json()["detail"]
-    (got,) = [a for a in client.get("/api/vault/changes", params={"path": "Garden plan.md", "persona": "samantha"}).json()["annotations"] if a["id"] == root["id"]]
-    assert (got["state"], got["verdict"]) == ("resolved", "declined")
+    assert [r.status_code for r in results] == [200, 200]
+    got = {a["id"]: a for a in client.get("/api/vault/changes", params={"path": "Garden plan.md", "persona": "samantha"}).json()["annotations"]}
+    assert (got[bare["id"]]["state"], got[bare["id"]]["verdict"]) == ("resolved", "declined")
+    assert (got[said["id"]]["state"], got[said["id"]]["verdict"]) == ("resolved", "declined")
 
 
 def test_the_route_refuses_a_verdict_on_the_users_own_comment_and_an_unknown_verdict(env):

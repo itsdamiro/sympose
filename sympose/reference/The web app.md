@@ -22,7 +22,7 @@ It then rewrites the wikilinks that name the folder, and updates the personas' f
 
 When a persona proposes a change to the note you have open, the editor shows it as a tracked change: the old text struck through and the new text beside it. A small tab above it holds Accept and Decline (and a paperclip). The toolbar has Accept all and save, and Decline all, for the whole note. A change you edited underneath is marked outdated, not merged.
 
-To leave a comment, select text and choose Comment; the persona reads your open comments with your next message and can reply or propose a change. A comment can be resolved, and a persona's own comment can be accepted or declined (declining needs your reply first). Nothing reaches the file until you accept or save. This is web app only.
+To leave a comment, select text and choose Comment; the persona reads your open comments with your next message and can reply or propose a change. A comment can be resolved, and a persona's own comment can be accepted or declined (a reason is optional). Nothing reaches the file until you accept or save. This is web app only.
 
 A comment's words are highlighted in the note. Click the highlight to open the thread, where you can reply, resolve it or delete it; a comment the persona leaves is opened the same way. Comments on exactly the same words share one highlight and one box, with a thread for each. There is no separate comments panel.
 

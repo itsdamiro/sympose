@@ -251,7 +251,7 @@ def change_annotation(
     handle: str, note_path: str, annotation_id: str, *, text: str | None = None, state: str | None = None, verdict: str | None = None,
 ) -> None:
     """Changes a comment's text, state and/or verdict in one save: anything that is not allowed changes nothing, not even
-    the text that came with it. A verdict (`accepted`, or `declined` after the user has replied) is the user's decision on
+    the text that came with it. A verdict (`accepted` or `declined`; a reason for declining is the user's own reply, never required) is the user's decision on
     one of her comments; it resolves the comment, and reopening it clears the verdict."""
     if state is not None and state not in (OPEN, RESOLVED):
         raise ValueError(f"An annotation is {OPEN} or {RESOLVED}, not {state!r}")
@@ -265,8 +265,6 @@ def change_annotation(
         if verdict is not None:
             if annotation.get("reply_to") or annotation.get("author") != "persona":
                 raise ValueError("Only the persona's comments can be accepted or declined.")
-            if verdict == DECLINED and not any(a.get("reply_to") == annotation_id and a.get("author") == "user" for a in entry["annotations"]):
-                raise ValueError("Reply first, saying why you disagree.")
         if text is not None:
             annotation["text"] = text
         if verdict is not None:

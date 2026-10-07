@@ -7,9 +7,11 @@ no in-progress generation to check for new input against, so the seam this
 docstring used to point at (between the model call returning and the turn
 persisting) was never exercised — see ADR 008."""
 
+import contextlib
 from dataclasses import replace
 from typing import Any
 
+from sympose import note_changes
 from sympose import profile as profile_mod
 from sympose.engine import (
     budget, compaction, edit_tools, edit_turn, history_cap, lookup, memory, memory_tools, past_chats, persona_tools, reference, session,
@@ -166,6 +168,12 @@ def _run(
         reply_ttft = reply.ttft_ms
 
     turn_cancel.commit()  # a stop after this is refused; before it, nothing below (marker, record, session) happens
+
+    # What the user decided on her comments was told to her in this prompt, so those comments are not kept (docs/decisions/069).
+    if modes.edit and modes.edit.settle and modes.edit.source:
+        for annotation_id in modes.edit.settle:
+            with contextlib.suppress(KeyError):
+                note_changes.delete_annotation(handle, modes.edit.source.path, annotation_id)
 
     # A model that can't call tools gets `remember` through a marker instead (docs/decisions/041),
     # stripped before the reply is shown; each one found is recorded like a tool call above.

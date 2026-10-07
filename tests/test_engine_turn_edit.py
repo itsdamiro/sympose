@@ -356,3 +356,88 @@ def test_the_same_request_without_an_attachment_is_still_refused(monkeypatch):
     result = turn.run_turn("samantha", "change it", model=CLOUD, open_note=TWICE)
 
     assert result.lookups == [{"tool": "propose_edit", "saved": False}] and waiting() == []
+
+
+# What the user decided on her comments is told to her once and then removed (docs/decisions/069, amended 2026-10-07).
+FUTURE = "2099-01-01T00:00:00+00:00"
+
+
+def decided_after_a_first_turn(monkeypatch, model, verdict=note_changes.ACCEPTED):
+    """A conversation with one reply in it, then the user's verdict on a comment of hers; returns the session and the comment."""
+    first = turn.run_turn("samantha", "hi", model=model, open_note=NOTE)
+    root = note_changes.annotate("samantha", NOTE.path, NOTE.text, quote="three times", text="Is that every week?", author="persona")
+    with monkeypatch.context() as later:
+        later.setattr(note_changes, "_now", lambda: FUTURE)
+        note_changes.change_annotation("samantha", NOTE.path, root["id"], verdict=verdict)
+    return first.session_id, root
+
+
+def hers_left() -> list[dict]:
+    return [a for a in (store.read("samantha", NOTE.path) or {"annotations": []})["annotations"] if a.get("author") == "persona"]
+
+
+def test_a_decision_is_told_in_the_next_message_and_the_comment_is_gone_after_it(monkeypatch):
+    seen = model_that(monkeypatch, ModelReply("hello", 5), ModelReply("ok", 5), ModelReply("ok", 5))
+    sid, _ = decided_after_a_first_turn(monkeypatch, LOCAL, note_changes.DECLINED)
+
+    turn.run_turn("samantha", "next", model=LOCAL, session_id=sid, open_note=NOTE)
+    turn.run_turn("samantha", "and again", model=LOCAL, session_id=sid, open_note=NOTE)
+
+    assert "decided on your comments" in seen[1]["messages"][-1]["content"]
+    assert "decided on your comments" not in seen[2]["messages"][-1]["content"]
+    assert hers_left() == []
+
+
+def test_a_decision_made_while_the_reply_is_being_written_is_not_removed(monkeypatch):
+    seen = model_that(monkeypatch, ModelReply("hello", 5), ModelReply("ok", 5))
+    first = turn.run_turn("samantha", "hi", model=LOCAL, open_note=NOTE)
+    root = note_changes.annotate("samantha", NOTE.path, NOTE.text, quote="three times", text="Is that every week?", author="persona")
+    real_call = turn.model_mod.call_model
+
+    def decide_during(messages, **kwargs):
+        with monkeypatch.context() as later:
+            later.setattr(note_changes, "_now", lambda: FUTURE)
+            note_changes.change_annotation("samantha", NOTE.path, root["id"], verdict=note_changes.ACCEPTED)
+        return real_call(messages, **kwargs)
+
+    monkeypatch.setattr(turn.model_mod, "call_model", decide_during)
+    turn.run_turn("samantha", "next", model=LOCAL, session_id=first.session_id, open_note=NOTE)
+
+    assert "decided on your comments" not in seen[1]["messages"][-1]["content"]  # not in this prompt
+    assert [a["id"] for a in hers_left()] == [root["id"]]  # so it is kept to be told in the next
+
+
+def test_a_turn_that_fails_leaves_the_decided_comment_to_be_told_next_time(monkeypatch):
+    model_that(monkeypatch, ModelReply("hello", 5))
+    sid, root = decided_after_a_first_turn(monkeypatch, LOCAL)
+
+    def broken(messages, **kwargs):
+        raise turn.EngineModelError("down")
+
+    monkeypatch.setattr(turn.model_mod, "call_model", broken)
+    with pytest.raises(turn.EngineModelError):
+        turn.run_turn("samantha", "next", model=LOCAL, session_id=sid, open_note=NOTE)
+
+    assert [a["id"] for a in hers_left()] == [root["id"]]
+
+
+def test_a_cloud_model_that_may_not_see_comments_is_not_told_and_nothing_is_removed(monkeypatch):
+    sharing.set_approved(sharing.OPEN_NOTE, True)
+    model_that(monkeypatch, ModelReply("hello", 5), ModelReply("ok", 5))
+    sid, root = decided_after_a_first_turn(monkeypatch, CLOUD)
+
+    turn.run_turn("samantha", "next", model=CLOUD, session_id=sid, open_note=NOTE)
+
+    assert [a["id"] for a in hers_left()] == [root["id"]]
+
+
+def test_only_the_decided_comment_goes_and_not_another_on_the_same_words(monkeypatch):
+    model_that(monkeypatch, ModelReply("hello", 5), ModelReply("ok", 5))
+    sid, decided = decided_after_a_first_turn(monkeypatch, LOCAL)
+    other = note_changes.annotate("samantha", NOTE.path, NOTE.text, quote="three times", text="And in winter?", author="persona")
+    mine = note_changes.annotate("samantha", NOTE.path, NOTE.text, quote="three times", text="My own note.", author="user")
+
+    turn.run_turn("samantha", "next", model=LOCAL, session_id=sid, open_note=NOTE)
+
+    left = {a["id"] for a in store.read("samantha", NOTE.path)["annotations"]}
+    assert decided["id"] not in left and {other["id"], mine["id"]} <= left

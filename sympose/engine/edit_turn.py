@@ -39,6 +39,7 @@ class Edit:
     decided: tuple[open_comments.Decision, ...] = ()  # what the user decided on her comments since her last reply
     persona_name: str = "She"
     source: OpenNote | None = None  # the whole open note, which a change is placed in (she is shown `note`, within the cap)
+    settle: tuple[str, ...] = ()  # her decided comments on the open note to remove once this turn's reply is recorded (`open_comments`)
     show_marker: bool = False  # a model without tools is told how to open a note for the user (the user's setting; it costs such a model edits)
     attached: int = 0  # how many passages of the note the user attached to this message (docs/decisions/076), for the record
     scope: tuple[tuple[int, int], ...] = ()  # the sections of `source` she was shown instead of the whole note: a change may be placed in one when its words are also found elsewhere
@@ -133,7 +134,7 @@ def resolve(
     return Edit(
         mode, can_call_tools, OpenNote(open_note.path, text), cut, show_marker=show_marker_enabled(),
         comments=found.items if may_see_comments else (), comments_left_out=found.left_out if may_see_comments else 0,
-        decided=found.decided if may_see_comments else (),
+        decided=found.decided if may_see_comments else (), settle=found.settle if may_see_comments else (),
         comments_withheld=0 if may_see_comments else len(found.items), persona_name=name, source=open_note,
         attached=len(attached), scope=focused[1] if focused is not None else (),
     )

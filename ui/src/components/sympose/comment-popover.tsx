@@ -102,8 +102,7 @@ function Thread({
   onClose: () => void
   saved: (result: { ok: boolean } & { error?: string }) => boolean
 }) {
-  // Declining one of her comments needs the user's own reply first, saying why (docs/decisions/069).
-  const replied = answers.some((a) => a.author === "user")
+  // Declining one of her comments needs no reply: the user may say why in the thread (she is told it), never forced to (docs/decisions/069).
   const decide = async (verdict: "accepted" | "declined") => {
     if (saved(await changeComment({ path, persona, id: root.id, verdict }))) onClose()
   }
@@ -139,14 +138,13 @@ function Thread({
         submit={async (text) => saved(await replyToComment({ path, persona, replyTo: root.id, text }))}
         actions={({ send, canSend }) => (
           <>
-            {root.author === "persona" && !replied && <p className="text-[11px] text-fg-muted">To decline, reply first, saying why you disagree.</p>}
             <div className="flex items-center justify-between" data-testid="comment-thread-actions">
               {root.author === "persona" ? (
                 <span className="flex gap-1">
                   <Button type="button" variant="ghost" size="xs" onClick={() => decide("accepted")}>
                     Accept
                   </Button>
-                  <Button type="button" variant="ghost" size="xs" disabled={!replied} onClick={() => decide("declined")}>
+                  <Button type="button" variant="ghost" size="xs" onClick={() => decide("declined")}>
                     Decline
                   </Button>
                 </span>

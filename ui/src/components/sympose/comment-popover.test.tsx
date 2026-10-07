@@ -264,17 +264,8 @@ describe("CommentPopover: accepting or declining one of her comments (docs/decis
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
-  it("keeps Decline off until the user has replied in the thread, and says why", async () => {
-    open([hers(), reply("persona")]) // an answer of hers is not the user's reply
-
-    const decline = await button("Decline")
-
-    expect(decline.disabled).toBe(true)
-    expect(screen.getByText(/reply first/i)).toBeTruthy()
-  })
-
-  it("declines once the user has replied, and closes", async () => {
-    const { onClose, onChanged } = open([hers(), reply("user")])
+  it("declines with no reply from the user, and says nothing about needing one", async () => {
+    const { onClose, onChanged } = open([hers()])
     const decline = await button("Decline")
     expect(decline.disabled).toBe(false)
     expect(screen.queryByText(/reply first/i)).toBeNull()
@@ -286,13 +277,22 @@ describe("CommentPopover: accepting or declining one of her comments (docs/decis
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
-  it("stays open and says why when the decision could not be saved", async () => {
-    api.changeComment.mockResolvedValue({ ok: false, error: "Reply first, saying why you disagree." })
+  it("declines the same way when the user did reply (the reply is their reason, not a condition)", async () => {
     const { onClose } = open([hers(), reply("user")])
 
     await act(async () => fireEvent.click(await button("Decline")))
 
-    expect(toast.error).toHaveBeenCalledWith("Reply first, saying why you disagree.")
+    expect(api.changeComment).toHaveBeenCalledWith({ path: "n.md", persona: "samantha", id: "h1", verdict: "declined" })
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it("stays open and says why when the decision could not be saved", async () => {
+    api.changeComment.mockResolvedValue({ ok: false, error: "The comment could not be changed." })
+    const { onClose } = open([hers()])
+
+    await act(async () => fireEvent.click(await button("Decline")))
+
+    expect(toast.error).toHaveBeenCalledWith("The comment could not be changed.")
     expect(onClose).not.toHaveBeenCalled()
   })
 })
@@ -336,13 +336,6 @@ describe("CommentPopover: the thread's buttons are one row (Resolve on the left,
     await act(async () => fireEvent.click(send))
 
     expect(api.replyToComment).toHaveBeenCalledWith({ path: "n.md", persona: "samantha", replyTo: "c1", text: "an answer" })
-  })
-
-  it("keeps the hint about declining above the row, not inside it", async () => {
-    const actions = await row("h1", [note("h1", { author: "persona" })])
-
-    expect(actions.textContent).not.toMatch(/to decline/i)
-    expect(screen.getByText(/to decline, reply first/i)).toBeTruthy()
   })
 })
 

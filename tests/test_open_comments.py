@@ -266,3 +266,33 @@ def test_the_turn_carries_the_decisions_and_a_cloud_model_is_not_given_them_unti
 
     assert "On “three times”: accepted." in edit_turn.message(sent, "x")
     assert "accepted" not in edit_turn.message(held, "x")
+
+
+def test_a_decline_with_no_reply_from_the_user_is_told_to_her_without_a_reason(monkeypatch):
+    declined = hers_at(BEFORE, monkeypatch, "raised", "Should the beds move?")
+    decide(declined, AFTER, monkeypatch, nc.DECLINED)  # no reply under it
+
+    found = open_comments.gather(H, NOTE, since=SINCE)
+
+    assert [(d.verdict, d.reason) for d in found.decided] == [("declined", None)]
+    text = open_comments.block(found, "Samantha")
+    assert "declined." in text and "the user wrote" not in text
+
+
+def test_a_comment_told_to_her_is_to_be_removed_and_so_is_one_decided_before_her_last_reply(monkeypatch):
+    stale = hers_at(BEFORE, monkeypatch, "raised", "Old point?")
+    decide(stale, BEFORE, monkeypatch, nc.DECLINED)  # decided before her last reply: never to be told
+    fresh = hers_at(BEFORE, monkeypatch, "three times")
+    decide(fresh, AFTER, monkeypatch, nc.ACCEPTED)
+    open_one = hers_at(BEFORE, monkeypatch, "week", "Which week?")  # not decided: stays
+
+    found = open_comments.gather(H, NOTE, since=SINCE)
+
+    assert set(found.settle) == {stale["id"], fresh["id"]} and open_one["id"] not in found.settle
+
+
+def test_nothing_is_to_be_removed_on_the_first_message_of_a_conversation_where_nothing_can_have_been_told(monkeypatch):
+    root = hers_at(BEFORE, monkeypatch)
+    decide(root, AFTER, monkeypatch, nc.ACCEPTED)
+
+    assert open_comments.gather(H, NOTE, since=None).settle == ()
