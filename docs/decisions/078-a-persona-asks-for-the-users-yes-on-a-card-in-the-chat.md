@@ -1,0 +1,57 @@
+# 078 — A persona asks for the user's yes on a card in the chat; the first thing she asks for is a new persona
+
+> **Status: Accepted (damiro, 2026-10-08); not built.** Builds on ADR 072 (nothing a persona does is kept without the user's Accept), ADR 062 (a persona's look), ADR 061 (the soul editor), ADR 012 (a soul is voice only) and ADR 077 (skills). Settles the design half of "the default persona creates personas".
+
+## Context
+
+The default persona is meant to be Sympose's expert, and a user will expect her to *do* what she explains, starting with making a new persona. Nothing in the app creates a persona today: the endpoints only edit an existing persona's files, model and edit mode, so a new persona is made by hand in a folder. Her prompt also says, on purpose (ADR 012, "removed when the capability arrives"), that she cannot create personas.
+
+Two questions came up and were answered in conversation:
+
+- **Where does the user say yes?** Not in the Drafts section: Drafts holds text that will become a file in the vault, and a persona is not one. The user wants it in the conversation, where the persona asked, as a card in the manner of the questions with choices that Claude Code puts to them.
+- **Does it need a skill?** Not first. What the soul skill taught the models (keep engine rules and user details out of a soul) is a check the engine can make and answer with a specific error. A skill is added only if a measurement shows it earns its place (ADR 077's method).
+
+So this record settles a **confirmation card** that any action of a persona can use, and one first user of it, **a new persona**. Changing a setting (`propose_setting`) is the next user and gets its own record.
+
+## Decision
+
+**What the persona gives is a proposal; the user decides.** Everything she puts on the card (the look, the folders, the edit mode, the soul) is her suggestion from the persona's vibe. The user decides with Accept or Decline, with the folder pills, and by asking her to change anything; nothing exists until Accept, and the model is theirs to choose afterwards.
+
+**1. A confirmation request is a record, not a button.** When a persona's tool call asks for something that needs the user's yes, the engine stores a request with the conversation, on the turn that asked: an id, a `kind` (`persona` now), a header (who it is about: name, title, icon, colours), the details to show, the choices the user may change, and a state (`waiting`, `accepted`, `declined`, `replaced`, `outdated`). Nothing the request names has happened while it waits, and the persona is told so in the tool's answer ("shown to the user; nothing is made until they accept"). The record is saved, so it is still there after a reload and cannot be answered twice.
+
+**2. The card.** It is drawn in the chat, after the message that asked, web app only. Its top is a header made like the persona panel's: the proposed icon in the proposed colour (ADR 062), the name and the title. Under it, the details; under those, the choices; at the foot Accept and Decline. The rules the user already set for the app apply: icons and numbers over words, square highlights, the composer's focus style, nothing new drawn that is not the card. An answered card stays in the conversation and shows only the outcome (the header and one line). The folders (or whatever choices a kind has) are **toggle pills** on the card, one per choice, on or off, with the count of those on; they are the only thing the user changes on the card itself. A card the user ignores stays; it is not a modal and does not block typing.
+
+**3. Resolving.** `POST /api/chat/confirmations/<id>` with the decision and the choices. The engine checks the request is still `waiting`, **checks the choices and the whole proposal again** (the card is a view, never the authority), runs the action the kind names, and records the new state. A second answer is refused. A proposal that can no longer be carried out (the handle now exists) becomes `outdated` and says why.
+
+**4. A change is asked of her, not made on the card.** The user who wants another soul, icon, colour, name or title says so in the chat, and she proposes again: the new request **replaces** the waiting one (the old card turns to `replaced` and shows as such), so there is only ever one waiting card per thing. Nothing on the card is edited by hand except the toggles.
+
+**5. She learns the outcome.** The next turn carries one line per decided request ("You proposed a persona called Ada; the user accepted it" / "...declined it"), told once and then dropped, the way her decided comments are (ADR 069). Otherwise she could not say that it is done.
+
+**6. The first kind: a new persona.** Her tool is `propose_persona` (a marker, `<!-- propose_persona: {...} -->`, for a model that cannot call tools, one parser as for notes, ADR 072). Arguments: `name`, `title`, `soul` (voice only), `icon`, `accent`, `accent_dark`, `folders` and `edit_mode`. **Every detail is hers to propose from the persona's vibe**: the look (the icon from the curated set, which the tool's description lists, and the colours), the folders it may read (a persona for a historical figure to talk with may need none; a research assistant, the research folders), and how far it acts on notes (`plan` for one that only talks, `manual` for one that proposes changes). The card shows her proposal; a proposal without an icon is answered with the list and asked to choose. She asks the user only for what she cannot work out from the request (who or what the persona is, when that is unclear). She does **not** choose the model: it costs money and decides what leaves the computer, so it is the user's, changed afterwards in the Persona page as for any persona.
+- **Handle.** Derived from the name (lower case, letters, digits and hyphens); refused if it exists or is `.`/`..`-like. The card shows the handle.
+- **Choices on the card.** The folders the new persona may read, as one toggle pill for each top-level folder the proposing persona can read, **on as she proposed them** and the user's to turn on or off, with the count on. The folders she proposes must be among the ones she can read herself, so the new persona is **never wider than hers**; a name that is not a folder is answered with the list. No pill on makes a persona with no vault, which the card says. The pills are the user's final word on access; everything else on the card is changed by asking her. The edit mode is shown as a line in the details.
+- **Soul.** Shown in an expandable area of the card, read-only. To change it the user asks her (rule 4); afterwards the soul editor (ADR 061) is there as for any persona.
+- **Validation, in the engine, with a specific error she can act on** (the way `table_spans.problem` does): the name is present and not too long; the icon is in the curated set (the engine holds the list of names; a test pins that it equals the web app's set); the colours are the shape ADR 062 allows; the soul is present, within the length of ADR 012 (about 1,500 characters, hard limit 2,500), is not a code fence of tool calls, and **names none of the engine's real tool names or markers** (taken from the tool registry, not from a list of phrases). What no machine can check, whether the soul holds the user's own details, is left to the user, who reads the soul on the card before accepting.
+- **The action.** One function, `persona_create.create(draft)`, shared with a future "new persona" button: it creates `profiles/<handle>/` with `persona.yaml` (name, handle, title, look, `vault_folders`) and `soul.md`, never over an existing folder, never touching Samantha's shipped files. The new persona's files are the user's own and untracked (`profiles/*` is ignored but for Samantha's two files); the app says nowhere that they were written by a persona.
+- **Who may ask.** The persona that has the Sympose reference library (`sympose_reference`, today the default persona only). Another persona does not get the tool, so Samantha stays the only persona that ships with the power, and her prompt line "you cannot create personas" is replaced for her by the tool's own description and stays for every other persona.
+
+**7. Where the guidance lives.** In the tool's description (what to ask, the defaults, that the soul is voice only) and in the validator's errors, not in a skill and not in the soul. The soul skill still selects itself when a message asks for a soul (ADR 077) and is unchanged.
+
+**8. Measured before it is built, with the tool and the validator alone first.** A live set of cases on invented data in the harness of `tests/live_skill_cases.py`'s kind, 6 or more runs each on `gemma2:9b` (marker), `gemma4:e4b` and Gemini Flash (with the user's go-ahead for the cloud run): a named historical figure; a vague request (she asks one question or writes it); a request to put engine rules or powers in the soul; a request to put the user's details in it; folders and an edit mode that suit the vibe (read by hand, and scored by the folders being real and within hers); a name that already exists; an icon that suits the vibe (scored by the icon being in the set and, read by hand, fitting); a request to change the soul, the icon or the colour of a waiting card (the new request replaces it); a near miss that must make no proposal ("tell me about personas", "write a note about my persona research"); small talk. Scored on: a valid request made when one is due and none otherwise, its fields right, and how many validator errors it took. The soul skill is then added and the same set run again; it stays out unless it improves the numbers.
+
+**9. Left out of this record.** The terminal (it says to use the web app, as it does for editing notes); editing or deleting a persona; changing a setting (the next record, the same card); a "new persona" button (it would call the same function); editing any detail on the card itself (it is asked of her).
+
+## Consequences
+
+- One mechanism (the stored request, the card, the resolve step, the one-line outcome) serves every later thing a persona needs a yes for, so the second user costs a kind and a handler, not a surface.
+- The user sees a new persona before it exists, in the colours and icon it will have, and reads its soul. This is the check on what a validator cannot see.
+- The list of icon names now exists on both sides, kept equal by a test.
+- Her prompt changes for the default persona only; the reference library gets a page on creating personas and a line in `Not built yet.md` (the stale sweep).
+- A conversation file gains a field (the requests of a turn); an older file without it reads as having none.
+
+## Alternatives rejected
+
+- **A row in the Drafts section.** Drafts is for text that will become a vault file, listed apart from the conversation; a persona asked for in a chat belongs in that chat.
+- **A skill first.** A skill costs prompt tokens and, on a small model, made the outcome depend on its wording (ADR 077's measurements); the rules here are checkable, so the engine checks them.
+- **Creating the persona and asking afterwards.** It breaks the rule that nothing a persona does is kept without the user's yes.
+- **Letting the model choose the folders and the model.** The user's access and cost decisions are the user's; the card is where they make them.
