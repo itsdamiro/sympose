@@ -6,7 +6,7 @@ channel's own (the terminal's are in `cli/display_settings.py`)."""
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from sympose.engine import budget, compaction, edit_mode, edit_turn, open_comments, embeddings, followup, history_cap, lookup, memory, memory_refresh, model_wait, parallel, past_chats, recap, related, semantic
+from sympose.engine import budget, compaction, edit_mode, edit_turn, open_comments, embeddings, followup, history_cap, lookup, memory, memory_refresh, model_wait, parallel, past_chats, recap, related, semantic, skills
 
 TOGGLE, CHOICE, NUMBER = "toggle", "choice", "number"
 ON, OFF = "on", "off"
@@ -32,8 +32,8 @@ def toggle(key: str, summary: str, current: Callable[[], bool], default: bool = 
     return Setting(key, TOGGLE, summary, current, lambda: default, group=group)
 
 
-CONTEXT, SEARCH, LOOKUP, MEMORY, CONVERSATIONS, EDITING = "Conversation memory", "Search", "Searching notes", "Memory", "Conversations", "Editing"
-GROUPS = (CONTEXT, SEARCH, LOOKUP, MEMORY, CONVERSATIONS, EDITING)
+CONTEXT, SEARCH, LOOKUP, MEMORY, CONVERSATIONS, EDITING, SKILLS = "Conversation memory", "Search", "Searching notes", "Memory", "Conversations", "Editing", "Skills"
+GROUPS = (CONTEXT, SEARCH, LOOKUP, MEMORY, CONVERSATIONS, EDITING, SKILLS)
 
 SETTINGS: list[Setting] = [
     Setting(
@@ -145,6 +145,14 @@ SETTINGS: list[Setting] = [
     Setting(
         open_comments.CAP_SETTING, NUMBER, "open comments the persona is shown", open_comments.cap,
         lambda: open_comments.DEFAULT_CAP, hint="a whole number, 1 or more", whole=True, group=EDITING,
+    ),
+    Setting(
+        skills.LOOKUP_SETTING, CHOICE, "skills used when a message calls for one",
+        skills.mode, lambda: skills.AUTO, choices=skills.MODES, group=SKILLS,
+    ),
+    Setting(
+        skills.CAP_SETTING, NUMBER, "most text of a skill sent per message", skills.cap,
+        lambda: skills.DEFAULT_CAP, hint=f"characters, {skills.MIN_CAP} or more", whole=True, group=SKILLS,
     ),
 ]
 

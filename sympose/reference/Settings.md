@@ -202,6 +202,18 @@ The `open_note_cap` setting is how many characters of the open note a persona is
 
 The `annotations_cap` setting is how many of your open comments on the open note travel with one message, 20 by default (1 or more). Each comment is sent with the passage it is about and is marked new or earlier. To a cloud model they travel only if `"annotations"` is allowed in `cloud_share`.
 
+## skill_lookup
+
+The `skill_lookup` setting decides whether a persona follows a skill: `"auto"` (the default) picks the skill whose description fits your message, if there is one, and adds its steps to that message; `"off"` never does.
+
+A skill is a folder with a `SKILL.md` that says what it does and the steps to follow. It is only text: nothing in it is ever run. Samantha carries the bundled ones named in her `persona.yaml`, and a persona also carries every skill in its own `skills/` folder in its profile.
+
+A skill that needs to propose a note is not used where the persona cannot propose notes: in the terminal, or when its `edit_mode` is `"plan"`.
+
+## skill_cap
+
+The `skill_cap` setting is the most characters of a skill's steps that go with one message, 3000 by default (500 or more). Longer steps are cut at a line. A smaller number suits a small model.
+
 ## How do the true or false settings work?
 
 Only an explicit `false` turns a setting off. Anything else leaves the default.

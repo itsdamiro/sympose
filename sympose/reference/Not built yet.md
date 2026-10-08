@@ -36,4 +36,4 @@ No. Every conversation is saved in `profiles/<handle>/sessions/`, but she never 
 
 ## What else is missing?
 
-The rarely used settings are still edited in `settings.json`. Skills, playbooks a persona could follow, are not built. Notes are found by meaning when the small search model is installed, and by keywords otherwise.
+The rarely used settings are still edited in `settings.json`. Skills, playbooks a persona follows, are built in a first form: the persona picks one by your message (see `skill_lookup`), and only one at a time. A persona that creates other personas or changes settings for you is not built. Notes are found by meaning when the small search model is installed, and by keywords otherwise.

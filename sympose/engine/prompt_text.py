@@ -144,6 +144,10 @@ POINT_TO_REFERENCE = (
 
 REFERENCE_LABEL = "Sympose reference (Sympose's own documentation, for the version installed):"
 NO_REFERENCE = "No Sympose reference matched this message."
+SKILL_LABEL = (
+    "A skill you carry may apply to this message. If the message asks for what the skill is for, do it now by its steps, with the "
+    "tools you have and in your own voice, without asking first. If the message asks for something else, ignore the skill."
+)
 ANSWER_FROM_REFERENCE = "If the message is about Sympose itself, answer it from the Sympose reference above."
 
 # Next to the notes, only when there are some.

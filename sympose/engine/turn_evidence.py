@@ -9,7 +9,7 @@ from typing import Any, Callable
 from sympose import profile as profile_mod, vault_map as vault_map_mod
 from sympose.engine import (
     budget, connections, followup, grounding, grounding_properties, memory, past_chats, persona_tools, prompt, recap,
-    recap_refresh, reference, related, session_compaction, sharing, turn_status,
+    recap_refresh, reference, related, session_compaction, sharing, skills, turn_status,
 )
 
 
@@ -28,6 +28,7 @@ class Evidence:
     point_to: list[str]
     reference_found: int
     vault_found: int
+    skill: str | None = None  # the skill chosen for this message (docs/decisions/077), as the prompt carries it
 
 
 def interleave(first: list[dict[str, Any]], second: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -107,6 +108,7 @@ def gather(
     if mem.withheld:
         withheld[sharing.MEMORY] = 1
 
+    chosen = skills.select(persona, user_message, skills.tools_of(modes.ask, modes.edit is not None and modes.edit.active), sharing.is_local(target_model))
     reference_found = sum(1 for h in gated.grounding if h.get("source") == reference.SOURCE)
     return Evidence(
         grounding=gated.grounding,
@@ -124,6 +126,7 @@ def gather(
         point_to=point_to,
         reference_found=reference_found,
         vault_found=len(gated.grounding) - reference_found,
+        skill=skills.text_for(chosen) if chosen else None,
     )
 
 
@@ -164,6 +167,7 @@ def prompt_builder(
             remember=modes.remember,
             compaction=found.notes,
             chat_tools=modes.chats,
+            skill=found.skill,
         )
 
     return build

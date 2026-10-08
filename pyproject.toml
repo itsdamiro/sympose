@@ -37,7 +37,7 @@ include = ["sympose*"]
 [tool.setuptools.package-data]
 # The Sympose reference notes (docs/decisions/019, 022) are read at run time, and the built web
 # app (docs/decisions/028) is served by `sympose web`.
-sympose = ["reference/*.md", "webui/*", "webui/assets/*"]
+sympose = ["reference/*.md", "skills/*/SKILL.md", "webui/*", "webui/assets/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

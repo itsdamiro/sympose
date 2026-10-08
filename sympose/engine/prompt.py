@@ -22,7 +22,7 @@ from sympose.engine.prompt_blocks import (
     chats_block, compaction_block, memory_block, notes_block, recaps_block, reference_block, vault_map_block,
 )
 from sympose.engine.prompt_text import (
-    ANSWER_FROM_CHATS, CHAT_TOOLS_TEXT, ANSWER_FROM_NOTES, ANSWER_FROM_RECAPS, ANSWER_FROM_REFERENCE, CHATS_LABEL, WITHHELD_CHATS, CONNECTED_TO, RELATED_TO, DEFAULT_SOUL, GROUNDING_RULE,
+    ANSWER_FROM_CHATS, CHAT_TOOLS_TEXT, ANSWER_FROM_NOTES, ANSWER_FROM_RECAPS, ANSWER_FROM_REFERENCE, CHATS_LABEL, SKILL_LABEL, WITHHELD_CHATS, CONNECTED_TO, RELATED_TO, DEFAULT_SOUL, GROUNDING_RULE,
     HOW_YOU_WORK, HOW_YOU_WORK_ASK, GROUNDING_RULE_ASK, MEMORY_CONTEXT_LABEL, MEMORY_CONTEXT_MARK,
     MEMORY_DECISIONS_LABEL, MEMORY_NO_CHANGE, MEMORY_PROFILE_LABEL, MEMORY_PROFILE_MARK, MEMORY_REFRESH_INSTRUCTIONS,
     NO_NOTES, NO_RECAP, NO_REFERENCE, NO_TOPIC, POINT_TO_REFERENCE, RECAPS_LABEL,
@@ -124,6 +124,7 @@ def build_user_turn(
     vault_map_withheld: bool = False,
     lookup: bool = False,
     chats_withheld: bool = False,
+    skill: str | None = None,
 ) -> str:
     """`chats_withheld`: earlier conversations matched but a cloud model may not have them; the line saying so
     sits with the message, where a small model weighs it most (the notes' own withheld lines do too).
@@ -134,7 +135,8 @@ def build_user_turn(
     says what it found in it (or that nothing matched). Its passages are marked
     `source: reference.SOURCE` and kept apart from the user's own notes; `omitted` and
     `reference_omitted` count the passages of each left out for size. `point_to`:
-    the personas that have the library, for one that does not to send the user to."""
+    the personas that have the library, for one that does not to send the user to. `skill`: the steps of the skill
+    chosen for the message (docs/decisions/077), set right before it where a small model weighs it most."""
     reference_hits = [h for h in grounding_results if h.get("source") == reference_mod.SOURCE]
     notes = [h for h in grounding_results if h.get("source") != reference_mod.SOURCE]
     map_text = vault_map_block(vault_map, vault_map_withheld)
@@ -151,6 +153,8 @@ def build_user_turn(
         parts.append(POINT_TO_REFERENCE.format(names=" or ".join(point_to)))
     if chats_withheld:
         parts.append(WITHHELD_CHATS)
+    if skill:
+        parts.append(f"{SKILL_LABEL}\n{skill}")
     parts.append(f"User's message: {user_message}")
     return "\n\n".join(parts)
 
@@ -177,6 +181,7 @@ def build_messages(
     chats: list[dict[str, Any]] | None = None,
     chats_omitted: int = 0,
     chat_tools: bool = False,
+    skill: str | None = None,
 ) -> list[dict[str, str]]:
     """The system prompt (with the recaps of earlier conversations, docs/decisions/023 and 026, and the
     persona's own memory, docs/decisions/041), the history as it was said (the notes of earlier turns
@@ -203,7 +208,7 @@ def build_messages(
         "role": "user",
         "content": build_user_turn(
             user_message, grounding_results, omitted, has_library, reference_omitted, point_to, withheld,
-            vault_map, vault_map_withheld, lookup, bool(withheld.get(CHATS, 0)),
+            vault_map, vault_map_withheld, lookup, bool(withheld.get(CHATS, 0)), skill,
         ),
     }
     return [system, *history, user]
