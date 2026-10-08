@@ -5,8 +5,9 @@ Usage: python3 scripts/adr_check.py [--dir docs/decisions] [--from NNN]
 
 Every docs/decisions/NNN-slug.md numbered NNN or higher must have: frontmatter with type: decision, a status, a date,
 projects, concepts (at least one, each in sentence case), amends, supersedes and tags (including type/decision, the
-status tag and at least one topic/ tag that is not just a concept's name in kebab-case); a `> **Summary.**` line; a heading `# NNN — Title`; and a row in the directory's README.md. Whether a
-concept has a note in the vault is the vault lint's job, not this script's. Exit 1 on any problem, 2 on a usage error.
+status tag and at least one topic/ tag that is not just a concept's name in kebab-case); a `> **Summary.**` line; a
+heading `# NNN — Title`; and a row in the directory's README.md. Whether a concept has a note in the vault is the
+vault lint's job, not this script's. Exit 1 on any problem, 2 on a usage error.
 """
 
 from __future__ import annotations
@@ -118,6 +119,7 @@ def problems_of(name: str, text: str, index: str) -> list[str]:
         for wanted in ("type/decision", f"status/{status}"):
             if wanted not in tags:
                 out.append(f"tags lack {wanted}")
+    if isinstance(tags, list):
         topics = [t[6:] for t in tags if t.startswith("topic/")]
         if not topics:
             out.append("tags have no topic/ tag: a topic is a question to filter by, listed in the vault's Tags.md")

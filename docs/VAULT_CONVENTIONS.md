@@ -20,7 +20,7 @@ How this project's decision records are named and written so that the owner's va
 
 - Lowercase, kebab-case, namespaced: `type/`, `status/`, `project/`, `topic/`, `lang/`, `source/`. The sync adds `type/`, `status/` and `project/` from the fields; `topic/<word>` is written by you in the record's `tags:`, from the list in `Tags.md`.
 - If you would write about a thing, it is a concept; if you would only filter or count by it, it is a tag.
-- **A `topic/` tag is a question to filter by, and it cuts across concepts** (privacy, cost, the web app), so it must not be the same word as one of the record's own concepts: the record already links to those. Every record carries at least one. Choose from the topics listed in the vault's `Tags.md`; coin a new one only when no listed topic fits, and ask the owner to list it there, with the question it answers. The shape check refuses a record with no topic or with a topic that only repeats a concept; the vault lint warns when a topic is unlisted or spans a single concept.
+- **A `topic/` tag is a question to filter by, and it cuts across concepts** (privacy, cost, the web app), so it must not be the same word as one of the record's own concepts: the record already links to those. Every record carries at least one, usually one to three. Choose from the topics listed in the vault's `Tags.md`; coin a new one only when no listed topic fits, and ask the owner to list it there, with the question it answers. The shape check refuses a record with no topic or with a topic that only repeats a concept; the vault lint warns when a topic is unlisted or spans a single concept.
 
 ## Links
 
