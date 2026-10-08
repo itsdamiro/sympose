@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 004 — Add a vault from the workspace switcher, persisted alongside the env-configured list
 
+> **Summary.** A vault can be added from the workspace switcher; it is saved in the settings store and merged after the `VAULT_PATHS` vaults. This avoids stopping the backend and editing `.env`. An added vault is local to the install and does not survive a fresh checkout.
+
 ## Context
 
 ADR 003 made the configured vault list purely a `VAULT_PATHS` env var — static for the life of the process, set once at deploy/dev-server-start time. Using the switcher day to day surfaced the obvious next need: a way to add a vault without stopping the backend, editing `.env`, and restarting. The switcher already had to become a real interactive popup for switching; adding a second affordance to the same surface, rather than sending the user to a separate flow, was the natural next step, and damiro asked for exactly that live while the switcher landed. The switcher's "Vault" caption above the list was dropped in the same pass — plain, unlabelled rows read fine on their own once there's an add affordance right below them.

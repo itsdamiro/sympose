@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 032 — The speed of the reply reveal is a setting: `reply_reveal`, words per second, 50 by default
 
+> **Summary.** The speed of the reply reveal in the terminal is a `reply_reveal` setting in words per second, default 50, with `0` showing the whole reply at once. The fixed 20 words per second made a 600-word answer take about 30 seconds to appear after it had arrived. A malformed value leaves the default.
+
 > **Status: Accepted.** Amends ADR 006 (the reply is revealed word by word in the CLI). Closes #73.
 
 ## Context

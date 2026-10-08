@@ -4,12 +4,14 @@ status: accepted
 date: 2026-09-24
 projects: [sympose]
 concepts: [Grounding]
-amends: [14, 17]
+amends: [14, 17, 20]
 supersedes: []
 tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 021 — Weak evidence is not enough to ground a reply: a one-word match is checked by the rewrite step, and the persona's own name is no evidence
+
+> **Summary.** A single-word match is no longer enough to ground a reply: weak hits are checked by the rewrite step, and a word of the persona's own name (or an alias in `persona.yaml`) does not count as evidence. Unrelated notes were attached to all twelve messages in two real conversations, and the model now cites them. Her aliases also go into her prompt.
 
 > **Status: Accepted.** Amends ADR 014 (the retriever) and ADR 017 (the follow-up rewrite). **Scope of the model figures: Ollama and `gemma2:9b` only**, on a recorded set of twelve real messages replayed read-only against a real 679-note vault, and on the fixture vault. Another model may write different rewrites.
 

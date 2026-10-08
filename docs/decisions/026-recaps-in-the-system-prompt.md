@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 026 — Recaps go in the system prompt, not beside the message
 
+> **Summary.** Recaps move into the end of the system prompt, and the last user turn carries only the notes and the message. In a real conversation a recap beside the message was commented on instead of the request being continued. This is a property of a small model; a larger or cloud model may not care, and none was measured.
+
 > **Status: Accepted.** Built. Amends ADR 023 (where the recap block sits) and the reason ADR 020 gives for putting things in the last user turn. **Scope of every model figure: Ollama and `gemma2:9b` only.** Measured on the user's own recorded conversation replayed on scratch copies (their vault read-only, nothing written to it) and on invented recaps.
 
 ## Context

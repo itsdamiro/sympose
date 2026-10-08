@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 012 — A persona's soul is voice only; engine rules stay in the engine
 
+> **Summary.** A persona's soul file is voice and temperament only, about 1.5KB, which keeps the per-turn prompt cheap for small models. Rules every persona must obey stay in the engine, and capabilities go in expertise and tool calling. A persona without a soul sounds like the generic companion, and nothing caps a very long soul file.
+
 ## Context
 
 Every turn's system prompt opens with `PLACEHOLDER_SOUL`, one hardcoded sentence shared by every persona (ADR 006 deferred the real thing as "its own later piece of product writing"). ADR 011 gave each persona a directory with room for `soul.md`. Legacy's `samantha_soul.md` is the obvious starting point, but at 5.9KB it mixes four different things: voice and temperament; grounding and anti-hallucination rules; a syntax of action tags (`[CREATE_PERSONA]`, `[REMEMBER]`, `[WRITE_NOTE]`...) for features this rewrite has not built, along with a claim of "absolute mastery" of Sympose; and the maintainer's own first name hard-coded into the text. Only the first belongs in a shipped soul. It is also roughly 1,500 tokens on every turn, which costs speed on a small local model and gives a long instruction list more chances to be followed unevenly.

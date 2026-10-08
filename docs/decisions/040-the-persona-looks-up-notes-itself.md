@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 040 — The persona looks up notes itself: a `vault_lookup` setting (`auto` or `ask`) and two read-only tools, search and open
 
+> **Summary.** The persona can look up notes itself: a `vault_lookup` setting is `auto` (Sympose searches before every reply) or `ask` (she gets read-only tools, four after later amendments, and decides), and the default now follows the model (`ask` on measured models, else `auto`). Search ran even on messages that asked for nothing. `ask` costs no call on a message that needs no note but one extra model call per lookup.
+
 > **Status: Accepted (2026-09-29).** Built behind the setting (default `auto`, so nothing changes for a user who does not choose `ask`); not offered as a recommendation until the measurements below are agreed. Amends ADR 017 (retires its reserved `model-searches` value) and builds on ADR 031 (what a cloud model may receive) and ADR 025 (what is recorded). One cloud model is measured (see "Measured"); a small model, and every local model, are not to be assumed to work. Tracked as issue #85, open on the remaining fit decision (see "Bar for offering it").
 
 ## Context

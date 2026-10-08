@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 005 — CLI mock built on Textual, not `prompt_toolkit`
 
+> **Summary.** The mock CLI is built on Textual, as a main dependency, not on `prompt_toolkit`. The input line must stay typeable while a reply streams, which the old blocking prompt could not do. Textual owns the whole terminal, a bigger footprint than the minimal blocking CLI needs.
+
 ## Context
 
 The CLI channel needs a persistent, always-live input line that stays

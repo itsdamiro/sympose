@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 061 — A persona's own files open in the markdown editor
 
+> **Summary.** A persona's four files (soul, profile, context, decisions) open in the web app's own markdown editor from one "FILES" menu replacing the disabled Soul and Memory chips. Nothing served these files to the web. Edits take effect on her next reply, and the shipped files stay untouched because overrides go elsewhere.
+
 > **Status: Accepted and built (2026-10-03), designed with damiro.** Builds on ADR 011 (a persona's directory), ADR 012 (the soul is voice only), ADR 041 (persona memory, three files and a rewrite gate), ADR 046 (the tracked persona files are defaults the app never writes) and ADR 060 (the web chat's chrome).
 
 ## Context

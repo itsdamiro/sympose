@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 073 — Renaming a folder carries its links, the personas' scopes and the persona's changes with it
 
+> **Summary.** Renaming a folder carries everything that names it: wikilinks and embeds, its definition note, personas' folder scopes, the hidden list, pending changes and comments, and in the browser the pins and recents. The vault is the user's own Obsidian vault, so a folder's name appears in more places than its path. A rename of a big folder rewrites every note that links into it, so those notes' modified times change.
+
 > **Status: Accepted (damiro, 2026-10-05).** First half of the folder work on #21's list: **rename**. Moving a folder (dragging it onto another) is the next step and gets its own record. The user chose: links that name the folder are rewritten, a persona's folder scope that names it is updated and the user is told which, and rename comes before move.
 
 ## Context

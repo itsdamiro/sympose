@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 065 — The toolbar search filters Settings and the conversations
 
+> **Summary.** The toolbar search field searches what the page holds: "Search settings" on Settings and "Search conversations" on the Persona page, as well as the vault on a folder. On those pages it accepted text and did nothing, which read as broken. The match is local and instant, with no request, and the query is cleared when the kind of page changes.
+
 > **Status: Accepted (2026-10-03), designed with damiro.** Builds on ADR 044 (the engine settings in the web app), ADR 057 (the list of conversations) and the content panel's toolbar (ADR 012).
 
 ## Context

@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 019 — A Sympose reference library: read-only notes about Sympose itself, searched by the same retriever
 
+> **Summary.** Sympose ships a read-only library of markdown notes about itself inside the package, kept out of the user's vault and found by the same retriever. A persona asked about Sympose otherwise guesses, which this project treats as a bug. The library changes with the code and always describes the installed version.
+
 > **Status: Accepted.** The library, its retrieval, its wiring into the engine (ADR 022) and its packaging are built and measured, and real-model checks were made. What is still open is under "Not built yet". **Scope: Ollama and `gemma2:9b` only for everything a model did** (the live check below); the retrieval numbers are deterministic and model-independent. Cloud models and other local models are unmeasured.
 
 ## Context

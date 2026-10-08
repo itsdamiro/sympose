@@ -4,12 +4,14 @@ status: accepted
 date: 2026-10-01
 projects: [sympose]
 concepts: [Persona, Settings]
-amends: []
+amends: [44]
 supersedes: []
 tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 046. A model pick is a local override, not an edit of the shipped persona file
+
+> **Summary.** A model picked in the terminal or web picker is saved to a local `persona.local.yaml` holding only `model:`, not into the tracked `persona.yaml`. Every pick had dirtied a committed file for Samantha, and one careless `git add -A` would have shipped it. Resetting to the defaults is deleting one file.
 
 Status: Accepted (damiro, 2026-10-01). Supersedes the "Known limitation, accepted" paragraph at the end of ADR 044.
 

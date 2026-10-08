@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 050. A deleted folder can be restored as a unit
 
+> **Summary.** A deleted folder can be restored as a unit: deleting a non-empty folder writes a group entry to a hidden `.trash-folders.json` sidecar listing its files. A folder of hundreds of images was hundreds of restore rows. A note deleted alone into the same bin directory later is not a member and stays a loose row.
+
 Status: Accepted (damiro, 2026-10-01). Closes #118. Builds on ADR 045.
 
 ## Context

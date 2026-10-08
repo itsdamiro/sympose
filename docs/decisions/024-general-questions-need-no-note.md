@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 024 — A general question needs no note: tighter grounding and a wording that lets her answer it
 
+> **Summary.** Grounding is tighter: a passage qualifies only if the message names at least half of one of its labels (title, filename, a tag or a heading) or matches enough of its informative words. The prompt wording now lets her answer general questions without notes. A message of many words that names a note only through body words can miss a note it used to find.
+
 > **Status: Accepted.** Built. Amends ADR 014 (what the retriever attaches), ADR 020 (what she is told about the notes) and ADR 019 (the library's wording). **Scope of every model figure: Ollama and `gemma2:9b` only.** Measured on the user's own recorded conversation replayed on scratch copies (their vault read-only, nothing written to it) and on the synthetic fixture vault; no note of theirs is named here.
 
 ## Context

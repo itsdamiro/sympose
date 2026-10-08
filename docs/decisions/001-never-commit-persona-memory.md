@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 001 — Never commit persona memory, regardless of handle
 
+> **Summary.** Persona memory files are always gitignored, for every persona including Samantha; her soul file stays the one committed exception. Memory grows from real conversations, so it must never ship, and a shipped template had conflated config with memory. Anyone editing `.gitignore` later must keep soul and memory apart.
+
 ## Context
 
 The original `.gitignore` un-ignored `samantha_memory.md` specifically, on the reasoning that Samantha ships as the only default persona, so her config is the one committed exception. That reasoning conflated persona *config* (soul/identity — fine to ship as a template) with persona *memory* (durable facts extracted from real conversations, accumulated from actual use) under the same exception. Memory is personalization that grows from a specific person's real usage — genuinely personal content, never product content — so leaving that exception in place would mean shipping real conversational history into a public repo the moment a memory file is created at onboarding.

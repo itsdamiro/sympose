@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 070 — Pending changes and annotations are stored per note in the persona's own folder
 
+> **Summary.** Pending changes and annotations are stored as one JSON file per note in a `notes/` folder of the persona's data folder, named after the note's vault path. A per-note file is easy to read and delete, and two notes never contend for one lock. A rename, move or permanent delete in the vault now carries or removes the entry.
+
 > **Status: Accepted, built (2026-10-05).** Proposed 2026-10-04. The storage and API half of the design in ADR 042 (amended 2026-10-04) and ADR 069: what is kept, where, how a proposal knows it has gone outdated, and what the editor and the Drafts section read. Turn-based, web app only.
 
 ## Context

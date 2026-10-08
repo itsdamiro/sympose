@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 077 — Skills are folders of know-how, chosen by retrieval
 
+> **Summary.** Skills are folders with a `SKILL.md` in Anthropic's Agent Skills format, bundled in `sympose/skills/` or the user's own in `profiles/<handle>/skills/`, and chosen by retrieval. A persona had knowledge, powers and identity but no written procedures for recurring jobs, and the soul cannot hold them. In `auto` mode a prompt grows by at most one skill body, bounded by `skill_cap`; `ask` and `use_skill` are not built.
+
 > **Status: Accepted; `auto` built (2026-10-08), `ask` and `use_skill` not built.** Design agreed with damiro, 2026-10-07. See the amendment for what was built and measured.
 
 ## Context

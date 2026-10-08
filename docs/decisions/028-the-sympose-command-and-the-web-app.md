@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 028 — One `sympose` command with `cli` and `web`, and the browser app is the "web app"
 
+> **Summary.** There is one `sympose` command with `cli` and `web` subcommands, and the browser app is called the "web app", not the "dashboard". The terminal chat and the browser backend each had a separate command to remember, and now the API server and built app run as one process on one port. Old records keep the old word.
+
 > **Status: Accepted.** Built. Amends the name used in ADRs 004, 005, 010, 011 and later ("the dashboard"), which keep their wording as a record of what was decided then. Nothing about the API or the chat engine changes.
 
 ## Context

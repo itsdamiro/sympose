@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 059 — How long a model call may wait: a limit that grows with the prompt, and a `model_timeout` setting
 
+> **Summary.** The wait for a model call grows with the prompt: 120 seconds plus 1 second per 40 prompt tokens, and a `model_timeout` setting (30 to 3600 seconds) overrides it. A cold start took about 100 s at 4.8k tokens, so a chat near the 6.1k budget passed the fixed 120 s limit. A truly stuck model still fails, after at most about 5 minutes at the budget, and a hung request can hold a persona's turn longer.
+
 > **Status: Accepted (2026-10-02).** Closes #124. Builds on ADR 013 (the first-word wait is what the user feels), ADR 015 (the prompt budget) and ADR 055 (compaction shortens a long chat but does not remove the problem).
 
 ## Context

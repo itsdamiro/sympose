@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 031 — What a cloud model may receive: known to the user, approved by the user, one setting per category
 
+> **Summary.** What a cloud model may receive is decided by the user: the conversation and the Sympose reference passages go with the model they chose, and everything derived from the vault is a category in a `cloud_share` list that is empty by default. A cloud model's only consent had been picking it in the model picker. A cloud model is less useful out of the box, with no notes, until the user approves.
+
 > **Status: Accepted** (2026-09-27, the user approved the defaults). Built in two slices, both done: the engine, then the CLI. The defaults below change what a cloud model receives today. Settles issue #79.
 
 ## Context

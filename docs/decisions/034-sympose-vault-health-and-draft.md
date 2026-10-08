@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 034 — `sympose vault`: a read-only health report on the notes (`--health`) and the offer of a folder definition (`--draft`)
 
+> **Summary.** `sympose vault --health` is a read-only report on the notes, and `sympose vault --draft <folder>` drafts a folder definition and writes it only on a typed yes. Nothing looked at the notes themselves, such as empty notes, links pointing at nothing, or a grown folder with no definition. The check functions are reused later by the terminal chat, the agent and the web app.
+
 > **Status: Accepted** (2026-09-27, after the design talk with the vault owner on issue #77). Not built yet; this record comes first, as the standards ask. Settles the first list of checks of #77 and where ADR 033's stage 3 is offered.
 
 ## Context

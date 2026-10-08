@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 078 — A persona asks for the user's yes on a card in the chat; the first thing she asks for is a new persona
 
+> **Summary.** When a persona's tool call needs the user's yes, the engine stores a confirmation request and the chat shows it as a card with Accept and Decline; the first thing she asks for is a new persona, built for models that can call tools only. Nothing in the app created personas, and nothing exists until Accept. One mechanism (stored request, card, resolve step, one-line outcome) serves every later thing she needs a yes for.
+
 > **Status: Accepted (damiro, 2026-10-08); built for models that can call tools, see the amendment.** Builds on ADR 072 (nothing a persona does is kept without the user's Accept), ADR 062 (a persona's look), ADR 061 (the soul editor), ADR 012 (a soul is voice only) and ADR 077 (skills). Settles the design half of "the default persona creates personas".
 
 ## Context

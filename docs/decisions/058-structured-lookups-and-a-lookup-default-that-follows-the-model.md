@@ -4,12 +4,14 @@ status: accepted
 date: 2026-10-02
 projects: [sympose]
 concepts: [Vault tools]
-amends: []
+amends: [40]
 supersedes: []
 tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 058 — Structured lookups (`find_notes`, ADR 035's layer 4) and a `vault_lookup` default that follows the model
+
+> **Summary.** A new read-only tool, `find_notes`, answers structural questions (links, tags, properties, folders) with optional combined filters, and the `vault_lookup` default now follows the model. The existing tools took only text, so "which notes link to Atlas?" had nothing to work from. One tool with filters was chosen over one per question because every tool description is sent on every turn.
 
 > **Status: Accepted (design, 2026-10-02: damiro found both the tool and the default sound).** Built the same day: `find_notes` and `by_model`; see "As built" and "Measured". Completes ADR 035's layer 4 ("numbers the map does not hold") and amends ADR 040 (the default of `vault_lookup`). Tracked on #78 (layer 4) and #85 (the fit decision).
 

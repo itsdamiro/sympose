@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 009 — `profile.py`'s final shape: fail-closed resolution, settings-backed default
 
+> **Summary.** `profile.py` fails closed: with no `profiles/` directory it falls back to the whole vault, but once the directory exists an unknown handle, an unsafe path or an unparseable file returns nothing. Unknown personas now 404 instead of silently widening access. An empty `profiles/` directory means an empty roster.
+
 ## Context
 
 `profile.py`'s `get_profile` caught `except (OSError, yaml.YAMLError): pass` and fell back to a whole-vault profile (`vault_folders: ["*"]`) whenever anything went wrong loading `<profiles_dir>/<handle>.yaml`. `FileNotFoundError` is an `OSError` subclass, so "no file matches this handle" — the ordinary state of a typo'd or not-yet-configured persona — hit the exact same fallback as "no `profiles/` directory configured at all." ADR 006 named this gap and deferred it, at first under-describing it as "a corrupted file," then correcting itself once a full-backend review live-verified it also fires for a handle with no file whatsoever, bypassing read/write/delete and chat-grounding sandboxing. ADR 006 tracked the real fix as "the seed of a future 'build the full agent profile' milestone," reasoning that a narrow patch (tightening the `except`) wouldn't also close the same fallback firing on an unsafe/traversal path, and that every persona-scoped route shared the identical gap.

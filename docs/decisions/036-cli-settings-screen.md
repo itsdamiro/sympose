@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 036 — `/settings` in the terminal chat: a list of the settings a user would tune, edited in place
 
+> **Summary.** `/settings` in the terminal chat opens a numbered picker with one row per setting, in three groups, and edits the value in place. The knobs lived only in `settings.json`, and a slash command per knob was rejected as not scaling. The picker adds one more input mode to the chat box and shows about ten rows at a time.
+
 > **Status: Accepted.** Closes #25. Builds what ADR 015 ("Not built yet: a CLI settings screen") and ADR 017 ("a settings screen for the follow-up knob") left open, and what ADR 032 pointed at.
 
 ## Context

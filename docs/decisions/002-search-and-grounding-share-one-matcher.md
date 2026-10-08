@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 002 — Grounding reuses search's matcher instead of a separate retrieval system
 
+> **Summary.** Chat grounding reused search's `direct` matcher (title, tag and content match) instead of a separate retrieval system, and the full-text index was not ported. ADR 014 later gave grounding its own retriever; search still uses this matcher. This matcher has no semantic understanding: a message had to share words with the note.
+
 ## Context
 
 Chat needs a way to decide which vault content is relevant to a given turn before replying, so replies are grounded in real notes rather than invented — grounding is non-negotiable per this project's standing rules. Full-text search needs its own way to find matching notes for the search bar. Legacy's `vault_search.py` already had two implementations serving *search* specifically: a `direct` path (walk the parsed vault snapshot, classify each note as a title/tag/content match, return a snippet) and an opt-in `sqlite_fts` path (a SQLite FTS5 index, BM25-ranked, gated behind a persisted-settings system this backend doesn't have).

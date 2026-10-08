@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 017 — Follow-up-aware grounding: rewrite a search-less message from recent turns
 
+> **Summary.** When a message grounds nothing and the chat has earlier turns, the engine can rewrite the message from the recent turns and search again, controlled by a `grounding_followups` setting whose default `rewrite` mode is the only one besides `off` that is built. A follow-up like "why did we pick it?" has no searchable words. It costs one extra model call on a miss, and a small local model can write a poor rewrite.
+
 > **Status: Accepted.** Built as `off` and `rewrite`; the other two modes below are reserved, not built. **Scope of the live measurements: Ollama and `gemma2:9b` only**, on the synthetic fixture vault (nine follow-up cases, several runs each). Cloud models and other local models are unmeasured: they may write better or worse rewrites and have different latency, so the rewrite prompt and the number of recent turns are worth re-checking per model.
 
 ## Context

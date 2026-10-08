@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 044 — The web chat: its shape, and the order it is built in
 
+> **Summary.** The web chat is built as a thin client over the same engine, as independent files (API client, chat state hook, session resume, panel, grounded-notes view, context meter) wired by the shell, in three slices. The chat panel was presentational only and the backend had no chat route. All three slices are built.
+
 > **Status: Accepted (2026-09-30). All three slices are built and pushed (see the amendments: slice 1, the settings, the cloud notice and share control, the model picker, the context meter, the indexing notice, and messages sent mid-reply joined as in the terminal).** It settles how #29 (chat in the web app) is put together and in which slices, before any code, after the full code review of 2026-09-30 found that the web app's shell is the one place in the project where modularity has slipped (#95).
 
 ## Context

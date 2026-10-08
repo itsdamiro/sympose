@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 010 — Persona-scoped nebula graph, model precedence, and a default-persona setter
 
+> **Summary.** The vault graph takes an optional `persona` and shows only notes that persona can see, with links to hidden notes dropped so no hidden title leaks as a ghost node. A restricted persona's graph is smaller by design. The same ADR covers model precedence and a default-persona setter.
+
 ## Context
 
 ADR 009 gave `profile.py` its final shape and deliberately left three things open, each with no consumer at the time: nothing writes the `default_persona` setting, a profile's `model` field is display-only, and the Knowledge Nebula's `GET /api/vault/graph` takes no persona at all. The graph route was whole-vault by design ("the nebula is an explorer surface, not a persona-scoped one"), which means it currently exposes the titles, tags, folder names, and link structure of notes a restricted persona (one whose `vault_folders` excludes them) can never read. Every other persona-aware route already scopes to the persona's `vault_folders`, the dashboard already keeps an active persona and sends it to `GET /api/vault/tree`, and a graph is only useful if it reflects what the active persona can actually work with. This record closes all three together because they are the same kind of change: making a field on the profile do what it says.

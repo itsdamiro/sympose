@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 015 — Context budget: an overflowing prompt is cut silently, so the engine must size it
 
+> **Summary.** The engine sizes every prompt to the window of the model that actually runs, because an overflowing prompt is cut silently by the runtime. For Ollama it follows the model's own maximum, capped at 32768 tokens, with a 15 percent margin because the token count is an estimate that can run low (2 to 12 percent on prose and code). The settings (`context_window`, `reply_limit`, `show_trim_notice`) live in the settings file for now.
+
 > **Scope of the measurements: Ollama and `gemma2:9b` only.** Every number below was measured on one runtime (Ollama 0.33.3) with one model (`gemma2:9b`, the default local model), at temperature 0, with synthetic chat turns. Other Ollama models, other Ollama versions (its default window and its truncation rule are Ollama's to change), and cloud models (which have their own, usually much larger, windows and their own overflow behavior, typically an error instead of a silent cut) were not measured. Treat the figures as the local default's behavior, not as a property of Sympose or of models in general, and re-measure before generalizing.
 
 ## Context

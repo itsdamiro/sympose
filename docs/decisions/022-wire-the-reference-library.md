@@ -4,12 +4,14 @@ status: accepted
 date: 2026-09-24
 projects: [sympose]
 concepts: [Chat prompt]
-amends: []
+amends: [15, 20]
 supersedes: []
 tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 022 — Wiring the Sympose reference library into a persona's turns
+
+> **Summary.** A persona uses the Sympose reference library when its `persona.yaml` sets `sympose_reference: true`; the shipped default persona has it unless her file says `false`. She had agreed to things Sympose does not do. The persona's prompt is now about 940 tokens, so the smallest accepted `context_window` rose to 2048.
 
 > **Status: Accepted.** Builds ADR 019 (the library and its strict retrieval) on ADR 020 (the prompt layout). **Scope of the model figures: Ollama and `gemma2:9b` only.**
 

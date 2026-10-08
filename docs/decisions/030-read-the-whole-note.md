@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 030 — Read the whole note: a note with no body text is still a note, and its aliases and properties are read
 
+> **Summary.** Every note is indexed, whatever it holds: a note with no text under its headings gets a title passage built from its title, aliases and headings, and a note's properties are attached to it when it is found, not indexed. A note with no paragraphs could never be returned by either search. The index gains at most one passage per such note.
+
 > **Status: Accepted.** Stage 1 is built and measured (see "Measured, stage 1"); stage 2 is being built in two layers (see "Stage 2, as decided"): properties riding along with a note that was found, then, only if it measures well, a search over properties on their own. A note that a message names in full is found without a search (see "A note named in full"), which closes #81. This record came first, as the standards ask. Reverses "Not indexed, by choice" in ADR 014 and settles the design points of issue #1. It changes only what is indexed and how it is shown; retrieval, the thresholds of ADR 027 and the weak-evidence check of ADR 021 are unchanged until a measurement says otherwise.
 
 ## Context

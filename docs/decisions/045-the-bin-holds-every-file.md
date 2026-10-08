@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 045 — The bin lists, restores and purges every file, not only notes
 
+> **Summary.** The bin lists, restores and purges every file a deleted note or folder left, not only notes, and emptying it removes every file in the persona's scope. Deleting a folder moved attachments and PDFs to the bin where they were invisible and piled up on disk. A deleted folder of hundreds of images shows hundreds of rows, and hidden files removed by emptying cannot be restored.
+
 > **Status: Accepted (2026-09-30).** Built the same day. Closes #100, found by the full code review of 2026-09-30 (reviewer-reported; reproduced on a scratch vault before fixing).
 
 ## Context

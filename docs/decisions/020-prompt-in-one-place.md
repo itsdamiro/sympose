@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 020 — The chat prompt in one place: the notes travel with the question, and the model is told how Sympose works
 
+> **Summary.** Everything the model is told lives in one module, `engine/prompt_text.py` (`prompt.py` re-exports it), as Python constants: the voice, how Sympose works, the grounding rule and the wording around the notes. The notes now travel with the question, because given the right notes the model answered from general chat. The system prompt grew from about 500 to about 750 tokens, and its prefix is stable from turn to turn unless recaps are present.
+
 > **Status: Accepted.** Built and measured, and later amended by ADRs 021, 022, 023 and 024. **Scope of every model figure here: Ollama and `gemma2:9b` only**, on the fixture vault and on one recorded conversation replayed against a real vault. Another model, especially a larger cloud model, may follow the voice less and the notes more, or the reverse; the wording was tuned on this one model and the layout is the part most likely to transfer.
 
 ## Context

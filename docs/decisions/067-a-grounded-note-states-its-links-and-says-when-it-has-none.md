@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 067 — A grounded note states its links, and says when it has none
 
+> **Summary.** A grounded note now states its own links and backlinks as a separate, always-present line, and says when it has none. Asked whether one note links to another, a small model said yes when the titles were only similar (three of six replies wrong on the Obsidian help docs). It costs about 20 to 40 tokens per grounded note and helps without fully fixing the failure.
+
 > **Status: Accepted, built (2026-10-04), from the follow-up found while measuring ADR 066; it helps and does not finish the job (see Measured).** Builds on ADR 035 (mechanical connections), ADR 031 (what a cloud model may receive; the `connections` category) and ADR 066 (the "possibly related" line).
 
 ## Context

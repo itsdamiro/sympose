@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 016 — Show which notes grounded a reply, in the CLI reply header
 
+> **Summary.** The CLI reply header shows which note grounded the reply, as the top-ranked note plus `+N` for others, and the segment is left out when nothing matched. A wrong note attached to a follow-up was otherwise invisible until the answer was wrong. The path is fitted once, to the terminal width when the reply lands, and the display is best-effort.
+
 ## Context
 
 Grounding (ADR 014) decides which passages of the user's notes reach the model each turn, and the user could not see that decision. That hides which note the model was handed (a wrong note attached to a follow-up is invisible until the answer is wrong). `run_turn`'s result already carries the grounding hits and the CLI already builds a header per reply (ADR 013 put the model and TTFT there), so this needs no engine change. The measurements that motivated the surrounding work (ADR 015) were taken on Ollama and `gemma2:9b` only; this display is model-independent.

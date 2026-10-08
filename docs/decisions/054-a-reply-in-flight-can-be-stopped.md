@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 054. A reply in flight can be stopped
 
+> **Summary.** A reply in flight can be stopped, in the web chat and the terminal. Before the reply is complete it is thrown away and nothing is saved; during the terminal's reveal it jumps to the whole saved reply. Cancelling takes effect at the model's next chunk, and a new message for that persona waits behind the stopped one until then.
+
 Status: Accepted (damiro, 2026-10-01). Closes #121.
 
 ## Context

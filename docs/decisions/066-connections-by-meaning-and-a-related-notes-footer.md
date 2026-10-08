@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 066 — Connections by meaning: the persona's "possibly related" line and a Related notes section in the notes panel
 
+> **Summary.** Connections by meaning: each note is the average of its passages' vectors with the vault's average subtracted, and its neighbours above a bar feed the persona's "possibly related" line and a Related notes section in the notes panel. Notes about the same thing with no link, tag or folder were invisible to each other. It needs no model call and stores nothing new, but a vault whose notes were never embedded shows nothing.
+
 > **Status: Accepted, built (2026-10-04), designed with damiro.** Closes the last piece of #78 (whole-vault awareness). Builds on ADR 035 (mechanical connections, which kept the meaning-based half for a separate pass), ADR 027 (search by meaning and its cache of vectors), ADR 031 (what a cloud model may receive) and the notes panel's `CollapsibleFooterSection`.
 
 ## Context

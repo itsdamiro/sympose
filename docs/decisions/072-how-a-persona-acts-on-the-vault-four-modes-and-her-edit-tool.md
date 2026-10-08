@@ -4,12 +4,14 @@ status: accepted
 date: 2026-10-04
 projects: [sympose]
 concepts: [Persona edits]
-amends: []
+amends: [42]
 supersedes: []
 tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 072 — How a persona acts on the vault: four modes the user chooses, all ending in the user's Accept, and her edit tool in two shapes
+
+> **Summary.** A persona acts on the vault in one of four modes the user chooses (`edit_mode`, per persona with a global fallback, shipped as `manual`), and every mode ends with the user's Accept. Until now proposals only existed when made in code. The remaining risk is a wrong change accepted by mistake, so the model-specific figures are shown rather than hidden.
 
 > **Status: Accepted, built (2026-10-05); the lines below that say "not built yet" are the state when each part was written.** Proposed 2026-10-04. Slice 5 of #21: the persona's side of ADR 042 (amended), ADR 069 (comments) and ADR 070 (the store). Web app only; the terminal is not expected to edit notes.
 

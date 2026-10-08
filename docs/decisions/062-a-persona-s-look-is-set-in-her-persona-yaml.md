@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 062 — A persona's look is set in her persona.yaml
 
+> **Summary.** A persona's look is set in her own `persona.yaml` with optional `icon`, `accent` and `accent_dark` keys, returned by the roster and drawn wherever she appears. Her look had been a table in the web app's source, so a persona the user created got the same grey brain icon. The icon and colour are built; the banner, profile picture and icon-set choice are designed and not yet built.
+
 > **Status: Accepted (2026-10-03), designed with damiro. The icon and the colour are built; the banner, the profile picture and the choice of icon set are designed here and built later.** Builds on ADR 011 (a persona's directory), ADR 046 (the tracked persona files are defaults the app never writes) and ADR 060 (the web chat's chrome).
 
 ## Context

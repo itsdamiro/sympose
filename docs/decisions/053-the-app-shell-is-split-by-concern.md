@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 053. The app shell is split by concern
 
+> **Summary.** The 1860-line `app-shell.tsx` is split by concern: a hook per concern in `ui/src/lib/` and a component per block of markup, leaving `AppShell` to compose them and lay out panels. It is a behaviour-preserving move, ending near 600 lines. The shell has no tests of its own; the extracted hooks gain them.
+
 Status: Accepted (damiro, 2026-10-01). Splits #95; the cancel-a-reply part of #95 is not a split and is filed on its own.
 
 ## Context

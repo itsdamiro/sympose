@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 052. The web app shows the vault or nothing, and drops what nothing used
 
+> **Summary.** The web app shows the vault or nothing: the 232 KB sample graph is removed and the nebula starts empty until the vault answers, with a badge saying `connecting`, `live vault` or `vault unreachable`. The stand-in graph could offer a tag that exists in no one's vault. Dead code (`noteDelayMs`, `animateBirth`) and `react-router-dom` go with it.
+
 Status: Accepted (damiro, 2026-10-01). Closes #116; the rest of its findings are #119 and #120.
 
 ## Context

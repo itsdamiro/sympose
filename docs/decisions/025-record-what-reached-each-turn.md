@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 025 — Record which notes and recaps reached each turn
 
+> **Summary.** Each turn in the session log records what the model was actually sent: the path and heading of every note and the ids of the recaps, never the passage text. Earlier the notes could not be recomputed after the vault and retriever changed, so a wrong answer could not be diagnosed. The log grows by a few short lines per turn.
+
 > **Status: Accepted.** Built. Amends ADR 006 (the shape of a turn in the session log) and reverses one rejection in ADR 016 ("storing the display string in the session record"). Nothing here depends on a model, so there are no model figures.
 
 ## Context

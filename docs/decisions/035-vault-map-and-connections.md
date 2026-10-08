@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 035 — A vault map and mechanical connections between notes, always in the prompt, computed from what already exists
 
+> **Summary.** The persona always carries a short vault map (note counts, folders, common tags) and each grounded note brings its mechanical neighbours: links, backlinks, shared tags or aliases, and the same top-level folder. Without this she knew only what one turn's search surfaced. Meaning-based connections and on-demand counts are left out; nothing adds a model call, a background job or a new store.
+
 > **Status: Accepted** (2026-09-27, after the design talk with the vault owner on issue #78). Not built yet; this record comes first, as the standards ask. Settles the first slice of #78 — the vault map (layer 1) and mechanical connections (layer 3's non-embedding half). Layer 3's meaning-based connections and layer 4's on-demand numbers stay open on #78 for later work.
 
 ## Context

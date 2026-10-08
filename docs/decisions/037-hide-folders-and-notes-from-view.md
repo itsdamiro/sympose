@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 037 — Hiding folders and notes from view in the web app
 
+> **Summary.** Folders and notes can be hidden from view in the web app, per vault, kept in the settings file. Hiding is a display preference, not a privacy boundary: the persona can still read and ground on a hidden note, and a cloud model can still receive it if `cloud_share` allows notes. The CLI does not read the list.
+
 > **Status: Accepted.** Closes #80. Hiding is a **display preference**, not a privacy boundary: it changes what the web app lists, never what the persona can read or what a cloud model may receive (that is #79 and ADR 031).
 
 ## Context

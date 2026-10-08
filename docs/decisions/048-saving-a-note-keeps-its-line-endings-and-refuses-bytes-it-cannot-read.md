@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 048. Saving a note keeps its line endings and refuses a file it cannot read as text
 
+> **Summary.** Saving a note keeps its line endings (CRLF or LF, whichever most lines used) and refuses to save over a file that is not valid UTF-8. Both caused silent changes on a first save: a Windows note flipped its line endings and a stray byte became "�". A mixed file is made uniform on save.
+
 Status: Accepted (damiro, 2026-10-01). Closes #98.
 
 ## Context

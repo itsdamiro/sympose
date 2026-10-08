@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 063 — Doctor and vault health in the Settings footer
 
+> **Summary.** Two pills in the Settings footer, "Doctor" and "Vault health", run the same checks as the terminal commands, and nothing runs until one is clicked. Web users had no way to ask whether their installation or notes were in order. A clean result is a notification and a finding opens a dialog; `vault --draft` stays terminal-only because it calls a model and writes a note.
+
 > **Status: Accepted (2026-10-03), designed with damiro.** Builds on ADR 029 (`sympose doctor`) and ADR 034 (`sympose vault --health`). `vault --draft` is left in the terminal on purpose.
 
 ## Context

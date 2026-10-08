@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 074 — Moving a folder onto another
 
+> **Summary.** A folder can be moved by dragging it onto another folder or the vault root, which first asks the server for a read-only plan and moves only when nothing is left to ask. A move is a rename where the parent changes, so the same references must follow. A merge can rename notes the user did not expect, which is why it is a single prompt; dropping a folder onto itself or its own subfolder is not offered.
+
 > **Status: Accepted (damiro, 2026-10-05); built 2026-10-06.** Second half of the folder work (ADR 073 was the rename). Dragging a folder onto another folder, or onto the vault root, the drop a note already has.
 
 ## Context

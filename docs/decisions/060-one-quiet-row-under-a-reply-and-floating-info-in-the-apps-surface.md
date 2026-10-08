@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 060 — One quiet row under a reply, and floating info in the app's own surface
 
+> **Summary.** Under a reply the web chat draws one collapsible references row; the cloud mark and its hover sit on the reply's model chip for cloud replies, and extras are behind an info icon. Two separate lines had answered different questions (what she drew on, what was shared). Tooltips and floating info share the app's menu surface.
+
 > **Status: Accepted (2026-10-03), designed with damiro; to be built in the order below.** Builds on ADR 025 (what is recorded about a reply), ADR 031 (what a cloud model may receive), ADR 040 and 041 (the persona looks up and remembers), ADR 044 (the web chat), ADR 056 (earlier conversations). The pre-#21 review found the web chat showing less than the terminal's `/grounded`; this is the fix, and the design of how the web shows it.
 
 ## Context

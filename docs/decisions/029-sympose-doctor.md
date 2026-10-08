@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 029 — `sympose doctor`: a health check for an installation, that fixes only what belongs to Sympose
 
+> **Summary.** `sympose doctor` is a health check that only looks unless run with `--fix`, and it fixes only what belongs to Sympose (its `profiles/` and `settings.json`). Installs failed silently, for example a persona folder named `Grace` that works on macOS and vanishes on Linux. It exits 1 when a problem remains.
+
 > **Status: Accepted.** Not built yet; this record comes first, as the standards ask. Amends ADR 011's note that directory names are "expected to be lowercase handles" by giving that expectation a check and a fix.
 
 ## Context

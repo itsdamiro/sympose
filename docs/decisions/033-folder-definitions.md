@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 033 — Folder definitions: a note per top-level folder that says what the folder is for and what its notes carry, its template computed from the notes that are there, written only on the user's yes
 
+> **Summary.** Each top-level folder can have a definition note, `<Folder>/<Folder>.md`, holding its purpose and a template computed from the notes already there, and it is written only when the user says yes. Nothing in Sympose knew what a folder was for or what its notes should look like. Stages 1 and 2 are built, and the surfaces of stage 3 were built piecemeal in later records.
+
 > **Status: Accepted for stage 1** (2026-09-27; the vault owner chose the template's place and that the health report is where this is offered). Stages 2 and 3 are proposed and get their own measurement before they are built. Settles the design of issue #23; VISION "Folder definitions" is the why.
 
 ## Context

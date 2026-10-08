@@ -4,12 +4,14 @@ status: accepted
 date: 2026-09-24
 projects: [sympose]
 concepts: [Chat engine]
-amends: []
+amends: [7]
 supersedes: []
 tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 013 — Record time-to-first-token on every turn
+
+> **Summary.** The model call streams internally and still returns the whole reply, now with time to first token, measured to the first piece of reply text and not counting a reasoning model's thinking. Latency is central to the project's promise and nothing measured it. The call depends on litellm's streaming path, so failures can surface mid-stream; a stream that ends without a finish signal counts as an error.
 
 ## Context
 

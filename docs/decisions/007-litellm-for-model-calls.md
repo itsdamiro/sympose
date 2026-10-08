@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 007 — litellm for model calls, `ollama_chat/` prefix, local-first default
 
+> **Summary.** Model calls go through `litellm` (added as a main dependency) using the `ollama_chat/` prefix, local-first by default. One call shape covers local and later cloud models, with tool-call formats normalized. It adds one dependency with its own transitive requirements, and connection failures become one friendly error.
+
 ## Context
 
 The chat engine (`docs/decisions/006`) needs to actually call a language model. No LLM client library exists anywhere in this codebase yet — `pyproject.toml`'s dependencies are `fastapi`, `uvicorn`, `pyyaml`, `python-dotenv`, `textual`. `docs/CODE_QUALITY_STANDARDS.md`'s hard-gate on new dependencies requires weighing at least one lighter alternative, not just asserting the choice made, so that's done explicitly below.

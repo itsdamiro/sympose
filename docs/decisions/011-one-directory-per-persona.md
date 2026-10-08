@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 011 — One directory per persona
 
+> **Summary.** Each persona is a directory, `profiles/<handle>/`, holding `persona.yaml`, its soul, memory and expertise files, and its sessions; a persona exists only if its directory has `persona.yaml`. A persona can then be created, exported, backed up or deleted as one folder. The old flat `profiles/<handle>.yaml` files are no longer read, so a persona left in that layout drops out of the roster.
+
 ## Context
 
 A persona is more than its config. VISION.md defines it as soul (voice), memory (accumulated, private), expertise (a grounded domain), and a vault-folder scope, plus each persona has its own chat sessions. Until now those were planned, and partly built, as scattered flat files keyed by handle: `profiles/<handle>.yaml` for config, `profiles/<handle>_soul.md` and `profiles/<handle>_memory.md` (ADR 001, `.gitignore`), and a separate top-level `sessions/<handle>/` (ADR 006). Only the config file and the sessions exist in code today; soul, memory, and expertise are unbuilt, which makes this the cheapest moment to settle the layout: nothing yet depends on the flat naming except the YAML loader, the session path, `.gitignore`, and two ADRs' wording.

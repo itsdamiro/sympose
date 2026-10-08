@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 047. A note's path is exact: reading, saving, renaming and deleting never search by name
 
+> **Summary.** A note's path is exact: reading, saving, renaming and deleting never fall back to searching by name. Two notes can share a name in different folders, and the write layer already treated a path as exact. A stale root-level path now fails with "not found", and a caller that passed only a name must give the path.
+
 Status: Accepted (damiro, 2026-10-01). Closes #99.
 
 ## Context

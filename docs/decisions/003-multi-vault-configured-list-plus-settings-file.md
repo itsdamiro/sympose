@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 003 — Multi-vault: a comma-separated configured list, one active vault, a new settings-file store
 
+> **Summary.** Multi-vault is a comma-separated `VAULT_PATHS` list (replacing `MASTER_VAULT_PATH`), one active vault at a time, and a new local settings file for app state. This keeps every sandboxing and persona check single-vault. The settings file is per checkout and gitignored.
+
 ## Context
 
 `VISION.md`'s multi-vault section settles the shape: one active vault at a time, switchable — not multiple vaults open or searched simultaneously, since that would add a vault dimension to every sandboxing/persona check in the backend. The backend tracks which vault is active via `GET /api/vaults` and `POST /api/vaults/active`; the UI trigger is a workspace-switcher popover off the existing brand mark.

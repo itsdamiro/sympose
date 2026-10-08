@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 049. The conversation file is append-only
 
+> **Summary.** The conversation file is append-only: a turn is appended as one line and nothing already in the file is rewritten. Rewriting the whole file each turn deleted any line the loader had skipped as damaged, a silent loss of history. The app never deletes anything from a conversation file, so it may hold lines the loader skips.
+
 Status: Accepted (damiro, 2026-10-01). Closes #109. Amends ADR 006's "read-modify-write the whole file" posture.
 
 ## Context

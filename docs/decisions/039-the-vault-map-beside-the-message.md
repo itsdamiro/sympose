@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 039 — The vault map goes with the message, and her rules name it as a source of facts
 
+> **Summary.** The vault map now goes with the message, not in the system prompt, and the rules name it as a source of facts. She had told a user she had no access to their vault although the map was in front of her. As a result the system prompt carries nothing that changes when the vault does, so it is the same on every turn unless the recaps or the persona change.
+
 > **Status: Accepted.** Amends ADR 035 (where the map sits, and a rule it left unchanged) and, for the map only, ADR 026 and ADR 020's layout. **Scope of every model figure: Ollama and `gemma2:9b` only**, the local default; nothing was measured on a cloud model. Restores vault grounding for a question about the vault's own shape, which is a regression to fully restore, not a tradeoff.
 
 ## Context

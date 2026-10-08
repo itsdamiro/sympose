@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 038 — A generic note template (title, created, tags) and a setup step when a root folder is created in the web app
 
+> **Summary.** A generic note template (`title`, `created`, `tags` by default, a global `note_template_keys` setting) is used when a vault has none of its own, and the web app offers a skippable setup step when a root folder is created. A new folder is empty, so there were no notes to compute a template from. The step writes only what the user typed and confirmed.
+
 > **Status: Accepted.** Stage 3's web-app piece of ADR 033 (issue #23). The generic keys are a global setting; the setup step is skippable and writes only what the user typed and confirmed.
 
 ## Context

@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 006 — Chat engine v0: turn handling, grounding, sessions, and what's deliberately out
 
+> **Summary.** The first chat engine is a new `sympose/engine/` package with one file per concern (grounding, turn handling, session log), reusing the existing search, profile and settings code. Only the first slice is decided; memory, compaction and tools are left out on purpose. The session log is the only genuinely new storage.
+
 ## Context
 
 `docs/VISION.md` describes the full chat engine as one large milestone: turn handling, grounding, model routing, message queueing, sessions, continuous memory extraction, live compaction, session-close archival, MCP tool-calling, skills, folder definitions, and Samantha's real soul content. This project's standing rule is an ADR written immediately before the feature it covers, not upfront for a whole roadmap — so this record covers only the first slice: a working, grounded, session-logged turn loop reachable from a real channel, with everything else named and explicitly deferred rather than silently absent.

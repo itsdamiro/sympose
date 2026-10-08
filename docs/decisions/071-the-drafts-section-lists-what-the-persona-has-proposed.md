@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 071 — The Drafts section lists what the persona has proposed, and a new-note draft opens in the editor before any file exists
 
+> **Summary.** A Drafts section at the top of the notes panel lists what the persona has proposed and the notes with open comments, shown only when there is something to list, and a draft of a new note opens in the editor before any file exists. A proposal in an unopened note, or a new note, was otherwise unreachable. The vault stays untouched until an Accept; the tree, search, nebula and map do not know drafts exist.
+
 > **Status: Accepted, built (2026-10-04).** The notes-panel half of #21, after ADR 070 (what is stored, and the routes) and ADR 042's amendment (the review in the editor). Web app only; turn-based.
 
 ## Context

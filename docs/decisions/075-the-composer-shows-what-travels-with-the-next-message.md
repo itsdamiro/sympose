@@ -11,6 +11,8 @@ tags: [type/decision, status/superseded, project/sympose]
 
 # 075 — The composer shows what travels with the next message
 
+> **Summary.** The composer showed what travels with the next message as chips inside the message box: the open note and its open comments. Superseded by ADR 076 the same day and removed: the user rejected a row that appears on its own.
+
 > **Status: Superseded by ADR 076 (2026-10-06); was built and removed the same day.** Accepted (damiro, 2026-10-06). Follows ADR 069 (comments) and ADR 072 (the persona sees the open note). Web app only.
 
 ## Context

@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 068 — A note named in full joins a note the search found when their titles read the same
 
+> **Summary.** When the search found notes, a note the message names in full is added only if its title reads the same as a found note's title after word reduction ("Workspace" and "Workspaces" are twins). "What does Workspaces link to?" was answered with Workspace's links in 8 of 8 replies because retrieval dropped the named note. The twin is added after the found notes and as its first passage only; this amends ADR 030's rule that the rescue changes nothing when the search found a note.
+
 > **Status: Accepted, built (2026-10-04), from the Workspaces failure in ADR 067.** Amends ADR 030 ("A note named in full": the rescue changed nothing when the search found a note). Builds on ADR 067.
 
 ## Context

@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 057 — Past conversations: a list to open, rename, pin and delete, and switching conversations while a reply is being written
 
+> **Summary.** A persona's conversations are listed (pinned first, then newest) and can be opened, renamed, pinned and deleted, and a user can switch conversations while a reply is being written. Each conversation was already its own file, but nothing let the user reach them. This amends the earlier rule that a new conversation is unavailable while a reply is in flight.
+
 > **Status: Accepted, built** (engine, API, terminal and web app). Amends ADR 044 ("New conversation is still unavailable while a reply is in flight"), builds on ADR 006 and 049 (the session file, append-only), ADR 008 (messages sent mid-reply wait) and ADR 042 (soft delete only).
 
 ## Context

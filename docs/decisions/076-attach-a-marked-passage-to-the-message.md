@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 076 — Attach a marked passage to the message
 
+> **Summary.** Instead of automatic chips, the user attaches a marked passage to the next message with a paperclip on a tracked change, an applied edit or a comment, and it shows as a chip above the composer; with an attachment, a tool-capable model gets only the headings and the attached section. The open note and its comments still travel silently, so the composer no longer shows that the note goes. This replaces ADR 075; `attached` (path, quote, context) replaces `leave_out` on `POST /api/chat/turn`.
+
 > **Status: Accepted (damiro, 2026-10-06); building.** Replaces ADR 075 (the composer's automatic chips for the open note and its comments), which the user rejected: a row that appears on its own is one more thing to read, and "everything on the note goes" gave no way to say which part is meant.
 
 ## Context

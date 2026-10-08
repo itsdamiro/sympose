@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 008 — Message queueing: per-persona locks, not one global lock
 
+> **Summary.** Message queueing uses one lock per persona handle, replacing the single global turn lock; turns for the same persona stay in order and different personas can reply concurrently. A later amendment joins messages sent mid-reply into one turn instead of queueing them separately. Queueing stays a call-site concern, wrapped around `run_turn`.
+
 ## Context
 
 `docs/VISION.md` names message queueing as an engine-level requirement, not

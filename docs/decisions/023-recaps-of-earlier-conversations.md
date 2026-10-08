@@ -4,12 +4,14 @@ status: accepted
 date: 2026-09-25
 projects: [sympose]
 concepts: [Conversation history]
-amends: []
+amends: [20]
 supersedes: []
 tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 023 — Recaps: picking up where the last conversation left off
+
+> **Summary.** A background job writes a recap of each finished earlier session the next time the CLI or chat starts, and later sessions are shown recent recaps so the persona can pick up where the last one left off. The session log stays the source of truth and is never rewritten; a recap is derived from it and safe to lose. It costs one extra small model call per recapped session.
 
 > **Status: Accepted.** Built. Builds on ADR 006 (the session log), ADR 015 (the context budget), ADR 017 (the small background model call) and ADR 020 (where the prompt puts things). Implements the first, smallest part of the vision's "Sessions & memory" (a session's own summary, not yet durable facts or search across sessions). **Scope of every model figure: Ollama and `gemma2:9b` only.** Measured on invented conversations in scratch profiles; nothing of anyone's own sessions was used.
 

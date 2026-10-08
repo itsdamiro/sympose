@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 055. Live compaction of a long conversation
 
+> **Summary.** Live compaction summarises the oldest part of a long conversation instead of dropping it, written from the user's messages only. Summarised from both sides, the persona's own invented claim was recorded as the user's fact in 5 of 5 runs. No turn in the saved session file is rewritten; a compaction only appends one marked line.
+
 Status: Accepted (design talk and real-model checks, 2026-10-02). Issue #19. Related: #11 (dropping history in larger steps), #17 (the first-reply wait on a long chat). Built (2026-10-02): the engine, the terminal chat and the web chat. "As built" below records where the build differs from the first design; "Measured later" holds the cloud, several-conversation, model-switch, threshold and first-reply measurements (#125).
 
 ## Context

@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 064 — A folder's look is part of its definition
 
+> **Summary.** A folder's icon and look are part of its definition note, not a list of folder names in the web app's source. The list gave `Movies` a film roll and `Quotes` a quotation mark and every other folder the generic icon, and it reflected one person's vault. A user's own folders can now have their own icons without a product change, and the built-in list can shrink later.
+
 > **Status: Accepted (2026-10-03), designed with damiro; built the same day (#128).** Builds on ADR 033 (folder definitions), ADR 062 (a persona's look is set in her own file, from a curated icon set) and ADR 037 (what the user hides). The three questions of the first draft are settled in "Decided in the design talk" below, and existing definitions are repaired by the vault health.
 
 ## Context

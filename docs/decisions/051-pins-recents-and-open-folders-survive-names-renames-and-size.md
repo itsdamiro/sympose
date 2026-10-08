@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 051. Pins, recents and open folders survive odd names, renames and size
 
+> **Summary.** Pinned notes, recents and open folders are stored as a JSON array, not a comma-joined cookie, and a rename or move rewrites the paths of pins and recents. Obsidian allows commas in note names, and a renamed note kept a stale pin. The old comma form is still read so no one loses pins; a name with a comma that the old form already split cannot be recovered.
+
 Status: Accepted (damiro, 2026-10-01). Closes #105.
 
 ## Context

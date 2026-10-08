@@ -11,6 +11,8 @@ tags: [type/decision, status/accepted, project/sympose]
 
 # 069 — Highlights and comments on a note: kept out of the vault, sent with the next message, read by the persona
 
+> **Summary.** Highlights and comments on a note are kept in the persona's own data folder, never in the vault or the note, and travel with the next message so the persona reads them. Quoting the passage back into chat was slow and lost where it was in the note. It adds a store, a small API, a new `/share` category and one more prompt block.
+
 > **Status: Accepted, built (2026-10-05); the table-cell amendments are in the sections below.** Proposed 2026-10-04. Part of #21 (a persona that acts on the vault) and the companion of the ADR 042 amendment of the same date: tracked changes are what the persona writes into a note, and this is what the user marks in it for her to read. Turn-based throughout.
 
 ## Context
