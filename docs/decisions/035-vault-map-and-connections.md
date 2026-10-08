@@ -63,58 +63,17 @@ Facts about the code as it stands:
 
 ## Measured (2026-09-27, `ollama_chat/gemma2:9b`, a synthetic 74-note scratch vault, 4 top-level folders)
 
-**Size and speed of the computation itself, not the model call.** The map for this vault is 78 tokens
-(`budget.count_tokens`, margin included) — well inside the 150-to-300 target — and took 6.6 ms to build
-cold, 0.3 ms warm (the mtime-identity cache hit). A note's connections took 2.5 ms cold, 0.3 ms warm. Both
-are negligible next to a model call (seconds), so the risk ADR 015 measured — a long *prompt* being slow
-to process — is not in play here: the map and connections add a little over 100 characters to the prompt
-per turn, not a meaningfully larger one.
+**Size and speed of the computation itself, not the model call.** The map for this vault is 78 tokens (`budget.count_tokens`, margin included) — well inside the 150-to-300 target — and took 6.6 ms to build cold, 0.3 ms warm (the mtime-identity cache hit). A note's connections took 2.5 ms cold, 0.3 ms warm. Both are negligible next to a model call (seconds), so the risk ADR 015 measured — a long *prompt* being slow to process — is not in play here: the map and connections add a little over 100 characters to the prompt per turn, not a meaningfully larger one.
 
-**The model used the map and a note's connections correctly, with no invented number.** Asked "roughly
-how many notes do you have about people, and what is that folder generally about?" (nothing in the
-message would have found `People/People.md` by search), the reply was "You have 20 notes in the 'People'
-folder. It's about people you know: friends, family and colleagues." — the exact count and the exact
-purpose sentence the map carried, TTFT 4.8 s (in the range ADR 015 measured for prompts of this size on
-this model, and not attributable to the map: the map's own build cost above is a rounding error against
-it). Asked "who is Anna connected to in my notes?", the reply was "According to your notes, Anna is
-connected to Ben, Cara, and Dee." — exactly the three names `connections.for_hits` computed (one real
-link, two same-folder fallbacks, since the scratch vault's tag frontmatter did not parse as written; not
-a code defect, the throwaway generator script's own bug), TTFT 3.8 s. Neither reply named a folder, a
-count or a connection the map or the note's own passage did not state.
+**The model used the map and a note's connections correctly, with no invented number.** Asked "roughly how many notes do you have about people, and what is that folder generally about?" (nothing in the message would have found `People/People.md` by search), the reply was "You have 20 notes in the 'People' folder. It's about people you know: friends, family and colleagues." — the exact count and the exact purpose sentence the map carried, TTFT 4.8 s (in the range ADR 015 measured for prompts of this size on this model, and not attributable to the map: the map's own build cost above is a rounding error against it). Asked "who is Anna connected to in my notes?", the reply was "According to your notes, Anna is connected to Ben, Cara, and Dee." — exactly the three names `connections.for_hits` computed (one real link, two same-folder fallbacks, since the scratch vault's tag frontmatter did not parse as written; not a code defect, the throwaway generator script's own bug), TTFT 3.8 s. Neither reply named a folder, a count or a connection the map or the note's own passage did not state.
 
-**Not measured:** other local models, a cloud model, a vault with more top-level folders than
-`MAX_FOLDERS_SHOWN`, and side-by-side TTFT against the exact pre-035 prompt (the isolated timings above
-stand in for it, since the difference between the two prompts is only the ~100 extra characters measured).
+**Not measured:** other local models, a cloud model, a vault with more top-level folders than `MAX_FOLDERS_SHOWN`, and side-by-side TTFT against the exact pre-035 prompt (the isolated timings above stand in for it, since the difference between the two prompts is only the ~100 extra characters measured).
 
 ## Built (2026-09-27)
 
-`sympose/vault_map.py` (`build`, mtime-identity cached like `folder_definitions`' own reads) and
-`sympose/engine/connections.py` (`for_hits`, its link/label/folder index cached the same way, and the link
-graph itself — `vault_graph.get_vault_graph`, which is rebuilt fresh on every one of its own callers —
-cached here too, so a chat turn does not pay a full manifest rebuild that nothing was asking it to pay
-before). `folder_definitions.read_purpose` reads a definition's purpose paragraph back out (the
-counterpart of the existing `read_template`). Two new `cloud_share` categories, `VAULT_MAP` and
-`CONNECTIONS`, in `engine/sharing.py`; `gate` now strips a hit's `connections` field (not the hit) when
-that category is not approved, and `categories_of` takes a `vault_map` flag. `prompt_text.py` carries the
-map's label and both categories' withheld sentences; `prompt_blocks.py`'s `vault_map_block` and the
-connections line inside `_text_of`; `prompt.build_system_prompt`/`build_messages` take `vault_map` and
-`vault_map_withheld`, constant across every attempt of `budget.fit`'s sacrifice loop. `turn.py` computes
-the map and attaches connections once per turn, ahead of `sharing.gate`, so both are gated the same way
-notes and properties already are.
+`sympose/vault_map.py` (`build`, mtime-identity cached like `folder_definitions`' own reads) and `sympose/engine/connections.py` (`for_hits`, its link/label/folder index cached the same way, and the link graph itself — `vault_graph.get_vault_graph`, which is rebuilt fresh on every one of its own callers — cached here too, so a chat turn does not pay a full manifest rebuild that nothing was asking it to pay before). `folder_definitions.read_purpose` reads a definition's purpose paragraph back out (the counterpart of the existing `read_template`). Two new `cloud_share` categories, `VAULT_MAP` and `CONNECTIONS`, in `engine/sharing.py`; `gate` now strips a hit's `connections` field (not the hit) when that category is not approved, and `categories_of` takes a `vault_map` flag. `prompt_text.py` carries the map's label and both categories' withheld sentences; `prompt_blocks.py`'s `vault_map_block` and the connections line inside `_text_of`; `prompt.build_system_prompt`/`build_messages` take `vault_map` and `vault_map_withheld`, constant across every attempt of `budget.fit`'s sacrifice loop. `turn.py` computes the map and attaches connections once per turn, ahead of `sharing.gate`, so both are gated the same way notes and properties already are.
 
-**Tests.** 45 new (`test_vault_map.py`, `test_engine_connections.py`, plus additions to
-`test_folder_definitions.py`, `test_engine_prompt.py`, `test_engine_sharing.py`, `test_engine_turn.py`),
-1718 pass in all, ruff clean, and four existing tests updated for the two new categories
-(`test_engine_sharing.py`, `test_doctor.py`, `test_cli.py`). `/code-review` (high effort) found the one
-real bug before it shipped: a note found through more than one grounded passage
-(`grounding_index.PASSAGES_PER_NOTE`) had its connections computed and attached twice, so its "Connected
-to" line would have been duplicated in the prompt and its withheld count doubled; fixed by computing a
-note's connections once per turn and sharing the same list across its passages, and pinned with a
-revert-checked test. The same pass found and removed a dead, duplicated `_title_of` helper in
-`vault_map.py` (the real one lives in `connections.py`, which uses it), a redundant case-insensitive
-folder-name lookup in `vault_map._purpose_of` (the folder name there already comes from a real note's own
-path, always exact), and a magic `"sympose"` string in `connections.py` that now imports
-`reference.SOURCE` instead of repeating it a third time.
+**Tests.** 45 new (`test_vault_map.py`, `test_engine_connections.py`, plus additions to `test_folder_definitions.py`, `test_engine_prompt.py`, `test_engine_sharing.py`, `test_engine_turn.py`), 1718 pass in all, ruff clean, and four existing tests updated for the two new categories (`test_engine_sharing.py`, `test_doctor.py`, `test_cli.py`). `/code-review` (high effort) found the one real bug before it shipped: a note found through more than one grounded passage (`grounding_index.PASSAGES_PER_NOTE`) had its connections computed and attached twice, so its "Connected to" line would have been duplicated in the prompt and its withheld count doubled; fixed by computing a note's connections once per turn and sharing the same list across its passages, and pinned with a revert-checked test. The same pass found and removed a dead, duplicated `_title_of` helper in `vault_map.py` (the real one lives in `connections.py`, which uses it), a redundant case-insensitive folder-name lookup in `vault_map._purpose_of` (the folder name there already comes from a real note's own path, always exact), and a magic `"sympose"` string in `connections.py` that now imports `reference.SOURCE` instead of repeating it a third time.
 
 ## Not built yet
 

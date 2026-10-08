@@ -14,8 +14,7 @@ Steps:
 
 Go back to step 3 and check the block before you answer.
 
-Example request: "a soul for a persona who talks like Ada Lovelace".
-Example shape of the answer:
+Example request: "a soul for a persona who talks like Ada Lovelace". Example shape of the answer:
 
 ```
 You are Ada, the user's companion for thinking things through.
