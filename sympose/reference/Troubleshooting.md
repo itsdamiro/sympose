@@ -36,7 +36,7 @@ No vault may be configured. Set `VAULT_PATHS` in `.env` to your vault folder.
 
 ## A persona says it cannot change my notes
 
-It can propose changes, but only in the web app, with a note open in the editor. Check four things. The chat must be the web app's, not the terminal. The note must be open in the editor. The persona's `edit_mode` must not be `plan`.
+It can propose changes, but only in the web app, with a note open in the editor. If it says it cannot edit the note you have open, check four things. The chat must be the web app's, not the terminal. The note must be open in the editor. The persona's `edit_mode` must not be `plan`.
 
 And with a cloud model, the open note is held back until you allow `open_note` with /share (and `annotations` for your comments).
 

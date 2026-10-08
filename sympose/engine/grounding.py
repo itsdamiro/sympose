@@ -103,12 +103,15 @@ def _qualifies(passage: Passage, matched: list[str], informative: list[str], str
     headings are made of ordinary words) asks for more: two distinct message
     words in the passage's own text or heading (a title word does not count,
     every passage of the note carries it), or a message made only of the
-    note's title words, which is asking for the note by name. Ordinary chat
+    note's title words, which is asking for the note by name; or a setting's own
+    name (`edit_mode`, an identifier with an underscore) found in its text,
+    which ordinary chat never contains. Ordinary chat
     ("thanks, that helps!", "I'm getting started on my taxes") is a heading
     word or two away from a note."""
     if strict:
         own = _own_terms(passage)
-        return len([t for t in matched if t in own]) >= 2 or set(informative) <= passage.title_terms
+        found = [t for t in matched if t in own]
+        return len(found) >= 2 or any("_" in t for t in found) or set(informative) <= passage.title_terms
     return (
         _covers_a_field(passage, matched)
         or len(matched) >= max(2, math.ceil(_MIN_SHARE * len(informative)))

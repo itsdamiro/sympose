@@ -460,6 +460,9 @@ REF_CASES: list[RefCase] = [
     RefCase("connections-by-meaning-setting", "what does the connections_by_meaning setting do?", find=("`connections_by_meaning` setting",), first="Settings.md"),
     RefCase("connections-relevance-setting", "how do I get fewer notes in the related notes list? connections_relevance", find=("`connections_relevance` setting",), first="Settings.md"),
     RefCase("history-tokens-setting", "can I limit how much of the earlier conversation is sent each time? history_tokens", find=("`history_tokens` setting",)),
+    # Gaps measured 2026-10-06: an identifier alone, and the open note she cannot edit
+    RefCase("identifier-edit-mode", "what does `edit_mode` do?", find=("`edit_mode` setting",), first="Settings.md"),
+    RefCase("cannot-edit-open-note", "why can't you edit the note I have open?", find=("check four things",)),  # the Troubleshooting entry; the notes on editing may rank above it
 ]
 
 # Every message the vault eval already uses must attach nothing from the
