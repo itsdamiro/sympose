@@ -22,6 +22,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sympose import server_change_handlers as chg
 from sympose import server_chat_handlers as ch
 from sympose import server_check_handlers as ckh
+from sympose import server_confirmation_handlers as cfh
 from sympose import server_definition_handlers as dh
 from sympose import server_origin
 from sympose import server_handlers as h
@@ -93,6 +94,14 @@ def create_app() -> FastAPI:
     @app.post("/api/chat/turn")
     def chat_turn(body: ChatTurn) -> dict[str, Any]:
         return ch.send_turn(body)
+
+    @app.get("/api/chat/confirmations")
+    def get_confirmations(persona: str | None = Query(None), session: str = Query(...)) -> dict[str, Any]:
+        return cfh.list_requests(persona, session)
+
+    @app.post("/api/chat/confirmations/{request_id}")
+    def answer_confirmation(request_id: str, body: cfh.ConfirmationAnswer) -> dict[str, Any]:
+        return cfh.answer(request_id, body)
 
     @app.post("/api/chat/compact")
     def chat_compact(body: ChatCompact) -> dict[str, Any]:

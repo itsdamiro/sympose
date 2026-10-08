@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { renderHook, waitFor } from "@testing-library/react"
+import { act, renderHook, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import type { LivePersona } from "./personas"
@@ -44,6 +44,17 @@ describe("usePersonaRoster", () => {
     await waitFor(() => expect(result.current.rosterPersonas.length).toBe(2))
     expect(result.current.activePersonaName).toBe("GRACE")
     expect(result.current.activePersonaModel).toBe("grace-model")
+  })
+
+  it("reads the roster again when asked, so a persona just made shows", async () => {
+    const { result } = setup("samantha")
+    await waitFor(() => expect(result.current.rosterPersonas.length).toBe(2))
+    fetchPersonas.mockResolvedValue([persona("samantha", { isDefault: true }), persona("grace"), persona("ada")])
+
+    act(() => result.current.reloadRoster())
+
+    await waitFor(() => expect(result.current.rosterPersonas.map((p) => p.handle)).toEqual(["samantha", "grace", "ada"]))
+    expect(fetchPersonas).toHaveBeenCalledTimes(2)
   })
 
   it("replaces only the active persona's model with the one in use", async () => {

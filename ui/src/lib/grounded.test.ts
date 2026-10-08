@@ -6,6 +6,11 @@ import { cloudWords, hasCloudSent, groundedChats, groundedChatsLine, groundedCon
 const note = (extra: Partial<SentNote> = {}): SentNote => ({ path: "Projects/Atlas.md", heading: "", source: "vault", ...extra })
 
 describe("grounded notes", () => {
+  it("adds no row for a persona she proposed: the card under the reply is its sign", () => {
+    expect(hasFooterRow({ notes: [], lookups: [{ tool: "propose_persona", saved: true, request: "r1" }] })).toBe(false)
+    expect(rowSummary({ notes: [], lookups: [{ tool: "propose_persona", saved: false }] })).toBeNull()
+  })
+
   it("has no notes when nothing grounded the reply, or when the record is missing", () => {
     expect(groundedNotes(null)).toEqual([])
     expect(groundedNotes(undefined)).toEqual([])

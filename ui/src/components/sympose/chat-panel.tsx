@@ -30,6 +30,8 @@ interface ChatPanelProps extends React.ComponentProps<"div"> {
   hasMore?: boolean
   loadingOlder?: boolean
   onLoadOlder?: () => void
+  /** What is drawn under a persona's reply besides its text (the card of a request she made, ADR 078). */
+  renderAfter?: (turn: ChatTurn) => React.ReactNode
   /** Opens a note named under a reply (the notes it was based on). */
   onOpenNote?: (path: string) => void
   /** A `[[wikilink]]` inside a reply was clicked. */
@@ -107,6 +109,7 @@ function ChatPanel({
   hasMore = false,
   loadingOlder = false,
   onLoadOlder,
+  renderAfter,
   onOpenNote,
   onWikiLinkClick,
   onNewConversation,
@@ -292,8 +295,8 @@ function ChatPanel({
                   {turn.body}
                 </ChatMessage>
               ) : (
+                <React.Fragment key={turn.id}>
                 <ChatMessage
-                  key={turn.id}
                   role="persona"
                   handle={turn.handle}
                   indicator={
@@ -311,6 +314,8 @@ function ChatPanel({
                 >
                   <ChatMarkdown onWikiLinkClick={onWikiLinkClick}>{turn.body}</ChatMarkdown>
                 </ChatMessage>
+                {renderAfter?.(turn)}
+                </React.Fragment>
               )
             )
           )}

@@ -98,8 +98,10 @@ const ACTS: Record<string, string> = {
   comment_on: "left a comment",
 }
 const isAct = (l: SentLookup) => l.tool in ACTS
-// Opening a note for the user shows in the editor itself, so it adds nothing to the reply's footer.
-const calls = (sent: SentRecord | null | undefined) => (sent?.lookups ?? []).filter((l) => l.tool !== "show_note")
+// Opening a note for the user shows in the editor itself, and a persona she proposes is the card under the reply (ADR 078),
+// so neither adds anything to the reply's footer.
+const SHOWN_ELSEWHERE = ["show_note", "propose_persona"]
+const calls = (sent: SentRecord | null | undefined) => (sent?.lookups ?? []).filter((l) => !SHOWN_ELSEWHERE.includes(l.tool))
 const searches = (sent: SentRecord | null | undefined) => calls(sent).filter((l) => !isRemember(l) && !isAct(l))
 const fellBack = (sent: SentRecord | null | undefined) => sent?.mode === "auto" || sent?.chats_mode === "auto"
 

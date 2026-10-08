@@ -14,8 +14,7 @@ from typing import Any
 from sympose import note_changes
 from sympose import profile as profile_mod
 from sympose.engine import (
-    budget, compaction, edit_tools, edit_turn, history_cap, lookup, memory, memory_tools, past_chats, persona_tools, reference, session,
-    session_compaction, sharing, tool_support, turn_cancel, turn_evidence, turn_status,
+    budget, compaction, confirmations, edit_tools, edit_turn, history_cap, lookup, memory, memory_tools, past_chats, persona_tools, reference, session, session_compaction, sharing, tool_support, turn_cancel, turn_evidence, turn_status,
 )
 from sympose.engine import model as model_mod
 from sympose.engine.model import EngineModelError
@@ -126,6 +125,9 @@ def _run(
     mem, notes = found.mem, found.notes
     # The note and the rules go with the message to the model; the conversation keeps only what the user said.
     asked = edit_turn.message(modes.edit, user_message) if modes.edit else user_message
+    told = confirmations.outcomes(handle, sid) if modes.edit and modes.edit.proposes_personas else []
+    if told:
+        asked = "\n".join(confirmations.lines(told)) + "\n\n" + asked
     build = turn_evidence.prompt_builder(persona, asked, found, modes)
 
     prompt_tokens = 0
@@ -146,7 +148,7 @@ def _run(
         decisions_sent = fitted.decisions
     dropped += capped  # the turns `history_tokens` left out count with the ones the window's own fitting dropped
     lookups: list[dict[str, Any]] = []
-    tools = persona_tools.for_turn(ask, remember == memory.TOOL, modes.chats, sid, modes.edit)
+    tools = persona_tools.for_turn(ask, remember == memory.TOOL, modes.chats, sid, modes.edit, persona, found.map_allowed)
     if tools:
         tool_list, run_tool = tools
         done = lookup.converse(
@@ -187,6 +189,8 @@ def _run(
             handle, opened.path if opened else None, opened.text if opened else None, reply_text, persona,
         )
         lookups += edit_lookups
+    if told:
+        confirmations.mark_told(handle, told)  # she has now been told what the user decided (docs/decisions/078)
 
     if modes.edit and modes.edit.withheld:
         withheld[sharing.OPEN_NOTE] = 1

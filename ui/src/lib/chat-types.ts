@@ -39,6 +39,8 @@ export interface SentLookup {
   found?: number
   /** `remember` and the acts on a note: whether it was written, placed or opened. */
   saved?: boolean
+  /** `propose_persona`: the id of the request it filed (ADR 078), which the card under the reply shows. */
+  request?: string
 }
 
 /** What reached the model besides the messages, for one reply, as the session log records it (ADR 025): the same

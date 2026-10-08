@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from sympose import vault_paths
-from sympose.engine import chat_tools, edit_mode, edit_tools, edit_turn, lookup, lookup_tools, memory, memory_tools, past_chats, sharing, tool_support
+from sympose.engine import chat_tools, edit_mode, edit_tools, edit_turn, lookup, lookup_tools, memory, memory_tools, past_chats, persona_proposal, sharing, tool_support
 
 
 @dataclass(frozen=True)
@@ -54,6 +54,7 @@ _UNKNOWN_TOOL = "There is no tool called {name}."
 
 def for_turn(
     ask: bool, remember: bool, chats: bool = False, session_id: str | None = None, edit: edit_turn.Edit | None = None,
+    persona: dict[str, Any] | None = None, share_folders: bool = True,
 ) -> tuple[list[dict[str, Any]], Callable[..., Any]] | None:
     """`(tools, run)` for a turn that gets `ask`'s vault tools, `remember`'s memory tool, `chats`' tools for
     earlier conversations (`session_id` is the one in progress, never searched), or any mix; `None` when none applies, so the caller knows the tool-calling loop does not need
@@ -61,11 +62,13 @@ def for_turn(
     tool must never run just because a model calls it by name -- a persona given only `remember`
     (`ask` off) must not be able to search or open notes by guessing `search_notes`/`open_note`."""
     giving_edit = edit is not None and edit.active and edit.tool
+    giving_persona = giving_edit and edit.proposes_personas and persona is not None and session_id is not None  # docs/decisions/078
     if not ask and not remember and not chats and not giving_edit:
         return None
     tools = [
         *(lookup_tools.TOOLS if ask else []), *(memory_tools.TOOLS if remember else []),
         *(chat_tools.TOOLS if chats else []), *(_edit_tools(edit) if giving_edit else []),
+        *([persona_proposal.tool(persona, share_folders)] if giving_persona else []),
     ]
 
     def run(persona: dict[str, Any], model: str, name: str, raw_arguments: Any) -> Any:
@@ -76,6 +79,10 @@ def for_turn(
         if giving_edit:
             opened = edit.source
             result = edit_tools.run(persona["handle"], opened.path if opened else None, opened.text if opened else None, name, raw_arguments, persona, edit.scope)
+            if result is not None:
+                return result
+        if giving_persona:
+            result = persona_proposal.run(persona["handle"], session_id, persona, name, raw_arguments, share_folders)
             if result is not None:
                 return result
         if chats and name in (chat_tools.SEARCH, chat_tools.OPEN):

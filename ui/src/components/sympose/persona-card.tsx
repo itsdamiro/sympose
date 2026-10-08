@@ -1,11 +1,10 @@
 import * as React from "react"
-import { HugeiconsIcon } from "@hugeicons/react"
 import { UserIcon } from "@hugeicons/core-free-icons"
 
 import { cn } from "@/lib/utils"
 import { resolvePersonaVisuals, type LivePersona } from "@/lib/personas"
 import { EmptyState } from "@/components/sympose/empty-state"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { PersonaHeader } from "@/components/sympose/persona-header"
 import { ModelChip } from "@/components/sympose/model-chip"
 import { PersonaFilesMenu } from "@/components/sympose/persona-files-menu"
 import type { PersonaFileInfo } from "@/lib/persona-files-api"
@@ -83,40 +82,14 @@ function PersonaCard({
         } as React.CSSProperties
       }
     >
-      {/* accent band — bleeds to the panel edges by cancelling the panel's own
-          gutter (`p-8` desktop / `px-4 py-6` phone); the panel's rounded top
-          corners + overflow clip it */}
-      <div
-        className={cn(
-          "h-28 rounded-tl-lg rounded-tr-lg bg-(--persona-accent) dark:bg-(--persona-accent-dark)",
-          phone ? "-mx-4 -mt-6" : "-mx-8 -mt-8"
-        )}
-        aria-hidden
+      <PersonaHeader
+        name={current.name}
+        title={current.title}
+        icon={visuals.icon}
+        accent={visuals.accent}
+        accentDark={visuals.accentDark}
+        bandClass={phone ? "-mx-4 -mt-6" : "-mx-8 -mt-8"}
       />
-
-      {/* identity — the 64px avatar straddles the band's bottom edge (centre on
-          the edge, half in / half below). `border-4` (border-box) keeps its
-          visual bounds equal to its box. The name/title column is nudged down
-          (`pt-2`) so the name settles inside the band and the title clears the
-          band edge by the same gap that sits between name and title. */}
-      <div className="-mt-12 flex items-start gap-3">
-        <Avatar className="size-16 shrink-0 border-4 border-panel">
-          <AvatarFallback
-            className="text-background"
-            style={{ background: visuals.accent }}
-          >
-            <HugeiconsIcon icon={visuals.icon} className="size-7" />
-          </AvatarFallback>
-        </Avatar>
-        <div className="min-w-0 pt-1.5">
-          <h2 className="truncate font-heading text-lg leading-tight font-semibold text-background">
-            {current.name}
-          </h2>
-          <p className="mt-3 text-sm leading-snug text-balance text-fg-muted">
-            {current.title}
-          </p>
-        </div>
-      </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         {modelSlot ?? <ModelChip model={current.model} />}

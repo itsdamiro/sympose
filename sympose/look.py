@@ -16,3 +16,14 @@ def clean(value: Any, pattern: re.Pattern[str]) -> str | None:
         return None
     value = value.strip()
     return value if pattern.fullmatch(value) else None
+
+# The names of the icons the web app draws (`ui/src/lib/persona-icons.ts`, the one set it ships). The engine needs them to
+# offer a persona a choice and to refuse a name the app could not draw (docs/decisions/078); a test pins that the two lists
+# are the same.
+ICON_NAMES = (
+    "anchor", "atom", "bird", "book", "book-open", "brain", "camera", "chart", "chef", "code", "coins", "compass", "crown",
+    "dna", "fire", "flash", "ghost", "globe", "graduation", "home", "idea", "key", "lamp", "leaf", "mic", "moon", "music",
+    "paintbrush", "pen", "plant", "rocket", "shield", "star", "stethoscope", "sun", "telescope", "user", "wrench", "calendar",
+    "chef-hat", "copy", "film-roll", "folder", "folder-library", "hourglass", "paintbrush-2", "pencil-edit", "quote",
+    "source-code", "users",
+)

@@ -16,7 +16,7 @@ Small models make more mistakes editing, so read each change before you accept i
 
 Only a few things. She can look up your notes (`vault_lookup` `"ask"`, or by default on a tested model), add a line to her decisions file when you ask her to remember something, and in the web app propose changes, new notes and comments for you to accept or decline.
 
-She cannot create a persona, change your settings, run commands or browse the web. Creating a persona and editing `settings.json` are done by hand.
+In the web app Samantha can propose a new persona, and you accept or decline it. She cannot change your settings, run commands or browse the web. Editing `settings.json` is done by hand.
 
 ## Can Sympose fix the problems it finds in my notes?
 
@@ -36,4 +36,4 @@ No. Every conversation is saved in `profiles/<handle>/sessions/`, but she never 
 
 ## What else is missing?
 
-The rarely used settings are still edited in `settings.json`. Skills, playbooks a persona follows, are built in a first form: the persona picks one by your message (see `skill_lookup`), and only one at a time. A persona that creates other personas or changes settings for you is not built. Notes are found by meaning when the small search model is installed, and by keywords otherwise.
+The rarely used settings are still edited in `settings.json`. Skills, playbooks a persona follows, are built in a first form: the persona picks one by your message (see `skill_lookup`), and only one at a time. A persona that changes settings for you is not built. Notes are found by meaning when the small search model is installed, and by keywords otherwise.

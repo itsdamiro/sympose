@@ -24,6 +24,8 @@ import { deleteVaultFolder } from "@/lib/vault-note-api"
 import { useChatSession } from "@/lib/use-chat-session"
 import { useSessionList } from "@/lib/use-session-list"
 import { usePersonaRoster } from "@/lib/use-persona-roster"
+import { useConfirmations } from "@/lib/use-confirmations"
+import { PersonaRequestCard } from "@/components/sympose/persona-request-card"
 import { useNoteChanges } from "@/lib/use-note-changes"
 import { announceFolderMoved } from "@/lib/folder-moved"
 import { useFolderView } from "@/lib/use-folder-view"
@@ -204,8 +206,10 @@ export function AppShell() {
   }, [chatPinned, explore, chatOpen, openPanel])
 
   const { nebulaReady } = useNebulaStage(panels, nebulaPrefs.interaction)
-  const { rosterPersonas, activePersonaName, activePersonaModel, activePersonaVisuals } =
+  const { rosterPersonas, reloadRoster, activePersonaName, activePersonaModel, activePersonaVisuals } =
     usePersonaRoster({ activePersona, setActivePersona, modelInUse })
+  // A persona's requests for the user's yes, drawn as cards under the reply that made them (docs/decisions/078).
+  const confirmations = useConfirmations(activePersona, chat.sessionId, chat.turns, reloadRoster)
 
   const { vaultTree, vaultName, hiddenState, isHidden, changeHidden, hideFromView, unhideFromView } =
     useVaultTree({ activePersona, vaultRefreshKey, refreshVault })
@@ -832,6 +836,12 @@ export function AppShell() {
               hasMore={chat.hasMore}
               loadingOlder={chat.loadingOlder}
               onLoadOlder={chat.loadOlder}
+              renderAfter={(turn) =>
+                (turn.sent?.lookups ?? []).flatMap((l) => {
+                  const request = l.tool === "propose_persona" && l.request ? confirmations.byId[l.request] : undefined
+                  return request ? [<PersonaRequestCard key={request.id} request={request} onAnswer={(accept, folders, editMode) => confirmations.answer(request.id, accept, folders, editMode)} />] : []
+                })
+              }
               onOpenNote={openGroundedNote}
               onWikiLinkClick={openChatWikilink}
               onNewConversation={chat.newConversation}

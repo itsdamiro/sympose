@@ -8,7 +8,15 @@ Each persona has its own folder, `profiles/<handle>/`, holding `persona.yaml` (i
 
 ## How do I create a new persona?
 
-Make a folder named with the handle, lowercase and one word, and put a `persona.yaml` in it, and a `soul.md` for its voice. This is the same as making a new agent or profile. Samantha cannot create personas for you yet, and the web app cannot either, so it is done by hand.
+In the web app, ask Samantha to create a new persona, which is also called an agent or a profile. Describe the one you want, such as a patient maths tutor or a calm gardening companion.
+
+A card appears in the chat showing the persona as it would look: its icon and colour, its title, what it may do to your notes, the folders it may read and its soul.
+
+Samantha chooses each of these to suit the character you described, but they are only suggestions. You decide: change the edit mode in the dropdown, switch folders on or off with the pills, and ask Samantha in the chat to change anything else, such as the icon or the soul. Asking again replaces the card with a fresh one.
+
+A persona is created only when you click Accept; until then nothing is made, and Decline makes nothing. Accepting creates the persona with the folders and edit mode as you left them. The model is not part of it: the persona uses your default, and you change it on the Persona page.
+
+Creating a persona works in the web app only, only through Samantha, and only with a model that can call tools, such as a cloud model or gemma4; with one that cannot, such as gemma2:9b, create it by hand. You can create one by hand with any model: a folder named with the handle, lowercase and one word, with a `persona.yaml` and a `soul.md` for its voice.
 
 ## What does a persona.yaml look like?
 

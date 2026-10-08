@@ -14,7 +14,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { chipClass } from "@/components/sympose/model-chip"
 
-const LABELS: Record<EditModeId, string> = { plan: "Plan", manual: "Manual", accept: "Accept edits", auto: "Auto" }
+export const EDIT_MODE_LABELS: Record<EditModeId, string> = { plan: "Plan", manual: "Manual", accept: "Accept edits", auto: "Auto" }
+const LABELS = EDIT_MODE_LABELS
 
 /**
  * What the persona does on the user's notes before the user's Accept (docs/decisions/072), as a chip beside FILES: it

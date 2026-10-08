@@ -27,6 +27,7 @@ export function usePersonaRoster({
   modelInUse: string | undefined
 }) {
   const [personas, setPersonas] = React.useState<LivePersona[]>([])
+  const [reads, setReads] = React.useState(0)
   React.useEffect(() => {
     let alive = true
     fetchPersonas().then((list) => {
@@ -35,7 +36,8 @@ export function usePersonaRoster({
     return () => {
       alive = false
     }
-  }, [])
+  }, [reads])
+  const reload = React.useCallback(() => setReads((n) => n + 1), [])
   const rosterPersonas = React.useMemo(
     () => personas.map((p) => (p.handle === activePersona && modelInUse ? { ...p, model: modelInUse } : p)),
     [personas, activePersona, modelInUse]
@@ -49,6 +51,7 @@ export function usePersonaRoster({
   const active = personas.find((p) => p.handle === activePersona)
   return {
     rosterPersonas,
+    reloadRoster: reload,
     activePersonaName: active?.name ?? activePersona,
     activePersonaModel: active?.model,
     activePersonaVisuals: resolvePersonaVisuals(activePersona),

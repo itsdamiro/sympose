@@ -21,6 +21,15 @@ function withScroller(props: Partial<Parameters<typeof ChatPanel>[0]>) {
 const enter = () => fireEvent.keyDown(screen.getByLabelText("Message"), { key: "Enter" })
 
 describe("ChatPanel", () => {
+  it("draws what renderAfter gives under a persona's reply and under no other turn", () => {
+    const turns: ChatTurn[] = [
+      { id: "u1", role: "user", body: "make me a tutor" },
+      { id: "p1", role: "persona", handle: "samantha", body: "Here she is." },
+    ]
+    setup({ turns, renderAfter: (turn) => <p key={turn.id}>after {turn.id}</p> })
+    expect(screen.getAllByText(/^after /).map((n) => n.textContent)).toEqual(["after p1"])
+  })
+
   it("sends the draft on Enter", () => {
     const { onSubmit } = setup()
     enter()

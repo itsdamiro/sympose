@@ -109,31 +109,42 @@ REF_CASES: list[RefCase] = [
     RefCase(
         "create-persona",
         "how do I create a new persona?",
-        find=("persona.yaml",),
+        find=("ask Samantha",),
         first="Personas.md",
     ),
     RefCase(
         "create-agent",
         "im thinking or creating a new agent. a coder in nature.",
-        find=("persona.yaml",),
+        find=("ask Samantha",),
         first="Personas.md",
     ),
     RefCase(
         "create-profile-with-a-typo",
         "can you help me create a ne profile for sympose or not? your drifting..",
-        find=("persona.yaml",),
+        find=("ask Samantha",),
     ),
     RefCase(
         "make-agent-in-the-web-app",
         "can I make a new agent from the web app?",
-        find=("the web app cannot either",),
+        find=("ask Samantha",),
         first="Personas.md",
     ),
     # the old name still finds its way (docs/decisions/028)
     RefCase(
         "make-agent-in-the-dashboard",
         "can I make a new agent from the dashboard?",
-        find=("the web app cannot either",),
+        find=("ask Samantha",),
+        first="Personas.md",
+    ),
+    RefCase(
+        "persona-card-says-nothing-is-made-before-accept",
+        "does a persona get created before I click Accept?",
+        find=("created only when you click Accept",),
+    ),
+    RefCase(
+        "persona-by-hand-still-works",
+        "can I make a persona by hand with a folder and a persona.yaml?",
+        find=("persona.yaml",),
         first="Personas.md",
     ),
     RefCase(

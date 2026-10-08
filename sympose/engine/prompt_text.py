@@ -71,12 +71,15 @@ _REMEMBER_MARKER = (
 _REMEMBER_TEXT = {"tool": _REMEMBER_TOOL, "marker": _REMEMBER_MARKER}
 
 
-def how_you_work(*, ask: bool, remember: str | None) -> str:
+def how_you_work(*, ask: bool, remember: str | None, personas: bool = False) -> str:
     """`HOW_YOU_WORK` or `HOW_YOU_WORK_ASK`, with the memory-writing sentence swapped for
     whichever is true this turn: unable to (`remember` is `None`, the default text both already
     have), a tool (`"tool"`), or an inline marker (`"marker"`, for a model that can't call
-    tools) -- docs/decisions/041."""
+    tools) -- docs/decisions/041. `personas`: she may propose a new persona this turn (docs/decisions/078), so the
+    text no longer says she cannot create one."""
     base = HOW_YOU_WORK_ASK if ask else HOW_YOU_WORK
+    if personas:
+        base = base.replace("notes, personas, or settings", "notes or settings")
     replacement = _REMEMBER_TEXT.get(remember or "")
     return base.replace(_REMEMBER_OFF, replacement) if replacement else base
 
