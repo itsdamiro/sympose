@@ -11,8 +11,9 @@ conf="$root/scripts/gates.conf"
 [ -f "$conf" ] || { echo "no $conf: copy scripts/gates.conf.template and fill it in" >&2; exit 2; }
 only=" $* "
 failed=0
-while IFS='|' read -r name dir cmd; do
-  name="$(echo "$name" | xargs)"; dir="$(echo "$dir" | xargs)"; cmd="$(echo "$cmd" | sed 's/^ *//;s/ *$//')"
+trim() { sed 's/^[[:space:]]*//;s/[[:space:]]*$//'; }
+while IFS='|' read -r name dir cmd || [ -n "$name" ]; do  # `|| [ -n ... ]`: a last line with no newline still runs
+  name="$(printf '%s' "$name" | trim)"; dir="$(printf '%s' "$dir" | trim)"; cmd="$(printf '%s' "$cmd" | trim)"
   [ -z "$name" ] || [[ "$name" == \#* ]] && continue
   [ "$#" -gt 0 ] && [[ "$only" != *" $name "* ]] && continue
   out="$(mktemp)"; start=$(date +%s)
