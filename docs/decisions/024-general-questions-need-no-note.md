@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-09-25
+projects: [sympose]
 concepts: [Grounding]
+amends: [14, 19, 20]
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 024 — A general question needs no note: tighter grounding and a wording that lets her answer it

@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-10-04
+projects: [sympose]
 concepts: [Persona edits]
+amends: []
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 069 — Highlights and comments on a note: kept out of the vault, sent with the next message, read by the persona

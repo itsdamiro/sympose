@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-09-23
+projects: [sympose]
 concepts: [Chat engine]
+amends: []
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 006 — Chat engine v0: turn handling, grounding, sessions, and what's deliberately out

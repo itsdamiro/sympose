@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-09-29
+projects: [sympose]
 concepts: [Vault tools]
+amends: [17]
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 040 — The persona looks up notes itself: a `vault_lookup` setting (`auto` or `ask`) and two read-only tools, search and open

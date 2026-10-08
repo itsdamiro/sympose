@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-10-05
+projects: [sympose]
 concepts: [Vault upkeep]
+amends: []
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 074 — Moving a folder onto another

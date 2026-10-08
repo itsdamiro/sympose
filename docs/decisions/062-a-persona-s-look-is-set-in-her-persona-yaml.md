@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-10-03
+projects: [sympose]
 concepts: [Persona]
+amends: []
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 062 — A persona's look is set in her persona.yaml

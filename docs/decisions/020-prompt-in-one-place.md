@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-09-24
+projects: [sympose]
 concepts: [Chat prompt]
+amends: []
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 020 — The chat prompt in one place: the notes travel with the question, and the model is told how Sympose works

@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-09-24
+projects: [sympose]
 concepts: [Chat prompt]
+amends: []
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 019 — A Sympose reference library: read-only notes about Sympose itself, searched by the same retriever

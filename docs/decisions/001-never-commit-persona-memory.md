@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-09-22
+projects: [sympose]
 concepts: [Persona memory, Cloud privacy]
+amends: []
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 001 — Never commit persona memory, regardless of handle

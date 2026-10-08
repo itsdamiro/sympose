@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-09-23
+projects: [sympose]
 concepts: [Chat engine]
+amends: []
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 008 — Message queueing: per-persona locks, not one global lock

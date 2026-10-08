@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-09-22
+projects: [sympose]
 concepts: [Grounding]
+amends: []
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 002 — Grounding reuses search's matcher instead of a separate retrieval system

@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-09-24
+projects: [sympose]
 concepts: [Grounding]
+amends: []
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 017 — Follow-up-aware grounding: rewrite a search-less message from recent turns

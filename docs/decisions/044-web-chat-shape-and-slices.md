@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-09-30
+projects: [sympose]
 concepts: [Apps]
+amends: []
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 044 — The web chat: its shape, and the order it is built in

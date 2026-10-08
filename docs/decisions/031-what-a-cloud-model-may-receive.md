@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-09-27
+projects: [sympose]
 concepts: [Cloud privacy]
+amends: []
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 031 — What a cloud model may receive: known to the user, approved by the user, one setting per category

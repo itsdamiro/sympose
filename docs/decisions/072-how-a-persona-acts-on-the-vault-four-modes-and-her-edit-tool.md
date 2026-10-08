@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-10-04
+projects: [sympose]
 concepts: [Persona edits]
+amends: []
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 072 — How a persona acts on the vault: four modes the user chooses, all ending in the user's Accept, and her edit tool in two shapes

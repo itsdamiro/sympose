@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-09-29
+projects: [sympose]
 concepts: [Persona memory]
+amends: []
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 043 — An animated status line for background work, and a knob so memory refresh doesn't fight a real reply for the model

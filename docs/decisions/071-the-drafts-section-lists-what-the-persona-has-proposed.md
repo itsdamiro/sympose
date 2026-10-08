@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-10-04
+projects: [sympose]
 concepts: [Persona edits]
+amends: []
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 071 — The Drafts section lists what the persona has proposed, and a new-note draft opens in the editor before any file exists

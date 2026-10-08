@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-10-06
+projects: [sympose]
 concepts: [Persona edits]
+amends: []
+supersedes: [75]
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 076 — Attach a marked passage to the message

@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-10-03
+projects: [sympose]
 concepts: [Apps]
+amends: []
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 060 — One quiet row under a reply, and floating info in the app's own surface

@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-09-27
+projects: [sympose]
 concepts: [Vault upkeep]
+amends: []
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 033 — Folder definitions: a note per top-level folder that says what the folder is for and what its notes carry, its template computed from the notes that are there, written only on the user's yes

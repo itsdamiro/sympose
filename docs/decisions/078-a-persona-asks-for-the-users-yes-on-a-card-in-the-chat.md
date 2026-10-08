@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-10-08
+projects: [sympose]
 concepts: [Persona edits]
+amends: []
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 078 — A persona asks for the user's yes on a card in the chat; the first thing she asks for is a new persona

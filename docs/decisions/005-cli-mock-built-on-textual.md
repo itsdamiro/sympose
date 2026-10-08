@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-09-22
+projects: [sympose]
 concepts: [Apps]
+amends: []
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 005 — CLI mock built on Textual, not `prompt_toolkit`

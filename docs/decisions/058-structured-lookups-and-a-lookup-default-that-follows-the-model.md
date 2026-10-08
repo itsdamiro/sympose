@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-10-02
+projects: [sympose]
 concepts: [Vault tools]
+amends: []
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 058 — Structured lookups (`find_notes`, ADR 035's layer 4) and a `vault_lookup` default that follows the model

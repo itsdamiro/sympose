@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-10-03
+projects: [sympose]
 concepts: [Vault upkeep]
+amends: []
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 064 — A folder's look is part of its definition

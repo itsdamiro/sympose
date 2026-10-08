@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-10-01
+projects: [sympose]
 concepts: [Apps]
+amends: []
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 053. The app shell is split by concern

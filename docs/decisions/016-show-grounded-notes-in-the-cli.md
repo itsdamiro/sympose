@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-09-24
+projects: [sympose]
 concepts: [Grounding]
+amends: []
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 016 — Show which notes grounded a reply, in the CLI reply header

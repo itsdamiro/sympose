@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-10-04
+projects: [sympose]
 concepts: [Grounding]
+amends: []
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 067 — A grounded note states its links, and says when it has none

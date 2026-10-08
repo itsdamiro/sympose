@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-09-25
+projects: [sympose]
 concepts: [Conversation history]
+amends: []
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 023 — Recaps: picking up where the last conversation left off

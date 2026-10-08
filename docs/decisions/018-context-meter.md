@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-09-24
+projects: [sympose]
 concepts: [Context budget]
+amends: []
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 018 — A context meter under the chat box

@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-10-01
+projects: [sympose]
 concepts: [Safe file handling]
+amends: []
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 051. Pins, recents and open folders survive odd names, renames and size

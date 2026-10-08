@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-09-29
+projects: [sympose]
 concepts: [Persona edits]
+amends: []
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 042 — A persona may write to the vault: drafts for new notes, staged edits for existing ones, delete only ever soft

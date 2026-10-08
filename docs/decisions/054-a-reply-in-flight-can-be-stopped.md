@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-10-01
+projects: [sympose]
 concepts: [Chat engine]
+amends: []
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 054. A reply in flight can be stopped

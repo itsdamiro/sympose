@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-09-25
+projects: [sympose]
 concepts: [Apps]
+amends: [4, 5, 10, 11]
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 028 — One `sympose` command with `cli` and `web`, and the browser app is the "web app"

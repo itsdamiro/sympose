@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-10-01
+projects: [sympose]
 concepts: [Conversation history, Safe file handling]
+amends: [6]
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 049. The conversation file is append-only

@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-09-24
+projects: [sympose]
 concepts: [Grounding]
+amends: [14, 17]
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 021 — Weak evidence is not enough to ground a reply: a one-word match is checked by the rewrite step, and the persona's own name is no evidence

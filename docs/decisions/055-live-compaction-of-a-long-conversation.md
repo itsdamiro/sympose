@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-10-02
+projects: [sympose]
 concepts: [Conversation history, Context budget]
+amends: []
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 055. Live compaction of a long conversation

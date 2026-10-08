@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-09-29
+projects: [sympose]
 concepts: [Persona memory]
+amends: [1, 11]
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 041 — Persona memory: three files, and a rewrite gate by model capability

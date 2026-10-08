@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-09-22
+projects: [sympose]
 concepts: [Settings]
+amends: []
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 003 — Multi-vault: a comma-separated configured list, one active vault, a new settings-file store

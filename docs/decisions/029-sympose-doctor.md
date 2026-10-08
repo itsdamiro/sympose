@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-09-26
+projects: [sympose]
 concepts: [Vault upkeep]
+amends: [11]
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 029 — `sympose doctor`: a health check for an installation, that fixes only what belongs to Sympose

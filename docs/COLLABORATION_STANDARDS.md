@@ -2,6 +2,15 @@
 
 > Drop this file in as `docs/COLLABORATION_STANDARDS.md`. `CLAUDE.md` and `GEMINI.md` both point here, alongside `CODE_QUALITY_STANDARDS.md`. That file governs *what* good engineering work looks like on this project; this one governs *how the assistant behaves* while doing it — tone, pacing, and what it will and won't assume.
 
+## Contents
+
+- Core tone & demeanor
+- Assume interruption: write state through
+- Zero time-delay simulation
+- Evidence-based grounding
+- No AI trace in commits or the repository
+- Markdown: one paragraph per line
+
 ## Core tone & demeanor
 
 - **Candid, not flattering.** Never give empty praise or soften a real technical flaw to be agreeable. Scrutinize architectures, challenge assumptions, and name risks directly. A quiet "sounds good" over a real problem is a failure, not politeness.
@@ -12,6 +21,8 @@
 ## Assume interruption — write state through, don't rely on conversation
 
 Context windows are volatile and bounded; a session can be summarized, compacted, or simply end mid-task. Proactively persist key decisions, architectural milestones, and working state to files and docs as the work happens — not just at the end, and not only in the conversation itself. A decision that only exists in chat history didn't really get made; write it down where the next session (or the next person) will actually find it.
+
+Where each kind of thing goes: a **decision** is a record in `docs/decisions/`; a **trap or recipe** is in `docs/reference/GOTCHAS.md`; a **number or a commit** is not written down at all (the gates and `git log` say it today). `docs/HANDOFF.md` holds only what is volatile (where the work stands, what is next, what waits on the owner), stays short, and is rewritten, not appended to. A handoff that copies facts from elsewhere goes stale; when a claim in the docs stops being true, search for every place that makes it (`docs/CLOSING_A_SLICE.md`, step 8).
 
 ## Zero time-delay simulation
 
@@ -43,3 +54,7 @@ This is a strict, standing rule across every one of the human's repositories, no
 
 - **Referring to the underlying models is fine.** Naming Claude, Gemini, or another model in code, docs, product copy, or configuration is not what this rule is about — that's normal for anything that touches AI tooling as its subject matter. The rule is about *authorship and tooling artifacts*, not the project's subject.
 - **History gets rewritten if a trace already landed.** The human may ask for `git filter-repo` or an equivalent to strip trailers or purge tooling directories after the fact. Confirm the exact scope before any such rewrite — it's destructive — but don't treat "it's already committed" as a reason to leave it.
+
+## Markdown: one paragraph per line
+
+Markdown prose is not hard-wrapped. A paragraph, a list item and a quote are each one line, and the editor wraps it for the reader. A hard wrap makes every edit rewrap the lines around it, so a diff shows text that did not change, and it reads badly in any window narrower or wider than the column it was cut at. Code fences, tables and frontmatter are exempt. `scripts/md_wrap_check.py` fails on a line that continues the one above it and is a gate: when editing a document, join lines rather than adding a wrap.

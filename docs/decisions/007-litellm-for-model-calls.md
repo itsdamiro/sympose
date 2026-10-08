@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-09-23
+projects: [sympose]
 concepts: [Chat engine]
+amends: []
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 007 — litellm for model calls, `ollama_chat/` prefix, local-first default

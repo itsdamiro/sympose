@@ -1,5 +1,12 @@
 ---
+type: decision
+status: superseded
+date: 2026-10-06
+projects: [sympose]
 concepts: [Persona edits]
+amends: []
+supersedes: []
+tags: [type/decision, status/superseded, project/sympose]
 ---
 
 # 075 — The composer shows what travels with the next message

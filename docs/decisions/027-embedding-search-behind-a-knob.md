@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-09-25
+projects: [sympose]
 concepts: [Grounding]
+amends: [2, 14, 19]
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 027 — Search notes by meaning as well as by keyword, behind a knob

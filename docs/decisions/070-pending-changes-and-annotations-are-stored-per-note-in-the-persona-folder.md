@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-10-04
+projects: [sympose]
 concepts: [Persona edits]
+amends: []
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 070 — Pending changes and annotations are stored per note in the persona's own folder

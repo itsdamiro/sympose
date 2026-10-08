@@ -4,6 +4,23 @@
 
 These standards came out of a real, full-codebase cleanup on **Sympose** and the working rules already proven on **Stylo** (2026-09), not out of a generic best-practices list. Every rule below either caught a real bug, closed a real gap, or prevented a real kind of wasted effort on one of those projects. Keep it that way going forward: don't add a rule here on theory — add it once it's paid for itself, the same way the ones below did.
 
+## Contents
+
+0. Before you write any code
+1. Tooling: real dev dependencies, not ad hoc
+2. Start narrow. Earn every rule category.
+3. Three distinct tiers of review
+4. Triage findings by what they're worth
+5. How to run the correctness / algorithm review
+6. Type safety
+7. Verification discipline: no claiming done without evidence
+8. Commit hygiene
+9. Lightweight decision records
+10. Communication style
+11. Zero-bloat, applied to tooling too
+12. Enforce by code, not by wording
+13. Using subagents
+
 ## 0. Before you write any code
 
 These are standing working-practice rules, not audit findings — they apply to every task, not just a cleanup pass.
@@ -94,3 +111,36 @@ If someone asks "have we really checked everything," the honest answer names whi
 ---
 
 *Adapted from the Sympose code-quality audit and Stylo's execution guidelines (2026-09). See Sympose's `docs/journal/` ADRs for the concrete, worked example §§1–9 were generalized from.*
+
+## 12. Enforce by code, not by wording
+
+An instruction is followed most of the time; a script or a hook runs every time. Pick the layer by what one violation costs, not by how easy the sentence is to write:
+
+| One violation costs | Enforce with | Example |
+|---|---|---|
+| Little: cosmetic, easily fixed | Wording in `CLAUDE.md` / these standards | Tone of a message, a naming habit |
+| Something: wrong, but caught before it ships | A gate or validator that fails loudly (`scripts/gates`) | Lint, tests, a build that must be fresh |
+| A lot: irreversible, lost work, a leak, a published mistake | A hook that blocks the action (`hooks/git_safety.py`) | `git checkout -- <file>`, `git add .`, an attribution trailer, a force-push |
+
+Rules for the code that enforces:
+
+- **Say what to do next.** A block that only says "denied" gets worked around. Name the safe alternative.
+- **Test both paths.** Every hook and gate has a test that it blocks what it should and lets the normal case through.
+- **A gate that cannot fail is not a gate.** A command that checks nothing (a type-check pointed at no files, a test glob that matches none) must be found and removed, or fixed to check something.
+- **A recurring procedure is a script, not a paragraph.** If the same steps are rewritten each time (a mutation check, a scratch server, a seed), commit the script. Prose recipes are for what a script cannot hold.
+- **Keep them few.** Each hook adds latency and upkeep; reserve them for the "never" rules.
+
+## 13. Using subagents
+
+Subagents are allowed on any project, for development work. They are a tool for fresh eyes and for breadth, not a way to skip the checks in this document. (A product's own rule about agents delegating to agents, if it has one, is a product decision and is unrelated to how the project is built.)
+
+**Good fits:** an independent review of a diff (the author is the worst reader of their own work); broad read-only searches that would otherwise fill the main context with file dumps; investigations that can run in parallel; the handoff check (`checking-a-handoff`); verifying a claim the author is invested in. **Poor fits:** a small edit; anything that depends on decisions made only in the conversation; work whose result cannot be checked.
+
+Rules:
+
+- **Brief it like a colleague who has seen nothing**: the goal, the files, the constraints, what "done" looks like, and the shape of the report. It does not see the conversation.
+- **Read-only unless the task is to edit, and then it owns its files.** Two writers on one file lose work. For parallel edits use separate worktrees. A mutation run owns the file it mutates, so never two at once on one file.
+- **It does not commit, push, or change shared state** (settings, data folders, a port in use). The owner's go-ahead rule and the git-safety hook apply to it as to you. Scratch servers get their own port, and it stops only its own.
+- **Its report is a claim, not evidence.** Verify what matters (§7) before relying on it or repeating it as fact; they overclaim and miss things like anyone.
+- **Spend what the task earns.** Each agent costs a full context; fan out when the work is independent and large, not by habit. Prefer one focused agent over five vague ones.
+- **Write outcomes to files.** Findings that matter go into the decision record, the gotchas file or the handoff, not only into a conversation that will be summarized away.

@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-10-08
+projects: [sympose]
 concepts: [Skills]
+amends: []
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 077 — Skills are folders of know-how, chosen by retrieval

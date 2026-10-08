@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-10-02
+projects: [sympose]
 concepts: [Conversation history]
+amends: [44]
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 057 — Past conversations: a list to open, rename, pin and delete, and switching conversations while a reply is being written

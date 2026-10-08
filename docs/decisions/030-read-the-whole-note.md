@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-09-26
+projects: [sympose]
 concepts: [Grounding]
+amends: []
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 030 — Read the whole note: a note with no body text is still a note, and its aliases and properties are read

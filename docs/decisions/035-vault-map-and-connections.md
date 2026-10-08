@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-09-27
+projects: [sympose]
 concepts: [Grounding]
+amends: []
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 035 — A vault map and mechanical connections between notes, always in the prompt, computed from what already exists

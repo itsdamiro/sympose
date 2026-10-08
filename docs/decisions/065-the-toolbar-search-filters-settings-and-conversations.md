@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-10-03
+projects: [sympose]
 concepts: [Settings]
+amends: []
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 065 — The toolbar search filters Settings and the conversations

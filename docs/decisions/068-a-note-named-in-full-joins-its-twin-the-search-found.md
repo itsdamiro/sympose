@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-10-04
+projects: [sympose]
 concepts: [Grounding]
+amends: [30]
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 068 — A note named in full joins a note the search found when their titles read the same

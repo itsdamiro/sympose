@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-09-27
+projects: [sympose]
 concepts: [Settings]
+amends: [6]
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 032 — The speed of the reply reveal is a setting: `reply_reveal`, words per second, 50 by default

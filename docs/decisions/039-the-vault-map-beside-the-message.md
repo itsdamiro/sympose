@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-09-29
+projects: [sympose]
 concepts: [Chat prompt]
+amends: [20, 26, 35]
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 039 — The vault map goes with the message, and her rules name it as a source of facts

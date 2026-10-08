@@ -1,5 +1,12 @@
 ---
+type: decision
+status: accepted
+date: 2026-09-30
+projects: [sympose]
 concepts: [Safe file handling]
+amends: []
+supersedes: []
+tags: [type/decision, status/accepted, project/sympose]
 ---
 
 # 045 — The bin lists, restores and purges every file, not only notes
