@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from pydantic import BaseModel
 
 from sympose import persona_create
-from sympose.engine import confirmations, edit_mode, persona_proposal
+from sympose.engine import confirmations, edit_mode, persona_proposal, setting_targets
 from sympose.server_handlers import require_profile
 
 
@@ -21,8 +21,25 @@ class ConfirmationAnswer(BaseModel):
     edit_mode: str | None = None
 
 
+def _setting_view(profile: dict[str, Any], request: dict[str, Any]) -> dict[str, Any]:
+    """A request to change a setting as its card needs it (docs/decisions/080): what it is, from and to in words, and the
+    extra line where the consequence is not in the change itself. A decided request keeps the value it replaced."""
+    draft = request["draft"]
+    target = setting_targets.find(draft["setting"])
+    base = {"id": request["id"], "kind": request["kind"], "state": request["state"], "reason": request.get("reason"), "created_at": request["created_at"]}
+    if target is None:
+        return {**base, "setting": {"name": draft["setting"], "label": draft["setting"], "summary": "", "from": "", "to": "", "note": None}}
+    return {**base, "setting": {
+        "name": target.name, "label": target.label, "summary": target.summary,
+        "from": draft.get("was") or setting_targets.current_text(target, profile), "to": setting_targets.value_text(target, draft["value"]),
+        "note": setting_targets.consequence(target, draft["value"]),
+    }}
+
+
 def _view(profile: dict[str, Any], request: dict[str, Any]) -> dict[str, Any]:
     """A request as the card needs it: the proposal, its state, and the folders the pills offer (those the proposer reads)."""
+    if request["kind"] == confirmations.SETTING:
+        return _setting_view(profile, request)
     return {
         "id": request["id"], "kind": request["kind"], "state": request["state"], "handle": request["handle"],
         "draft": request["draft"], "reason": request.get("reason"), "created_at": request["created_at"],

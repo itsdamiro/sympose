@@ -1,6 +1,7 @@
 import * as React from "react"
 
 import { notify } from "@/lib/notify"
+import { SETTINGS_CHANGED } from "@/lib/settings-changed"
 import { changeSharing, fetchSharing, type SharingState } from "@/lib/sharing-api"
 
 /**
@@ -12,6 +13,14 @@ import { changeSharing, fetchSharing, type SharingState } from "@/lib/sharing-ap
  */
 export function useSharing(persona: string | null | undefined, model?: string | null) {
   const [loaded, setLoaded] = React.useState<{ persona: string; state: SharingState } | null>(null)
+  const [again, setAgain] = React.useState(0)
+
+  // A persona's request the user accepted may have changed what a cloud model may receive (docs/decisions/080).
+  React.useEffect(() => {
+    const read = () => setAgain((n) => n + 1)
+    window.addEventListener(SETTINGS_CHANGED, read)
+    return () => window.removeEventListener(SETTINGS_CHANGED, read)
+  }, [])
 
   React.useEffect(() => {
     if (!persona) return
@@ -22,7 +31,7 @@ export function useSharing(persona: string | null | undefined, model?: string | 
     return () => {
       cancelled = true
     }
-  }, [persona, model])
+  }, [persona, model, again])
 
   const setShared = React.useCallback(
     async (category: string, shared: boolean) => {

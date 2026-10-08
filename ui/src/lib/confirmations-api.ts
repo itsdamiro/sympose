@@ -2,7 +2,8 @@ import { detailOf } from "@/lib/vault-note-api"
 
 /**
  * Client for `/api/chat/confirmations` (docs/decisions/078): the requests a persona makes for the user's yes, shown as a
- * card in the chat. The backend holds every rule; a proposal is checked again when it is accepted.
+ * card in the chat (a new persona, ADR 078; a change of one setting, ADR 080). The backend holds every rule; a proposal is
+ * checked again when it is accepted.
  */
 export interface PersonaDraft {
   name: string
@@ -17,7 +18,7 @@ export interface PersonaDraft {
 
 export type RequestState = "waiting" | "accepted" | "declined" | "replaced" | "outdated"
 
-export interface ConfirmationRequest {
+export interface PersonaRequest {
   id: string
   kind: "persona"
   state: RequestState
@@ -32,6 +33,18 @@ export interface ConfirmationRequest {
   /** The edit modes the dropdown offers, each with its line. */
   edit_modes: { id: string; summary: string }[]
 }
+
+/** A request to change one setting (docs/decisions/080): what it is, the change in words, and a line where the consequence is not in the change. */
+export interface SettingRequest {
+  id: string
+  kind: "setting"
+  state: RequestState
+  reason: string | null
+  created_at: string
+  setting: { name: string; label: string; summary: string; from: string; to: string; note: string | null }
+}
+
+export type ConfirmationRequest = PersonaRequest | SettingRequest
 
 /** `GET`: the requests of one conversation, oldest first; `[]` when the backend is unreachable. */
 export async function fetchConfirmations(persona: string, session: string): Promise<ConfirmationRequest[]> {

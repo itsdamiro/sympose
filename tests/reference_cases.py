@@ -107,6 +107,12 @@ REF_CASES: list[RefCase] = [
     ),
     # Personas
     RefCase(
+        "persona-changes-a-setting",
+        "can Samantha change a setting for me?",
+        find=("a card with the setting",),
+        first="Settings.md",
+    ),
+    RefCase(
         "create-persona",
         "how do I create a new persona?",
         find=("ask Samantha",),

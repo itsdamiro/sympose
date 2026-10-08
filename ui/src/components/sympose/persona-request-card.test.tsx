@@ -2,12 +2,12 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import type { ConfirmationRequest } from "@/lib/confirmations-api"
+import type { PersonaRequest } from "@/lib/confirmations-api"
 import { PersonaRequestCard } from "./persona-request-card"
 
 afterEach(cleanup)
 
-const request = (over: Partial<ConfirmationRequest> = {}): ConfirmationRequest => ({
+const request = (over: Partial<PersonaRequest> = {}): PersonaRequest => ({
   id: "r1", kind: "persona", state: "waiting", handle: "ada", reason: null, created_at: "t",
   folder_choices: ["Journal", "Recipes", "Work"],
   edit_modes: [

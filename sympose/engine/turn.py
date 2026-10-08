@@ -125,7 +125,7 @@ def _run(
     mem, notes = found.mem, found.notes
     # The note and the rules go with the message to the model; the conversation keeps only what the user said.
     asked = edit_turn.message(modes.edit, user_message) if modes.edit else user_message
-    told = confirmations.outcomes(handle, sid) if modes.edit and modes.edit.proposes_personas else []
+    told = confirmations.outcomes(handle, sid) if modes.edit and modes.edit.proposes else []
     if told:
         asked = "\n".join(confirmations.lines(told)) + "\n\n" + asked
     build = turn_evidence.prompt_builder(persona, asked, found, modes)

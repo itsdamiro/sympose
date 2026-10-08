@@ -72,7 +72,7 @@ def tool_names() -> tuple[str, ...]:
     from sympose.engine import chat_tools, edit_tools, lookup_tools, memory_tools
 
     names = {t["function"]["name"] for group in (lookup_tools.TOOLS, memory_tools.TOOLS, chat_tools.TOOLS, edit_tools.TOOLS) for t in group}
-    return tuple(sorted(names | {PROPOSE}))
+    return tuple(sorted(names | {PROPOSE, "propose_setting"}))
 
 
 def _file(

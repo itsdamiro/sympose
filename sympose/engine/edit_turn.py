@@ -43,7 +43,7 @@ class Edit:
     show_marker: bool = False  # a model without tools is told how to open a note for the user (the user's setting; it costs such a model edits)
     attached: int = 0  # how many passages of the note the user attached to this message (docs/decisions/076), for the record
     scope: tuple[tuple[int, int], ...] = ()  # the sections of `source` she was shown instead of the whole note: a change may be placed in one when its words are also found elsewhere
-    proposes_personas: bool = False  # she may propose a new persona (docs/decisions/078): the one that has the Sympose reference library, on a model that can call tools
+    proposes: bool = False  # she may propose a new persona or a setting change (docs/decisions/078, 080): the one that has the Sympose reference library, on a model that can call tools
 
     @property
     def active(self) -> bool:
@@ -126,9 +126,9 @@ def resolve(
         return Edit(mode, False)
     creates = bool(persona.get("sympose_reference")) and can_call_tools  # a model without tools cannot do it faithfully (docs/decisions/078)
     if open_note is None:
-        return Edit(mode, can_call_tools, show_marker=show_marker_enabled(), proposes_personas=creates)
+        return Edit(mode, can_call_tools, show_marker=show_marker_enabled(), proposes=creates)
     if not may_see:
-        return Edit(mode, can_call_tools, withheld=True, show_marker=show_marker_enabled(), proposes_personas=creates)
+        return Edit(mode, can_call_tools, withheld=True, show_marker=show_marker_enabled(), proposes=creates)
     focused = focus(open_note.text, attached) if attached and can_call_tools else None  # a model without tools cannot ask for the rest
     text, cut = _within(focused[0] if focused is not None else open_note.text, cap())
     found = open_comments.gather(comments_from, open_note, since) if comments_from else open_comments.Found()
@@ -138,7 +138,7 @@ def resolve(
         comments=found.items if may_see_comments else (), comments_left_out=found.left_out if may_see_comments else 0,
         decided=found.decided if may_see_comments else (), settle=found.settle if may_see_comments else (),
         comments_withheld=0 if may_see_comments else len(found.items), persona_name=name, source=open_note,
-        attached=len(attached), scope=focused[1] if focused is not None else (), proposes_personas=creates,
+        attached=len(attached), scope=focused[1] if focused is not None else (), proposes=creates,
     )
 
 
@@ -172,7 +172,8 @@ _SHOW_MARKER = (
 )
 _PERSONA_TOOL = (
     "To suggest a new persona, when the user asks for one, call propose_persona: choose its icon, colours, folders and edit mode to suit "
-    "its character, and write its soul as voice only."
+    "its character, and write its soul as voice only. To change a setting for the user (including your model and what a cloud model may "
+    "receive), call propose_setting; they decide on a card, and you never say it is changed until they accept."
 )
 _TABLES = (
     "The note has a table. A change inside a table is one cell's own words, replaced by words that stay in that cell. To add or remove a "
@@ -208,7 +209,7 @@ def message(edit: Edit, user_message: str) -> str:
         return f"{user_message}\n\n{_PLAN}"
     new_note = _NOTE_TOOL if edit.tool else _NOTE_MARKER
     show = _SHOW_TOOL if edit.tool else (_SHOW_MARKER if edit.show_marker else "")
-    persona = _PERSONA_TOOL if edit.proposes_personas else ""
+    persona = _PERSONA_TOOL if edit.proposes else ""
     if edit.note is None:
         held = f"{_WITHHELD} " if edit.withheld else ""
         return f"{user_message}\n\n{held}" + " ".join(filter(None, [new_note, show, persona, _REVIEW]))

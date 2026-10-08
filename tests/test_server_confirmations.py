@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from helpers import write_persona
 
 from sympose import persona_create
-from sympose.engine import confirmations
+from sympose.engine import confirmations, sharing
 from sympose.server import create_app
 
 SOUL = "You are Ada, a warm tutor.\n\nHow you talk:\n- Gently.\n"
@@ -109,3 +109,29 @@ def test_an_unknown_request_is_not_found_and_an_unknown_persona_too(env):
     assert client.post("/api/chat/confirmations/nope", json={"persona": "samantha", "accept": True}).status_code == 404
     assert client.post("/api/chat/confirmations/nope", json={"persona": "ghost", "accept": True}).status_code == 404
     assert client.get("/api/chat/confirmations", params={"persona": "ghost", "session": "s1"}).status_code == 404
+
+
+def test_a_setting_request_is_listed_with_what_it_is_from_and_to_and_declining_changes_nothing(env):
+    client, _ = env
+    request = confirmations.propose_setting("samantha", "s1", "cloud_share:notes", True)
+
+    (item,) = client.get("/api/chat/confirmations", params={"persona": "samantha", "session": "s1"}).json()["requests"]
+
+    assert item["kind"] == "setting" and item["state"] == "waiting" and "draft" not in item
+    assert item["setting"]["name"] == "cloud_share:notes" and item["setting"]["from"] == "no" and item["setting"]["to"] == "yes"
+    assert item["setting"]["summary"] and "may then receive" in item["setting"]["note"]
+    assert client.post(f"/api/chat/confirmations/{request['id']}", json={"persona": "samantha", "accept": False}).json()["state"] == "declined"
+    assert sharing.NOTES not in sharing.approved()
+
+
+def test_accepting_a_setting_request_saves_it_and_a_refused_value_comes_back_as_the_reason(env):
+    client, _ = env
+    good = confirmations.propose_setting("samantha", "s1", "cloud_share:notes", True)
+    bad = confirmations.propose_setting("samantha", "s1", "history_tokens", 10)
+
+    saved = client.post(f"/api/chat/confirmations/{good['id']}", json={"persona": "samantha", "accept": True})
+    refused = client.post(f"/api/chat/confirmations/{bad['id']}", json={"persona": "samantha", "accept": True})
+
+    assert saved.status_code == 200 and saved.json()["state"] == "accepted" and saved.json()["setting"]["from"] == "no"
+    assert sharing.NOTES in sharing.approved()
+    assert refused.status_code == 422 and "not valid" in refused.json()["detail"]

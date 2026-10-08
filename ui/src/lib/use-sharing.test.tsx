@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 const { notifyError } = vi.hoisted(() => ({ notifyError: vi.fn() }))
 vi.mock("@/lib/notify", () => ({ notify: { error: notifyError } }))
 
+import { announceSettingsChanged } from "./settings-changed"
 import { useSharing } from "./use-sharing"
 
 const stateFor = (model: string, shared = false) => ({
@@ -67,6 +68,18 @@ describe("useSharing", () => {
     rerender({ m: "gemini/y" })
     await waitFor(() => expect(result.current.state?.model).toBe("gemini/y"))
     expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it("reads again when a setting was changed elsewhere, such as a request the user accepted", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(json(stateFor("gemini/x", false)))
+      .mockResolvedValueOnce(json(stateFor("gemini/x", true)))
+    vi.stubGlobal("fetch", fetchMock)
+    const { result } = renderHook(() => useSharing("cloudy", "gemini/x"))
+    await waitFor(() => expect(result.current.state?.categories[0].shared).toBe(false))
+    act(() => announceSettingsChanged())
+    await waitFor(() => expect(result.current.state?.categories[0].shared).toBe(true))
   })
 
   it("changes a category for the persona now chosen, not the one it started with", async () => {

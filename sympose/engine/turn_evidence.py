@@ -168,7 +168,7 @@ def prompt_builder(
             compaction=found.notes,
             chat_tools=modes.chats,
             skill=found.skill,
-            personas=bool(modes.edit and modes.edit.active and modes.edit.proposes_personas),
+            personas=bool(modes.edit and modes.edit.active and modes.edit.proposes),
         )
 
     return build

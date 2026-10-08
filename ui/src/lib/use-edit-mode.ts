@@ -3,6 +3,7 @@ import * as React from "react"
 import { fetchEditMode, saveEditMode, type EditModeId, type EditModeInfo } from "@/lib/edit-mode-api"
 import { notify } from "@/lib/notify"
 import { askBeforeEditMode } from "@/lib/edit-mode-ask"
+import { SETTINGS_CHANGED } from "@/lib/settings-changed"
 
 const CHANGED = "sympose:edit-mode-changed"
 
@@ -37,9 +38,11 @@ export function useEditMode(handle: string, personaName: string) {
     const changed = (e: Event) => (e as CustomEvent).detail !== me.current && read()
     window.addEventListener(CHANGED, changed)
     window.addEventListener("focus", read)
+    window.addEventListener(SETTINGS_CHANGED, read)
     return () => {
       window.removeEventListener(CHANGED, changed)
       window.removeEventListener("focus", read)
+      window.removeEventListener(SETTINGS_CHANGED, read)
     }
   }, [])
 

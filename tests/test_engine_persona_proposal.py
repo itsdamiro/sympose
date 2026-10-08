@@ -167,7 +167,7 @@ def test_her_prompt_stops_saying_she_cannot_create_personas_only_where_she_can_p
     turn.run_turn("samantha", "hello", model=CLOUD, edits=True)  # plan: nothing is proposed
 
     system = [s["messages"][0]["content"] for s in seen]
-    assert said not in system[0] and "can't create or change notes or settings" in system[0]
+    assert said not in system[0] and "can't create or change notes or run" in system[0]
     assert said in system[1] and said in system[2] and said in system[3]
 
 

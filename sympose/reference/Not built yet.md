@@ -16,7 +16,7 @@ Small models make more mistakes editing, so read each change before you accept i
 
 Only a few things. She can look up your notes (`vault_lookup` `"ask"`, or by default on a tested model), add a line to her decisions file when you ask her to remember something, and in the web app propose changes, new notes and comments for you to accept or decline.
 
-In the web app Samantha can propose a new persona, and you accept or decline it. She cannot change your settings, run commands or browse the web. Editing `settings.json` is done by hand.
+In the web app Samantha can propose a new persona, and you accept or decline it. She can also propose changing one setting, her own model, or one thing a cloud model may receive; nothing is changed until you accept. She cannot run commands or browse the web, and a few rarely used settings are still edited by hand in `settings.json`.
 
 ## Can Sympose fix the problems it finds in my notes?
 

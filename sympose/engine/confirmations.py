@@ -3,7 +3,7 @@ user. One JSON file per request in the persona's own folder (`profiles/<handle>/
 shows it still waiting and a second answer is refused. Nothing a request names has happened until it is accepted, and
 accepting checks the whole proposal again: the card is a view, never the authority.
 
-A request for a new persona is the only kind so far; the file's `kind` says what accepting does."""
+Two kinds: a new persona (ADR 078) and a change of one setting (ADR 080); the file's `kind` says what accepting does."""
 
 import json
 import os
@@ -13,9 +13,10 @@ from typing import Any
 
 from sympose import persona_create, profile
 from sympose.atomic_write import write_atomic_text
+from sympose.engine import setting_targets
 from sympose.persona_files import persona_dir
 
-PERSONA = "persona"
+PERSONA, SETTING = "persona", "setting"
 WAITING, ACCEPTED, DECLINED, REPLACED, OUTDATED = "waiting", "accepted", "declined", "replaced", "outdated"
 _DECIDED = (ACCEPTED, DECLINED, OUTDATED)  # what she is told about (a replaced card is her own doing)
 _FIELDS = ("name", "title", "soul", "icon", "accent", "accent_dark", "edit_mode")
@@ -74,6 +75,44 @@ def propose_persona(handle: str, session_id: str, draft: persona_create.Draft) -
     return request
 
 
+def propose_setting(handle: str, session_id: str, name: str, value: Any) -> dict[str, Any]:
+    """File a request to change one setting from `handle`; a request of hers for the same setting still waiting in this
+    conversation is `replaced` by it (a different setting keeps its own card)."""
+    for old in for_session(handle, session_id):
+        if old["kind"] == SETTING and old["state"] == WAITING and old["draft"]["setting"] == name:
+            _save(handle, {**old, "state": REPLACED})
+    request = {
+        "id": uuid.uuid4().hex[:12], "kind": SETTING, "session_id": session_id, "state": WAITING,
+        "created_at": datetime.now(timezone.utc).isoformat(), "told": False, "draft": {"setting": name, "value": value},
+    }
+    _save(handle, request)
+    return request
+
+
+def _resolve_setting(handle: str, request: dict[str, Any], accept: bool) -> dict[str, Any]:
+    """Decline or accept a waiting setting request. Accepting finds the setting again, reads the value again and saves it
+    through the module that owns it; whatever fails leaves the setting as it was and the request waiting, with the reason."""
+    if not accept:
+        result = {**request, "state": DECLINED}
+        _save(handle, result)
+        return result
+    persona = profile.get_profile(handle) or {"handle": handle}
+    draft = request["draft"]
+    target = setting_targets.find(draft["setting"])
+    if target is None:
+        raise Refused(f"{draft['setting']} is not a setting any more.")
+    value, why = setting_targets.parse(target, draft["value"], persona)
+    if why is not None:
+        raise Refused(why)
+    was = setting_targets.current_text(target, persona)
+    saved, said = setting_targets.apply(target, value, handle)
+    if not saved:
+        raise Refused(said)
+    result = {**request, "state": ACCEPTED, "draft": {**draft, "was": was}}
+    _save(handle, result)
+    return result
+
+
 def _draft(request: dict[str, Any], folders: list[str] | None, mode: str | None) -> persona_create.Draft:
     data = request["draft"]
     return persona_create.Draft(
@@ -94,6 +133,8 @@ def resolve(
         raise Refused("That request is not there any more.")
     if request["state"] != WAITING:
         raise Refused("That request has already been answered.")
+    if request["kind"] == SETTING:
+        return _resolve_setting(handle, request, accept)
     if not accept:
         result = {**request, "state": DECLINED}
         _save(handle, result)
@@ -123,14 +164,25 @@ def outcomes(handle: str, session_id: str) -> list[dict[str, Any]]:
     return [r for r in for_session(handle, session_id) if r["state"] in _DECIDED and not r.get("told")]
 
 
+_PERSONA_SAID = {
+    ACCEPTED: "the user accepted it and the persona now exists",
+    DECLINED: "the user declined it, so nothing was made",
+    OUTDATED: "it could not be made any more",
+}
+_SETTING_SAID = {ACCEPTED: "the user accepted it and it is changed", DECLINED: "the user declined it, so nothing changed"}
+
+
 def lines(requests: list[dict[str, Any]]) -> list[str]:
     """One line each, for her next turn."""
-    said = {
-        ACCEPTED: "the user accepted it and the persona now exists",
-        DECLINED: "the user declined it, so nothing was made",
-        OUTDATED: "it could not be made any more",
-    }
-    return [f"You proposed a persona called {r['draft']['name']}: {said[r['state']]}." for r in requests]
+    return [_line(r) for r in requests]
+
+
+def _line(request: dict[str, Any]) -> str:
+    if request["kind"] != SETTING:
+        return f"You proposed a persona called {request['draft']['name']}: {_PERSONA_SAID[request['state']]}."
+    target = setting_targets.find(request["draft"]["setting"])
+    change = f"{target.label} to {setting_targets.value_text(target, request['draft']['value'])}" if target else request["draft"]["setting"]
+    return f"You proposed changing {change}: {_SETTING_SAID[request['state']]}."
 
 
 def mark_told(handle: str, requests: list[dict[str, Any]]) -> None:

@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils"
 import { iconByName } from "@/lib/persona-icons"
 import { resolvePersonaVisuals } from "@/lib/personas"
 import type { EditModeId } from "@/lib/edit-mode-api"
-import type { ConfirmationRequest, RequestState } from "@/lib/confirmations-api"
+import type { PersonaRequest, RequestState } from "@/lib/confirmations-api"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ControlRow } from "@/components/sympose/control-section"
@@ -15,7 +15,7 @@ import { PersonaHeader } from "@/components/sympose/persona-header"
 import { TogglePill } from "@/components/sympose/toggle-pill"
 
 interface PersonaRequestCardProps extends Omit<React.ComponentProps<"div">, "onAnswer"> {
-  request: ConfirmationRequest
+  request: PersonaRequest
   /** Accept (with the folders and the edit mode as the card was left) or decline; resolves to an error text, or `null` when it went through. */
   onAnswer: (accept: boolean, folders: string[], editMode: string) => Promise<string | null>
 }

@@ -46,7 +46,7 @@ def flip(setting: Setting) -> str:
     return set_value(setting, values[(values.index(setting.current()) + 1) % len(values)])[0]
 
 
-def _parse(setting: Setting, text: str) -> int | float | None:
+def parse_number(setting: Setting, text: str) -> int | float | None:
     try:
         value = int(text) if setting.whole else float(text)
     except ValueError:
@@ -67,7 +67,7 @@ def set_number(setting: Setting, text: str) -> tuple[str, bool]:
         if not settings_store.remove(key):
             return f"Couldn't save {name}.", False
         return f"{name} is back to {value_text(setting)}.", True
-    value = _parse(setting, text)
+    value = parse_number(setting, text)
     if value is None:
         return f"'{text}' is not {'a whole number' if setting.whole else 'a number'} ({name}): {setting.hint}.", False
     previous = settings_store.get(key, _MISSING)

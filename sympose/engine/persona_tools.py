@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from sympose import vault_paths
-from sympose.engine import chat_tools, edit_mode, edit_tools, edit_turn, lookup, lookup_tools, memory, memory_tools, past_chats, persona_proposal, sharing, tool_support
+from sympose.engine import chat_tools, edit_mode, edit_tools, edit_turn, lookup, lookup_tools, memory, memory_tools, past_chats, persona_proposal, setting_proposal, sharing, tool_support
 
 
 @dataclass(frozen=True)
@@ -62,13 +62,13 @@ def for_turn(
     tool must never run just because a model calls it by name -- a persona given only `remember`
     (`ask` off) must not be able to search or open notes by guessing `search_notes`/`open_note`."""
     giving_edit = edit is not None and edit.active and edit.tool
-    giving_persona = giving_edit and edit.proposes_personas and persona is not None and session_id is not None  # docs/decisions/078
+    giving_persona = giving_edit and edit.proposes and persona is not None and session_id is not None  # docs/decisions/078, 080
     if not ask and not remember and not chats and not giving_edit:
         return None
     tools = [
         *(lookup_tools.TOOLS if ask else []), *(memory_tools.TOOLS if remember else []),
         *(chat_tools.TOOLS if chats else []), *(_edit_tools(edit) if giving_edit else []),
-        *([persona_proposal.tool(persona, share_folders)] if giving_persona else []),
+        *([persona_proposal.tool(persona, share_folders), setting_proposal.tool()] if giving_persona else []),
     ]
 
     def run(persona: dict[str, Any], model: str, name: str, raw_arguments: Any) -> Any:
@@ -83,6 +83,8 @@ def for_turn(
                 return result
         if giving_persona:
             result = persona_proposal.run(persona["handle"], session_id, persona, name, raw_arguments, share_folders)
+            if result is None:
+                result = setting_proposal.run(persona["handle"], session_id, persona, name, raw_arguments)
             if result is not None:
                 return result
         if chats and name in (chat_tools.SEARCH, chat_tools.OPEN):

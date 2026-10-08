@@ -12,6 +12,10 @@ It also has `grounding_search`, `embedding_min_similarity`, `embedding_margin`, 
 
 `edit_mode`, `open_note_cap` and `annotations_cap` are the editing settings. `memory_remember`, `memory_rewrite` and `memory_auto_refresh` are the memory settings. The model, the persona and what a cloud model may receive have /model, /persona and /share.
 
+## Can Samantha change a setting for me?
+
+In the web app, yes, as a proposal. Ask for what you want, such as faster replies or no notes sent to a cloud model, and she shows a card with the setting and the change. Nothing changes until you accept. It works for the settings in /settings, for her own model, and for one thing a cloud model may receive at a time. It needs a model that can call tools.
+
 ## Where are my settings stored?
 
 In `settings.json`, in the folder where you run Sympose, or wherever `SYMPOSE_SETTINGS_PATH` points.
