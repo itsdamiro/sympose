@@ -51,8 +51,9 @@ def get_allowed_dirs(profile: dict[str, Any]) -> list[str]:
     `vault_folders` (or legacy `vault_folder`) against the vault root. `""`,
     `"*"`, or `"all"` in the list means unrestricted (the whole vault);
     anything else is joined onto the root and must resolve safely under it.
-    Falls back to `[mv]` if nothing configured resolves safely, so a
-    misconfigured persona never ends up with zero writable directories.
+    A persona with no `vault_folders` key at all (and no legacy `vault_folder`) reads the whole vault, the day-one
+    default. A key that is there but empty, or whose entries all fail to resolve safely, means no vault: `[]`, so
+    nothing is readable or writable (docs/decisions/079), never a quiet widening to the whole vault.
 
     Creates nothing (docs/decisions/029): a folder that is not there stays in the
     list, so the persona sees nothing in it and is not widened to the whole vault,
@@ -61,7 +62,8 @@ def get_allowed_dirs(profile: dict[str, Any]) -> list[str]:
     if not mv:
         return []
     try:
-        folders = profile.get("vault_folders") or [profile.get("vault_folder", "")]
+        folders = profile["vault_folders"] if "vault_folders" in profile else [profile.get("vault_folder", "")]
+        folders = folders or []
         if isinstance(folders, str):  # `vault_folders: Code` -- one folder, not a substring test below
             folders = [folders]
         if "" in folders or "*" in folders or "all" in folders:
@@ -71,7 +73,7 @@ def get_allowed_dirs(profile: dict[str, Any]) -> list[str]:
             path = os.path.join(mv, f.strip()) if f.strip() else mv
             if is_safe_path(path, mv):
                 allowed.append(path)
-        return allowed or [mv]
+        return allowed
     except Exception as e:
         log.debug("get_allowed_dirs failed for %s: %s", mv, e)
         return []

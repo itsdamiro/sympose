@@ -46,6 +46,10 @@ Yes. On the Persona page the FILES chip lists the soul and the three memory file
 
 Yes. `vault_folders` in `persona.yaml` lists the top-level folders a persona may read, or `'*'` for all of them. It is a hard boundary: searching, note grounding, the web app and the graph all stay inside it. A folder listed there that is not in the vault is not created: the persona simply sees nothing in it, and `sympose doctor` names the entry so a misspelt folder is easy to find.
 
+## What if I leave a persona's vault folders empty?
+
+Then the persona has no vault at all: `vault_folders: []` lets her chat but she sees and writes no notes. To give her everything, write `vault_folders: ['*']`. A persona file with no `vault_folders` line at all reads the whole vault.
+
 ## Can a persona edit my notes?
 
 A persona can propose changes, new notes and comments in the web app, and you accept or decline each one; it never writes to your vault by itself.

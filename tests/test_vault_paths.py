@@ -36,12 +36,22 @@ def test_scoped_vault_folders_grants_only_named_subfolder(vault_root):
     ]
 
 
-def test_escaping_vault_folder_is_rejected(vault_root):
-    profile = {"vault_folders": ["../../etc"]}
-    allowed = vault_paths.get_allowed_dirs(profile)
-    # the unsafe entry is dropped; falling back to the vault root itself
-    # means it never resolves outside the sandbox.
-    assert allowed == [vault_root]
+def test_escaping_vault_folder_is_dropped_and_the_safe_ones_stay(vault_root):
+    allowed = vault_paths.get_allowed_dirs({"vault_folders": ["../../etc", "Notes"]})
+    assert allowed == [os.path.join(vault_root, "Notes")]
+
+
+@pytest.mark.parametrize("folders", [[], None, ["../../etc"], ["../a", "../b"]])
+def test_a_persona_with_no_usable_folder_has_no_vault_at_all(vault_root, folders):
+    profile = {"vault_folders": folders}
+    assert vault_paths.get_allowed_dirs(profile) == []
+    assert vault_paths.resolve_sandbox(profile) is None
+    assert vault_paths.get_primary_dir(profile) is None
+
+
+def test_a_persona_file_without_the_key_still_reads_the_whole_vault(vault_root):
+    assert vault_paths.get_allowed_dirs({}) == [vault_root]
+    assert vault_paths.get_allowed_dirs({"vault_folder": "Code"}) == [os.path.join(vault_root, "Code")]
 
 
 def test_get_master_vault_reflects_the_active_vault(vault_root):
