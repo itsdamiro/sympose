@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Persona edits]
 amends: []
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/consent, topic/web-app]
 ---
 
 # 078 — A persona asks for the user's yes on a card in the chat; the first thing she asks for is a new persona

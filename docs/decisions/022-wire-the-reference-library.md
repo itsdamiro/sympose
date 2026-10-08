@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Chat prompt]
 amends: [15, 20]
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/cost, topic/small-models]
 ---
 
 # 022 — Wiring the Sympose reference library into a persona's turns

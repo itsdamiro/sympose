@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Apps]
 amends: [4, 5, 10, 11]
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/cli, topic/web-app]
 ---
 
 # 028 — One `sympose` command with `cli` and `web`, and the browser app is the "web app"

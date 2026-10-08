@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Settings]
 amends: []
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/web-app]
 ---
 
 # 065 — The toolbar search filters Settings and the conversations

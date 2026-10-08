@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Grounding]
 amends: []
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/retrieval]
 ---
 
 # 066 — Connections by meaning: the persona's "possibly related" line and a Related notes section in the notes panel

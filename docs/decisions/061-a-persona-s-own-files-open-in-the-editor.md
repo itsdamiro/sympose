@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Persona]
 amends: []
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/web-app]
 ---
 
 # 061 — A persona's own files open in the markdown editor

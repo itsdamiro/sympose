@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Vault upkeep]
 amends: []
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/web-app, topic/architecture]
 ---
 
 # 064 — A folder's look is part of its definition

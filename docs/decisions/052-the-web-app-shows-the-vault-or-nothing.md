@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Apps]
 amends: []
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/web-app]
 ---
 
 # 052. The web app shows the vault or nothing, and drops what nothing used

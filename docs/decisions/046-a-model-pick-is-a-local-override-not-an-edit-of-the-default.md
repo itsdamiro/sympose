@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Persona, Settings]
 amends: [44]
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/architecture]
 ---
 
 # 046. A model pick is a local override, not an edit of the shipped persona file

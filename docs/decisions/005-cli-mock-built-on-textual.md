@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Apps]
 amends: []
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/cli, topic/responsiveness, topic/architecture]
 ---
 
 # 005 — CLI mock built on Textual, not `prompt_toolkit`

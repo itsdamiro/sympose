@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Safe file handling]
 amends: []
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/data-safety]
 ---
 
 # 048. Saving a note keeps its line endings and refuses a file it cannot read as text

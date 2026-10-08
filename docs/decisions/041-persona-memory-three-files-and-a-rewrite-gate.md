@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Persona memory]
 amends: [1, 11]
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/consent, topic/privacy]
 ---
 
 # 041 — Persona memory: three files, and a rewrite gate by model capability

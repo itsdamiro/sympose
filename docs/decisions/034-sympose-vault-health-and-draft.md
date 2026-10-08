@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Vault upkeep]
 amends: []
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/consent, topic/observability]
 ---
 
 # 034 — `sympose vault`: a read-only health report on the notes (`--health`) and the offer of a folder definition (`--draft`)

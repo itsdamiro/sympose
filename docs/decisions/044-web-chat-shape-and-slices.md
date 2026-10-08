@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Apps]
 amends: []
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/web-app, topic/architecture]
 ---
 
 # 044 — The web chat: its shape, and the order it is built in

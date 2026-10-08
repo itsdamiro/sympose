@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Persona edits]
 amends: []
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/web-app]
 ---
 
 # 071 — The Drafts section lists what the persona has proposed, and a new-note draft opens in the editor before any file exists

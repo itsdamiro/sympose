@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Grounding]
 amends: []
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/observability, topic/cli, topic/retrieval]
 ---
 
 # 016 — Show which notes grounded a reply, in the CLI reply header

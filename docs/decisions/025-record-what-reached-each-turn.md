@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Conversation history, Cloud privacy]
 amends: [6]
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/observability, topic/privacy]
 ---
 
 # 025 — Record which notes and recaps reached each turn

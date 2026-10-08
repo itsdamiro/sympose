@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Safe file handling]
 amends: []
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/data-safety, topic/web-app]
 ---
 
 # 051. Pins, recents and open folders survive odd names, renames and size

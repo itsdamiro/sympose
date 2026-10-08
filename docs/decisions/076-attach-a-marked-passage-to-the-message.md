@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Persona edits]
 amends: []
 supersedes: [75]
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/web-app]
 ---
 
 # 076 — Attach a marked passage to the message

@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Vault upkeep]
 amends: []
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/web-app]
 ---
 
 # 038 — A generic note template (title, created, tags) and a setup step when a root folder is created in the web app

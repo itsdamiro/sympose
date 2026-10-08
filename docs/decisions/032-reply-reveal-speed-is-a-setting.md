@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Settings]
 amends: [6]
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/cli, topic/responsiveness]
 ---
 
 # 032 — The speed of the reply reveal is a setting: `reply_reveal`, words per second, 50 by default

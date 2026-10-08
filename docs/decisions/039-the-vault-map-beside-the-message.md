@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Chat prompt]
 amends: [20, 26, 35]
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/small-models, topic/cost]
 ---
 
 # 039 — The vault map goes with the message, and her rules name it as a source of facts

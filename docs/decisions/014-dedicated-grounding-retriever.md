@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Grounding]
 amends: []
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/retrieval, topic/cost]
 ---
 
 # 014 — A dedicated grounding retriever: passages and keyword scoring, not the search bar's matcher

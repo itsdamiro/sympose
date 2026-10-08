@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Chat prompt]
 amends: []
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/architecture]
 ---
 
 # 020 — The chat prompt in one place: the notes travel with the question, and the model is told how Sympose works

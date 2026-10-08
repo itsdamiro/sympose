@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Context budget]
 amends: []
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/small-models, topic/cost]
 ---
 
 # 015 — Context budget: an overflowing prompt is cut silently, so the engine must size it

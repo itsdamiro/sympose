@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Conversation history, Chat prompt]
 amends: [20, 23]
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/small-models]
 ---
 
 # 026 — Recaps go in the system prompt, not beside the message

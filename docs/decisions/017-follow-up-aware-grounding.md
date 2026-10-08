@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Grounding]
 amends: []
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/retrieval]
 ---
 
 # 017 — Follow-up-aware grounding: rewrite a search-less message from recent turns

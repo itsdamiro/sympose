@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Persona edits]
 amends: [42]
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/consent, topic/data-safety]
 ---
 
 # 072 — How a persona acts on the vault: four modes the user chooses, all ending in the user's Accept, and her edit tool in two shapes

@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Vault upkeep]
 amends: [11]
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/observability, topic/consent]
 ---
 
 # 029 — `sympose doctor`: a health check for an installation, that fixes only what belongs to Sympose

@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Settings]
 amends: []
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/cli]
 ---
 
 # 036 — `/settings` in the terminal chat: a list of the settings a user would tune, edited in place

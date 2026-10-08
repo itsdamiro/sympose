@@ -6,7 +6,7 @@ projects: [<project>]
 concepts: []            # at least one: names of notes in the vault's Concepts/, in sentence case (docs/VAULT_CONVENTIONS.md)
 amends: []              # ADR numbers
 supersedes: []
-tags: [type/decision, status/proposed, project/<project>]   # add topic/<word> by hand if it helps
+tags: [type/decision, status/proposed, project/<project>]   # add 1 to 3 topic/<word> tags: questions to filter by, from the vault's Tags.md, never a concept's own name
 ---
 
 # NNN — Title as a sentence   (the number matches the file name)

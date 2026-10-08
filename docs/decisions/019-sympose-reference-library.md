@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Chat prompt]
 amends: []
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/retrieval]
 ---
 
 # 019 — A Sympose reference library: read-only notes about Sympose itself, searched by the same retriever

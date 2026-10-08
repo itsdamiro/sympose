@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Apps]
 amends: []
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/web-app, topic/observability, topic/privacy]
 ---
 
 # 060 — One quiet row under a reply, and floating info in the app's own surface

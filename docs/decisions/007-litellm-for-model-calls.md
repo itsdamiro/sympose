@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Chat engine]
 amends: []
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/architecture]
 ---
 
 # 007 — litellm for model calls, `ollama_chat/` prefix, local-first default

@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Skills]
 amends: []
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/retrieval]
 ---
 
 # 077 — Skills are folders of know-how, chosen by retrieval

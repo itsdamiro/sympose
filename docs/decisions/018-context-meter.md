@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Context budget]
 amends: []
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/observability, topic/cost]
 ---
 
 # 018 — A context meter under the chat box

@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Grounding]
 amends: []
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/retrieval]
 ---
 
 # 002 — Grounding reuses search's matcher instead of a separate retrieval system

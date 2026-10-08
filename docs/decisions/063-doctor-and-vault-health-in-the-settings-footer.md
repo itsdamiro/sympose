@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Vault upkeep]
 amends: []
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/web-app, topic/observability]
 ---
 
 # 063 — Doctor and vault health in the Settings footer

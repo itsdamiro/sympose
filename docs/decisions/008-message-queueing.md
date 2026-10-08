@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Chat engine]
 amends: []
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/responsiveness]
 ---
 
 # 008 — Message queueing: per-persona locks, not one global lock

@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Grounding]
 amends: [14, 17, 20]
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/retrieval, topic/small-models]
 ---
 
 # 021 — Weak evidence is not enough to ground a reply: a one-word match is checked by the rewrite step, and the persona's own name is no evidence

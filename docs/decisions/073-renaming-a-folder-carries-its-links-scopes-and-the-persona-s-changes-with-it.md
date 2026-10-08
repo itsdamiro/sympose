@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Vault upkeep]
 amends: []
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/data-safety]
 ---
 
 # 073 — Renaming a folder carries its links, the personas' scopes and the persona's changes with it

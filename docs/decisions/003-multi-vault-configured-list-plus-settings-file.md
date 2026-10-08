@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Settings]
 amends: []
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/architecture]
 ---
 
 # 003 — Multi-vault: a comma-separated configured list, one active vault, a new settings-file store

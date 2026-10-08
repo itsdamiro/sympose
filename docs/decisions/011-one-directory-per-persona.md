@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Persona]
 amends: []
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/architecture]
 ---
 
 # 011 — One directory per persona

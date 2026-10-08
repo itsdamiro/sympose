@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Persona memory]
 amends: [41]
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/responsiveness, topic/cost]
 ---
 
 # 043 — An animated status line for background work, and a knob so memory refresh doesn't fight a real reply for the model

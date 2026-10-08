@@ -5,7 +5,7 @@ How this project's decision records are named and written so that the owner's va
 ## Records
 
 - **File name.** `docs/decisions/NNN-short-slug.md`: three digits, then lowercase words joined by hyphens. The card in the vault is named from the slug, so keep it short and free of punctuation. The number matches the heading (`# NNN — Title`).
-- **Frontmatter on every record**, from `docs/decisions/TEMPLATE.md`: `type: decision`, `status` (`proposed`, `accepted`, `superseded` or `removed`), `date` (`YYYY-MM-DD`), `projects`, `concepts`, `amends`, `supersedes`, `tags`.
+- **Frontmatter on every record**, from `docs/decisions/TEMPLATE.md`: `type: decision`, `status` (`proposed`, `accepted`, `superseded` or `removed`), `date` (`YYYY-MM-DD`), `projects`, `concepts`, `amends`, `supersedes`, `tags` (with at least one `topic/`, see Tags below).
 - **Summary and sections.** The template shows them: a `> **Summary.**` line, then Context, Decision, Consequences, Alternatives rejected and dated amendments. The card shows the summary, and the vault collects the alternatives in a "Rejected ideas" note.
 - **Index.** One row per record in `docs/decisions/README.md`.
 
@@ -18,8 +18,9 @@ How this project's decision records are named and written so that the owner's va
 
 ## Tags
 
-- Lowercase, kebab-case, namespaced: `type/`, `status/`, `project/`, `topic/`, `lang/`, `source/`. The sync adds `type/`, `status/` and `project/` from the fields; `topic/<word>` is added by hand.
+- Lowercase, kebab-case, namespaced: `type/`, `status/`, `project/`, `topic/`, `lang/`, `source/`. The sync adds `type/`, `status/` and `project/` from the fields; `topic/<word>` is written by you in the record's `tags:`, from the list in `Tags.md`.
 - If you would write about a thing, it is a concept; if you would only filter or count by it, it is a tag.
+- **A `topic/` tag is a question to filter by, and it cuts across concepts** (privacy, cost, the web app), so it must not be the same word as one of the record's own concepts: the record already links to those. Every record carries at least one. Choose from the topics listed in the vault's `Tags.md`; coin a new one only when no listed topic fits, and ask the owner to list it there, with the question it answers. The shape check refuses a record with no topic or with a topic that only repeats a concept; the vault lint warns when a topic is unlisted or spans a single concept.
 
 ## Links
 

@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Persona edits]
 amends: []
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/web-app, topic/data-safety]
 ---
 
 # 069 — Highlights and comments on a note: kept out of the vault, sent with the next message, read by the persona

@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Persona edits]
 amends: []
 supersedes: []
-tags: [type/decision, status/superseded, project/sympose]
+tags: [type/decision, status/superseded, project/sympose, topic/web-app]
 ---
 
 # 075 — The composer shows what travels with the next message

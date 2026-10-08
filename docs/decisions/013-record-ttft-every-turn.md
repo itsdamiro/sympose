@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Chat engine]
 amends: [7]
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/responsiveness, topic/observability]
 ---
 
 # 013 — Record time-to-first-token on every turn

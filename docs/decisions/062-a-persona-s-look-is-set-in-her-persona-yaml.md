@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Persona]
 amends: []
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/web-app]
 ---
 
 # 062 — A persona's look is set in her persona.yaml

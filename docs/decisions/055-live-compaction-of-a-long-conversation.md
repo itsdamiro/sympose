@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Conversation history, Context budget]
 amends: []
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/small-models, topic/cost, topic/data-safety]
 ---
 
 # 055. Live compaction of a long conversation

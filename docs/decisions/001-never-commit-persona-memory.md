@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Persona memory, Cloud privacy]
 amends: []
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/privacy, topic/data-safety]
 ---
 
 # 001 — Never commit persona memory, regardless of handle

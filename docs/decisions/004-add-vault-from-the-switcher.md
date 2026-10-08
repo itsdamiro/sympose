@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Settings]
 amends: []
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/web-app]
 ---
 
 # 004 — Add a vault from the workspace switcher, persisted alongside the env-configured list

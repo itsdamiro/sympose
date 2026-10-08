@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Conversation history, Safe file handling]
 amends: [6]
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/data-safety]
 ---
 
 # 049. The conversation file is append-only

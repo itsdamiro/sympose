@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Persona]
 amends: []
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/small-models, topic/cost]
 ---
 
 # 012 — A persona's soul is voice only; engine rules stay in the engine

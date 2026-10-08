@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Cloud privacy]
 amends: []
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/privacy, topic/consent]
 ---
 
 # 031 — What a cloud model may receive: known to the user, approved by the user, one setting per category

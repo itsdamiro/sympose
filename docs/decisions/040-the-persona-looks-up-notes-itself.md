@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Vault tools]
 amends: [17]
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/retrieval, topic/consent, topic/cost]
 ---
 
 # 040 — The persona looks up notes itself: a `vault_lookup` setting (`auto` or `ask`) and two read-only tools, search and open

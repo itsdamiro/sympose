@@ -4,8 +4,8 @@
 Usage: python3 scripts/adr_check.py [--dir docs/decisions] [--from NNN]
 
 Every docs/decisions/NNN-slug.md numbered NNN or higher must have: frontmatter with type: decision, a status, a date,
-projects, concepts (at least one, each in sentence case), amends, supersedes and tags (including type/decision and the
-status tag); a `> **Summary.**` line; a heading `# NNN — Title`; and a row in the directory's README.md. Whether a
+projects, concepts (at least one, each in sentence case), amends, supersedes and tags (including type/decision, the
+status tag and at least one topic/ tag that is not just a concept's name in kebab-case); a `> **Summary.**` line; a heading `# NNN — Title`; and a row in the directory's README.md. Whether a
 concept has a note in the vault is the vault lint's job, not this script's. Exit 1 on any problem, 2 on a usage error.
 """
 
@@ -21,6 +21,10 @@ STATUSES = {"proposed", "accepted", "superseded", "removed"}
 REQUIRED = ("type", "status", "date", "projects", "concepts", "amends", "supersedes", "tags")
 BLOCK_ITEM = re.compile(r"^\s+-(?:\s+(.*))?$")
 BAD_NAME = re.compile(r"[\[\]|#/:\\^]|\s{2}")
+
+
+def kebab(name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
 
 
 def parse_value(raw: str):
@@ -114,6 +118,12 @@ def problems_of(name: str, text: str, index: str) -> list[str]:
         for wanted in ("type/decision", f"status/{status}"):
             if wanted not in tags:
                 out.append(f"tags lack {wanted}")
+        topics = [t[6:] for t in tags if t.startswith("topic/")]
+        if not topics:
+            out.append("tags have no topic/ tag: a topic is a question to filter by, listed in the vault's Tags.md")
+        own = {kebab(c) for c in concepts} if isinstance(concepts, list) else set()
+        out += [f"topic/{t} only repeats a concept; a topic must cut across concepts (docs/VAULT_CONVENTIONS.md)"
+                for t in topics if t in own]
     if not re.search(r"^>\s*\*\*Summary\.?\*\*[ \t]*\S", body, re.M):
         out.append("no `> **Summary.**` line")
     heading = next((line for line in body.splitlines() if line.startswith("# ")), "")

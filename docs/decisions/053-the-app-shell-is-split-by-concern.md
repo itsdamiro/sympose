@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Apps]
 amends: []
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/architecture, topic/web-app]
 ---
 
 # 053. The app shell is split by concern

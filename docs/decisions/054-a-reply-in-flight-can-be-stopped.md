@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Chat engine]
 amends: []
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/responsiveness, topic/cli, topic/web-app]
 ---
 
 # 054. A reply in flight can be stopped

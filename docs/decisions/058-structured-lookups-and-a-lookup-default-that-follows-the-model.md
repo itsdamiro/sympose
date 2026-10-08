@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Vault tools]
 amends: [40]
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/retrieval, topic/small-models]
 ---
 
 # 058 — Structured lookups (`find_notes`, ADR 035's layer 4) and a `vault_lookup` default that follows the model

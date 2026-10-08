@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Safe file handling]
 amends: []
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose]
+tags: [type/decision, status/accepted, project/sympose, topic/data-safety]
 ---
 
 # 050. A deleted folder can be restored as a unit
