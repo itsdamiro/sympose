@@ -1,3 +1,7 @@
+---
+concepts: [Persona edits]
+---
+
 # 078 — A persona asks for the user's yes on a card in the chat; the first thing she asks for is a new persona
 
 > **Status: Accepted (damiro, 2026-10-08); built for models that can call tools, see the amendment.** Builds on ADR 072 (nothing a persona does is kept without the user's Accept), ADR 062 (a persona's look), ADR 061 (the soul editor), ADR 012 (a soul is voice only) and ADR 077 (skills). Settles the design half of "the default persona creates personas".

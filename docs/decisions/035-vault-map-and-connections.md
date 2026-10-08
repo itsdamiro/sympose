@@ -1,3 +1,7 @@
+---
+concepts: [Grounding]
+---
+
 # 035 — A vault map and mechanical connections between notes, always in the prompt, computed from what already exists
 
 > **Status: Accepted** (2026-09-27, after the design talk with the vault owner on issue #78). Not built yet; this record comes first, as the standards ask. Settles the first slice of #78 — the vault map (layer 1) and mechanical connections (layer 3's non-embedding half). Layer 3's meaning-based connections and layer 4's on-demand numbers stay open on #78 for later work.

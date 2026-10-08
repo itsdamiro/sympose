@@ -1,3 +1,7 @@
+---
+concepts: [Grounding]
+---
+
 # 017 — Follow-up-aware grounding: rewrite a search-less message from recent turns
 
 > **Status: Accepted.** Built as `off` and `rewrite`; the other two modes below are reserved, not built. **Scope of the live measurements: Ollama and `gemma2:9b` only**, on the synthetic fixture vault (nine follow-up cases, several runs each). Cloud models and other local models are unmeasured: they may write better or worse rewrites and have different latency, so the rewrite prompt and the number of recent turns are worth re-checking per model.

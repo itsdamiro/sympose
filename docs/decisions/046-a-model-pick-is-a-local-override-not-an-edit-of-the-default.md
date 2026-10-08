@@ -1,3 +1,7 @@
+---
+concepts: [Persona, Settings]
+---
+
 # 046. A model pick is a local override, not an edit of the shipped persona file
 
 Status: Accepted (damiro, 2026-10-01). Supersedes the "Known limitation, accepted" paragraph at the end of ADR 044.

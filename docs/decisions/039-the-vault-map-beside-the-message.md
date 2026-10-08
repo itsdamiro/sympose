@@ -1,3 +1,7 @@
+---
+concepts: [Chat prompt]
+---
+
 # 039 — The vault map goes with the message, and her rules name it as a source of facts
 
 > **Status: Accepted.** Amends ADR 035 (where the map sits, and a rule it left unchanged) and, for the map only, ADR 026 and ADR 020's layout. **Scope of every model figure: Ollama and `gemma2:9b` only**, the local default; nothing was measured on a cloud model. Restores vault grounding for a question about the vault's own shape, which is a regression to fully restore, not a tradeoff.

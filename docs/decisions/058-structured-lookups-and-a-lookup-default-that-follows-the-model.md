@@ -1,3 +1,7 @@
+---
+concepts: [Vault tools]
+---
+
 # 058 — Structured lookups (`find_notes`, ADR 035's layer 4) and a `vault_lookup` default that follows the model
 
 > **Status: Accepted (design, 2026-10-02: damiro found both the tool and the default sound).** Built the same day: `find_notes` and `by_model`; see "As built" and "Measured". Completes ADR 035's layer 4 ("numbers the map does not hold") and amends ADR 040 (the default of `vault_lookup`). Tracked on #78 (layer 4) and #85 (the fit decision).

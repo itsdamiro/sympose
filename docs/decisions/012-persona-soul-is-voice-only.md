@@ -1,3 +1,7 @@
+---
+concepts: [Persona]
+---
+
 # 012 — A persona's soul is voice only; engine rules stay in the engine
 
 ## Context

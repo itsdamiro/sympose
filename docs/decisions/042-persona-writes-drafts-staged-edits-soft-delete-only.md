@@ -1,3 +1,7 @@
+---
+concepts: [Persona edits]
+---
+
 # 042 — A persona may write to the vault: drafts for new notes, staged edits for existing ones, delete only ever soft
 
 > **Status: Accepted; Tier 1 built (2026-10-05, in ADRs 069 to 073).** Proposed 2026-09-29; amended 2026-10-04: proposals are tracked changes in the editor, see the Amendment below. What is built: her `propose_edit`, `propose_note` and `comment_on` tools (ADR 072), the store (ADR 070), the editor's tracked changes and Accept/Decline (ADR 042 amended, 069), the Drafts section (ADR 071), four modes per persona in which the file still changes only when the user clicks Accept or saves. **Not built:** a persona delete tool (the soft-delete design below is unused by her), and Tier 2, direct write, which is reserved and not designed (the user's rule is that no mode writes without Accept). This record, as first written, fills the gap ADR 040 explicitly left open ("the write question is a separate decision and not an extension of this one"), tracked as issue #21. Two tiers: Tier 1 (staged, this record's only built tier) and Tier 2 (direct, per-persona and per-folder, user-opt-in only). Each tier is gated on its own write-specific accuracy bar, not the 73–80% retrieval number ADR 040 measured — see "The bar is tier-specific" below; neither bar has been measured yet. Builds on the propose/write split already used for folder definitions (ADR 033/034) and the soft-delete-by-default mechanism the vault already has; distinguished from ADR 037's "hidden," which is a display preference, not a trust boundary.

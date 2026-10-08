@@ -1,3 +1,7 @@
+---
+concepts: [Settings]
+---
+
 # 065 — The toolbar search filters Settings and the conversations
 
 > **Status: Accepted (2026-10-03), designed with damiro.** Builds on ADR 044 (the engine settings in the web app), ADR 057 (the list of conversations) and the content panel's toolbar (ADR 012).

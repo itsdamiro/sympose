@@ -1,3 +1,7 @@
+---
+concepts: [Chat engine]
+---
+
 # 054. A reply in flight can be stopped
 
 Status: Accepted (damiro, 2026-10-01). Closes #121.

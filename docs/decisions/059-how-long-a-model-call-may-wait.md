@@ -1,3 +1,7 @@
+---
+concepts: [Context budget]
+---
+
 # 059 — How long a model call may wait: a limit that grows with the prompt, and a `model_timeout` setting
 
 > **Status: Accepted (2026-10-02).** Closes #124. Builds on ADR 013 (the first-word wait is what the user feels), ADR 015 (the prompt budget) and ADR 055 (compaction shortens a long chat but does not remove the problem).

@@ -1,3 +1,7 @@
+---
+concepts: [Safe file handling]
+---
+
 # 051. Pins, recents and open folders survive odd names, renames and size
 
 Status: Accepted (damiro, 2026-10-01). Closes #105.

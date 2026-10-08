@@ -1,3 +1,7 @@
+---
+concepts: [Vault upkeep]
+---
+
 # 074 — Moving a folder onto another
 
 > **Status: Accepted (damiro, 2026-10-05); built 2026-10-06.** Second half of the folder work (ADR 073 was the rename). Dragging a folder onto another folder, or onto the vault root, the drop a note already has.

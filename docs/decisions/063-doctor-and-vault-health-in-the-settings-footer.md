@@ -1,3 +1,7 @@
+---
+concepts: [Vault upkeep]
+---
+
 # 063 — Doctor and vault health in the Settings footer
 
 > **Status: Accepted (2026-10-03), designed with damiro.** Builds on ADR 029 (`sympose doctor`) and ADR 034 (`sympose vault --health`). `vault --draft` is left in the terminal on purpose.

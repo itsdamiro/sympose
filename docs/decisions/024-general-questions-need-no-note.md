@@ -1,3 +1,7 @@
+---
+concepts: [Grounding]
+---
+
 # 024 — A general question needs no note: tighter grounding and a wording that lets her answer it
 
 > **Status: Accepted.** Built. Amends ADR 014 (what the retriever attaches), ADR 020 (what she is told about the notes) and ADR 019 (the library's wording). **Scope of every model figure: Ollama and `gemma2:9b` only.** Measured on the user's own recorded conversation replayed on scratch copies (their vault read-only, nothing written to it) and on the synthetic fixture vault; no note of theirs is named here.

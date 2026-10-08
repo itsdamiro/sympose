@@ -1,3 +1,7 @@
+---
+concepts: [Safe file handling]
+---
+
 # 048. Saving a note keeps its line endings and refuses a file it cannot read as text
 
 Status: Accepted (damiro, 2026-10-01). Closes #98.

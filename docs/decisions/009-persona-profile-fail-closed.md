@@ -1,3 +1,7 @@
+---
+concepts: [Persona]
+---
+
 # 009 — `profile.py`'s final shape: fail-closed resolution, settings-backed default
 
 ## Context

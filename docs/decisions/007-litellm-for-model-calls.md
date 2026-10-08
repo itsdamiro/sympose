@@ -1,3 +1,7 @@
+---
+concepts: [Chat engine]
+---
+
 # 007 — litellm for model calls, `ollama_chat/` prefix, local-first default
 
 ## Context

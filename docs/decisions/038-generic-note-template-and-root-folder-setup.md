@@ -1,3 +1,7 @@
+---
+concepts: [Vault upkeep]
+---
+
 # 038 — A generic note template (title, created, tags) and a setup step when a root folder is created in the web app
 
 > **Status: Accepted.** Stage 3's web-app piece of ADR 033 (issue #23). The generic keys are a global setting; the setup step is skippable and writes only what the user typed and confirmed.

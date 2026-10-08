@@ -1,3 +1,7 @@
+---
+concepts: [Apps]
+---
+
 # 005 — CLI mock built on Textual, not `prompt_toolkit`
 
 ## Context

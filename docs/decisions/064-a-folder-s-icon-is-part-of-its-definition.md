@@ -1,3 +1,7 @@
+---
+concepts: [Vault upkeep]
+---
+
 # 064 — A folder's look is part of its definition
 
 > **Status: Accepted (2026-10-03), designed with damiro; built the same day (#128).** Builds on ADR 033 (folder definitions), ADR 062 (a persona's look is set in her own file, from a curated icon set) and ADR 037 (what the user hides). The three questions of the first draft are settled in "Decided in the design talk" below, and existing definitions are repaired by the vault health.

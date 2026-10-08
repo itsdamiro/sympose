@@ -1,3 +1,7 @@
+---
+concepts: [Conversation history]
+---
+
 # 023 — Recaps: picking up where the last conversation left off
 
 > **Status: Accepted.** Built. Builds on ADR 006 (the session log), ADR 015 (the context budget), ADR 017 (the small background model call) and ADR 020 (where the prompt puts things). Implements the first, smallest part of the vision's "Sessions & memory" (a session's own summary, not yet durable facts or search across sessions). **Scope of every model figure: Ollama and `gemma2:9b` only.** Measured on invented conversations in scratch profiles; nothing of anyone's own sessions was used.

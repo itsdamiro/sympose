@@ -1,3 +1,7 @@
+---
+concepts: [Conversation history, Cloud privacy]
+---
+
 # 025 — Record which notes and recaps reached each turn
 
 > **Status: Accepted.** Built. Amends ADR 006 (the shape of a turn in the session log) and reverses one rejection in ADR 016 ("storing the display string in the session record"). Nothing here depends on a model, so there are no model figures.

@@ -1,3 +1,7 @@
+---
+concepts: [Safe file handling]
+---
+
 # 045 — The bin lists, restores and purges every file, not only notes
 
 > **Status: Accepted (2026-09-30).** Built the same day. Closes #100, found by the full code review of 2026-09-30 (reviewer-reported; reproduced on a scratch vault before fixing).

@@ -1,3 +1,7 @@
+---
+concepts: [Grounding]
+---
+
 # 021 — Weak evidence is not enough to ground a reply: a one-word match is checked by the rewrite step, and the persona's own name is no evidence
 
 > **Status: Accepted.** Amends ADR 014 (the retriever) and ADR 017 (the follow-up rewrite). **Scope of the model figures: Ollama and `gemma2:9b` only**, on a recorded set of twelve real messages replayed read-only against a real 679-note vault, and on the fixture vault. Another model may write different rewrites.

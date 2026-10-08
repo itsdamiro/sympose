@@ -1,3 +1,7 @@
+---
+concepts: [Grounding]
+---
+
 # 002 — Grounding reuses search's matcher instead of a separate retrieval system
 
 ## Context

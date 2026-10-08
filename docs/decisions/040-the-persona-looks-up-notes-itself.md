@@ -1,3 +1,7 @@
+---
+concepts: [Vault tools]
+---
+
 # 040 — The persona looks up notes itself: a `vault_lookup` setting (`auto` or `ask`) and two read-only tools, search and open
 
 > **Status: Accepted (2026-09-29).** Built behind the setting (default `auto`, so nothing changes for a user who does not choose `ask`); not offered as a recommendation until the measurements below are agreed. Amends ADR 017 (retires its reserved `model-searches` value) and builds on ADR 031 (what a cloud model may receive) and ADR 025 (what is recorded). One cloud model is measured (see "Measured"); a small model, and every local model, are not to be assumed to work. Tracked as issue #85, open on the remaining fit decision (see "Bar for offering it").

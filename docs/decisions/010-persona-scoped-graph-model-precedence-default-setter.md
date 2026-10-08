@@ -1,3 +1,7 @@
+---
+concepts: [Persona]
+---
+
 # 010 — Persona-scoped nebula graph, model precedence, and a default-persona setter
 
 ## Context

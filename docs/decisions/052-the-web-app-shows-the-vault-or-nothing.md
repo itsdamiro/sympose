@@ -1,3 +1,7 @@
+---
+concepts: [Apps]
+---
+
 # 052. The web app shows the vault or nothing, and drops what nothing used
 
 Status: Accepted (damiro, 2026-10-01). Closes #116; the rest of its findings are #119 and #120.

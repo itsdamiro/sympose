@@ -1,3 +1,7 @@
+---
+concepts: [Grounding]
+---
+
 # 014 — A dedicated grounding retriever: passages and keyword scoring, not the search bar's matcher
 
 > **Scope of the live model checks: Ollama and `gemma2:9b` only.** Retrieval itself is deterministic and model-independent (the eval needs no model). But every statement here about how a model behaves with the grounded context (irrelevant context derailing the reply, instructions to ignore it changing nothing, "I can't see your notes" in about 3 of 5 runs, the honest declines) was observed on `gemma2:9b` through Ollama, and other models, especially larger cloud ones, may behave differently. The precision-over-recall choice is tuned to that small model's weakness and is worth revisiting per model. The prompt-size cost of the larger grounding block is measured in ADR 015.

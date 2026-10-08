@@ -1,3 +1,7 @@
+---
+concepts: [Persona edits]
+---
+
 # 075 — The composer shows what travels with the next message
 
 > **Status: Superseded by ADR 076 (2026-10-06); was built and removed the same day.** Accepted (damiro, 2026-10-06). Follows ADR 069 (comments) and ADR 072 (the persona sees the open note). Web app only.

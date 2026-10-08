@@ -1,3 +1,7 @@
+---
+concepts: [Conversation history, Context budget]
+---
+
 # 055. Live compaction of a long conversation
 
 Status: Accepted (design talk and real-model checks, 2026-10-02). Issue #19. Related: #11 (dropping history in larger steps), #17 (the first-reply wait on a long chat). Built (2026-10-02): the engine, the terminal chat and the web chat. "As built" below records where the build differs from the first design; "Measured later" holds the cloud, several-conversation, model-switch, threshold and first-reply measurements (#125).

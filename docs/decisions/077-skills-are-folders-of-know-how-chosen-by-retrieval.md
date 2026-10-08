@@ -1,3 +1,7 @@
+---
+concepts: [Skills]
+---
+
 # 077 — Skills are folders of know-how, chosen by retrieval
 
 > **Status: Accepted; `auto` built (2026-10-08), `ask` and `use_skill` not built.** Design agreed with damiro, 2026-10-07. See the amendment for what was built and measured.

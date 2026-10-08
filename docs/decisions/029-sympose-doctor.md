@@ -1,3 +1,7 @@
+---
+concepts: [Vault upkeep]
+---
+
 # 029 — `sympose doctor`: a health check for an installation, that fixes only what belongs to Sympose
 
 > **Status: Accepted.** Not built yet; this record comes first, as the standards ask. Amends ADR 011's note that directory names are "expected to be lowercase handles" by giving that expectation a check and a fix.

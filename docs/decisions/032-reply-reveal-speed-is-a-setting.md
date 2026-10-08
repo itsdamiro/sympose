@@ -1,3 +1,7 @@
+---
+concepts: [Settings]
+---
+
 # 032 — The speed of the reply reveal is a setting: `reply_reveal`, words per second, 50 by default
 
 > **Status: Accepted.** Amends ADR 006 (the reply is revealed word by word in the CLI). Closes #73.

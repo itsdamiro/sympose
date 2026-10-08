@@ -1,3 +1,7 @@
+---
+concepts: [Context budget]
+---
+
 # 018 — A context meter under the chat box
 
 > **Scope: the counting is the engine's own estimate (ADR 015), measured against Ollama's real counts on `gemma2:9b` only** (prose under-counted by 2 to 4 percent, code by 12, Japanese over-counted by 64, before the 15 percent safety margin). So the percentage is an estimate that leans high, and how close it is on cloud models and other local models is unmeasured.

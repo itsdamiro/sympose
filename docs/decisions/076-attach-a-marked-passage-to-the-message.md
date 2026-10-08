@@ -1,3 +1,7 @@
+---
+concepts: [Persona edits]
+---
+
 # 076 — Attach a marked passage to the message
 
 > **Status: Accepted (damiro, 2026-10-06); building.** Replaces ADR 075 (the composer's automatic chips for the open note and its comments), which the user rejected: a row that appears on its own is one more thing to read, and "everything on the note goes" gave no way to say which part is meant.

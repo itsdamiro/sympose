@@ -1,3 +1,7 @@
+---
+concepts: [Context budget]
+---
+
 # 015 — Context budget: an overflowing prompt is cut silently, so the engine must size it
 
 > **Scope of the measurements: Ollama and `gemma2:9b` only.** Every number below was measured on one runtime (Ollama 0.33.3) with one model (`gemma2:9b`, the default local model), at temperature 0, with synthetic chat turns. Other Ollama models, other Ollama versions (its default window and its truncation rule are Ollama's to change), and cloud models (which have their own, usually much larger, windows and their own overflow behavior, typically an error instead of a silent cut) were not measured. Treat the figures as the local default's behavior, not as a property of Sympose or of models in general, and re-measure before generalizing.

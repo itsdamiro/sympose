@@ -1,3 +1,7 @@
+---
+concepts: [Persona]
+---
+
 # 011 — One directory per persona
 
 ## Context

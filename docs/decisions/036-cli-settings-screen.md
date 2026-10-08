@@ -1,3 +1,7 @@
+---
+concepts: [Settings]
+---
+
 # 036 — `/settings` in the terminal chat: a list of the settings a user would tune, edited in place
 
 > **Status: Accepted.** Closes #25. Builds what ADR 015 ("Not built yet: a CLI settings screen") and ADR 017 ("a settings screen for the follow-up knob") left open, and what ADR 032 pointed at.

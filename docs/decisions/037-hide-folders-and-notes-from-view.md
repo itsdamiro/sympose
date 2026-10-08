@@ -1,3 +1,7 @@
+---
+concepts: [Vault upkeep]
+---
+
 # 037 — Hiding folders and notes from view in the web app
 
 > **Status: Accepted.** Closes #80. Hiding is a **display preference**, not a privacy boundary: it changes what the web app lists, never what the persona can read or what a cloud model may receive (that is #79 and ADR 031).

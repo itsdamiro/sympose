@@ -1,3 +1,7 @@
+---
+concepts: [Conversation history]
+---
+
 # 056 — What the persona may reach from earlier conversations, and how: recap knobs and a `past_chats` setting
 
 > **Status: Accepted (design); the recap settings are built; the second slice (`past_chats` `off` and `auto`, `/share chats`, the reader) and the third (`ask`, with `search_chats` and `open_chat`) are built and measured on a small local model and a cloud model.** Builds on ADR 023 (recaps), ADR 031 (what a cloud model may receive), ADR 040 (the persona looks up notes itself) and ADR 025 (what is recorded). It is the design for #18's "search across past sessions"; the durable-facts half of #18 is ADR 041.

@@ -1,3 +1,7 @@
+---
+concepts: [Cloud privacy]
+---
+
 # 031 — What a cloud model may receive: known to the user, approved by the user, one setting per category
 
 > **Status: Accepted** (2026-09-27, the user approved the defaults). Built in two slices, both done: the engine, then the CLI. The defaults below change what a cloud model receives today. Settles issue #79.

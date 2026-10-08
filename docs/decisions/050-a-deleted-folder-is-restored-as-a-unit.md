@@ -1,3 +1,7 @@
+---
+concepts: [Safe file handling]
+---
+
 # 050. A deleted folder can be restored as a unit
 
 Status: Accepted (damiro, 2026-10-01). Closes #118. Builds on ADR 045.

@@ -1,3 +1,7 @@
+---
+concepts: [Grounding]
+---
+
 # 027 — Search notes by meaning as well as by keyword, behind a knob
 
 > **Status: Accepted.** Built as opt-in; the last update at the end of this record makes `auto` (meaning-based, keywords as the fallback) the default, so where the text below says `keywords` is the default, read `auto`, with `embedding_min_similarity` 0.72 and `embedding_margin` 0.02. Amends ADR 014 (what the retriever attaches), ADR 019 (how the library is searched) and ADR 002's "no embeddings yet". **Scope of every figure: Ollama, `gemma2:9b` for the chat model and `nomic-embed-text` for meaning-based search only.** Measured on an invented vault and invented messages, plus a read-only look at the user's own vault whose note names are not repeated here.

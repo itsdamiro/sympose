@@ -1,3 +1,7 @@
+---
+concepts: [Vault upkeep]
+---
+
 # 034 — `sympose vault`: a read-only health report on the notes (`--health`) and the offer of a folder definition (`--draft`)
 
 > **Status: Accepted** (2026-09-27, after the design talk with the vault owner on issue #77). Not built yet; this record comes first, as the standards ask. Settles the first list of checks of #77 and where ADR 033's stage 3 is offered.

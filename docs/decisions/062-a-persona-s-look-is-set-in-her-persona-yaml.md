@@ -1,3 +1,7 @@
+---
+concepts: [Persona]
+---
+
 # 062 — A persona's look is set in her persona.yaml
 
 > **Status: Accepted (2026-10-03), designed with damiro. The icon and the colour are built; the banner, the profile picture and the choice of icon set are designed here and built later.** Builds on ADR 011 (a persona's directory), ADR 046 (the tracked persona files are defaults the app never writes) and ADR 060 (the web chat's chrome).

@@ -1,3 +1,7 @@
+---
+concepts: [Persona memory, Cloud privacy]
+---
+
 # 001 — Never commit persona memory, regardless of handle
 
 ## Context

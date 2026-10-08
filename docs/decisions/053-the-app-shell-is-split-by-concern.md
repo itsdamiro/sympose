@@ -1,3 +1,7 @@
+---
+concepts: [Apps]
+---
+
 # 053. The app shell is split by concern
 
 Status: Accepted (damiro, 2026-10-01). Splits #95; the cancel-a-reply part of #95 is not a split and is filed on its own.

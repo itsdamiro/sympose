@@ -1,3 +1,7 @@
+---
+concepts: [Grounding]
+---
+
 # 016 — Show which notes grounded a reply, in the CLI reply header
 
 ## Context

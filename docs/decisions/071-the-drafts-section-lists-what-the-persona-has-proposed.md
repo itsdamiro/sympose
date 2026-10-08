@@ -1,3 +1,7 @@
+---
+concepts: [Persona edits]
+---
+
 # 071 — The Drafts section lists what the persona has proposed, and a new-note draft opens in the editor before any file exists
 
 > **Status: Accepted, built (2026-10-04).** The notes-panel half of #21, after ADR 070 (what is stored, and the routes) and ADR 042's amendment (the review in the editor). Web app only; turn-based.

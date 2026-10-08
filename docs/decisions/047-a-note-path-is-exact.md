@@ -1,3 +1,7 @@
+---
+concepts: [Safe file handling]
+---
+
 # 047. A note's path is exact: reading, saving, renaming and deleting never search by name
 
 Status: Accepted (damiro, 2026-10-01). Closes #99.

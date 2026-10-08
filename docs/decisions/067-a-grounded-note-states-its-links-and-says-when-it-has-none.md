@@ -1,3 +1,7 @@
+---
+concepts: [Grounding]
+---
+
 # 067 — A grounded note states its links, and says when it has none
 
 > **Status: Accepted, built (2026-10-04), from the follow-up found while measuring ADR 066; it helps and does not finish the job (see Measured).** Builds on ADR 035 (mechanical connections), ADR 031 (what a cloud model may receive; the `connections` category) and ADR 066 (the "possibly related" line).

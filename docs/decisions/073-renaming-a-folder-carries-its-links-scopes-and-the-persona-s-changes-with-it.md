@@ -1,3 +1,7 @@
+---
+concepts: [Vault upkeep]
+---
+
 # 073 — Renaming a folder carries its links, the personas' scopes and the persona's changes with it
 
 > **Status: Accepted (damiro, 2026-10-05).** First half of the folder work on #21's list: **rename**. Moving a folder (dragging it onto another) is the next step and gets its own record. The user chose: links that name the folder are rewritten, a persona's folder scope that names it is updated and the user is told which, and rename comes before move.

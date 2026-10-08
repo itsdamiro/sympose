@@ -1,3 +1,7 @@
+---
+concepts: [Settings]
+---
+
 # 004 — Add a vault from the workspace switcher, persisted alongside the env-configured list
 
 ## Context

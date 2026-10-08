@@ -1,3 +1,7 @@
+---
+concepts: [Apps]
+---
+
 # 028 — One `sympose` command with `cli` and `web`, and the browser app is the "web app"
 
 > **Status: Accepted.** Built. Amends the name used in ADRs 004, 005, 010, 011 and later ("the dashboard"), which keep their wording as a record of what was decided then. Nothing about the API or the chat engine changes.

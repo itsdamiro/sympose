@@ -1,3 +1,7 @@
+---
+concepts: [Conversation history, Safe file handling]
+---
+
 # 049. The conversation file is append-only
 
 Status: Accepted (damiro, 2026-10-01). Closes #109. Amends ADR 006's "read-modify-write the whole file" posture.

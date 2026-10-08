@@ -1,3 +1,7 @@
+---
+concepts: [Apps]
+---
+
 # 060 — One quiet row under a reply, and floating info in the app's own surface
 
 > **Status: Accepted (2026-10-03), designed with damiro; to be built in the order below.** Builds on ADR 025 (what is recorded about a reply), ADR 031 (what a cloud model may receive), ADR 040 and 041 (the persona looks up and remembers), ADR 044 (the web chat), ADR 056 (earlier conversations). The pre-#21 review found the web chat showing less than the terminal's `/grounded`; this is the fix, and the design of how the web shows it.

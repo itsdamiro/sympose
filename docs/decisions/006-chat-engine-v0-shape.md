@@ -1,3 +1,7 @@
+---
+concepts: [Chat engine]
+---
+
 # 006 — Chat engine v0: turn handling, grounding, sessions, and what's deliberately out
 
 ## Context

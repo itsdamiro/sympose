@@ -1,3 +1,7 @@
+---
+concepts: [Grounding]
+---
+
 # 068 — A note named in full joins a note the search found when their titles read the same
 
 > **Status: Accepted, built (2026-10-04), from the Workspaces failure in ADR 067.** Amends ADR 030 ("A note named in full": the rescue changed nothing when the search found a note). Builds on ADR 067.

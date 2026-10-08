@@ -1,3 +1,7 @@
+---
+concepts: [Vault upkeep]
+---
+
 # 033 — Folder definitions: a note per top-level folder that says what the folder is for and what its notes carry, its template computed from the notes that are there, written only on the user's yes
 
 > **Status: Accepted for stage 1** (2026-09-27; the vault owner chose the template's place and that the health report is where this is offered). Stages 2 and 3 are proposed and get their own measurement before they are built. Settles the design of issue #23; VISION "Folder definitions" is the why.

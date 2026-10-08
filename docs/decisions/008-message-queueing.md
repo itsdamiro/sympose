@@ -1,3 +1,7 @@
+---
+concepts: [Chat engine]
+---
+
 # 008 — Message queueing: per-persona locks, not one global lock
 
 ## Context
