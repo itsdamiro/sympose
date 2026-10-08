@@ -1,6 +1,6 @@
 # 077 — Skills are folders of know-how, chosen by retrieval
 
-> **Status: Proposed (design agreed with damiro, 2026-10-07); not built.** Closes the design half of #22. Nothing is built until the baseline run below is done.
+> **Status: Accepted; `auto` built (2026-10-08), `ask` and `use_skill` not built.** Design agreed with damiro, 2026-10-07. See the amendment for what was built and measured.
 
 ## Context
 
@@ -54,3 +54,38 @@ Scheduled or unattended runs (a scheduler, a headless `run_turn`, reporting into
 - A persona's prompt grows by at most one skill body per turn in `auto`, none when nothing matches; the cost is bounded by `skill_cap`.
 - Selection quality rests on the retrieval index and the descriptions, so descriptions are tested, not assumed.
 - The user can write and share skills without touching code; the price is that a copied-in skill is a prompt-injection surface, hence the review step.
+
+## Amendment (2026-10-08): `auto` built and measured
+
+**Built.** `engine/skills.py` reads the skill folders (`parse` refuses a header that is missing, names the skill other than its folder, is not lowercase letters, digits and hyphens, has no description, a description over 400 characters, a `tools` that is not a list, or no steps; a file over 20,000 bytes is not read), `carried` gives a persona the bundled skills its `persona.yaml` names plus every skill in its own `skills/` folder (its own replaces a bundled one of the same name), `select` picks the best match by the strict retriever over name and description (none when nothing matches), and `text_for` cuts the body at a line within `skill_cap` (default 3000, least 500). The skill goes into the user's turn right before the message, under a one-line label. Settings `skill_lookup` (`auto` default, `off`) and `skill_cap`. `tools:` is checked against what the turn gives: the editing tools when she may propose changes, the lookup tools when she looks notes up herself; a skill whose tools are missing is not offered. 19 unit tests; 15 of 15 mutants of the rules caught.
+
+**Measured** (`tests/live_skill_cases.py`, invented recipes vault, 3 runs per case, a run that errored counts as a fail; the same code with `SKILLS=off` is the baseline). Final wording of the label, skills off then on, passes of 3:
+
+| Case | `gemma2:9b` | `gemma4:e4b` | Gemini Flash |
+|---|---|---|---|
+| soul, a historical figure | 3, 2 | 1, 1 | 2, 3 |
+| soul, a vague request | 3, 3 | 3, 3 | 3, 3 |
+| soul, engine rules kept out | 1, 3 | 1, 3 | 1, 3 |
+| soul, user details kept out | 1, 1 | 1, 3 | 0, 3 |
+| near miss: a note about personas | 3, 3 | 2, 3 | 3, 3 |
+| near miss: a folder's description | 3, 3 | 3, 3 | 3, 3 |
+| small talk gets no skill | 3, 3 | 3, 3 | 3, 3 |
+| draft in a folder's style | 0, 0 | 0, 0 | 2, 2 |
+| draft keeps the section order | 0, 0 | 0, 0 | 0, 0 |
+
+What it shows: selection was right whenever a skill was due and never fired for small talk. The soul skill helps (most on keeping engine rules and user details out of the soul) on all three models, least on `gemma2:9b`'s user-details case. The drafting skill shows no gain with the final wording (earlier runs with other wording went from 0 of 3 to 3 of 3 and back to 1 of 3 on the same model, which is the noise of a sample of 3), so it is not carried. Samples of 3 are for direction, not for a figure.
+
+**What the label taught.** The line in front of the skill's steps has to say both things. "Follow its steps" made the soul skill fire on a near miss ("write a note about my persona research" shares *write* and *persona* with the description, and the strict retriever passes on two shared words). "Follow them if the message asks for what the skill is for" fixed the near misses but made `gemma2:9b` ask questions instead of writing (historical figure 3 of 3 down to 0 of 3). "...do it now, without asking first; if the message asks for something else, ignore the skill" kept both (near misses 3 of 3 on every model, `gemma2:9b` historical figure 2 of 3). Ask mode (the model chooses) is the real answer to near misses.
+
+**Findings that changed the build.** A first rule that offered the drafting skill only to a model with lookup tools hid it from `gemma4:e4b`, which gets the folder's definition note from the search Sympose does for it; the skill now requires only `propose_note`. A cloud model cannot read the folder's definition note unless `notes` is approved (ADR 031); it said so honestly, so the harness approves it for invented data. The code review (high) found: a cut that fell on a line end dropped a whole line and said nothing (now cut after a whole line, with a line saying the rest was left out); the skill text of a persona's own skill reached a cloud model without the gate (now only a local model is given one; the bundled skills are public); the header was fragile (a byte-order mark, a `----` line, non-ASCII names; fixed); every turn parsed all the bundled skills (now only the ones named). Declined, with the reason: the skill is not sacrificed by the fitting loop (it is sent only when the message called for that job, and `skill_cap` can be lowered for a small window); the chosen skill is not recorded in the turn record and a follow-up message does not carry it (no new surface; ask mode can keep a skill across turns).
+
+**Grounding regression.** `live_prompt_cases.py` with skills on, `gemma2:9b`, 34 cases: none of their messages selects a skill, even with every tool available, so their prompts are what they were before; the cases that fail there (for example `wrong-premise-is-corrected` 0 of 3) fail for the model, not for skills. Retrieval eval, default mode: 62/68, as before.
+
+**Decision.** Samantha carries `deriving-a-persona-soul` only. `drafting-a-note-in-a-folders-style` ships in `sympose/skills/` but is not in her list until it is reliable (a larger sample, and a step 2 that does not invite lookups to run out, or an engine-side check that a draft reached `propose_note`). 
+
+**Next, in order (not this slice).**
+1. `ask` and `use_skill(name)`, and more than one skill per message, when a skill needs them.
+2. Creating a persona: a power (a `propose_persona` tool, staged in Drafts, written only on Accept, validated by the engine: handle, icon, colours, folders, a soul that is voice only) and the skill that uses it; the soul skill grows into it.
+3. Changing a setting: a power (`propose_setting`, the user's Accept; `cloud_share` and the model always ask), so the persona who explains every setting from the reference library can also change it. The `tools:` line already keeps a skill that names a tool nobody has from being offered.
+4. A Skills page in the web app, with the review of a copied-in skill before it is enabled.
+5. Scheduled runs and MCP tools, as in the backlog.
