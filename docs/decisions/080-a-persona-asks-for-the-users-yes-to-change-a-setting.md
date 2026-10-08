@@ -46,3 +46,9 @@ A user asks "this is slow" or "stop sending my notes to the cloud" and the perso
 - **Several settings on one card.** More useful for "make it faster", but a bigger card, a per-setting tick and more rules. Revisit if one-at-a-time proves tedious.
 - **Leaving `model` and `cloud_share` out.** The safer scope, and the one recommended; the user chose to include them, with the card as the safeguard.
 - **A global `chat_model` change.** The persona's own model is what the user sees and changes in the chat; the global fallback has its own home (`/model`, ADR 036).
+
+## Amendment (2026-10-08): built, and measured on Gemini Flash
+
+**Built** as decided (web app, tool models only). One difference from the text above: a registry setting's card has no second line on what it does, because its label already says it ("Most earlier chat sent per message (history_tokens)"); the model and `cloud_share` cards keep theirs. The warning line is shown only while the card waits.
+
+**Measured** (`tests/live_setting_cases.py`, invented data, `gemini/gemini-flash-latest`, 6 runs per case, 2026-10-08; nothing is changed by a run, and each run also checks that). 15 of 15 cases at 6 of 6: a number by name, a toggle and a choice in words, stop and allow `cloud_share:notes`, her own model, two settings in one message (two cards), a second proposal replacing the waiting one, "replies are slow" (a speed setting, never a sharing one), `chat_model` refused with the reason and `/model` pointed to, and none for questions about a setting, about what goes to a cloud model, a request about notes, or small talk. Read by eye: for "set history_tokens to lots" she asked what number was meant in one run and proposed removing the cap in the other (a card the user can decline). Direction only, one model and 6 runs: `gemma4:e4b` is not measured, and `gemma2:9b` is not given the tool.
