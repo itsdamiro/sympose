@@ -151,11 +151,6 @@ SKILL_LABEL = (
     "A skill you carry may apply to this message. If the message asks for what the skill is for, do it now by its steps, with the "
     "tools you have and in your own voice, without asking first. If the message asks for something else, ignore the skill."
 )
-SKILL_MENU_LABEL = (
-    "Skills you can take up with use_skill (call it with the skill's name to get its steps). If the message asks for what one of them is "
-    "for, take it up and do the work now by its steps, in your own voice, without asking first; take up more than one if the message needs "
-    "it. If the message asks for something else, take up none. The skills:"
-)
 ANSWER_FROM_REFERENCE = "If the message is about Sympose itself, answer it from the Sympose reference above."
 
 # Next to the notes, only when there are some.

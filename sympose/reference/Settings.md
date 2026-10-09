@@ -208,9 +208,11 @@ The `annotations_cap` setting is how many of your open comments on the open note
 
 ## skill_lookup
 
-The `skill_lookup` setting decides whether a persona follows a skill: `"auto"` (the default) adds the steps of the skill that fits your message, if any; `"ask"` lets the persona choose, one skill or several, for one more round trip, and needs a model that can call tools (any other model gets `"auto"`); `"off"` never uses one.
+The `skill_lookup` setting decides whether a persona follows a skill: `"auto"` (the default) picks the skill whose description fits your message, if there is one, and adds its steps to that message; `"off"` never does.
 
-A skill is a folder with a `SKILL.md`, only text: nothing in it is ever run. Samantha carries the bundled ones named in her `persona.yaml`, and a persona also carries every skill in its own `skills/` folder. A skill that proposes a note is not used where the persona cannot, in the terminal or with `edit_mode` `"plan"`.
+A skill is a folder with a `SKILL.md` that says what it does and the steps to follow. It is only text: nothing in it is ever run. Samantha carries the bundled ones named in her `persona.yaml`, and a persona also carries every skill in its own `skills/` folder in its profile.
+
+A skill that needs to propose a note is not used where the persona cannot propose notes: in the terminal, or when its `edit_mode` is `"plan"`.
 
 ## skill_cap
 

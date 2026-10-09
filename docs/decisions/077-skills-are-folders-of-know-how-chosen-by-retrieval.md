@@ -11,9 +11,9 @@ tags: [type/decision, status/accepted, project/sympose, topic/retrieval]
 
 # 077 — Skills are folders of know-how, chosen by retrieval
 
-> **Summary.** Skills are folders with a `SKILL.md` in Anthropic's Agent Skills format, bundled in `sympose/skills/` or the user's own in `profiles/<handle>/skills/`, and chosen by retrieval. A persona had knowledge, powers and identity but no written procedures for recurring jobs, and the soul cannot hold them. In `auto` mode a prompt grows by at most one skill body, bounded by `skill_cap`; `ask` and `use_skill` are built (second amendment), not yet measured.
+> **Summary.** Skills are folders with a `SKILL.md` in Anthropic's Agent Skills format, bundled in `sympose/skills/` or the user's own in `profiles/<handle>/skills/`, and chosen by retrieval. A persona had knowledge, powers and identity but no written procedures for recurring jobs, and the soul cannot hold them. In `auto` mode a prompt grows by at most one skill body, bounded by `skill_cap`; `ask` and `use_skill` were tried and removed (second amendment).
 
-> **Status: Accepted; `auto` built (2026-10-08), `ask` and `use_skill` built (2026-10-09), `ask` not yet measured.** Design agreed with damiro, 2026-10-07. See the amendment for what was built and measured.
+> **Status: Accepted; `auto` built (2026-10-08), `ask` and `use_skill` tried and removed (2026-10-09).** Design agreed with damiro, 2026-10-07. See the amendment for what was built and measured.
 
 ## Context
 
@@ -97,15 +97,15 @@ What it shows: selection was right whenever a skill was due and never fired for 
 **Decision.** Samantha carries `deriving-a-persona-soul` only. `drafting-a-note-in-a-folders-style` ships in `sympose/skills/` but is not in her list until it is reliable (a larger sample, and a step 2 that does not invite lookups to run out, or an engine-side check that a draft reached `propose_note`). 
 
 **Next, in order (not this slice).**
-1. ~~`ask` and `use_skill(name)`, and more than one skill per message~~ (built, below).
+1. `ask` and `use_skill(name)`, and more than one skill per message: tried and removed (second amendment); to be taken up again only when a persona carries many skills.
 2. Creating a persona: a power (a `propose_persona` tool, staged in Drafts, written only on Accept, validated by the engine: handle, icon, colours, folders, a soul that is voice only) and the skill that uses it; the soul skill grows into it.
 3. Changing a setting: a power (`propose_setting`, the user's Accept; `cloud_share` and the model always ask), so the persona who explains every setting from the reference library can also change it. The `tools:` line already keeps a skill that names a tool nobody has from being offered.
 4. A Skills page in the web app, with the review of a copied-in skill before it is enabled.
 5. Scheduled runs and MCP tools, as in the backlog.
 
-## Amendment (2026-10-09): `ask` and `use_skill` built
+## Amendment (2026-10-09): `ask` and `use_skill` tried, measured, and removed
 
-**Built.** `skill_lookup` has a third value, `ask`. When the persona carries skills and the model can call tools, the turn gives the model one tool, `use_skill(name)` (`engine/skill_tools.py`, the name restricted to the offered ones), and lists the offered skills by name and description right before the message, under its own label ("take it up and do the work now ... take up more than one if the message needs it ... take up none" for anything else). The tool gives back the skill's body cut by `skill_cap`; called again it gives another, so several skills per message needs nothing more. What is offered is what `auto` could pick from: the `tools:` check and the rule that a model that is not local sees only the bundled skills (a name outside the list is refused with the list). A model that cannot call tools, or a turn where the tool-calling attempt was refused, gets `auto`. The round trip `use_skill` costs is the dial CLAUDE.md allows, so `auto` stays the default. The reply's footer says which skill was taken up (`followed the skill "..."`); a skill call does not count as a lookup. Tests: `tests/test_engine_skill_tools.py`, three cases in `tests/test_engine_turn_skills.py`, one in `ui/src/lib/grounded.test.ts`.
+**Tried.** `skill_lookup=ask` gave a tool model one tool, `use_skill(name)` (the name restricted to the offered skills), and listed the offered skills by name and description before the message; calling it again gave another skill, so several skills per message needed nothing more; a model without tools got `auto`. It was built, tested and pushed, then removed the same day (a revert; the code is in the history, commits `76ac202` and `79ac8bc`).
 
 **Measured** (`SKILLS=ask python tests/live_skill_cases.py 3 <model>`, same cases and sample of 3 as above; passes of 3, `auto` with skills on from the table above, then `ask`):
 
@@ -121,8 +121,8 @@ What it shows: selection was right whenever a skill was due and never fired for 
 | draft in a folder's style | 0, 0 | 2, 0 |
 | draft keeps the section order | 0, 0 | 0, 0 |
 
-What it shows: `ask` is as good as `auto` on Gemini Flash for the soul skill (it never used a skill for small talk or a near miss), and on `gemma4:e4b` it is within the noise of a sample of 3 (two cases a run lower, one higher; the failures were the persona's reply ending in a stray "(Self-Correction/Review)" note or praising instead of finishing, not a wrong skill). The near misses were already 3 of 3 under the final `auto` label, so `ask` has no gain to show there; it is no worse. `gemma2:9b` was not run: it is not given tools, so it gets `auto`.
+What it showed: on Gemini Flash `ask` matched `auto` on every soul and near-miss case; on `gemma4:e4b` it was within the noise of a sample of 3. Near misses were already 3 of 3 under the final `auto` label, so there was no mistake for `ask` to fix. In the terminal script `gemma4:e4b` took the skill up in 3 of 5 runs of the Marie Curie request; in the web app, where `propose_persona` is also offered, it took it in 0 of 4 and went straight to that tool.
 
-**A cost found.** `use_skill` is a tool call, so it spends one of the turn's lookups (`vault_lookup_rounds`, 3 by default). Gemini Flash on the drafting case took the skill, then looked up the folder's definition and notes, and used its three lookups without writing (3 errors of 3; `auto` gave 2 of 3 there). The soul skill needs no lookups, so it was not hit. Not changed here (the drafting skill is not carried): the options are not to count `use_skill` against the rounds, or to raise the default. To decide when a carried skill needs lookups.
+**Why it was removed.** With one carried skill there is nothing to choose between, so `ask` bought an extra round trip and a weaker result on a small model. Left in, it would also have been offered as a choice in Settings, described in the reference library (which the persona quotes as truth) and proposable by the persona through `propose_setting`, each of which would move a user to a mode that is not better: a regression to fix, not a tradeoff.
 
-**Decision.** `auto` stays the default; `ask` ships as a choice with no measured gain, in line with the round-trip dial, until a skill exists where choosing beats matching.
+**For when it is taken up again.** `use_skill` is a tool call, so it spends one of the turn's lookups (`vault_lookup_rounds`, 3 by default). Gemini Flash on the drafting case took the skill, looked up the folder's definition and notes, and used its three lookups without writing (3 errors of 3, where `auto` gave 2 of 3); the call should not count against the rounds. The case for `ask` is a persona with many skills, where matching on a description gets shakier; measure it then, on a larger sample.

@@ -96,7 +96,7 @@ def run_turn(
             )
             tool_support.note_refusal(target_model)
             return result
-        if modes.ask or modes.chats or modes.skills_ask or modes.remember == memory.TOOL or (modes.edit and modes.edit.tool):
+        if modes.ask or modes.chats or modes.remember == memory.TOOL or (modes.edit and modes.edit.tool):
             tool_support.note_success(target_model)
         return result
     finally:
@@ -148,7 +148,7 @@ def _run(
         decisions_sent = fitted.decisions
     dropped += capped  # the turns `history_tokens` left out count with the ones the window's own fitting dropped
     lookups: list[dict[str, Any]] = []
-    tools = persona_tools.for_turn(ask, remember == memory.TOOL, modes.chats, sid, modes.edit, persona, found.map_allowed, found.offered)
+    tools = persona_tools.for_turn(ask, remember == memory.TOOL, modes.chats, sid, modes.edit, persona, found.map_allowed)
     if tools:
         tool_list, run_tool = tools
         done = lookup.converse(
