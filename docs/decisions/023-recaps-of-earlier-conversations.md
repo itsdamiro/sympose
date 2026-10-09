@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Conversation history]
 amends: [20]
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose, topic/data-safety]
+tags: [type/decision, status/accepted, project/sympose, topic/data-safety, topic/small-models, topic/cost]
 ---
 
 # 023 — Recaps: picking up where the last conversation left off

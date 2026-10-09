@@ -6,7 +6,7 @@ projects: [sympose]
 concepts: [Conversation history]
 amends: []
 supersedes: []
-tags: [type/decision, status/accepted, project/sympose, topic/consent]
+tags: [type/decision, status/accepted, project/sympose, topic/consent, topic/privacy]
 ---
 
 # 056 — What the persona may reach from earlier conversations, and how: recap knobs and a `past_chats` setting
