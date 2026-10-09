@@ -298,3 +298,38 @@ def test_asking_for_the_same_new_note_twice_makes_one_draft_and_the_second_is_to
     assert "already waiting" in second.text and len(nc.drafts(H)) == 1
     shown, records = et.apply_marker(H, None, None, 'Again.\n<!-- propose_note: {"text": "# Seeds\\n\\nBeans.\\n", "title": "Seeds", "say": "s"} -->')
     assert records[0]["saved"] is False and "already waiting" in shown and len(nc.drafts(H)) == 1
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        ("type: recipe\ntags:\n---\n# Pesto\n", "---\ntype: recipe\ntags:\n---\n# Pesto\n"),  # the closing fence only
+        ("type: recipe\ntags:\n## Ingredients\n", "---\ntype: recipe\ntags:\n---\n\n## Ingredients\n"),  # bare properties
+        ("\ntype: recipe\ntags:\n\n## Ingredients\n", "---\ntype: recipe\ntags:\n---\n\n## Ingredients\n"),
+    ],
+)
+def test_a_new_notes_properties_that_lack_their_fence_get_it(text, expected):
+    assert et.fenced(text) == expected
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "---\ntype: recipe\n---\n# X\n",  # already fenced
+        "# Title\ntype: recipe\n",  # properties are not first
+        "Dish: pesto\n\nSome prose.\n",  # one line that looks like a property and nothing closes it
+        "Just a sentence.\n",
+        "",
+    ],
+)
+def test_any_other_text_is_left_as_it_came(text):
+    assert et.fenced(text) == text
+
+
+def test_a_proposed_note_is_filed_with_its_properties_fenced():
+    reply = '<!-- propose_note: {"text": "type: recipe\\ntags:\\n---\\n# Pesto", "title": "Pesto", "say": "A recipe."} -->'
+
+    et.apply_marker(H, PATH, NOTE, reply)
+
+    (p,) = [p for e in store.entries(H) for p in e["proposals"] if p.get("kind") == "create"]
+    assert p["text"] == "---\ntype: recipe\ntags:\n---\n# Pesto"

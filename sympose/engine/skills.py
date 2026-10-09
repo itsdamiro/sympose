@@ -4,7 +4,10 @@ nothing in a skill is ever run.
 
 Where they live: the bundled ones in `sympose/skills/` (a persona carries those her `persona.yaml` names under
 `skills:`), and the user's own in `profiles/<handle>/skills/` (a persona carries all of its own). A skill needing a
-tool the persona cannot use this turn (its `tools:` line) is not offered.
+tool the persona cannot use this turn (its `tools:` line) is not offered. `tool_calls` there is not a tool but a
+demand on the model: it calls tools rather than writing markers in its reply, which a skill that must file a faithful
+note needs (a model without tools did not, docs/decisions/077). `context: folder` asks for the shape of the folder the
+message names to be sent with the steps (`skill_folder`).
 
 `auto` is the way a skill is chosen for a message: the strict retriever over each skill's name and description (the
 reference library's way, docs/decisions/019), no extra model call, and no skill when nothing matches."""
@@ -35,6 +38,8 @@ DEFAULT_CAP = 3000  # characters of a skill's body that join the prompt
 MIN_CAP = 500
 MAX_FILE = 20_000  # bytes; a larger file is not read (a copied-in skill is untrusted text)
 MAX_DESCRIPTION = 400
+TOOL_CALLS = "tool_calls"
+FOLDER = "folder"
 CUT_NOTE = "[The rest of this skill was left out to fit.]"
 _NAME = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")  # ASCII only: the name is also the folder's
 _HEADER_END = re.compile(r"^---[ \t]*$", re.MULTILINE)  # a line of its own, not a longer run of dashes
@@ -49,6 +54,7 @@ class Skill:
     body: str
     tools: tuple[str, ...] = ()
     source: str = "bundled"  # or "persona"
+    context: str = ""  # `FOLDER`, or nothing
 
 
 def mode() -> str:
@@ -86,10 +92,13 @@ def parse(text: str, folder_name: str, source: str) -> Skill | None:
     needs = meta.get("tools") or []
     if not isinstance(needs, list) or not all(isinstance(t, str) for t in needs):
         return None
+    context = meta.get("context") or ""
+    if context not in ("", FOLDER):
+        return None
     steps = body.lstrip("\n").strip()
     if not steps:
         return None
-    return Skill(name, " ".join(description.split()), steps, tuple(needs), source)
+    return Skill(name, " ".join(description.split()), steps, tuple(needs), source, context)
 
 
 def _read(folder: str, source: str, only: set[str] | None = None) -> list[Skill]:
@@ -130,10 +139,11 @@ def carried(persona: dict[str, Any]) -> list[Skill]:
     return list(skills.values())
 
 
-def tools_of(ask: bool, edit: bool) -> frozenset[str]:
+def tools_of(ask: bool, edit: bool, calls: bool = False) -> frozenset[str]:
     """The tools this turn gives the persona that a skill can name: the vault lookups when she looks notes up herself
-    (`ask`), the editing ones when she may propose changes (`edit`, a call or a marker alike)."""
-    return frozenset((*(_LOOKUP if ask else ()), *(_EDITING if edit else ())))
+    (`ask`), the editing ones when she may propose changes (`edit`, a call or a marker alike), and `TOOL_CALLS` when
+    the model calls them (`calls`)."""
+    return frozenset((*(_LOOKUP if ask else ()), *(_EDITING if edit else ()), *((TOOL_CALLS,) if calls else ())))
 
 
 def can_carry_out(skill: Skill, tools: frozenset[str]) -> bool:

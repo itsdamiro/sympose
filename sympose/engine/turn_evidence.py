@@ -9,7 +9,7 @@ from typing import Any, Callable
 from sympose import profile as profile_mod, vault_map as vault_map_mod
 from sympose.engine import (
     budget, connections, followup, grounding, grounding_properties, memory, past_chats, persona_tools, prompt, recap,
-    recap_refresh, reference, related, session_compaction, sharing, skills, turn_status,
+    recap_refresh, reference, related, session_compaction, sharing, skill_folder, skills, turn_status,
 )
 
 
@@ -108,7 +108,12 @@ def gather(
     if mem.withheld:
         withheld[sharing.MEMORY] = 1
 
-    chosen = skills.select(persona, user_message, skills.tools_of(modes.ask, modes.edit is not None and modes.edit.active), sharing.is_local(target_model))
+    editing = modes.edit is not None and modes.edit.active
+    chosen = skills.select(persona, user_message, skills.tools_of(modes.ask, editing, editing and modes.edit.tool), sharing.is_local(target_model))
+    skill_text = skills.text_for(chosen) if chosen else None
+    if chosen and chosen.context == skills.FOLDER and sharing.NOTES in sharing.allowed(target_model):
+        shape = skill_folder.shape_for(persona, user_message)  # the folder's own notes: a cloud model gets them only as it may
+        skill_text = f"{skill_text}\n\n{shape}" if shape else skill_text
     reference_found = sum(1 for h in gated.grounding if h.get("source") == reference.SOURCE)
     return Evidence(
         grounding=gated.grounding,
@@ -126,7 +131,7 @@ def gather(
         point_to=point_to,
         reference_found=reference_found,
         vault_found=len(gated.grounding) - reference_found,
-        skill=skills.text_for(chosen) if chosen else None,
+        skill=skill_text,
     )
 
 

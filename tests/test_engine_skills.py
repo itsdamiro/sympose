@@ -31,10 +31,21 @@ def test_a_valid_skill_is_read_with_its_tools():
     assert skill == skills.Skill("a-b", "Does x. Use when y.", "Steps.", ("propose_note",), "bundled")
 
 
+def test_a_skill_can_ask_for_its_folders_shape_and_for_a_model_that_calls_tools():
+    extra = "tools: [propose_note, tool_calls]\ncontext: folder\n"
+    skill = skills.parse(GOOD.format(name="a-b", desc="Does x. Use when y.", body="Steps.", extra=extra), "a-b", "bundled")
+
+    assert skill.context == skills.FOLDER
+    assert not skills.can_carry_out(skill, skills.tools_of(ask=False, edit=True))  # a marker, not a call
+    assert skills.can_carry_out(skill, skills.tools_of(ask=False, edit=True, calls=True))
+    assert not skills.can_carry_out(skill, skills.tools_of(ask=False, edit=False, calls=True))  # nowhere to propose
+
+
 @pytest.mark.parametrize(
     "text",
     [
         "no header\n",
+        "---\nname: a-b\ndescription: d\ncontext: elsewhere\n---\nSteps.\n",  # a context nobody provides
         "---\nname: a-b\n---\nSteps.\n",  # no description
         "---\nname: other\ndescription: d\n---\nSteps.\n",  # not its folder's name
         "---\nname: A-b\ndescription: d\n---\nSteps.\n",  # not lowercase

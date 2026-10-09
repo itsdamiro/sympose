@@ -6,7 +6,7 @@ import pytest
 from helpers import write_persona
 
 from sympose import settings_store
-from sympose.engine import skills, tool_support, turn
+from sympose.engine import sharing, skills, tool_support, turn
 from sympose.engine.edit_turn import OpenNote
 from sympose.engine.model import ModelReply
 
@@ -77,3 +77,57 @@ def test_a_skill_needing_the_edit_tool_is_offered_only_where_the_caller_can_show
 
     assert "Skill:" not in last_turn(monkeypatch, message, LOCAL)  # the terminal: no edits
     assert "Skill: poem-writing" in last_turn(monkeypatch, message, LOCAL, edits=True, open_note=OpenNote("a.md", "x"))
+
+
+DRAFTING = (
+    "---\nname: drafting-a-note\ndescription: Drafts a new note in a folder. Use when the user asks to add a new note such as a recipe.\n"
+    "tools: [propose_note, tool_calls]\ncontext: folder\n---\n1. Copy the shape.\n"
+)
+
+
+def the_message_turn(monkeypatch, message, model, **kwargs):
+    """What the model is sent as the message's own turn: with a vault there is a search-rewrite call before it."""
+    seen = []
+
+    def call_model(messages, model=None, **_):
+        seen.append(messages[-1]["content"])
+        return ModelReply("ok", 5)
+
+    monkeypatch.setattr(turn.model_mod, "call_model", call_model)
+    turn.run_turn("samantha", message, model=model, **kwargs)
+    return next((c for c in seen if "User's message:" in c), "")
+
+
+def with_a_recipes_vault(tmp_path, monkeypatch):
+    vault = tmp_path / "vault" / "Recipes"
+    vault.mkdir(parents=True)
+    (vault / "Recipes.md").write_text("# Recipes\n\n## Template\n\n```\ntype: recipe\n```\n", encoding="utf-8")
+    (vault / "Soup.md").write_text("---\ntype: recipe\n---\n# Soup\n\n## Steps\n", encoding="utf-8")
+    monkeypatch.setenv("VAULT_PATHS", str(tmp_path / "vault"))
+    write_persona(tmp_path / "profiles", "samantha", "name: Samantha\nvault_folders: ['*']\nsympose_reference: false\nskills: ['drafting-a-note']\n")
+    (tmp_path / "bundled" / "drafting-a-note").mkdir(parents=True)
+    (tmp_path / "bundled" / "drafting-a-note" / "SKILL.md").write_text(DRAFTING, encoding="utf-8")
+
+
+def test_a_drafting_skill_brings_the_folders_shape_and_only_to_a_model_that_calls_tools(tmp_path, monkeypatch):
+    with_a_recipes_vault(tmp_path, monkeypatch)
+    message = "add a new note for a recipe: risotto"
+    note = OpenNote("a.md", "x")
+
+    assert "Skill:" not in the_message_turn(monkeypatch, message, LOCAL, edits=True, open_note=note)  # a marker, not a call
+    settings_store.set(sharing.SETTING, [sharing.NOTES])
+    content = the_message_turn(monkeypatch, message, CLOUD, edits=True, open_note=note)
+
+    assert "Skill: drafting-a-note" in content
+    assert "The folder Recipes and the shape its notes take" in content and "`Recipes/Soup.md`" in content
+    assert content.index("The folder Recipes") < content.index("User's message:")
+
+
+def test_a_cloud_model_not_allowed_the_notes_gets_the_skill_without_the_folders_notes(tmp_path, monkeypatch):
+    with_a_recipes_vault(tmp_path, monkeypatch)
+    settings_store.set(sharing.SETTING, [])
+
+    content = the_message_turn(monkeypatch, "add a new note for a recipe: risotto", CLOUD, edits=True, open_note=OpenNote("a.md", "x"))
+
+    assert "Skill: drafting-a-note" in content
+    assert "The folder Recipes" not in content and "Soup" not in content

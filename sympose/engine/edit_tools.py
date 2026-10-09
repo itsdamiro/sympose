@@ -75,6 +75,30 @@ TOOLS: list[dict[str, Any]] = [
 _MARKER = re.compile(r"<!--\s*(propose_edit|propose_note|comment_on|show_note):\s*(\{.*?\})\s*-->", re.IGNORECASE | re.DOTALL)
 
 
+_PROPERTY = re.compile(r"\w[\w -]*:(?:[ \t].*)?")  # `type: recipe`, `tags:`
+_FENCE = "---"
+
+
+def fenced(text: str) -> str:
+    """A new note's text with its properties between `---` lines. A model that is copying a folder's shape often writes the
+    property lines and the closing `---` but not the opening one, or leaves them bare; Obsidian then reads them as text. Only
+    fence lines are added, and only when the text starts with property lines and either a closing `---` follows them or
+    there are at least two of them: any other text is returned as it came."""
+    lines = text.lstrip("\n").split("\n")
+    count = 0
+    while count < len(lines) and _PROPERTY.fullmatch(lines[count].rstrip()):
+        count += 1
+    if count == 0:
+        return text
+    closed = count < len(lines) and lines[count].strip() == _FENCE
+    if not closed and count < 2:
+        return text
+    after = lines[count + 1 :] if closed else lines[count:]
+    if not closed and after and after[0].strip():
+        after = ["", *after]  # the text ran straight on from the properties: keep a blank line after the fence
+    return "\n".join([_FENCE, *lines[:count], _FENCE, *after])
+
+
 def _arguments(name: str, raw: str | dict[str, Any] | None) -> dict[str, str] | None:
     try:
         data = json.loads(raw) if isinstance(raw, str) and raw.strip() else (raw or {})
@@ -99,7 +123,7 @@ def _propose(
                 return False, _NO_NOTE
             note_changes.comment_on(handle, path, text, quote=args["find"], text=args["text"], author="persona", within=scope)
         elif name == NOTE:
-            note_changes.propose_create(handle, f"new/{note_changes._id()}", args["text"], say=args["say"], title=args["title"] or None, folder=args["folder"] or None)
+            note_changes.propose_create(handle, f"new/{note_changes._id()}", fenced(args["text"]), say=args["say"], title=args["title"] or None, folder=args["folder"] or None)
         elif path is None or text is None:
             return False, _NO_NOTE
         else:
