@@ -148,6 +148,24 @@ def test_the_persona_model_is_saved_for_the_persona_that_asked():
     assert persona_model._read(persona_model.persona_dir("samantha") + "/persona.local.yaml") == {"model": CLOUD}
 
 
+PRO = "gemini/gemini-pro-latest"
+
+
+@pytest.mark.parametrize("said, id", [("Gemini Pro", PRO), ("gemini-pro", PRO), ("GEMINI PRO", PRO)])
+def test_a_model_named_in_words_is_filed_as_the_one_id_it_fits(said, id):
+    result = call("model", said)
+
+    assert result.lookup["saved"] is True
+    assert only_request()["draft"]["value"] == id
+
+
+def test_a_model_name_that_fits_several_ids_is_refused_with_just_those():
+    result = call("model", "gemini")
+
+    assert result.lookup["saved"] is False
+    assert "gemini-flash-latest" in result.text and "gemini-pro-latest" in result.text and "gpt-4o-mini" not in result.text
+
+
 def test_a_second_proposal_replaces_the_waiting_one_for_the_same_setting_only():
     call("history_tokens", 3000)
     call("model_timeout", 300)

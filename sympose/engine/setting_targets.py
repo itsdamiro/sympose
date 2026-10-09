@@ -3,6 +3,7 @@ the registry, the model of the persona that is talking, and one `cloud_share` ca
 stays with the module that owns the setting; this file only names the three kinds of target in one shape, so the tool, the
 card and Accept agree."""
 
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -41,13 +42,24 @@ def names() -> list[str]:
     return [s.key for s in registry.SETTINGS] + [MODEL] + [SHARE + c for c in sharing.CATEGORIES]
 
 
+def _named(value: str, ids: list[str]) -> list[str]:
+    """The ids that contain every word of `value`, ignoring case and punctuation."""
+    words = re.findall(r"[a-z0-9.]+", value.lower())
+    return [i for i in ids if words and all(w in re.findall(r"[a-z0-9.]+", i.lower()) for w in words)]
+
+
 def parse(target: Target, value: Any, persona: dict[str, Any]) -> tuple[Any, str | None]:
     """`(the value as it will be applied, None)`, or `(None, why not)` in words she can act on."""
     if target.kind == SHARING:
         return (value, None) if isinstance(value, bool) else (None, f"{target.name} takes true or false.")
     if target.kind == PERSONA_MODEL:
         ids = [m.id for m in offered(model_mod.resolve_model(persona.get("model") or None))]
-        return (value, None) if isinstance(value, str) and value in ids else (None, "The model must be one of: " + ", ".join(ids) + ".")
+        if isinstance(value, str) and value in ids:
+            return value, None
+        said = _named(value, ids) if isinstance(value, str) else []
+        if len(said) == 1:  # "Gemini Pro" as the user said it, when exactly one id on the list fits
+            return said[0], None
+        return None, "The model must be one of: " + ", ".join(said or ids) + "."
     setting = target.registry_setting
     assert setting is not None
     if setting.kind == registry.TOGGLE:
