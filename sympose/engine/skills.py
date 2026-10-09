@@ -7,7 +7,9 @@ Where they live: the bundled ones in `sympose/skills/` (a persona carries those 
 tool the persona cannot use this turn (its `tools:` line) is not offered.
 
 `auto` is the way a skill is chosen for a message: the strict retriever over each skill's name and description (the
-reference library's way, docs/decisions/019), no extra model call, and no skill when nothing matches."""
+reference library's way, docs/decisions/019), no extra model call, and no skill when nothing matches. `ask` (a model
+that can call tools) lists the usable skills by name and description and lets the model call `use_skill(name)`, as many
+times as the message needs; a model without tools gets `auto`."""
 
 import logging
 import os
@@ -28,8 +30,8 @@ log = logging.getLogger(__name__)
 BUNDLED_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "skills")
 FILENAME = "SKILL.md"
 LOOKUP_SETTING = "skill_lookup"
-AUTO, OFF = "auto", "off"
-MODES = (AUTO, OFF)
+AUTO, ASK, OFF = "auto", "ask", "off"
+MODES = (AUTO, ASK, OFF)
 CAP_SETTING = "skill_cap"
 DEFAULT_CAP = 3000  # characters of a skill's body that join the prompt
 MIN_CAP = 500
@@ -142,21 +144,27 @@ def can_carry_out(skill: Skill, tools: frozenset[str]) -> bool:
     return set(skill.tools) <= tools
 
 
+def usable(persona: dict[str, Any], tools: frozenset[str], local: bool) -> list[Skill]:
+    """The skills this turn can offer: carried, carried out with the tools there are, and, for a model that is not local
+    (`local` false), only the bundled ones: a skill of the persona's own is the user's private text, the bundled skills
+    are public (docs/decisions/031)."""
+    return [s for s in carried(persona) if can_carry_out(s, tools) and (local or s.source == "bundled")]
+
+
 def select(persona: dict[str, Any], message: str, tools: frozenset[str], local: bool) -> Skill | None:
-    """The skill that best matches `message`, or `None`: skills are off, none is carried, none can be carried out, or
-    none shares enough with the message. A skill of the persona's own is the user's private text, so a model that is
-    not local (`local` false) is never given one: the bundled skills are public (docs/decisions/031)."""
-    if mode() != AUTO:
+    """The skill that best matches `message`, or `None`: skills are not in `auto`, none can be offered, or none shares
+    enough with the message."""
+    if mode() not in (AUTO, ASK):  # `ask` reaches here for a model that cannot call tools
         return None
-    usable = [s for s in carried(persona) if can_carry_out(s, tools) and (local or s.source == "bundled")]
-    if not usable:
+    offered = usable(persona, tools, local)
+    if not offered:
         return None
     notes = [
         {"rel_path": s.name, "file_name": s.name, "meta": {}, "body": f"# {s.name.replace('-', ' ')}\n\n{s.description}"}
-        for s in usable
+        for s in offered
     ]
     hits = retrieve(build_index(notes), message, 1, strict=True)
-    return next((s for s in usable if hits and s.name == hits[0]["rel_path"]), None)
+    return next((s for s in offered if hits and s.name == hits[0]["rel_path"]), None)
 
 
 def text_for(skill: Skill) -> str:
@@ -169,3 +177,8 @@ def text_for(skill: Skill) -> str:
             cut = cut.rsplit("\n", 1)[0]  # the cut fell inside a line: leave that line out
         body = f"{cut.rstrip()}\n{CUT_NOTE}"
     return f"Skill: {skill.name}\n{body}"
+
+
+def menu(offered: list[Skill]) -> str:
+    """The skills a model that chooses (`ask`) is told it can take up, one line each."""
+    return "\n".join(f"- {s.name}: {s.description}" for s in offered)

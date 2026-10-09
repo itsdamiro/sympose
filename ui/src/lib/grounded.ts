@@ -102,12 +102,13 @@ const isAct = (l: SentLookup) => l.tool in ACTS
 // so neither adds anything to the reply's footer.
 const SHOWN_ELSEWHERE = ["show_note", "propose_persona"]
 const calls = (sent: SentRecord | null | undefined) => (sent?.lookups ?? []).filter((l) => !SHOWN_ELSEWHERE.includes(l.tool))
-const searches = (sent: SentRecord | null | undefined) => calls(sent).filter((l) => !isRemember(l) && !isAct(l))
+const searches = (sent: SentRecord | null | undefined) => calls(sent).filter((l) => !isRemember(l) && !isAct(l) && l.tool !== "use_skill")
 const fellBack = (sent: SentRecord | null | undefined) => sent?.mode === "auto" || sent?.chats_mode === "auto"
 
 function lookupLine(l: SentLookup): string {
   if (isRemember(l)) return l.saved ? "remembered something" : "tried to remember something and could not save it"
   if (isAct(l)) return l.saved ? ACTS[l.tool] : `tried to ${l.tool === "comment_on" ? "comment" : "propose a " + (l.tool === "propose_note" ? "new note" : "change")} and could not place it`
+  if (l.tool === "use_skill") return l.found ? `followed the skill "${l.query}"` : `asked for a skill that does not exist ("${l.query ?? ""}")`
   return `${TOOL_LABELS[l.tool] ?? l.tool} "${l.query ?? l.path ?? l.id ?? ""}" (${l.found ?? 0} found)`
 }
 

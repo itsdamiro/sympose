@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from sympose import vault_paths
-from sympose.engine import chat_tools, edit_mode, edit_tools, edit_turn, lookup, lookup_tools, memory, memory_tools, past_chats, persona_proposal, setting_proposal, sharing, tool_support
+from sympose.engine import chat_tools, edit_mode, edit_tools, edit_turn, lookup, lookup_tools, memory, memory_tools, past_chats, persona_proposal, setting_proposal, sharing, skill_tools, skills, tool_support
 
 
 @dataclass(frozen=True)
@@ -20,6 +20,7 @@ class Modes:
     chats: bool = False  # `past_chats=ask` and the model can call tools: she searches earlier conversations (ADR 056)
     chose_chats: bool = False  # `past_chats=ask` was chosen, even if this model can't act on it
     edit: edit_turn.Edit | None = None  # she may propose changes to notes this turn (ADR 072); `None` when the caller did not ask
+    skills_ask: bool = False  # `skill_lookup=ask`, the persona carries skills and the model can call tools: she takes one up herself (ADR 077)
 
 
 def resolve(
@@ -34,7 +35,8 @@ def resolve(
     # Asking whether the model can call tools may cost a network probe, so only when a tool could be used.
     chose_chats = past_chats.chooses_ask()
     wants_edit = (edits or open_note is not None) and edit_mode.for_persona(persona) != edit_mode.PLAN
-    can_call_tools = (chose_ask or chose_chats or wants_edit or memory.remember_enabled()) and tool_support.can_call_tools(target_model)
+    chose_skills = skills.mode() == skills.ASK and bool(skills.carried(persona))
+    can_call_tools = (chose_ask or chose_chats or wants_edit or chose_skills or memory.remember_enabled()) and tool_support.can_call_tools(target_model)
     edit = edit_turn.resolve(
         persona, can_call_tools, open_note, sharing.OPEN_NOTE in sharing.allowed(target_model),
         persona.get("handle"), sharing.ANNOTATIONS in sharing.allowed(target_model), since, attached or (),
@@ -46,6 +48,7 @@ def resolve(
         chats=chose_chats and can_call_tools,
         chose_chats=chose_chats,
         edit=edit,
+        skills_ask=chose_skills and can_call_tools,
     )
 
 
@@ -54,21 +57,22 @@ _UNKNOWN_TOOL = "There is no tool called {name}."
 
 def for_turn(
     ask: bool, remember: bool, chats: bool = False, session_id: str | None = None, edit: edit_turn.Edit | None = None,
-    persona: dict[str, Any] | None = None, share_folders: bool = True,
+    persona: dict[str, Any] | None = None, share_folders: bool = True, offered: list[skills.Skill] | None = None,
 ) -> tuple[list[dict[str, Any]], Callable[..., Any]] | None:
     """`(tools, run)` for a turn that gets `ask`'s vault tools, `remember`'s memory tool, `chats`' tools for
-    earlier conversations (`session_id` is the one in progress, never searched), or any mix; `None` when none applies, so the caller knows the tool-calling loop does not need
+    earlier conversations (`session_id` is the one in progress, never searched), `offered`' skills to take up (ADR 077), or any mix; `None` when none applies, so the caller knows the tool-calling loop does not need
     to run at all this turn. `run` only ever reaches `lookup_tools` when `ask` is true: a vault
     tool must never run just because a model calls it by name -- a persona given only `remember`
     (`ask` off) must not be able to search or open notes by guessing `search_notes`/`open_note`."""
     giving_edit = edit is not None and edit.active and edit.tool
     giving_persona = giving_edit and edit.proposes and persona is not None and session_id is not None  # docs/decisions/078, 080
-    if not ask and not remember and not chats and not giving_edit:
+    if not ask and not remember and not chats and not giving_edit and not offered:
         return None
     tools = [
         *(lookup_tools.TOOLS if ask else []), *(memory_tools.TOOLS if remember else []),
         *(chat_tools.TOOLS if chats else []), *(_edit_tools(edit) if giving_edit else []),
         *([persona_proposal.tool(persona, share_folders), setting_proposal.tool()] if giving_persona else []),
+        *([skill_tools.tool(offered)] if offered else []),
     ]
 
     def run(persona: dict[str, Any], model: str, name: str, raw_arguments: Any) -> Any:
@@ -85,6 +89,10 @@ def for_turn(
             result = persona_proposal.run(persona["handle"], session_id, persona, name, raw_arguments, share_folders)
             if result is None:
                 result = setting_proposal.run(persona["handle"], session_id, persona, name, raw_arguments)
+            if result is not None:
+                return result
+        if offered:
+            result = skill_tools.run(offered, name, raw_arguments)
             if result is not None:
                 return result
         if chats and name in (chat_tools.SEARCH, chat_tools.OPEN):

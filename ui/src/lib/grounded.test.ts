@@ -62,6 +62,22 @@ describe("grounded notes", () => {
     expect(groundedChatsLine(2)).toBe("2 messages from earlier chats, quoted exactly")
   })
 
+  it("says which skill she took up, and that a skill is not a lookup", () => {
+    const sent = {
+      ...{ notes: [] },
+      mode: "ask",
+      lookups: [
+        { tool: "use_skill", query: "deriving-a-persona-soul", found: 1 },
+        { tool: "use_skill", query: "nope", found: 0 },
+      ],
+    }
+    expect(groundedLookups(sent)).toEqual([
+      "Looked nothing up for this message.",
+      'followed the skill "deriving-a-persona-soul"',
+      'asked for a skill that does not exist ("nope")',
+    ])
+  })
+
   it("names the exchanges in the summary, alone or beside notes", () => {
     expect(groundedSummary([], 2)).toBe("Based on 2 earlier messages")
     expect(groundedSummary([], 1)).toBe("Based on 1 earlier message")

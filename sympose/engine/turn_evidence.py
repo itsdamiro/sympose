@@ -3,7 +3,7 @@ the message, the recaps and earlier conversations, the vault map, the persona's 
 long conversation, each already limited to what the model may receive (docs/decisions/031). `gather` finds it all;
 `prompt_builder` closes over it so the fitting loop (docs/decisions/015) can build the prompt again with less."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from sympose import profile as profile_mod, vault_map as vault_map_mod
@@ -28,7 +28,8 @@ class Evidence:
     point_to: list[str]
     reference_found: int
     vault_found: int
-    skill: str | None = None  # the skill chosen for this message (docs/decisions/077), as the prompt carries it
+    skill: str | None = None  # the skill chosen for this message (docs/decisions/077), as the prompt carries it; in `ask`, the list she chooses from
+    offered: list[skills.Skill] = field(default_factory=list)  # `ask`: the skills she may take up with `use_skill`
 
 
 def interleave(first: list[dict[str, Any]], second: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -108,7 +109,10 @@ def gather(
     if mem.withheld:
         withheld[sharing.MEMORY] = 1
 
-    chosen = skills.select(persona, user_message, skills.tools_of(modes.ask, modes.edit is not None and modes.edit.active), sharing.is_local(target_model))
+    can_do = skills.tools_of(modes.ask, modes.edit is not None and modes.edit.active)
+    local = sharing.is_local(target_model)
+    offered = skills.usable(persona, can_do, local) if modes.skills_ask else []
+    chosen = None if modes.skills_ask else skills.select(persona, user_message, can_do, local)
     reference_found = sum(1 for h in gated.grounding if h.get("source") == reference.SOURCE)
     return Evidence(
         grounding=gated.grounding,
@@ -126,7 +130,8 @@ def gather(
         point_to=point_to,
         reference_found=reference_found,
         vault_found=len(gated.grounding) - reference_found,
-        skill=skills.text_for(chosen) if chosen else None,
+        skill=skills.menu(offered) if offered else skills.text_for(chosen) if chosen else None,
+        offered=offered,
     )
 
 
@@ -168,6 +173,7 @@ def prompt_builder(
             compaction=found.notes,
             chat_tools=modes.chats,
             skill=found.skill,
+            skill_menu=bool(found.offered),
             personas=bool(modes.edit and modes.edit.active and modes.edit.proposes),
         )
 
