@@ -4,7 +4,7 @@ aliases: ['Sam']
 sympose_reference: true
 
 # The bundled skills she carries (docs/decisions/077), by name; her own are in her `skills/` folder.
-skills: ['deriving-a-persona-soul']
+skills: ['deriving-a-persona-soul', 'drafting-a-note-in-a-folders-style']
 title: 'Polymath Strategic Master Orchestrator'
 
 # Her look: the name of her icon in the icon set the user chose, and her colour in light and dark.

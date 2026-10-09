@@ -225,13 +225,13 @@ def test_the_skill_sits_right_before_the_message():
     assert prompt.build_user_turn("hi", []).count("Skill") == 0
 
 
-def test_the_bundled_skills_are_valid_and_samantha_carries_the_measured_one():
+def test_the_bundled_skills_are_valid_and_samantha_carries_both():
     import yaml
 
     bundled_names = {s.name for s in skills._read(skills.BUNDLED_DIR, "bundled")}
     with open("profiles/samantha/persona.yaml", encoding="utf-8") as f:
         wanted = set(yaml.safe_load(f)["skills"])
 
-    # The drafting skill ships but is not carried until it is reliable (docs/decisions/077, amendment).
+    # Both were measured on gemma4:e4b and Gemini Flash (docs/decisions/077, amendments).
     assert bundled_names == {"deriving-a-persona-soul", "drafting-a-note-in-a-folders-style"}
-    assert wanted == {"deriving-a-persona-soul"}
+    assert wanted == bundled_names

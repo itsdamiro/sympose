@@ -212,7 +212,7 @@ The `skill_lookup` setting decides whether a persona follows a skill: `"auto"` (
 
 A skill is a folder with a `SKILL.md` that says what it does and the steps to follow. It is only text: nothing in it is ever run. Samantha carries the bundled ones named in her `persona.yaml`, and a persona also carries every skill in its own `skills/` folder in its profile.
 
-A skill that needs to propose a note is not used where the persona cannot propose notes: in the terminal, or when its `edit_mode` is `"plan"`.
+A skill that needs to propose a note is not used where the persona cannot propose notes: in the terminal, or when its `edit_mode` is `"plan"`. The skill that drafts a new note in a folder's style also needs a model that calls tools itself; a model that does not (the default local `gemma2:9b`) is not given it, and answers as it always did.
 
 ## skill_cap
 
