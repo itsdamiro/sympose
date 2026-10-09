@@ -13,7 +13,7 @@ How this project's decision records are named and written so that the owner's va
 
 - A concept is an idea you would write about; the vault has one note for it in `Concepts/`. A record's `concepts:` line names at least one.
 - **Names are sentence case, singular noun phrases:** `Session length`, `Pattern scan`. No ADR numbers, and none of `[ ] | # / : \`. Case does not matter when names are compared; spelling does.
-- Write the name exactly as the note is named. If the idea has no note yet, ask the owner to create it: concept notes are the owner's.
+- Write the name exactly as the note is named. If the idea has no note yet, propose one at `/handoff` (ADR 017): show the owner the whole draft, and on their yes it is written as `status: draft` by `scripts/vault_write.py new`. The owner links it from another note and sets `status: accepted` to keep it, or deletes it.
 - Renaming one: `docs/sop/rename-a-concept.md`. The old name goes under `aliases:` in the concept note, so records that still use it keep working.
 
 ## Tags
