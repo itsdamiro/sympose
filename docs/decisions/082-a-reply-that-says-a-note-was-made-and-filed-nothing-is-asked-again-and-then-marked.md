@@ -1,19 +1,19 @@
 ---
 type: decision
-status: proposed
+status: accepted
 date: 2026-10-12
 projects: [sympose]
 concepts: [Persona edits, Grounding]
 amends: [72, 77]
 supersedes: []
-tags: [type/decision, status/proposed, project/sympose, topic/small-models]
+tags: [type/decision, status/accepted, project/sympose, topic/small-models]
 ---
 
 # 082 — A reply that says a note was made when nothing was filed is asked again once, and then marked
 
 > **Summary.** A model that can call tools sometimes writes "I've drafted it for you" and never calls `propose_note` or `propose_edit`, so the user is told about a draft that does not exist. The engine now reads that claim from the reply and compares it with what the turn did. A turn with tools asks the model once more, privately, to file the note or to say it did not; a reply that still says it, or one from a model without tools, is followed by one line: "(Nothing was filed with this message.)".
 
-> **Status: Proposed.**
+> **Status: Accepted (damiro, 2026-10-12).**
 
 ## Context
 
