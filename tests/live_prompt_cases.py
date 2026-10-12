@@ -323,10 +323,13 @@ def setup_scratch() -> str:
     os.environ["SYMPOSE_PROFILES_DIR"] = os.path.join(tmp, "profiles")
     os.environ["SYMPOSE_SETTINGS_PATH"] = os.path.join(tmp, "settings.json")
     os.environ["VAULT_PATHS"] = FIXTURE_VAULT
-    if os.environ.get("LIVE_MODEL"):
+    if model := os.environ.get("LIVE_MODEL"):
         from sympose import settings_store
+        from sympose.engine import sharing
 
-        settings_store.set("chat_model", os.environ["LIVE_MODEL"])
+        # A cloud model gets only this invented vault: the approval is written to the scratch settings file alone.
+        if not (settings_store.set("chat_model", model) and settings_store.set("cloud_share", list(sharing.CATEGORIES))):
+            raise SystemExit(f"Could not write the scratch settings for LIVE_MODEL={model}")
     return tmp
 
 

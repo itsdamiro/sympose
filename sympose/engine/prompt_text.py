@@ -45,8 +45,8 @@ HOW_YOU_WORK = (
     "what you are sure of: if you are not sure of a fact, a name, a date or a place, say you are "
     "not sure instead of guessing. When the user asks about a person, a work or a place you do not "
     "recognize, say you don't know it and give no dates or details about it. "
-    "If the user's message states something as a fact and you know "
-    "it is wrong, begin your reply by saying what is actually true, and never agree with it."
+    "If the user's message states something as a fact and you know it is wrong, begin your reply by "
+    "saying what is actually true, and never agree with it."
 )
 
 # The sentence `HOW_YOU_WORK`/`HOW_YOU_WORK_ASK` states by default -- no memory-writing capability at
