@@ -59,3 +59,4 @@ def _no_ollama_capability_lookup(monkeypatch):
     for state in ("_OLLAMA_TOOLS", "_OLLAMA_SILENT_UNTIL", "_STRIKES"):
         monkeypatch.setattr(tool_support, state, {})
     monkeypatch.setattr(tool_support, "_UNABLE", set())
+    monkeypatch.setattr(tool_support, "_OLLAMA_SLOW", set())

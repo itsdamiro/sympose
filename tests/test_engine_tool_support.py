@@ -144,3 +144,94 @@ def test_an_answer_from_ollama_is_kept_for_the_process(monkeypatch):
     tool_support.can_call_tools(LOCAL)
 
     assert len(asked) == 1
+
+
+def test_a_timeout_from_ollama_is_asked_once_more_with_a_longer_limit(monkeypatch):
+    limits = []
+
+    def late_then_answers(request, timeout):
+        limits.append(timeout)
+        if len(limits) == 1:
+            raise TimeoutError("timed out")
+        return _Ok(json.dumps({"capabilities": ["tools"]}).encode())
+
+    monkeypatch.setattr(tool_support, "urlopen", late_then_answers)
+    monkeypatch.setattr(tool_support.litellm, "supports_function_calling", lambda model: False)  # the table lags
+
+    assert tool_support.can_call_tools(LOCAL) is True
+    assert limits == [tool_support._OLLAMA_TIMEOUT_SECONDS, tool_support._OLLAMA_SLOW_TIMEOUT_SECONDS]
+
+
+def test_an_ollama_that_is_late_twice_is_taken_to_have_tools_not_left_to_litellms_table(monkeypatch):
+    asked = []
+
+    def late(request, timeout):
+        asked.append(timeout)
+        raise TimeoutError("timed out")
+
+    monkeypatch.setattr(tool_support, "urlopen", late)
+    monkeypatch.setattr(tool_support.litellm, "supports_function_calling", lambda model: False)
+
+    assert tool_support.can_call_tools(LOCAL) is True
+    assert tool_support.can_call_tools(LOCAL) is True and len(asked) == 2  # the minute of silence still says yes
+
+
+def test_a_connect_timeout_wrapped_in_urlerror_counts_as_late(monkeypatch):
+    from urllib.error import URLError
+
+    def late(request, timeout):
+        raise URLError(TimeoutError("timed out"))
+
+    monkeypatch.setattr(tool_support, "urlopen", late)
+    monkeypatch.setattr(tool_support.litellm, "supports_function_calling", lambda model: False)
+
+    assert tool_support.can_call_tools(LOCAL) is True
+
+
+def test_a_late_ollama_is_asked_again_after_the_minute_and_its_answer_wins(monkeypatch):
+    answers = [TimeoutError("late"), TimeoutError("late"), ["completion"]]
+    now = [1000.0]
+
+    def ollama(request, timeout):
+        answer = answers.pop(0)
+        if isinstance(answer, Exception):
+            raise answer
+        return _Ok(json.dumps({"capabilities": answer}).encode())
+
+    monkeypatch.setattr(tool_support, "urlopen", ollama)
+    monkeypatch.setattr(tool_support.time, "monotonic", lambda: now[0])
+    monkeypatch.setattr(tool_support.litellm, "supports_function_calling", lambda model: True)
+
+    assert tool_support.can_call_tools(LOCAL) is True
+    now[0] += tool_support._OLLAMA_RETRY_SECONDS + 1
+    assert tool_support.can_call_tools(LOCAL) is False
+
+
+def test_a_refused_connection_is_not_retried_and_is_left_to_litellms_table(monkeypatch):
+    asked = []
+
+    def refused(request, timeout):
+        asked.append(timeout)
+        raise OSError("connection refused")
+
+    monkeypatch.setattr(tool_support, "urlopen", refused)
+    monkeypatch.setattr(tool_support.litellm, "supports_function_calling", lambda model: False)
+
+    assert tool_support.can_call_tools(LOCAL) is False and len(asked) == 1
+
+
+def test_a_late_ollama_that_then_refuses_is_no_longer_taken_to_have_tools(monkeypatch):
+    answers = [TimeoutError("late"), TimeoutError("late"), OSError("connection refused")]
+    now = [1000.0]
+
+    def ollama(request, timeout):
+        raise answers.pop(0)
+
+    monkeypatch.setattr(tool_support, "urlopen", ollama)
+    monkeypatch.setattr(tool_support.time, "monotonic", lambda: now[0])
+    monkeypatch.setattr(tool_support.litellm, "supports_function_calling", lambda model: False)
+
+    assert tool_support.can_call_tools(LOCAL) is True
+    now[0] += tool_support._OLLAMA_RETRY_SECONDS + 1
+    assert tool_support.can_call_tools(LOCAL) is False
+    assert tool_support.can_call_tools(LOCAL) is False  # nor within the minute of silence that follows
