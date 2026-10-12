@@ -131,13 +131,16 @@ def converse(
     call: Callable[..., model_mod.ModelReply] | None = None,
     tools: list[dict[str, Any]] | None = None,
     run_tool: Callable[..., Any] | None = None,
+    recheck: Callable[[str, list[dict[str, Any]]], str | None] | None = None,
 ) -> Conversed:
     """Run a tool-calling turn on `messages` (the fitted prompt, `used_tokens` of the window).
     `tools`/`run_tool` default to ADR 040's vault-only pair, but a caller composing more than one
     capability into one turn (`persona_tools.for_turn`, ADR 041) passes its own combined list and
     dispatcher -- this loop does not care which capability a tool call belongs to. Raises what
     `call_model` raises, except that a failure of the very first call is `ToolsRefused`. When the rounds are
-    used up the model is called once more with `tool_choice: none` and a line telling it to answer now."""
+    used up the model is called once more with `tool_choice: none` and a line telling it to answer now. `recheck`, when given,
+    is shown each reply that would end the turn (with the tool calls so far) and may answer with a line to ask the model
+    once more with: once per turn, the first reply and the line are never saved (docs/decisions/082)."""
     call = call or model_mod.call_model  # looked up now, so a test can stand in for the model
     tools = tools if tools is not None else lookup_tools.TOOLS
     run_tool = run_tool or lookup_tools.run
@@ -150,6 +153,7 @@ def converse(
     chats: list[dict[str, Any]] = []
     added = 0
     limit = rounds()
+    rechecked = False
     for round_number in range(limit + 1):
         last = round_number == limit
         turn_status.set_phase(handle, turn_status.ASKING)
@@ -167,6 +171,11 @@ def converse(
             if round_number == 0 and not isinstance(e, model_mod.ReplyLimitError):
                 raise ToolsRefused(str(e)) from e
             raise
+        if not reply.tool_calls and not last and recheck and not rechecked and reply.text and (again := recheck(reply.text, lookups)):
+            rechecked = True
+            work += [{"role": "assistant", "content": reply.text}, {"role": "user", "content": again}]
+            added += _tokens(reply.text + again, model)
+            continue
         if not reply.tool_calls or last:
             if not reply.text:
                 raise model_mod.EngineModelError(

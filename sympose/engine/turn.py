@@ -14,7 +14,7 @@ from typing import Any
 from sympose import note_changes
 from sympose import profile as profile_mod
 from sympose.engine import (
-    budget, compaction, confirmations, edit_tools, edit_turn, history_cap, lookup, memory, memory_tools, past_chats, persona_tools, reference, session, session_compaction, sharing, tool_support, turn_cancel, turn_evidence, turn_status,
+    budget, compaction, confirmations, edit_tools, edit_turn, history_cap, lookup, memory, memory_tools, past_chats, persona_tools, reference, session, session_compaction, sharing, tool_support, turn_cancel, turn_evidence, turn_status, unfiled,
 )
 from sympose.engine import model as model_mod
 from sympose.engine.model import EngineModelError
@@ -153,6 +153,7 @@ def _run(
         tool_list, run_tool = tools
         done = lookup.converse(
             persona, messages, target_model, limits, used_tokens=prompt_tokens, tools=tool_list, run_tool=run_tool,
+            recheck=unfiled.recheck(modes.edit) if modes.edit and modes.edit.active and modes.edit.tool else None,
         )
         reply, reply_ttft, lookups = done.reply, done.ttft_ms, done.lookups
         grounding_results = grounding_results + done.hits
@@ -189,6 +190,8 @@ def _run(
             handle, opened.path if opened else None, opened.text if opened else None, reply_text, persona,
         )
         lookups += edit_lookups
+    if modes.edit and modes.edit.active and unfiled.said_but_not_filed(reply_text, lookups):  # a draft that was said and not filed (docs/decisions/082)
+        reply_text = unfiled.correct(reply_text)
     if told:
         confirmations.mark_told(handle, told)  # she has now been told what the user decided (docs/decisions/078)
 

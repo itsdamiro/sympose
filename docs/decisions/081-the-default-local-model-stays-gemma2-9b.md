@@ -1,19 +1,19 @@
 ---
 type: decision
-status: proposed
+status: accepted
 date: 2026-10-10
 projects: [sympose]
 concepts: [Chat prompt, Grounding]
 amends: [12]
 supersedes: []
-tags: [type/decision, status/proposed, project/sympose, topic/small-models, topic/responsiveness]
+tags: [type/decision, status/accepted, project/sympose, topic/small-models, topic/responsiveness]
 ---
 
 # 081 — The default local model stays `gemma2:9b`; `gemma4:e4b` is measured and kept as the stronger, slower choice
 
 > **Summary.** `gemma4:e4b` was measured against `gemma2:9b` on the grounding, lookup and edit cases: it passes more of every set, but a turn takes about six times as long (30 seconds against 5) and it is 9.6 GB against 5.4 GB, so the default does not change. The measurement found one real failure, `gemma4:e4b` inventing a birth date for a person who does not exist (11 of 30 runs, `gemma2:9b` 0 of 30), fixed by one added sentence in the prompt (30 of 30). It costs nothing measurable on either model.
 
-> **Status: Proposed.** damiro leans toward keeping `gemma2:9b` (2026-10-10); this record becomes Accepted when he says so.
+> **Status: Accepted (damiro, 2026-10-12).**
 
 ## Context
 
