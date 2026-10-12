@@ -85,6 +85,7 @@ def _ollama_says_tools(model: str) -> bool | None:
         _OLLAMA_SILENT_UNTIL[model] = time.monotonic() + _OLLAMA_RETRY_SECONDS
         _OLLAMA_SLOW.discard(model)
         if slow:
+            log.warning("Ollama was too slow to say whether %s takes tools, twice: giving it tools for now", model)
             _OLLAMA_SLOW.add(model)
             return True
         return None

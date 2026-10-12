@@ -162,7 +162,7 @@ def test_a_timeout_from_ollama_is_asked_once_more_with_a_longer_limit(monkeypatc
     assert limits == [tool_support._OLLAMA_TIMEOUT_SECONDS, tool_support._OLLAMA_SLOW_TIMEOUT_SECONDS]
 
 
-def test_an_ollama_that_is_late_twice_is_taken_to_have_tools_not_left_to_litellms_table(monkeypatch):
+def test_an_ollama_that_is_late_twice_is_taken_to_have_tools_not_left_to_litellms_table(monkeypatch, caplog):
     asked = []
 
     def late(request, timeout):
@@ -174,6 +174,7 @@ def test_an_ollama_that_is_late_twice_is_taken_to_have_tools_not_left_to_litellm
 
     assert tool_support.can_call_tools(LOCAL) is True
     assert tool_support.can_call_tools(LOCAL) is True and len(asked) == 2  # the minute of silence still says yes
+    assert [r.levelname for r in caplog.records if "too slow" in r.message] == ["WARNING"]  # said once, not every turn
 
 
 def test_a_connect_timeout_wrapped_in_urlerror_counts_as_late(monkeypatch):

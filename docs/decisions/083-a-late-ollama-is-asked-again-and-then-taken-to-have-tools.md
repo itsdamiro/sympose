@@ -17,7 +17,7 @@ tags: [type/decision, status/accepted, project/sympose, topic/small-models]
 
 ## Context
 
-ADR 077 and ADR 082 each saw a first measurement run of `gemma4:e4b` give 0 of 12 with "I can't write notes" replies that did not repeat. The cause is in `tool_support._ollama_says_tools`: a `/api/show` that takes longer than two seconds (a model loading, another run in flight) raised, the failure was treated like "Ollama is not running", and `can_call_tools` fell to `litellm.supports_function_calling`, which is `False` for a model litellm does not list. The turn then ran in the marker path, which cannot draft notes (ADR 078), for a model that does take tools. Nothing was shown to the user.
+ADR 077 and ADR 082 each saw a first measurement run of `gemma4:e4b` give 0 of 12 with "I can't write notes" replies that did not repeat. The likely cause is in `tool_support._ollama_says_tools` (a timeout was not seen in those runs, so this is not proven): a `/api/show` that takes longer than two seconds (a model loading, another run in flight) raised, the failure was treated like "Ollama is not running", and `can_call_tools` fell to `litellm.supports_function_calling`, which is `False` for a model litellm does not list. The turn then ran in the marker path, which cannot draft notes (ADR 078), for a model that does take tools. Nothing was shown to the user.
 
 The two wrong answers are not equal. A wrong "yes" costs one failed call that the turn re-runs without tools and one strike (`note_refusal`, ADR 040); two in a row and the model is marked unable. A wrong "no" costs the feature, silently.
 
