@@ -520,6 +520,7 @@ def test_every_persona_is_told_to_say_when_unsure_and_to_correct_a_wrong_premise
 
         assert "if you are not sure of a fact, a name, a date or a place, say you are not sure instead of guessing" in text
         assert "begin your reply by saying what is actually true, and never agree with it" in text
+        assert "about a person, a work or a place you do not recognize, say you don't know it and give no dates or details about it" in text
 
 
 def test_a_withheld_category_does_not_hide_that_matching_notes_did_not_fit():

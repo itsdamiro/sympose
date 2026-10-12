@@ -7,7 +7,9 @@ Opt-in and not deterministic: it calls whatever model the engine resolves
 (`ollama_chat/gemma2:9b` by default), so it needs Ollama running, and every
 figure it prints is a fact about that model only. Run it with
 
-    python tests/live_prompt_cases.py [runs-per-case [case-id ...]]
+    [LIVE_MODEL=ollama_chat/gemma4:e4b] python tests/live_prompt_cases.py [runs-per-case [case-id ...]]
+
+`LIVE_MODEL` names the model for this run (it is written to the scratch settings as `chat_model`).
 
 The cases are the failures found reading a real conversation (a reply that
 ignored the notes it was given, a claim of being unable to search, a made-up
@@ -20,6 +22,7 @@ import re
 import shutil
 import sys
 import tempfile
+import time
 from dataclasses import dataclass
 
 from grounding_cases import FIXTURE_VAULT
@@ -320,6 +323,10 @@ def setup_scratch() -> str:
     os.environ["SYMPOSE_PROFILES_DIR"] = os.path.join(tmp, "profiles")
     os.environ["SYMPOSE_SETTINGS_PATH"] = os.path.join(tmp, "settings.json")
     os.environ["VAULT_PATHS"] = FIXTURE_VAULT
+    if os.environ.get("LIVE_MODEL"):
+        from sympose import settings_store
+
+        settings_store.set("chat_model", os.environ["LIVE_MODEL"])
     return tmp
 
 
@@ -363,9 +370,11 @@ def main(runs: int, only: list[str]) -> None:
     tmp = setup_scratch()
     try:
         for case in [c for c in LIVE_CASES if not only or c.id in only]:
+            started = time.perf_counter()
             results = [_run_or_error(case) for _ in range(runs)]
+            seconds = (time.perf_counter() - started) / (runs * len(case.messages))
             passed = sum(ok for ok, _ in results)
-            print(f"\n{case.id}: {passed}/{runs}   ({case.messages[-1]!r})", flush=True)
+            print(f"\n{case.id}: {passed}/{runs}  seconds/turn {seconds:.1f}   ({case.messages[-1]!r})", flush=True)
             for ok, reply in results:
                 print(f"   {'ok  ' if ok else 'FAIL'} {reply[:200]}", flush=True)
     finally:
