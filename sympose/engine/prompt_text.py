@@ -143,7 +143,8 @@ SYMPOSE_RULE = (
 # travels with the message, not in the system prompt, where the line about notes next to
 # the message outweighed it (measured, docs/decisions/022).
 POINT_TO_REFERENCE = (
-    "If the message is about Sympose itself (how it works, what it can do, what is built), you "
+    "If the message is about Sympose itself (how it works, what it can do, what is built, how to set it up, "
+    "adding or choosing vaults, its settings, which model it uses), you "
     "don't have its documentation: say so and suggest asking {names}, who has it. Don't guess."
 )
 

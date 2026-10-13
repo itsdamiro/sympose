@@ -352,6 +352,12 @@ def test_a_persona_without_it_is_told_with_the_message_which_persona_has_it(isol
     assert "Sympose's own documentation" not in messages[0]["content"]  # not in the system prompt
 
 
+def test_the_pointer_names_setting_up_vaults_and_models_as_sympose_questions_not_obsidian_ones():
+    # `gemma4:e4b` read "how do I add a second vault?" as a question about Obsidian and said it could not help (6 of 9 without these words, 9 of 9 with)
+    for words in ("how to set it up", "adding or choosing vaults", "its settings", "which model it uses"):
+        assert words in prompt.POINT_TO_REFERENCE
+
+
 def test_with_no_persona_holding_the_library_nothing_is_said_about_it(isolated_profiles_dir):
     write_persona(isolated_profiles_dir, "ada", "name: Ada\n")
 

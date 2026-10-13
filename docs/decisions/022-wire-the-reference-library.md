@@ -67,6 +67,23 @@ The header shows a reference passage as `from Sympose reference/<note>.md`.
 - The insisting-user case (above), and any check on models other than `gemma2:9b`.
 - Whether a Sympose question should also suppress the vault's design notes about Sympose; today both appear, labelled, and the persona is told which to trust.
 
+## Amendment (2026-10-13): the pointer names setting up, vaults and models
+
+> **Status: Accepted (damiro, 2026-10-13).**
+
+`gemma4:e4b` asked "how do I add a second vault?" by a persona without the library said it could not help, or sent the user to Obsidian, and never named Samantha (0 of 6 runs; `gemma2:9b` 3 of 3). The pointer was in the message, after the line about no notes matching, and the question does not say "Sympose": the model took "vault" for Obsidian's.
+
+Measured on scratch data, four wordings of the pointer on both models, three questions that are about Sympose (a second vault, changing the model, where conversations are kept) and two that are not (the Journal folder, a general fact), 3 runs each (samples, direction and not a figure):
+
+| Pointer | `gemma4:e4b` points | `gemma2:9b` points | Points when it should not |
+|---|---|---|---|
+| as shipped | 6 of 9 | 9 of 9 | 0 of 12 |
+| the list of what counts as a Sympose question gains "how to set it up, adding or choosing vaults, its settings, which model it uses" | 9 of 9 | 9 of 9 | 0 of 12 |
+| the same, and "Sympose is the program you run in, not Obsidian" first | 9 of 9 | 9 of 9 | 0 of 12 |
+| the same, with the names first | 9 of 9 | 9 of 9 | 0 of 12 |
+
+**Decision.** The second row, the smallest change (`POINT_TO_REFERENCE` in `sympose/engine/prompt_text.py`); the longer wordings did not do better. The live case `another-persona-points-to-samantha` then passed 6 of 6 on `gemma4:e4b`. Only a persona without the library gets this line, so Samantha's turns are unchanged. A test pins the new words.
+
 ## Alternatives rejected
 
 - **The library on for every persona.** The maintainer's rule is that other personas point to Samantha; a persona-specific specialist should not answer for the product.
