@@ -236,3 +236,15 @@ def test_a_late_ollama_that_then_refuses_is_no_longer_taken_to_have_tools(monkey
     now[0] += tool_support._OLLAMA_RETRY_SECONDS + 1
     assert tool_support.can_call_tools(LOCAL) is False
     assert tool_support.can_call_tools(LOCAL) is False  # nor within the minute of silence that follows
+
+
+def test_a_strike_and_the_marking_are_each_said_once_in_the_log(monkeypatch, caplog):
+    monkeypatch.setattr(tool_support.litellm, "supports_function_calling", lambda model: True)
+
+    tool_support.note_refusal(CLOUD)
+    first = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
+    tool_support.note_refusal(CLOUD)
+    second = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"][len(first):]
+
+    assert first == [f"{CLOUD} failed with tools and worked without (strike 1 of 2)"]
+    assert second == [f"{CLOUD} failed with tools and worked without (strike 2 of 2)", f"{CLOUD} is not given tools again until Sympose restarts"]

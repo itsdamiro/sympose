@@ -110,7 +110,9 @@ def note_refusal(model: str) -> None:
     `STRIKES_TO_MARK` in a row it is not given tools again until the process restarts."""
     with _STRIKES_LOCK:
         _STRIKES[model] = _STRIKES.get(model, 0) + 1
-        unable = _STRIKES[model] >= STRIKES_TO_MARK
+        strikes = _STRIKES[model]
+        unable = strikes >= STRIKES_TO_MARK
+    log.warning("%s failed with tools and worked without (strike %d of %d)", model, strikes, STRIKES_TO_MARK)
     if unable:
         mark_unable(model)
 
@@ -122,5 +124,6 @@ def note_success(model: str) -> None:
 
 
 def mark_unable(model: str) -> None:
+    log.warning("%s is not given tools again until Sympose restarts", model)
     with _STRIKES_LOCK:
         _UNABLE.add(model)
