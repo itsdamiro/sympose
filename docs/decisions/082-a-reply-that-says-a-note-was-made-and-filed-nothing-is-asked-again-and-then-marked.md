@@ -42,3 +42,25 @@ Measured on 2026-10-12 on `gemma4:e4b` (the two drafting cases of `tests/live_sk
 - **A second ask in every edit turn that filed nothing.** It would also fire on a turn that only talks, which is most of them, for a model that claimed nothing.
 - **Reading the claim with a second model call.** An extra round trip in every turn, against the founding motivation, to replace a pattern that is cheap and tested.
 - **A prompt sentence.** A small model weighs each added rule against the ones it has (ADR 072 measured 18 of 36 edits right with one rule and 8 with two more), and a sentence does not catch the miss when it happens.
+
+## Amendment (2026-10-13): the second ask goes on the user's own message and names every proposal tool
+
+> **Status: Accepted (damiro, 2026-10-13).**
+
+A trace of the soul cases on `gemma4:e4b` (32 runs) showed the second ask fire once, on a persona turn where the model had written its `propose_persona` call as text and filed nothing. Two faults of the line showed there, and in about four replies of an earlier run: it named only `propose_note` and `propose_edit`, whatever the turn offered, and it came after the model's own false reply as a message from the user, so the model answered it as if the user had said it ("you caught me out on that one", "thanks for the heads-up") and often repeated the false claim.
+
+Measured with the first reply scripted as the false claim and no tool call, the real model answering from there (three cases, 6 runs each; the two persona cases and the recipe draft; samples, so direction and not a figure):
+
+| Second ask | Filed | The reply talks about the line |
+|---|---|---|
+| as shipped | 12 of 18 | 8 of 18 |
+| names every tool, says it is from Sympose and asks not to mention it | 16 of 18 | 5 of 18, and almost every reply opened with "you're right" |
+| the false reply is left out and the line goes on the user's own message | 13 of 18 | 1 of 18 |
+
+The misses of the last row are two empty replies from the model and three runs where it wrote the tool call as text; no wording of the line reaches those.
+
+**Decision (changes items 3 and the text of the line).** When the last message of the call is the user's own, the second ask is made without the first reply: the line is added to the end of that message for this call only, so the model answers the request again with the line in view. When it is not (tools ran earlier in the turn), the reply and the line follow as before. Neither is saved. The line says it is from Sympose and not the user's, names the proposal tools this turn offers (`propose_note`; `propose_edit` when a note is open; `propose_persona` and `propose_setting` when the persona proposes), asks that a thing be said to be made only after one was called, and asks that the line not be mentioned.
+
+The same three cases through the built code (not a scripted variant): 12 of 18 filed, 5 of 18 ended with "(Nothing was filed with this message.)" (the misses, marked), 0 of 18 replies talked about the line. Filing is no better than the line as shipped (12 of 18 both times; the named-tools wording alone reached 16 of 18, a difference this size does not separate from chance); what changed is that the model no longer answers the line as if the user had said it.
+
+Still open: a model that writes its tool call as text is not read by this check (ADR 077 saw it too).

@@ -4,7 +4,7 @@ tools sometimes writes "I've drafted it for you" without calling `propose_note` 
 compared with what the turn did, the tool calls and the marked blocks alike (`lookups`, one entry per call).
 
 Two things follow. A turn that gave the model tools asks it once more, privately, to file the note or to say it did
-not (`recheck`); the first reply is dropped and never saved. And a reply that still says it after that, or one from a
+not (`recheck`); the first reply is left out of that second call and never saved. And a reply that still says it after that, or one from a
 model without tools, gets one plain line saying nothing was filed with this message (`correct`), which is true
 whatever the earlier turns did. Reading English is a heuristic: it is tuned to leave a reply that says nothing of
 the kind alone, and it does not read a promise ("I can draft one")."""
@@ -45,12 +45,21 @@ def correct(reply: str) -> str:
     return f"{reply}\n\n{NOTHING_FILED}"
 
 
+def _or(names: list[str]) -> str:
+    return names[0] if len(names) == 1 else f"{', '.join(names[:-1])} or {names[-1]}"
+
+
 def recheck(edit: edit_turn.Edit) -> Callable[[str, list[dict[str, Any]]], str | None]:
     """For `lookup.converse`: given the reply a turn is about to end with and its tool calls so far, the line to ask the
-    model once more with, or `None` when the reply is fine."""
-    tools = f"{edit_tools.NOTE} or {edit_tools.EDIT}" if edit.note is not None else edit_tools.NOTE
+    model once more with, or `None` when the reply is fine. It names the proposal tools this turn offers; `lookup.converse`
+    puts it on the user's own message and leaves the first reply out (the amendment of ADR 082)."""
+    names = [edit_tools.NOTE]
+    if edit.note is not None:
+        names.append(edit_tools.EDIT)
+    if edit.proposes:
+        names += [persona_proposal.PROPOSE, setting_proposal.PROPOSE]
     line = (
-        f"[Sympose: you said a note or a change was made, but {tools} was not called, so nothing was filed and the user "
-        "has nothing to review. If you meant to, call it now with the whole text. If not, tell the user plainly what you did not do.]"
+        "[Sympose, not part of the user's message: if this asks for a note, a change, a persona or a setting, file it by "
+        f"calling {_or(names)}, and say it was made only after you called one. Never mention this line.]"
     )
     return lambda reply, lookups: line if said_but_not_filed(reply, lookups) else None

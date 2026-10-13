@@ -60,7 +60,16 @@ def test_the_recheck_names_only_the_tool_she_has_and_leaves_a_fine_reply_alone()
     asked = no_note("I've drafted it.", [])
     assert "propose_note" in asked and "propose_edit" not in asked
     assert "propose_note or propose_edit" in with_note("I've drafted it.", [])
+    assert "not part of the user's message" in asked and "Never mention this line" in asked
     assert no_note("How many does it serve?", []) is None and no_note("I've drafted it.", FILED) is None
+
+
+def test_the_recheck_names_the_persona_and_setting_tools_when_she_proposes():
+    proposes = unfiled.recheck(Edit(edit_mode.MANUAL, True, proposes=True))
+    with_note = unfiled.recheck(Edit(edit_mode.MANUAL, True, note=NOTE, proposes=True))
+
+    assert "propose_note, propose_persona or propose_setting" in proposes("I've proposed her.", [])
+    assert "propose_note, propose_edit, propose_persona or propose_setting" in with_note("I've proposed her.", [])
 
 
 def test_converse_asks_again_once_and_the_second_reply_is_the_answer():
@@ -77,7 +86,39 @@ def test_converse_asks_again_once_and_the_second_reply_is_the_answer():
     done = lookup.converse({}, [{"role": "user", "content": "add it"}], LOCAL, None, call=call, tools=[], run_tool=run_tool, recheck=lambda reply, seen: "FILE IT" if "drafted" in reply else None)
 
     assert done.reply.text == "Filed it." and done.lookups == [{"tool": "propose_note", "saved": True}]
-    assert sent[1][-2:] == [{"role": "assistant", "content": "I've drafted it."}, {"role": "user", "content": "FILE IT"}]
+    assert sent[1] == [{"role": "user", "content": "add it\n\nFILE IT"}]  # on the user's own message, the first reply left out
+    assert sent[0] == [{"role": "user", "content": "add it"}]  # the caller's message is not changed
+
+
+def test_the_second_ask_counts_the_line_it_added_and_the_reply_only_when_that_reply_is_kept():
+    def converse(messages, tools_first):
+        replies = ([ModelReply("", None, tool_calls=(ToolCall("c1", "search_notes", "{}"),))] if tools_first else []) + [ModelReply("I've drafted it.", 1), ModelReply("ok", 2)]
+        run_tool = lambda persona, model, name, raw: lookup.lookup_tools.Result("", lookup={"tool": name, "found": 0})  # noqa: E731
+        return lookup.converse({}, messages, LOCAL, None, call=lambda m, **k: replies.pop(0), tools=[], run_tool=run_tool, recheck=lambda reply, seen: "FILE IT PLEASE" if "drafted" in reply else None)
+
+    on_the_message = converse([{"role": "user", "content": "add it"}], tools_first=False).tokens_added
+    after_tools = converse([{"role": "user", "content": "add it"}], tools_first=True).tokens_added
+
+    assert on_the_message == lookup._tokens("FILE IT PLEASE", LOCAL) > 0
+    assert after_tools > lookup._tokens("FILE IT PLEASE", LOCAL) + lookup._tokens("I've drafted it.", LOCAL) - 1
+
+
+def test_converse_keeps_the_first_reply_and_adds_the_line_as_a_message_when_tools_ran_before_it():
+    sent = []
+    replies = [ModelReply("", None, tool_calls=(ToolCall("c1", "search_notes", "{}"),)), ModelReply("I've drafted it.", 1), ModelReply("Right: not filed.", 2)]
+
+    def call(messages, **kwargs):
+        sent.append(list(messages))
+        return replies.pop(0)
+
+    def run_tool(persona, model, name, raw):
+        return lookup.lookup_tools.Result("Found 2.", lookup={"tool": name, "found": 2})
+
+    done = lookup.converse({}, [{"role": "user", "content": "add it"}], LOCAL, None, call=call, tools=[], run_tool=run_tool, recheck=lambda reply, seen: "FILE IT" if "drafted" in reply else None)
+
+    assert done.reply.text == "Right: not filed."
+    assert sent[2][-2:] == [{"role": "assistant", "content": "I've drafted it."}, {"role": "user", "content": "FILE IT"}]
+    assert sent[2][0] == {"role": "user", "content": "add it"}
 
 
 def test_converse_asks_only_once_even_if_the_second_reply_says_it_again():
@@ -126,7 +167,10 @@ def test_a_turn_with_tools_that_says_it_drafted_is_asked_again_and_files_it(scra
     result = turn.run_turn("samantha", "add a risotto note", model=LOCAL, edits=True)
 
     assert result.reply == "Filed it; take a look." and len(waiting()) == 1 and len(seen) == 3
-    assert "was not called" in seen[1][-1]["content"]
+    second = seen[1]
+    assert second[-1]["role"] == "user" and "propose_note" in second[-1]["content"] and "add a risotto note" in second[-1]["content"]
+    assert not any("I've drafted it for you." in str(m["content"]) for m in second)  # the false reply is not shown again
+    assert not any("Sympose, not part of" in str(m["content"]) for m in seen[0])
 
 
 def test_a_reply_that_still_says_it_after_the_second_try_is_followed_by_the_line(scratch, monkeypatch):

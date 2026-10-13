@@ -52,6 +52,15 @@ _UNKNOWN_WINDOW_TOKENS = 12000
 _CUT = "\n[Cut: the rest did not fit the context window.]"
 
 
+def _asked_again(work: list[dict[str, Any]], reply_text: str, line: str) -> tuple[list[dict[str, Any]], str]:
+    """`work` for the second ask of ADR 082, and the text it added. On the user's own message the first reply is left out:
+    after a reply of its own, the line read as the user's rebuke and the model apologised for it (docs/decisions/082)."""
+    last = work[-1]
+    if last["role"] == "user" and isinstance(last["content"], str):
+        return [*work[:-1], {**last, "content": f"{last['content']}\n\n{line}"}], line
+    return [*work, {"role": "assistant", "content": reply_text}, {"role": "user", "content": line}], reply_text + line
+
+
 class ToolsRefused(model_mod.EngineModelError):
     """The very first call of an `ask` turn failed: most likely the model does not take tools although
     litellm's table says it does, and the turn is run again as `auto` (docs/decisions/040)."""
@@ -173,8 +182,8 @@ def converse(
             raise
         if not reply.tool_calls and not last and recheck and not rechecked and reply.text and (again := recheck(reply.text, lookups)):
             rechecked = True
-            work += [{"role": "assistant", "content": reply.text}, {"role": "user", "content": again}]
-            added += _tokens(reply.text + again, model)
+            work, counted = _asked_again(work, reply.text, again)
+            added += _tokens(counted, model)
             continue
         if not reply.tool_calls or last:
             if not reply.text:
