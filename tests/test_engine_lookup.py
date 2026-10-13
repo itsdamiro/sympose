@@ -8,7 +8,7 @@ import pytest
 
 from sympose import settings_store
 from sympose.engine import budget, lookup, lookup_tools, tool_support, turn_status
-from sympose.engine.model import EngineModelError, ModelReply
+from sympose.engine.model import EmptyReplyError, EngineModelError, ModelReply
 from sympose.engine.model_tools import ToolCall
 
 LOCAL = "ollama_chat/gemma2:9b"
@@ -221,6 +221,65 @@ def test_a_failing_model_call_is_not_swallowed():
 
     with pytest.raises(EngineModelError, match="no route"):
         lookup.converse(PERSONA, BASE, LOCAL, None, call=call)
+
+
+def failing_then(error, *replies):
+    """A model whose first call raises `error` and which then answers with `replies`."""
+    call = script(*replies)
+    inner = call
+
+    def wrapped(messages, **kwargs):
+        if not wrapped.sent:
+            wrapped.sent.append({"messages": list(messages), **kwargs})
+            raise error
+        return inner(messages, **kwargs)
+
+    wrapped.sent = inner.sent
+    return wrapped
+
+
+def test_an_empty_first_reply_is_asked_once_more_with_tools_and_is_not_a_refusal():
+    call = failing_then(EmptyReplyError("empty"), asks("search_notes", '{"query": "Atlas"}'), says("SQLite."))
+
+    done = lookup.converse(PERSONA, BASE, LOCAL, None, call=call)
+
+    assert done.reply.text == "SQLite." and len(done.lookups) == 1
+    assert len(call.sent) == 3 and all(sent["tools"] for sent in call.sent)
+    assert call.sent[1]["messages"] == call.sent[0]["messages"]
+
+
+def test_a_first_reply_empty_twice_is_a_refusal_of_tools():
+    def call(messages, **kwargs):
+        call.count += 1
+        raise EmptyReplyError("empty")
+
+    call.count = 0
+
+    with pytest.raises(lookup.ToolsRefused):
+        lookup.converse(PERSONA, BASE, LOCAL, None, call=call)
+    assert call.count == 2
+
+
+def test_a_first_call_that_fails_in_another_way_is_a_refusal_at_once():
+    call = failing_then(EngineModelError("no route"), says("never"))
+
+    with pytest.raises(lookup.ToolsRefused):
+        lookup.converse(PERSONA, BASE, LOCAL, None, call=call)
+    assert len(call.sent) == 1
+
+
+def test_an_empty_reply_after_a_tool_has_run_is_not_asked_again():
+    calls = []
+
+    def call(messages, **kwargs):
+        calls.append(1)
+        if len(calls) == 1:
+            return asks("search_notes", '{"query": "Atlas"}')
+        raise EmptyReplyError("empty")
+
+    with pytest.raises(EmptyReplyError):
+        lookup.converse(PERSONA, BASE, LOCAL, None, call=call)
+    assert len(calls) == 2
 
 
 def test_time_to_first_token_counts_the_rounds_the_user_waited_through(monkeypatch):

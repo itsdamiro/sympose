@@ -167,19 +167,23 @@ def converse(
         last = round_number == limit
         turn_status.set_phase(handle, turn_status.ASKING)
         before = time.perf_counter()
-        try:
-            reply = call(
-                [*work, {"role": "user", "content": _ANSWER_NOW}] if last else work,
-                model=model,
-                num_ctx=limits.num_ctx if limits else None,
-                max_tokens=limits.reply_cap if limits else None,
-                tools=tools,
-                tool_choice="none" if last else None,
-            )
-        except model_mod.EngineModelError as e:
-            if round_number == 0 and not isinstance(e, model_mod.ReplyLimitError):
-                raise ToolsRefused(str(e)) from e
-            raise
+        for attempt in (1, 2):
+            try:
+                reply = call(
+                    [*work, {"role": "user", "content": _ANSWER_NOW}] if last else work,
+                    model=model,
+                    num_ctx=limits.num_ctx if limits else None,
+                    max_tokens=limits.reply_cap if limits else None,
+                    tools=tools,
+                    tool_choice="none" if last else None,
+                )
+                break
+            except model_mod.EngineModelError as e:
+                if round_number == 0 and attempt == 1 and isinstance(e, model_mod.EmptyReplyError):
+                    continue  # a model that takes tools sometimes answers nothing at first: once more, with tools (docs/decisions/040)
+                if round_number == 0 and not isinstance(e, model_mod.ReplyLimitError):
+                    raise ToolsRefused(str(e)) from e
+                raise
         if not reply.tool_calls and not last and recheck and not rechecked and reply.text and (again := recheck(reply.text, lookups)):
             rechecked = True
             work, counted = _asked_again(work, reply.text, again)

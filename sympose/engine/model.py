@@ -63,6 +63,10 @@ class EngineModelError(Exception):
     traceback."""
 
 
+class EmptyReplyError(EngineModelError):
+    """The model finished with no text and no tool call."""
+
+
 class ReplyLimitError(EngineModelError):
     """The model used its whole reply limit without writing any answer (a
     reasoning model spends it thinking)."""
@@ -162,7 +166,7 @@ def call_model(
             "(a reasoning model can spend the whole limit thinking)."
         )
     if not content:
-        raise EngineModelError(f"Model '{target_model}' returned an empty reply.")
+        raise EmptyReplyError(f"Model '{target_model}' returned an empty reply.")
     if not finished:
         raise EngineModelError(
             f"The reply from '{target_model}' was cut off before it finished."
