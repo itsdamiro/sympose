@@ -115,6 +115,16 @@ def test_the_prompt_says_she_keeps_only_the_recaps_shown_and_has_her_own_memory_
     assert "no memory between conversations" not in text
 
 
+def test_the_prompt_says_she_does_not_learn_about_the_user_as_they_talk():
+    # `no-false-learning` (ADR 081): without it models said yes, "I keep track of you so we aren't starting from scratch".
+    text = prompt.build_system_prompt({"name": "Samantha"})
+
+    assert "You do not learn about the user as you talk" in text
+    assert "between conversations you keep only what the recaps and memory files hold" in text
+    assert "If they ask whether you are learning about them, say so plainly" in text
+    assert "You do not learn about the user as you talk" in prompt.build_system_prompt({"name": "Samantha"}, lookup=True)
+
+
 def test_the_prompt_says_to_refuse_a_request_to_remember_something_not_promise_it():
     # A real conversation had her say "Got it, I'll remember that" to a number, then have no
     # memory of it next session -- nothing writes to memory yet, so agreeing to is a false claim.

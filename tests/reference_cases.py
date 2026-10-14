@@ -439,6 +439,12 @@ REF_CASES: list[RefCase] = [
         first="How Samantha uses your notes.md",
     ),
     RefCase(
+        "unrelated-notes-said-to-her",  # a user talks to her as "you", not "she" (the live case `unrelated-notes-can-be-tuned`)
+        "you keep bringing up notes that have nothing to do with what I ask, can I fix that?",
+        find=("embedding_min_similarity",),
+        first="How Samantha uses your notes.md",
+    ),
+    RefCase(
         "back-to-keywords",
         "how do I make her search by words only again?",
         find=('"keywords"',),
