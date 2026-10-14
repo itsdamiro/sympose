@@ -38,11 +38,11 @@ The `default_persona` setting is the persona Sympose starts with. It is set by `
 
 ## context_window
 
-The `context_window` setting is the size in tokens of the conversation a local model is given. By default it follows the model's own window, up to 32768. A number you set is used as your own ceiling, and a value below 2048 is raised to 2048.
+The `context_window` setting is the size in tokens of the conversation a local model is given. By default it follows the model's own window, up to 32768. A number you set is used as your own ceiling, and a value below 2048 is raised to 2048. A persona can have its own `context_window` in its `persona.yaml`; that wins over this setting for that persona.
 
 ## reply_limit
 
-The `reply_limit` setting is the tokens kept back for the reply. By default a quarter of the window, up to 4096.
+The `reply_limit` setting is the tokens kept back for the reply. By default a quarter of the window, up to 4096. A persona can have its own `reply_limit` in its `persona.yaml`; that wins over this setting for that persona.
 
 ## history_tokens
 

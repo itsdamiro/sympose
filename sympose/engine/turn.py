@@ -119,7 +119,7 @@ def _run(
     ask, chose_ask, remember = modes.ask, modes.chose_ask, modes.remember
     # The prompt is sized to this model's window, not left to the runtime's
     # silent cut (docs/decisions/015); the follow-up rewrite shares that window.
-    limits = budget.budget_for(target_model)
+    limits = budget.budget_for(target_model, persona)
     found = turn_evidence.gather(persona, handle, sid, user_message, history, target_model, limits, modes, existing)
     grounding_results, recaps_found, chats_found, withheld = found.grounding, found.recaps, found.chats, found.withheld
     mem, notes = found.mem, found.notes
@@ -227,7 +227,7 @@ def _run(
     )
     context_used = prompt_tokens + _reply_tokens(reply_text, target_model) if limits else None
     if saved:  # a long conversation is condensed in the background, for the turns after this one (docs/decisions/055)
-        compaction.start_if_wanted(handle, sid, target_model, existing, context_used, limits.prompt_tokens if limits else None)
+        compaction.start_if_wanted(handle, sid, target_model, persona, existing, context_used, limits.prompt_tokens if limits else None)
     return TurnResult(
         reply=reply_text,
         session_id=sid,

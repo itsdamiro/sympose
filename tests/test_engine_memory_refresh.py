@@ -123,6 +123,13 @@ def test_it_asks_the_personas_own_model_in_its_window_with_a_short_reply_limit(a
     assert asked[0]["num_ctx"] == 8192 and asked[0]["max_tokens"] == 500
 
 
+def test_the_personas_own_window_is_the_one_asked_for(asked, profiles):
+    (profiles / "samantha" / "persona.yaml").write_text("name: Samantha\nvault_folders: '*'\ncontext_window: 4096\n")
+    _one_recap()
+    memory_refresh.propose("samantha")
+    assert asked[0]["num_ctx"] == 4096
+
+
 # -- propose(): parsing the reply ---------------------------------------------------
 
 

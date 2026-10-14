@@ -107,40 +107,40 @@ def test_a_cloud_model_gets_the_providers_window_and_ignores_the_setting(monkeyp
     settings_store.set("context_window", 2048)
     assert budget.window_for("gpt-x") == 128000
     assert budget.window_for("unknown-cloud-model") is None
-    assert budget.budget_for("unknown-cloud-model") is None
+    assert budget.budget_for("unknown-cloud-model", None) is None
 
 
 def test_the_local_budget_reserves_room_for_the_reply_and_caps_it(monkeypatch):
     native(monkeypatch, {"ollama_chat/m": 8192})
-    assert budget.budget_for("ollama_chat/m") == budget.Budget(
+    assert budget.budget_for("ollama_chat/m", None) == budget.Budget(
         prompt_tokens=6144, num_ctx=8192, reply_cap=2048  # a quarter of the window
     )
     settings_store.set("context_window", 2048)
-    assert budget.budget_for("ollama_chat/m") == budget.Budget(
+    assert budget.budget_for("ollama_chat/m", None) == budget.Budget(
         prompt_tokens=1536, num_ctx=2048, reply_cap=512
     )
 
 
 def test_the_reply_room_grows_with_the_window_up_to_a_ceiling(monkeypatch):
     native(monkeypatch, {"ollama_chat/big": 32768, "ollama_chat/huge": 131072})
-    assert budget.budget_for("ollama_chat/big").reply_cap == 4096  # not 8192
-    assert budget.budget_for("ollama_chat/huge").reply_cap == 4096  # capped window, same ceiling
+    assert budget.budget_for("ollama_chat/big", None).reply_cap == 4096  # not 8192
+    assert budget.budget_for("ollama_chat/huge", None).reply_cap == 4096  # capped window, same ceiling
 
 
 def test_a_users_reply_limit_is_used_but_never_more_than_half_the_window(monkeypatch):
     native(monkeypatch, {"ollama_chat/m": 8192})
     settings_store.set("reply_limit", 300)
-    assert budget.budget_for("ollama_chat/m").reply_cap == 300
-    assert budget.budget_for("ollama_chat/m").prompt_tokens == 8192 - 300
+    assert budget.budget_for("ollama_chat/m", None).reply_cap == 300
+    assert budget.budget_for("ollama_chat/m", None).prompt_tokens == 8192 - 300
     settings_store.set("reply_limit", 100000)
-    assert budget.budget_for("ollama_chat/m").reply_cap == 4096  # half of 8192
+    assert budget.budget_for("ollama_chat/m", None).reply_cap == 4096  # half of 8192
 
 
 @pytest.mark.parametrize("junk", ["500", True, None, 63, 0, -1, 2.5])
 def test_a_malformed_or_tiny_reply_limit_means_automatic(monkeypatch, junk):
     native(monkeypatch, {"ollama_chat/m": 8192})
     settings_store.set("reply_limit", junk)
-    assert budget.budget_for("ollama_chat/m").reply_cap == 2048
+    assert budget.budget_for("ollama_chat/m", None).reply_cap == 2048
 
 
 def test_the_bare_reply_setting_is_what_the_user_chose_or_none(monkeypatch):
@@ -155,13 +155,61 @@ def test_the_bare_reply_setting_is_what_the_user_chose_or_none(monkeypatch):
     assert budget.reply_setting() == 64
 
 
+# -- a persona's own window and reply limit (docs/decisions/015) -----------
+
+
+def test_a_personas_own_window_and_reply_limit_win_over_the_settings(monkeypatch):
+    native(monkeypatch, {"ollama_chat/m": 32768})
+    settings_store.set("context_window", 8192)
+    settings_store.set("reply_limit", 300)
+    own = {"context_window": 4096, "reply_limit": 500}
+    assert budget.budget_for("ollama_chat/m", own) == budget.Budget(prompt_tokens=3596, num_ctx=4096, reply_cap=500)
+    # another persona, or none, still gets the settings
+    assert budget.budget_for("ollama_chat/m", {}) == budget.Budget(prompt_tokens=7892, num_ctx=8192, reply_cap=300)
+    assert budget.budget_for("ollama_chat/m", None) == budget.budget_for("ollama_chat/m", {})
+
+
+def test_a_persona_can_set_one_of_the_two_and_leave_the_other_to_the_settings(monkeypatch):
+    native(monkeypatch, {"ollama_chat/m": 32768})
+    settings_store.set("reply_limit", 300)
+    only_window = budget.budget_for("ollama_chat/m", {"context_window": 4096})
+    assert (only_window.num_ctx, only_window.reply_cap) == (4096, 300)
+    settings_store.set("context_window", 8192)
+    only_reply = budget.budget_for("ollama_chat/m", {"reply_limit": 700})
+    assert (only_reply.num_ctx, only_reply.reply_cap) == (8192, 700)
+
+
+@pytest.mark.parametrize("junk", ["4096", True, None, 12.5, [4096], 0, -5])
+def test_a_malformed_persona_value_falls_back_to_the_setting_not_to_an_error(monkeypatch, junk):
+    native(monkeypatch, {"ollama_chat/m": 32768})
+    settings_store.set("context_window", 8192)
+    settings_store.set("reply_limit", 300)
+    got = budget.budget_for("ollama_chat/m", {"context_window": junk, "reply_limit": junk})
+    assert (got.num_ctx, got.reply_cap) == (8192, 300)
+
+
+def test_a_personas_values_are_held_to_the_same_limits_as_the_settings(monkeypatch):
+    native(monkeypatch, {"ollama_chat/m": 8192})
+    assert budget.window_for("ollama_chat/m", {"context_window": 1024}) == 2048  # raised, not read as automatic
+    assert budget.window_for("ollama_chat/m", {"context_window": 99999}) == 8192  # never past the model's own
+    assert budget.reply_reserve(8192, {"reply_limit": 100000}) == 4096  # half the window
+    assert budget.reply_reserve(8192, {"reply_limit": 63}) == 2048  # too small: automatic
+
+
+def test_a_personas_window_does_not_apply_to_a_cloud_model(monkeypatch):
+    native(monkeypatch, {"gpt-x": 128000})
+    got = budget.budget_for("gpt-x", {"context_window": 4096, "reply_limit": 500})
+    assert (got.num_ctx, got.reply_cap) == (None, None)
+    assert got.prompt_tokens == 128000 - 500  # the reply room is still taken out for every model
+
+
 def test_the_cloud_budget_sends_no_window_and_no_reply_cap_but_keeps_room_for_the_reply(monkeypatch):
     native(monkeypatch, {"gpt-x": 128000, "gpt-small": 8192})
-    assert budget.budget_for("gpt-x") == budget.Budget(
+    assert budget.budget_for("gpt-x", None) == budget.Budget(
         prompt_tokens=128000 - 4096, num_ctx=None, reply_cap=None
     )
     # Some providers share one window between input and output.
-    assert budget.budget_for("gpt-small").prompt_tokens == 8192 - 2048
+    assert budget.budget_for("gpt-small", None).prompt_tokens == 8192 - 2048
 
 
 def test_a_models_maximum_is_looked_up_once(monkeypatch):
@@ -372,4 +420,4 @@ def test_real_litellm_model_info_gives_windows_in_the_shape_the_budget_reads():
     assert isinstance(local, int) and 2048 <= local <= budget.AUTO_WINDOW_CEILING
     cloud = budget.window_for("gpt-4o")
     assert isinstance(cloud, int) and cloud > 8192
-    assert budget.budget_for("gpt-4o").num_ctx is None
+    assert budget.budget_for("gpt-4o", None).num_ctx is None

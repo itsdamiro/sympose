@@ -182,7 +182,14 @@ def test_a_second_background_generation_while_one_runs_is_refused(monkeypatch):
 def test_generation_asks_in_the_chats_window(asked, monkeypatch):
     monkeypatch.setattr(status_phrases.budget, "_native_max", lambda model: 8192)
     status_phrases.generate("samantha", model="ollama_chat/gemma2:9b")
-    assert asked[0]["num_ctx"] == status_phrases.budget.budget_for("ollama_chat/gemma2:9b").num_ctx
+    assert asked[0]["num_ctx"] == status_phrases.budget.budget_for("ollama_chat/gemma2:9b", None).num_ctx
+
+
+def test_the_personas_own_window_is_the_one_asked_for(asked, profiles, monkeypatch):
+    monkeypatch.setattr(status_phrases.budget, "_native_max", lambda model: 8192)
+    (profiles / "persona.yaml").write_text("name: Samantha\ncontext_window: 4096\n")
+    status_phrases.generate("samantha", model="ollama_chat/gemma2:9b")
+    assert asked[0]["num_ctx"] == 4096
     assert asked[0]["max_tokens"] == status_phrases._MAX_REPLY_TOKENS
 
 

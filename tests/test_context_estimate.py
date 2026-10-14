@@ -57,6 +57,15 @@ def test_the_budget_is_the_one_of_the_model_asked_about(handle):
     assert context_estimate.estimate(handle, "s1", _CLOUD)[1] == 95_904
 
 
+def test_a_personas_own_window_and_reply_limit_set_the_budget(tmp_path, monkeypatch):
+    base = tmp_path / "profiles"
+    write_persona(base, "ada", "name: Ada\nvault_folders: '*'\nsympose_reference: false\ncontext_window: 4096\nreply_limit: 500\n")
+    monkeypatch.setenv("SYMPOSE_PROFILES_DIR", str(base))
+    monkeypatch.setenv("SYMPOSE_SETTINGS_PATH", str(tmp_path / "settings.json"))
+    _talk("ada", "s1", ("hello", "hi there"))
+    assert context_estimate.estimate("ada", "s1", _LOCAL)[1] == 4096 - 500
+
+
 def test_there_is_nothing_to_count_without_a_session_or_a_reply(handle):
     assert context_estimate.estimate(handle, None, _LOCAL) is None
     assert context_estimate.estimate(handle, "no-such-session", _LOCAL) is None
@@ -115,5 +124,5 @@ def test_a_conversation_too_long_for_the_window_is_trimmed_like_a_real_turn_and_
 
 def test_instructions_that_alone_overflow_the_window_give_no_figure(handle, monkeypatch):
     _talk(handle, "s1", ("hello", "hi there"))
-    monkeypatch.setattr(context_estimate.budget, "budget_for", lambda model: budget.Budget(5, None, None))
+    monkeypatch.setattr(context_estimate.budget, "budget_for", lambda model, persona=None: budget.Budget(5, None, None))
     assert context_estimate.estimate(handle, "s1", _LOCAL) is None

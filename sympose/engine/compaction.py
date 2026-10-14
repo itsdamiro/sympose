@@ -122,7 +122,9 @@ def _clean(reply: model_mod.ModelReply) -> str:
     return text
 
 
-def _compact(handle: str, session_id: str, model: str, used: int | None, limit: int | None) -> Outcome:
+def _compact(
+    handle: str, session_id: str, model: str, persona: dict[str, Any] | None, used: int | None, limit: int | None
+) -> Outcome:
     """`used` and `limit` (the prompt in use, and its budget) plan an automatic compaction down to the low
     mark; without them everything but the newest `KEEP_TURNS` turns is folded, as `/compact` asks."""
     saved = session.load_session(handle, session_id)
@@ -132,7 +134,7 @@ def _compact(handle: str, session_id: str, model: str, used: int | None, limit: 
     tail = saved["turns"][done:]
     fold = len(tail) - KEEP_TURNS if used is None or limit is None else _fold_count(tail, used, limit, model)
     notes = session_compaction.notes(saved)
-    limits = budget.budget_for(model)
+    limits = budget.budget_for(model, persona)
     taken = _fit(notes, tail[: max(fold, 0)], model, limits) if fold > 0 else 0
     if taken == 0:
         return Outcome(NOTHING, done)
@@ -173,7 +175,13 @@ def wanted(saved: dict[str, Any] | None, used: int | None, limit: int | None) ->
 
 
 def start_if_wanted(
-    handle: str, session_id: str, model: str, saved: dict[str, Any] | None, used: int | None, limit: int | None
+    handle: str,
+    session_id: str,
+    model: str,
+    persona: dict[str, Any] | None,
+    saved: dict[str, Any] | None,
+    used: int | None,
+    limit: int | None,
 ) -> bool:
     """After a reply: start an automatic compaction in the background when one is wanted, and say so.
     Never waits and never raises (a failure is logged, and the next turns are sent as they would have been)."""
@@ -184,7 +192,7 @@ def start_if_wanted(
         return False
 
     def work() -> None:
-        outcome = _compact(handle, session_id, model, used, limit)
+        outcome = _compact(handle, session_id, model, persona, used, limit)
         if outcome.status in (DONE, NOTHING):
             _GAVE_UP.pop(key, None)
         else:
@@ -194,11 +202,11 @@ def start_if_wanted(
     return _JOBS.start(key, work)
 
 
-def compact_now(handle: str, session_id: str, model: str, wait: float = 300.0) -> Outcome:
+def compact_now(handle: str, session_id: str, model: str, persona: dict[str, Any] | None, wait: float = 300.0) -> Outcome:
     """`/compact`: fold everything but the newest turns now, and wait for it. `BUSY` when one is already
     running for this conversation (it is not run twice at once) or does not finish within `wait` seconds."""
     key, box = _key(handle, session_id), []
-    if not _JOBS.start(key, lambda: box.append(_compact(handle, session_id, model, None, None))):
+    if not _JOBS.start(key, lambda: box.append(_compact(handle, session_id, model, persona, None, None))):
         return Outcome(BUSY)
     if not _JOBS.wait(key, wait):
         return Outcome(BUSY)

@@ -131,7 +131,7 @@ def _ask(handle: str, model: str | None = None) -> tuple[str | None, str | None,
     recaps = recap.latest(handle, count=_READ_RECAPS)
     if not recaps:
         return None, None, SKIPPED  # nothing yet to synthesize a rewrite from
-    limits = budget.budget_for(model)
+    limits = budget.budget_for(model, persona)
     profile_now, context_now = memory.profile(handle), memory.context(handle)
     request = _request(profile_now, context_now, recaps)
     try:

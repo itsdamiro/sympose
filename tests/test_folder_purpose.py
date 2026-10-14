@@ -236,6 +236,16 @@ def test_a_local_model_gets_the_small_limit_and_a_cloud_model_room(scratch, fake
     assert made.calls[0]["max_tokens"] == 120 and made.calls[1]["max_tokens"] >= 1000 and made.calls[0]["num_ctx"]
 
 
+def test_the_personas_own_window_is_the_one_asked_for(scratch, fake, monkeypatch):
+    monkeypatch.setattr(fp.budget, "_native_max", lambda model: 8192)
+    people(scratch)
+    made = fake()
+
+    fp.propose({**ALL, "context_window": 4096}, "People", model="ollama_chat/gemma2:9b")
+
+    assert made.calls[0]["num_ctx"] == 4096
+
+
 def test_a_folder_that_cannot_have_a_definition_is_not_asked_about(scratch, fake):
     people(scratch)
     put(scratch, "Templates/Note template.md", "---\n---")

@@ -222,7 +222,7 @@ def test_a_cloud_model_gets_what_the_user_approved_and_the_turn_says_it_was_sent
 
 def test_the_tool_result_counts_in_the_context_the_meter_shows(tmp_path, monkeypatch):
     (tmp_path / "vault" / "Long.md").write_text("word " * 400)
-    monkeypatch.setattr(turn.budget, "budget_for", lambda model: turn.budget.Budget(9000, None, None))
+    monkeypatch.setattr(turn.budget, "budget_for", lambda model, persona=None: turn.budget.Budget(9000, None, None))
     model_that(monkeypatch, ModelReply("hi", 5))
     plain = turn.run_turn("samantha", "hello there", model=LOCAL).context_used
     settings_store.set("vault_lookup", "ask")
@@ -231,6 +231,19 @@ def test_the_tool_result_counts_in_the_context_the_meter_shows(tmp_path, monkeyp
     asked = turn.run_turn("samantha", "hello there", model=LOCAL).context_used
 
     assert asked - plain > 300  # the note the persona read now counts, which the conversation had not held
+
+
+def test_a_turn_is_sized_to_the_personas_own_window_and_reply_limit(tmp_path, monkeypatch):
+    write_persona(
+        tmp_path / "profiles", "samantha",
+        "name: Samantha\nvault_folders: '*'\nsympose_reference: false\ncontext_window: 4096\nreply_limit: 500\n",
+    )
+    monkeypatch.setattr(turn.budget, "_native_max", lambda model: 32768)
+    seen = model_that(monkeypatch, ModelReply("hi", 5))
+
+    turn.run_turn("samantha", "hello there", model=LOCAL)
+
+    assert (seen[0]["num_ctx"], seen[0]["max_tokens"]) == (4096, 500)
 
 
 def test_the_time_to_first_token_includes_the_rounds_before_the_reply(monkeypatch):

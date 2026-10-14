@@ -110,6 +110,13 @@ def test_it_asks_the_personas_own_model_in_its_window_with_a_short_reply_limit(a
     assert asked[0]["num_ctx"] == 8192 and asked[0]["max_tokens"] == 200
 
 
+def test_the_personas_own_window_is_the_one_asked_for(asked, profiles):
+    write_persona(profiles, "samantha", "name: Samantha\nvault_folders: '*'\ncontext_window: 4096\n")
+    talk(NEW)
+    recap_refresh.refresh("samantha", now=LATER)
+    assert asked[0]["num_ctx"] == 4096
+
+
 def test_a_model_chosen_for_the_run_is_asked_instead_of_the_personas_own(asked, profiles):
     write_persona(profiles, "ada", "name: Ada\nvault_folders: '*'\nmodel: 'ollama_chat/other:1b'\n")
     settings_store.set("cloud_share", ["recaps"])  # a cloud model writes recaps only once the user allows it (ADR 031)
@@ -153,7 +160,7 @@ def test_a_session_touched_in_the_last_half_hour_may_still_be_running_and_is_lef
 
 def test_a_very_long_session_is_recapped_from_its_last_forty_turns(asked, monkeypatch):
     say(NEW, *[(f"turn{i:03d} about Atlas", "ok") for i in range(50)])
-    monkeypatch.setattr(budget, "budget_for", lambda model: None)  # no window trimming: only the cap acts
+    monkeypatch.setattr(budget, "budget_for", lambda model, persona=None: None)  # no window trimming: only the cap acts
 
     recap_refresh.refresh("samantha", now=LATER)
 
@@ -397,7 +404,7 @@ def test_whitespace_in_a_recap_is_collapsed_to_single_spaces(asked):
 def test_only_the_newest_turns_that_fit_the_window_are_sent(asked, monkeypatch):
     say(NEW, *[(f"turn{i} " + "word " * 30, f"reply{i}") for i in range(6)])
     monkeypatch.setattr(budget, "count_tokens", lambda messages, model: sum(len(m["content"].split()) for m in messages))
-    monkeypatch.setattr(budget, "budget_for", lambda model: budget.Budget(prompt_tokens=200, num_ctx=1000, reply_cap=100))
+    monkeypatch.setattr(budget, "budget_for", lambda model, persona=None: budget.Budget(prompt_tokens=200, num_ctx=1000, reply_cap=100))
 
     recap_refresh.refresh("samantha", now=LATER)
 
@@ -407,7 +414,7 @@ def test_only_the_newest_turns_that_fit_the_window_are_sent(asked, monkeypatch):
 
 def test_when_not_even_one_turn_fits_the_model_is_not_asked(asked, monkeypatch):
     talk(NEW)
-    monkeypatch.setattr(budget, "budget_for", lambda model: budget.Budget(prompt_tokens=5, num_ctx=1000, reply_cap=100))
+    monkeypatch.setattr(budget, "budget_for", lambda model, persona=None: budget.Budget(prompt_tokens=5, num_ctx=1000, reply_cap=100))
 
     recap_refresh.refresh("samantha", now=LATER)
 
@@ -416,7 +423,7 @@ def test_when_not_even_one_turn_fits_the_model_is_not_asked(asked, monkeypatch):
 
 def test_a_model_with_no_known_window_is_sent_everything(asked, monkeypatch):
     talk(NEW, turns=4)
-    monkeypatch.setattr(budget, "budget_for", lambda model: None)
+    monkeypatch.setattr(budget, "budget_for", lambda model, persona=None: None)
 
     recap_refresh.refresh("samantha", now=LATER)
 

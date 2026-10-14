@@ -16,7 +16,7 @@ def estimate(handle: str, session_id: str | None, model: str) -> tuple[int, int]
     if session_id is None:
         return None
     persona = profile_mod.resolve_profile(handle)
-    limits = budget.budget_for(model)
+    limits = budget.budget_for(model, persona)
     if persona is None or limits is None:
         return None
     saved = session.load_session(handle, session_id)

@@ -8,7 +8,7 @@ runs:
 - an Ollama model, by default: its own maximum, capped at `AUTO_WINDOW_CEILING`;
 - an Ollama model, if the user set `context_window`: that value, kept across
   model changes, never above what the model supports. It is sent to Ollama as
-  `num_ctx`.
+  `num_ctx`. A persona's own `context_window` and `reply_limit` in its `persona.yaml` win over the settings.
 
 When the prompt does not fit, things are dropped in a fixed order: oldest
 whole turns, then the lowest-scoring grounding passages, and never the soul,
@@ -46,7 +46,7 @@ _MIN_CONTEXT_WINDOW = 2048
 # 4096); `reply_limit` lets a user choose.
 _MAX_AUTO_REPLY_TOKENS = 4096
 REPLY_SETTING = "reply_limit"
-_MIN_REPLY_LIMIT = 64
+MIN_REPLY_LIMIT = 64
 # `litellm.token_counter` under-counts real tokens by up to about 12 percent
 # on the measured local model (ADR 015); over-counting is the safe direction.
 _TOKEN_MARGIN = 1.15
@@ -85,15 +85,19 @@ def is_ollama(model: str) -> bool:
     return model.startswith(_OLLAMA_PREFIXES)
 
 
-def context_setting() -> int | None:
-    """The window the user chose on purpose, or `None` (automatic) when the
-    setting is missing or not a positive whole number."""
-    value = settings_store.get(CONTEXT_SETTING)
+def window_choice(value: Any) -> int | None:
+    """A window someone chose on purpose, or `None` (automatic) when it is not a positive whole number."""
     if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
         return None
     # A small number is a request for a small footprint, so it is raised to
     # the smallest usable window and not treated as automatic (the opposite).
     return max(value, _MIN_CONTEXT_WINDOW)
+
+
+def context_setting() -> int | None:
+    """The window the user chose on purpose for every persona, or `None` (automatic) when the
+    setting is missing or not a positive whole number."""
+    return window_choice(settings_store.get(CONTEXT_SETTING))
 
 
 def _native_max(model: str) -> int | None:
@@ -110,42 +114,52 @@ def _native_max(model: str) -> int | None:
     return None
 
 
-def window_for(model: str) -> int | None:
+def window_for(model: str, persona: dict[str, Any] | None = None) -> int | None:
     """The window this model gets, or `None` when none is known (then no
-    size trimming happens)."""
+    size trimming happens). A persona's own `context_window` (docs/decisions/015) wins over the setting."""
     native = _native_max(model)
     if not is_ollama(model):
         return native
-    chosen = context_setting()
+    chosen = window_choice((persona or {}).get(CONTEXT_SETTING))
+    if chosen is None:
+        chosen = context_setting()
     if chosen is not None:  # the user's own ceiling, kept across model changes
         return min(chosen, native) if native else chosen
     return min(native, AUTO_WINDOW_CEILING) if native else UNKNOWN_MODEL_WINDOW
 
 
+def reply_choice(value: Any) -> int | None:
+    """A reply room someone chose on purpose, or `None` (automatic) when it is not a whole number of at
+    least 64 (a bool is 0 or 1: too small)."""
+    return value if isinstance(value, int) and value >= MIN_REPLY_LIMIT else None
+
+
 def reply_setting() -> int | None:
-    """The reply room the user chose on purpose, or `None` (automatic) when the setting is missing or
-    not a whole number of at least 64 (a bool is 0 or 1: too small)."""
-    value = settings_store.get(REPLY_SETTING)
-    return value if isinstance(value, int) and value >= _MIN_REPLY_LIMIT else None
+    """The reply room the user chose on purpose for every persona, or `None` (automatic)."""
+    return reply_choice(settings_store.get(REPLY_SETTING))
 
 
-def reply_reserve(window: int) -> int:
-    """Tokens kept for the reply: the user's `reply_limit` (never more than
+def reply_reserve(window: int, persona: dict[str, Any] | None = None) -> int:
+    """Tokens kept for the reply: a persona's own `reply_limit`, else the user's (never more than
     half the window), else a quarter of the window up to a fixed ceiling."""
-    chosen = reply_setting()
+    chosen = reply_choice((persona or {}).get(REPLY_SETTING))
+    if chosen is None:
+        chosen = reply_setting()
     if chosen is not None:
         return min(chosen, window // 2)
     return min(_MAX_AUTO_REPLY_TOKENS, window // 4)
 
 
-def budget_for(model: str) -> Budget | None:
-    window = window_for(model)
+def budget_for(model: str, persona: dict[str, Any] | None) -> Budget | None:
+    """The room a turn of `persona` (its profile; `None` for the settings alone) has on `model`. `persona` is
+    required: a caller that forgot it would silently size the prompt to the wrong window."""
+    window = window_for(model, persona)
     if window is None:
         return None
     # Room for the reply comes out of the window for every model, since some
     # providers share one window between input and output; only a local
     # model's reply is also capped to it.
-    reserve = reply_reserve(window)
+    reserve = reply_reserve(window, persona)
     if not is_ollama(model):
         return Budget(prompt_tokens=window - reserve, num_ctx=None, reply_cap=None)
     return Budget(prompt_tokens=window - reserve, num_ctx=window, reply_cap=reserve)

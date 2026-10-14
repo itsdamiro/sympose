@@ -107,7 +107,7 @@ def refresh(handle: str, model: str | None = None, now: datetime | None = None) 
         return
     if sharing.RECAPS not in sharing.allowed(model):
         return  # the user's messages would go to a cloud model that they have not approved for recaps (ADR 031)
-    limits = budget.budget_for(model)
+    limits = budget.budget_for(model, persona)
     now = now or datetime.now(timezone.utc)
     worth_a_recap = 0
     for session_id in session.session_ids(handle)[:_SCAN]:

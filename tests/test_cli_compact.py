@@ -107,7 +107,7 @@ def test_compact_is_listed_among_the_commands():
 def _compact(monkeypatch, outcome, with_session=True, notes_on_file: str | None = None):
     calls = []
 
-    def fake(handle, session_id, model, wait=300.0):
+    def fake(handle, session_id, model, persona, wait=300.0):
         calls.append((handle, session_id, model))
         return outcome
 

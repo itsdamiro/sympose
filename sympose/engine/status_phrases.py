@@ -84,7 +84,7 @@ def generate(handle: str, model: str | None = None) -> bool:
     soul = load_soul(handle) or prompt.DEFAULT_SOUL
     model = model or model_mod.resolve_model(persona.get("model"))
     try:
-        limits = budget.budget_for(model)  # the chat's own window, so a local model is not reloaded for this call
+        limits = budget.budget_for(model, persona)  # the chat's own window, so a local model is not reloaded for this call
         reply = model_mod.call_model(
             _request(soul),
             model=model,

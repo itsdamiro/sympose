@@ -2,11 +2,12 @@
 when the call goes wrong, and the whole path through `run_turn`."""
 
 import threading
+from pathlib import Path
 
 import pytest
 from helpers import write_persona
 
-from sympose import settings_store
+from sympose import profile, settings_store
 from sympose.engine import budget, compaction, followup, session, session_compaction, turn
 from sympose.engine.model import EngineModelError, ModelReply, ReplyLimitError
 from sympose.engine.compaction_text import NOTES_LABEL
@@ -64,7 +65,7 @@ def _loaded(sid="s1"):
 
 def test_a_request_folds_everything_but_the_newest_turns(sessions_root, asked):
     sid = _session(10)
-    outcome = compaction.compact_now("samantha", sid, CLOUD)
+    outcome = compaction.compact_now("samantha", sid, CLOUD, None)
     assert outcome.status == compaction.DONE and outcome.covered == 10 - compaction.KEEP_TURNS
     assert session_compaction.covered(_loaded()) == 7
     assert session_compaction.notes(_loaded()) == outcome.text
@@ -72,7 +73,7 @@ def test_a_request_folds_everything_but_the_newest_turns(sessions_root, asked):
 
 def test_the_model_is_given_the_users_words_and_never_the_personas_replies(sessions_root, asked):
     sid = _session(6, reply="I have saved your birthday, March 3rd")
-    compaction.compact_now("samantha", sid, CLOUD)
+    compaction.compact_now("samantha", sid, CLOUD, None)
     body = asked[0]["messages"][1]["content"]
     assert "User: question 0" in body and "March" not in body and "saved" not in body
     assert asked[0]["messages"][0]["content"] == compaction.INSTRUCTIONS
@@ -80,11 +81,11 @@ def test_the_model_is_given_the_users_words_and_never_the_personas_replies(sessi
 
 def test_a_second_compaction_starts_from_the_notes_and_covers_more(sessions_root, asked):
     sid = _session(8)
-    compaction.compact_now("samantha", sid, CLOUD)
+    compaction.compact_now("samantha", sid, CLOUD, None)
     for i in range(8, 14):
         session.append_turn("samantha", sid, f"question {i}", f"answer {i}")
     asked.reply = ModelReply("Updated: Pantry, and what came after.", 5)
-    outcome = compaction.compact_now("samantha", sid, CLOUD)
+    outcome = compaction.compact_now("samantha", sid, CLOUD, None)
     body = asked[1]["messages"][1]["content"]
     assert "Notes so far:\nThe user is building a recipe site called Pantry." in body
     assert "User: question 5" in body and "User: question 0" not in body  # only what the notes did not cover
@@ -94,12 +95,12 @@ def test_a_second_compaction_starts_from_the_notes_and_covers_more(sessions_root
 
 def test_too_few_turns_are_not_folded(sessions_root, asked):
     sid = _session(compaction.KEEP_TURNS)
-    assert compaction.compact_now("samantha", sid, CLOUD).status == compaction.NOTHING
+    assert compaction.compact_now("samantha", sid, CLOUD, None).status == compaction.NOTHING
     assert asked == []
 
 
 def test_a_session_that_does_not_exist_has_nothing_to_fold(sessions_root, asked):
-    assert compaction.compact_now("samantha", "nope", CLOUD).status == compaction.NOTHING
+    assert compaction.compact_now("samantha", "nope", CLOUD, None).status == compaction.NOTHING
     assert asked == []
 
 
@@ -110,28 +111,28 @@ def test_a_session_that_does_not_exist_has_nothing_to_fold(sessions_root, asked)
 def test_a_failed_call_writes_nothing(sessions_root, asked, failure):
     sid = _session(8)
     asked.reply = failure
-    assert compaction.compact_now("samantha", sid, CLOUD).status == compaction.FAILED
+    assert compaction.compact_now("samantha", sid, CLOUD, None).status == compaction.FAILED
     assert _loaded()["compaction"] is None
 
 
 def test_an_empty_reply_writes_nothing(sessions_root, asked):
     sid = _session(8)
     asked.reply = ModelReply("  \n ", 5)
-    assert compaction.compact_now("samantha", sid, CLOUD).status == compaction.FAILED
+    assert compaction.compact_now("samantha", sid, CLOUD, None).status == compaction.FAILED
     assert _loaded()["compaction"] is None
 
 
 def test_a_reply_cut_at_the_limit_keeps_its_last_whole_sentence(sessions_root, asked):
     sid = _session(8)
     asked.reply = ModelReply("The user plans a site. They chose SQLite. They are unsure about hos", 5, truncated=True)
-    compaction.compact_now("samantha", sid, CLOUD)
+    compaction.compact_now("samantha", sid, CLOUD, None)
     assert session_compaction.notes(_loaded()) == "The user plans a site. They chose SQLite."
 
 
 def test_notes_no_shorter_than_what_they_replace_are_not_kept(sessions_root, asked):
     sid = _session(8, user="hi", reply="ok")
     asked.reply = ModelReply("The user said hi. " * 30, 5)
-    assert compaction.compact_now("samantha", sid, CLOUD).status == compaction.TOO_SMALL
+    assert compaction.compact_now("samantha", sid, CLOUD, None).status == compaction.TOO_SMALL
     assert _loaded()["compaction"] is None
 
 
@@ -139,9 +140,16 @@ def test_what_the_request_cannot_hold_waits_for_the_next_compaction(sessions_roo
     settings_store.set("context_window", 2048)
     sid = _session(10, user="word " * 200)
     model = "ollama_chat/test"
-    outcome = compaction.compact_now("samantha", sid, model)
+    outcome = compaction.compact_now("samantha", sid, model, None)
     assert outcome.status == compaction.DONE and 0 < outcome.covered < 10 - compaction.KEEP_TURNS
-    assert budget.count_tokens(asked[0]["messages"], model) <= budget.budget_for(model).prompt_tokens
+    assert budget.count_tokens(asked[0]["messages"], model) <= budget.budget_for(model, None).prompt_tokens
+
+
+def test_the_personas_own_window_is_the_one_asked_for(sessions_root, asked):
+    write_persona(Path(sessions_root), "samantha", "name: Samantha\nvault_folders: '*'\nsympose_reference: false\ncontext_window: 3072\n")
+    sid = _session(10)
+    compaction.compact_now("samantha", sid, "ollama_chat/test", profile.resolve_profile("samantha"))
+    assert asked[0]["num_ctx"] == 3072
 
 
 def test_a_second_request_while_one_runs_is_told_it_is_busy(sessions_root, asked, monkeypatch):
@@ -154,10 +162,10 @@ def test_a_second_request_while_one_runs_is_told_it_is_busy(sessions_root, asked
         return ModelReply("notes about Pantry", 5)
 
     monkeypatch.setattr(compaction.model_mod, "call_model", slow)
-    first = threading.Thread(target=compaction.compact_now, args=("samantha", sid, CLOUD))
+    first = threading.Thread(target=compaction.compact_now, args=("samantha", sid, CLOUD, None))
     first.start()
     assert entered.wait(5)
-    assert compaction.compact_now("samantha", sid, CLOUD).status == compaction.BUSY
+    assert compaction.compact_now("samantha", sid, CLOUD, None).status == compaction.BUSY
     release.set()
     first.join(5)
     assert session_compaction.notes(_loaded()) == "notes about Pantry"
@@ -241,7 +249,7 @@ def _finish(sid="s1"):
 def test_it_is_off_when_the_setting_says_so(sessions_root, asked):
     settings_store.set(compaction.SETTING, False)
     sid = _session(8)
-    assert not compaction.start_if_wanted("samantha", sid, CLOUD, _loaded(), 900, 1000)
+    assert not compaction.start_if_wanted("samantha", sid, CLOUD, None, _loaded(), 900, 1000)
     assert asked == []
 
 
@@ -249,7 +257,7 @@ def test_it_runs_in_the_background_and_folds_down_to_the_low_mark(sessions_root,
     settings_store.set(compaction.SETTING, True)
     monkeypatch.setattr(compaction, "_turn_tokens", lambda turn, model: 100)
     sid = _session(12)
-    assert compaction.start_if_wanted("samantha", sid, CLOUD, _loaded(), 900, 1000)
+    assert compaction.start_if_wanted("samantha", sid, CLOUD, None, _loaded(), 900, 1000)
     _finish()
     assert session_compaction.covered(_loaded()) == 8
 
@@ -258,15 +266,15 @@ def test_an_attempt_that_wrote_nothing_is_not_repeated_every_turn(sessions_root,
     settings_store.set(compaction.SETTING, True)
     sid = _session(8)
     asked.reply = EngineModelError("down")
-    assert compaction.start_if_wanted("samantha", sid, CLOUD, _loaded(), 900, 1000)
+    assert compaction.start_if_wanted("samantha", sid, CLOUD, None, _loaded(), 900, 1000)
     _finish()
     assert len(asked) == 1
     session.append_turn("samantha", sid, "one more", "ok")
-    assert not compaction.start_if_wanted("samantha", sid, CLOUD, _loaded(), 900, 1000)  # too soon after the failure
+    assert not compaction.start_if_wanted("samantha", sid, CLOUD, None, _loaded(), 900, 1000)  # too soon after the failure
     for i in range(compaction._RETRY_AFTER_TURNS):
         session.append_turn("samantha", sid, f"more {i}", "ok")
     asked.reply = ModelReply("The user is building Pantry.", 5)
-    assert compaction.start_if_wanted("samantha", sid, CLOUD, _loaded(), 900, 1000)
+    assert compaction.start_if_wanted("samantha", sid, CLOUD, None, _loaded(), 900, 1000)
     _finish()
     assert session_compaction.notes(_loaded()) == "The user is building Pantry."
 

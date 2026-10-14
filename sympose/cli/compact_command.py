@@ -5,6 +5,7 @@ loop's default pool, which `/quit` waits on."""
 
 import concurrent.futures
 
+from sympose import profile
 from sympose.cli import meter, meter_estimate, off_thread, transcript as transcript_mod
 from sympose.cli.options import active_model
 from sympose.engine import compaction, session, session_compaction
@@ -26,7 +27,7 @@ async def run(app) -> None:
         return
     handle, model = app.persona.handle, active_model(app.persona, app.model_override).id
     transcript_mod.mount_line(app, "Summarising the earlier messages...", "system")
-    outcome = await off_thread.run(_EXECUTOR, compaction.compact_now, handle, session_id, model)
+    outcome = await off_thread.run(_EXECUTOR, compaction.compact_now, handle, session_id, model, profile.resolve_profile(handle))
     if off_thread.quitting(app):
         return
     if outcome.status == compaction.DONE:

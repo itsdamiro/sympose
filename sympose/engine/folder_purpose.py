@@ -109,7 +109,7 @@ def propose(profile: dict[str, Any], folder: str, model: str | None = None) -> P
     if sharing.NOTES not in sharing.allowed(model):
         return Proposal(base, WITHHELD)  # the titles would go to a cloud model the user has not approved for notes (ADR 031)
     messages = request(folder, titles_in(notes, folder), subfolders_of(notes, folder))
-    limits = budget.budget_for(model)
+    limits = budget.budget_for(model, profile)
     try:
         reply = model_mod.call_model(
             messages, model=model, num_ctx=limits.num_ctx if limits else None, max_tokens=helper_limit.for_model(model, _MAX_TOKENS)

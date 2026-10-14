@@ -80,7 +80,7 @@ def compact_session(body: ChatCompact) -> dict[str, Any]:
         found = None
     if found is None:
         raise HTTPException(status_code=404, detail="That conversation is no longer there. Start a new one.")
-    outcome = compaction.compact_now(handle, body.session_id, model_mod.resolve_model(profile.get("model")))
+    outcome = compaction.compact_now(handle, body.session_id, model_mod.resolve_model(profile.get("model")), profile)
     # `text` is always the notes in force afterwards (the new ones on `done`, else any that already stood).
     text = outcome.text or session_compaction.notes(session.load_session(handle, body.session_id)) or ""
     return {
