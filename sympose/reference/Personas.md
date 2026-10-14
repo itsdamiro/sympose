@@ -28,7 +28,7 @@ vault_folders: ['Writing']
 model: 'ollama_chat/gemma2:9b'
 ```
 
-The `model` line is optional.
+The `model` line is optional. So are `context_window` and `reply_limit`, the persona's own window and reply room for a local model: each wins over the setting of the same name for that persona (a persona on a small local model and one on a cloud model want different values). A value that is not a usable number is ignored, the setting applies instead, and `sympose doctor` names it.
 
 ## How do I give a persona its own icon and colour?
 

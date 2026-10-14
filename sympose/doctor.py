@@ -137,6 +137,27 @@ def check_persona_vault_folders() -> list[Finding]:
     return findings
 
 
+def check_persona_limits() -> list[Finding]:
+    """A persona's own `context_window` or `reply_limit` that is not a usable number: it is ignored, and the settings apply."""
+    from sympose.engine import budget  # imported here: it brings in litellm, a few seconds
+
+    findings: list[Finding] = []
+    for persona in profile.list_profiles():
+        for key, usable, rule in (
+            (budget.CONTEXT_SETTING, budget.window_choice, "a whole number above 0"),
+            (budget.REPLY_SETTING, budget.reply_choice, f"a whole number of at least {budget.MIN_REPLY_LIMIT}"),
+        ):
+            value = persona.get(key)
+            if value is not None and usable(value) is None:
+                findings.append(
+                    Finding(
+                        f"the persona {persona['handle']!r} has {key}: {value!r} in its persona.yaml, which is not {rule}, "
+                        f"so your settings are used instead"
+                    )
+                )
+    return findings
+
+
 def check_embedding_model() -> list[Finding]:
     from sympose import doctor_models  # imported here: it brings in litellm, a few seconds
 
@@ -149,6 +170,7 @@ CHECKS: list[Callable[[], list[Finding]]] = [
     check_persona_folders,
     check_settings,
     check_persona_vault_folders,
+    check_persona_limits,
     check_embedding_model,
 ]
 

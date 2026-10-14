@@ -413,3 +413,25 @@ def test_a_folder_written_as_one_string_instead_of_a_list_is_checked_as_a_whole_
 
     assert code == 1
     assert out.count("which is not in") == 1 and "the persona 'anais' lists the folder 'Note'" in out
+
+
+# -- a persona's own window and reply limit that cannot be used (ADR 015) ---------------------------------------
+
+
+def test_a_persona_window_or_reply_limit_that_is_not_a_number_is_named(base):
+    write_persona(base, "grace", "name: Grace\ncontext_window: lots\nreply_limit: 10\n")
+
+    code, out = _run()
+
+    assert code == 1
+    assert "the persona 'grace' has context_window: 'lots'" in out and "a whole number above 0" in out
+    assert "the persona 'grace' has reply_limit: 10" in out and "at least 64" in out
+
+
+def test_a_persona_window_and_reply_limit_that_are_numbers_or_missing_are_not_reported(base):
+    write_persona(base, "grace", "name: Grace\ncontext_window: 4096\nreply_limit: 500\n")
+    write_persona(base, "anais", "name: Anais\n")
+
+    code, out = _run()
+
+    assert code == 0 and "context_window" not in out and "reply_limit" not in out
