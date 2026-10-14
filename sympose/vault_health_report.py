@@ -37,6 +37,9 @@ def render(scope: Scope, results: list[tuple[Check, list[Finding]]]) -> list[str
             lines += [f"{check.heading} ({len(findings)})", *body, ""]
     problems = problem_count(results)
     lines.append(f"{problems} problem(s) found." if problems else "Nothing wrong found.")
+    fixes = sum(1 for _, findings in results for f in findings if f.repair)
+    if fixes:
+        lines.append(f"{fixes} can be repaired one at a time: `sympose vault --fix` asks before each change.")
     return lines + [LIMITS]
 
 

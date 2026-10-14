@@ -2,7 +2,7 @@
 
 ## How do I check my notes for problems?
 
-Run `sympose vault --health`, or choose Notes check in the web app's Settings. It reads your notes and reports what it finds, grouped by folder: empty notes, links to no note, titles that are not the file name, and files that are not notes. It only reads: it never changes a note and never calls a model.
+Run `sympose vault --health`, or choose Notes check in the web app's Settings. It reads your notes and reports what it finds, grouped by folder: empty notes, links to no note, titles that are not the file name, and files that are not notes. It only reads: it never changes a note and never calls a model. `sympose vault --fix` is the command that repairs some of what it finds.
 
 `--persona` followed by a handle reads what that persona can read. Without it, the default persona is used.
 
@@ -20,6 +20,10 @@ A note with no text and no properties, so nothing but its file name. A note that
 
 A wikilink, like [[Some note]], that names a note that does not exist, often left behind by a rename or a move. Links written as Markdown links, like [text](Note.md), are not checked, and an example link inside a code block is read like any other.
 
+## What does a folder that no longer matches mean?
+
+A wikilink written with a folder, like [[Archive/Idea]], where no note is at that path any more because the note moved, though one note still has that name. Obsidian reads the folder as a path and does not find it. `sympose vault --fix` can point it at the folder the note is in now. If several notes have the name, nothing is offered.
+
 ## What is a title that is not the file name?
 
 A note whose `title` or `name` property says something other than its file name, ignoring case and spacing. Sympose treats the two as one thing, and the title as the right one.
@@ -34,7 +38,19 @@ Clutter is listed after the problems and is not one. It only tells you the files
 
 ## Does the health check fix anything?
 
-No. It only reports and does not change your notes.
+No. `sympose vault --health` only reports and does not change your notes.
+
+## How do I fix what the check finds?
+
+Run `sympose vault --fix` in a terminal. It offers each repair one at a time, shows what would change, and makes it only when you answer yes. `q` stops, and anything else leaves the note as it is. It never changes anything in bulk.
+
+## Which repairs does the fix make?
+
+Three: renaming a note to its title (the links to it are updated), pointing a link at the folder its note moved to, and adding a folder's icon to its definition. The vault is read again after every answer.
+
+## When does the fix leave a title alone?
+
+When another note is already called by the title, when another note shares the note's own file name, or when the title holds a character a file name or a link cannot. A plain link to a name several notes share could reach a different note after a rename, so those stay in the report. Empty notes are never deleted.
 
 ## What is a folder definition?
 

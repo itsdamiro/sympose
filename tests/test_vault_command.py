@@ -194,59 +194,212 @@ def answers(*replies):
     return ask
 
 
-def test_health_offers_an_icon_for_a_definition_with_none_and_writes_it_only_on_a_yes(scratch):
+def read(vault, rel):
+    return open(os.path.join(vault, rel), encoding="utf-8").read()
+
+
+def titled(vault, rel="Notes/old name.md", title="Better name"):
+    put(vault, rel, f"---\ntitle: {title}\n---\nWords.")
+
+
+# --- --fix (ADR 084) ------------------------------------------------------------------------
+def test_health_never_asks_and_never_writes_and_says_where_the_fixes_are(scratch, monkeypatch):
     movies(scratch)
-    before = open(os.path.join(scratch, "Movies/Movies.md"), encoding="utf-8").read()
-    code, text = run(vault_command.health, ask=answers("n"))
-    assert code == 0  # an offer is not a problem
-    assert "Folder definitions with no icon (1)" in text and "icon: film-roll" in text and "Left as it is." in text
-    assert open(os.path.join(scratch, "Movies/Movies.md"), encoding="utf-8").read() == before
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True, raising=False)
+    monkeypatch.setattr("builtins.input", lambda prompt="": pytest.fail("asked"))
+    before = read(scratch, "Movies/Movies.md")
 
-    code, text = run(vault_command.health, ask=answers("y"))
-    assert "Added to Movies/Movies.md." in text
-    now = open(os.path.join(scratch, "Movies/Movies.md"), encoding="utf-8").read()
+    code, text = run(vault_command.health)
+
+    assert code == 0 and "Movies/Movies.md: has no icon" in text and "`sympose vault --fix`" in text
+    assert read(scratch, "Movies/Movies.md") == before
+
+
+def test_fix_adds_an_icon_only_on_a_yes(scratch):
+    movies(scratch)
+    before = read(scratch, "Movies/Movies.md")
+    code, text = run(vault_command.fix, ask=answers("n"))
+    assert code == 0 and "icon: film-roll" in text and "Left as it is." in text and "0 changed, 1 left as they are." in text
+    assert read(scratch, "Movies/Movies.md") == before
+
+    code, text = run(vault_command.fix, ask=answers("y"))
+    now = read(scratch, "Movies/Movies.md")
+    assert "Added to Movies/Movies.md." in text and "1 changed, 0 left" in text
     assert "icon: film-roll\n" in now and now.endswith("Films.\n") and "type: folder" in now
-    assert "Folder definitions with no icon" not in run(vault_command.health, ask=answers())[1]
+    assert "Folder definitions with no icon" not in run(vault_command.health)[1]
 
 
-def test_health_asks_about_each_folder_on_its_own_and_never_in_bulk(scratch):
+def test_fix_asks_about_each_repair_on_its_own_and_never_in_bulk(scratch):
     movies(scratch)
     put(scratch, "People/People.md", "---\ntype: folder\n---\nPeople.\n")
     ask = answers("y", "n")
-    run(vault_command.health, ask=ask)
+
+    run(vault_command.fix, ask=ask)
+
     assert len(ask.prompts) == 2
-    assert "icon:" in open(os.path.join(scratch, "Movies/Movies.md"), encoding="utf-8").read()
-    assert "icon:" not in open(os.path.join(scratch, "People/People.md"), encoding="utf-8").read()
+    assert "icon:" in read(scratch, "Movies/Movies.md") and "icon:" not in read(scratch, "People/People.md")
 
 
-def test_health_without_a_terminal_asks_nothing_and_changes_nothing(scratch):
+def test_q_stops_the_walk_and_an_end_of_input_stops_it_too(scratch):
     movies(scratch)
-    code, text = run(vault_command.health)  # stdin is not a terminal under pytest
-    assert "Folder definitions with no icon (1)" in text
-    assert "icon:" not in open(os.path.join(scratch, "Movies/Movies.md"), encoding="utf-8").read()
-
-
-def test_an_end_of_input_while_asked_stops_the_offers_without_writing(scratch):
-    movies(scratch)
+    put(scratch, "People/People.md", "---\ntype: folder\n---\nPeople.\n")
+    ask = answers("q")
+    run(vault_command.fix, ask=ask)
+    assert len(ask.prompts) == 1 and "icon:" not in read(scratch, "Movies/Movies.md") + read(scratch, "People/People.md")
 
     def eof(prompt):
         raise EOFError
 
-    run(vault_command.health, ask=eof)
-    assert "icon:" not in open(os.path.join(scratch, "Movies/Movies.md"), encoding="utf-8").read()
+    code, _ = run(vault_command.fix, ask=eof)
+    assert code == 0 and "icon:" not in read(scratch, "Movies/Movies.md")
 
 
-def test_health_does_not_prompt_when_its_output_is_not_a_terminal(scratch, monkeypatch):
-    """`sympose vault --health | less` or `> file` must not block on a prompt nobody can see."""
+def test_fix_without_a_terminal_asks_nothing_and_changes_nothing(scratch):
+    movies(scratch)
+    code, text = run(vault_command.fix)  # stdin is not a terminal under pytest
+    assert code == 1 and "needs a terminal" in text and "icon:" not in read(scratch, "Movies/Movies.md")
+
+
+def test_fix_does_not_prompt_when_its_output_is_not_a_terminal(scratch, monkeypatch):
     movies(scratch)
     monkeypatch.setattr("sys.stdin.isatty", lambda: True, raising=False)
-    asked = []
-    monkeypatch.setattr("builtins.input", lambda prompt="": asked.append(prompt) or "y")
-    run(vault_command.health)  # `out` is a StringIO, so not a terminal
-    assert asked == []
-    assert "icon:" not in open(os.path.join(scratch, "Movies/Movies.md"), encoding="utf-8").read()
+    monkeypatch.setattr("builtins.input", lambda prompt="": pytest.fail("asked"))
+    assert run(vault_command.fix)[0] == 1  # `out` is a StringIO, so not a terminal
 
 
-def test_the_report_names_the_note_an_offer_is_about(scratch):
-    movies(scratch)
-    assert "Movies/Movies.md: has no icon" in run(vault_command.health)[1]
+def test_a_title_rename_is_shown_and_made_only_on_a_yes_and_the_links_follow(scratch):
+    titled(scratch)
+    put(scratch, "Other/Linker.md", "See [[old name]] and [[Notes/old name|the note]].")
+    code, text = run(vault_command.fix, ask=answers("n"))
+    assert "Rename Notes/old name.md to Better name.md" in text and os.path.exists(os.path.join(scratch, "Notes/old name.md"))
+
+    code, text = run(vault_command.fix, ask=answers("y"))
+
+    assert code == 0 and "1 changed" in text
+    assert not os.path.exists(os.path.join(scratch, "Notes/old name.md")) and os.path.exists(os.path.join(scratch, "Notes/Better name.md"))
+    assert read(scratch, "Other/Linker.md") == "See [[Better name]] and [[Notes/Better name|the note]]."
+    assert "Titles that are not the file name" not in run(vault_command.health)[1]
+
+
+def test_a_title_that_cannot_be_a_name_or_is_taken_gets_no_offer_and_is_counted(scratch):
+    titled(scratch, "A/colon.md", '"Why: this"')
+    titled(scratch, "A/hash.md", '"Part #2"')
+    put(scratch, "A/Taken.md", "Words.")
+    titled(scratch, "A/third.md", "taken")  # differs from `Taken` only in case, and `Taken.md` is another note
+    ask = answers()
+
+    code, text = run(vault_command.fix, ask=ask)
+
+    assert code == 0 and ask.prompts == [] and "3 more findings have no repair here." in text
+
+
+def test_a_stale_folder_link_is_pointed_at_the_folder_its_note_moved_to(scratch):
+    put(scratch, "Ideas/Idea.md", "The idea.")
+    put(scratch, "Log/Day.md", "Read [[Projects/Idea#Start|it]], then [[Projects/Idea]] and ![[Projects/Idea]] again.\n")
+    code, text = run(vault_command.health)
+    assert code == 1 and "Links with a folder that no longer matches (1)" in text
+
+    code, text = run(vault_command.fix, ask=answers("y"))
+
+    assert "[[Projects/Idea]] becomes [[Ideas/Idea]]" in text and "Changed 3 links in Log/Day.md." in text
+    assert read(scratch, "Log/Day.md") == "Read [[Ideas/Idea#Start|it]], then [[Ideas/Idea]] and ![[Ideas/Idea]] again.\n"
+    assert run(vault_command.health)[0] == 0
+
+
+def test_a_link_whose_name_several_notes_have_is_never_guessed(scratch):
+    put(scratch, "A/Idea.md", "one")
+    put(scratch, "B/Idea.md", "two")
+    put(scratch, "Log/Day.md", "[[Projects/Idea]]")
+    ask = answers()
+
+    code, text = run(vault_command.fix, ask=ask)
+
+    assert ask.prompts == [] and "1 more findings have no repair here." in text
+    assert "2 notes have that name" in run(vault_command.health)[1]
+    assert read(scratch, "Log/Day.md") == "[[Projects/Idea]]"
+
+
+def test_a_repair_whose_note_changed_after_the_scan_is_refused_and_not_offered_again(scratch):
+    put(scratch, "Ideas/Idea.md", "The idea.")
+    put(scratch, "Log/Day.md", "[[Projects/Idea]]")
+
+    def edit_then_yes(prompt):
+        put(scratch, "Log/Day.md", "no link here now")
+        return "y"
+
+    code, text = run(vault_command.fix, ask=edit_then_yes)
+
+    assert code == 1 and "not in the note any more" in text and "0 changed" in text
+
+
+def test_a_rename_onto_a_name_taken_meanwhile_is_refused(scratch):
+    titled(scratch)
+
+    def take_the_name_then_yes(prompt):
+        put(scratch, "Notes/Better name.md", "someone else's")
+        return "y"
+
+    code, text = run(vault_command.fix, ask=take_the_name_then_yes)
+
+    assert code == 1 and "exists already, so nothing was changed" in text and "__note" not in text
+    assert read(scratch, "Notes/old name.md").endswith("Words.") and read(scratch, "Notes/Better name.md") == "someone else's"
+
+
+def test_fix_runs_through_the_launcher_and_excludes_the_other_options(scratch, capsys):
+    assert launcher.main(["vault", "--fix"]) == 1  # no terminal under pytest
+    assert "needs a terminal" in capsys.readouterr().out
+    with pytest.raises(SystemExit) as stop:
+        launcher.main(["vault", "--fix", "--health"])
+    assert stop.value.code == 2
+
+
+@pytest.mark.parametrize("answer", ["", "maybe", "nope"])
+def test_anything_but_a_yes_leaves_a_repair_alone(scratch, answer):
+    titled(scratch)
+
+    run(vault_command.fix, ask=answers(answer))
+
+    assert os.path.exists(os.path.join(scratch, "Notes/old name.md"))
+
+
+@pytest.mark.parametrize("title", ["Ends with a dot.", "x" * 300])
+def test_a_title_a_file_cannot_have_gets_no_repair(scratch, title):
+    titled(scratch, "A/note.md", title)
+    ask = answers()
+
+    run(vault_command.fix, ask=ask)
+
+    assert ask.prompts == []
+
+
+def test_a_rename_made_by_fix_moves_the_personas_pending_changes_with_it(scratch, monkeypatch):
+    from sympose import note_changes
+
+    moved = []
+    monkeypatch.setattr(note_changes, "rename_everywhere", lambda old, new: moved.append((old, new)))
+    titled(scratch)
+
+    run(vault_command.fix, ask=answers("y"))
+
+    assert moved == [("Notes/old name.md", "Notes/Better name.md")]
+
+
+def test_a_note_whose_name_another_note_shares_is_not_renamed(scratch):
+    titled(scratch, "A/Dup.md", "Better name")
+    put(scratch, "B/Dup.md", "The other one.")
+    put(scratch, "L.md", "[[Dup]]")
+    ask = answers()
+
+    code, text = run(vault_command.fix, ask=ask)
+
+    assert ask.prompts == [] and "1 more findings have no repair here." in text and os.path.exists(os.path.join(scratch, "A/Dup.md"))
+
+
+def test_a_title_another_note_already_has_as_its_name_is_not_taken_by_a_rename(scratch):
+    titled(scratch, "A/one.md", "Better name")
+    put(scratch, "B/Better name.md", "Mine.")
+    ask = answers()
+
+    run(vault_command.fix, ask=ask)
+
+    assert ask.prompts == []

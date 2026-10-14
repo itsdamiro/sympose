@@ -6,6 +6,7 @@ in `CHECKS`. Nothing here writes, renames or deletes a note, and no check calls 
 import os
 import re
 import shlex
+from collections import Counter
 from dataclasses import dataclass
 from datetime import date
 from typing import Any, Callable
@@ -13,7 +14,7 @@ from typing import Any, Callable
 from sympose import folder_definitions as defs
 from sympose import folder_definitions_write as write_defs
 from sympose import folder_looks
-from sympose import vault_graph, vault_health_moves, vault_paths
+from sympose import vault_fixes, vault_graph, vault_health_links, vault_health_moves, vault_paths
 from sympose.vault_defaults import ATTACHMENT_EXTENSIONS, IGNORE_FOLDERS, NOTE_EXTENSIONS
 from sympose.vault_snapshot import get_vault_snapshot
 
@@ -30,6 +31,7 @@ class Finding:
     note: str  # the note's path in the vault (the folder's name for an offer)
     message: str
     fix: tuple[str, ...] = ()  # the property lines the offered fix would add to `note`; empty when there is no fix
+    repair: vault_fixes.Repair | None = None  # what `sympose vault --fix` would do for this finding (ADR 084)
 
 
 @dataclass(frozen=True)
@@ -47,6 +49,7 @@ class Check:
     problem: bool = True  # False: an offer or an observation, not a fault, so it never changes the exit code
     of_notes: bool = True  # False: the findings are files, so a folder's line counts them and not "of N notes"
     per_folder: bool = True  # False: a finding is already about a whole folder, so it needs no folder-count header
+    fixable: bool = False  # True: a finding may carry a repair for `sympose vault --fix` (ADR 084), though some will not
 
 
 def folder_of(rel_path: str) -> str:
@@ -70,7 +73,7 @@ def check_definition_icons(scope: Scope) -> list[Finding]:
         lines = folder_looks.offer(folder, scope.notes)
         if lines:
             colours = " and its colours" if len(lines) > 1 else ""
-            found.append(Finding(folder, defs.definition_path(folder), f"has no icon; one can be added: {lines[0]}{colours}", tuple(lines)))
+            found.append(Finding(folder, defs.definition_path(folder), f"has no icon; one can be added: {lines[0]}{colours}", tuple(lines), vault_fixes.Repair(vault_fixes.ICON, (f"Add to {defs.definition_path(folder)}:", *(f"  {line}" for line in lines)), folder)))
     return found
 
 
@@ -137,6 +140,7 @@ def check_titles(scope: Scope) -> list[Finding]:
     """A declared title that is not the file name (the title wins, ADR 034), ignoring case and spacing. A title that
     cannot be a file name is said so, since renaming cannot make them one."""
     found = []
+    stems = Counter(os.path.splitext(note["file_name"])[0].lower() for note in scope.notes)
     for note in scope.notes:
         title = _declared_title(note.get("meta") or {})
         if not title or _same_title(title, os.path.splitext(note["file_name"])[0]):
@@ -148,7 +152,18 @@ def check_titles(scope: Scope) -> list[Finding]:
             message += f" and cannot be one: a file name cannot hold {unsafe.group()!r}"
         elif len(title.encode("utf-8")) > _LONGEST_NAME:
             message += " and cannot be one: it is too long for a file name"
-        found.append(Finding(folder_of(note["rel_path"]), note["rel_path"], message))
+        rel = note["rel_path"]
+        repair = vault_fixes.title_rename(rel, title, stems)
+        found.append(Finding(folder_of(rel), rel, message, repair=repair))
+    return found
+
+
+def check_stale_folder_links(scope: Scope) -> list[Finding]:
+    """A `[[Folder/Note]]` whose folder no longer holds the note, after a move (ADR 084, #101)."""
+    found = []
+    for rel, message, old, new in vault_health_links.stale_folder_links(scope.notes):
+        repair = vault_fixes.Repair(vault_fixes.RELINK, (f"In {rel}: [[{old}]] becomes [[{new}]]",), rel, old, new) if new else None
+        found.append(Finding(folder_of(rel), rel, message, repair=repair))
     return found
 
 
@@ -162,10 +177,11 @@ def check_numbered_twins(scope: Scope) -> list[Finding]:
 
 CHECKS: list[Check] = [
     Check("Folders due a definition", check_due_folders, problem=False, per_folder=False),
-    Check("Folder definitions with no icon", check_definition_icons, problem=False, of_notes=False),
+    Check("Folder definitions with no icon", check_definition_icons, problem=False, of_notes=False, fixable=True),
     Check("Empty notes", check_empty_notes),
     Check("Links to no note", check_broken_links),
-    Check("Titles that are not the file name", check_titles),
+    Check("Links with a folder that no longer matches", check_stale_folder_links, fixable=True),
+    Check("Titles that are not the file name", check_titles, fixable=True),
     Check("Other files (clutter)", check_other_files, problem=False, of_notes=False),
     Check("Folder notes inside sub-folders", check_stale_definitions, problem=False),
     Check("Possible duplicate notes (name (2))", check_numbered_twins, problem=False),

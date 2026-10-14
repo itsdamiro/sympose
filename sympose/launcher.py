@@ -76,6 +76,8 @@ def _run_vault(args: argparse.Namespace) -> int:
         return vault_command.draft(args.draft, args.persona)
     if args.health:
         return vault_command.health(args.persona)
+    if args.fix:
+        return vault_command.fix(args.persona)
     args.vault_parser.print_help()
     return 0
 
@@ -92,9 +94,10 @@ def build_parser() -> argparse.ArgumentParser:
     doctor = commands.add_parser("doctor", help="check the installation and, with --fix, correct what is Sympose's own")
     doctor.add_argument("--fix", action="store_true", help="apply the fixes (persona folder names, wrong-kind settings)")
     doctor.set_defaults(run=_run_doctor)
-    vault = commands.add_parser("vault", help="look at your notes: --health reports on them, --draft drafts a folder's definition")
+    vault = commands.add_parser("vault", help="look at your notes: --health reports on them, --fix offers each repair, --draft drafts a folder's definition")
     what = vault.add_mutually_exclusive_group()
-    what.add_argument("--health", action="store_true", help="report empty notes, links to no note, titles that are not the file name and files that are not notes (changes a note only if you say yes to an offered fix)")
+    what.add_argument("--health", action="store_true", help="report empty notes, links to no note, titles that are not the file name and files that are not notes (changes nothing)")
+    what.add_argument("--fix", action="store_true", help="offer each repair one at a time (rename a note to its title, point a link at the folder its note moved to, add a folder's icon) and make it only if you say yes")
     what.add_argument("--draft", metavar="FOLDER", help="draft the definition note of a folder, show it, and write it only if you say yes")
     vault.add_argument("--persona", metavar="HANDLE", help="read what this persona can read (default: the default persona)")
     vault.set_defaults(run=_run_vault, vault_parser=vault)

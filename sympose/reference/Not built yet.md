@@ -20,7 +20,7 @@ In the web app Samantha can propose a new persona, and you accept or decline it.
 
 ## Can Sympose fix the problems it finds in my notes?
 
-No. `sympose vault --health` only reports them, and there is no health command in the chat yet. A fix is planned as a walk through the findings one note at a time, each change shown and made only when you say yes, never in bulk.
+Some, from the terminal. `sympose vault --fix` walks the repairs one note at a time, each change shown and made only when you say yes, never in bulk. There is no health or fix command in the chat yet.
 
 ## Does Sympose work in Slack?
 

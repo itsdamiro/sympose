@@ -6,7 +6,9 @@ Rewriting `[[wikilink]]` references after a rename — split out of
 import logging
 import os
 import re
+from typing import Any
 
+from sympose import vault_paths
 from sympose.security import is_safe_path
 from sympose.vault_write import get_file_lock, write_atomic_text
 
@@ -132,3 +134,37 @@ def relink_referencing_notes(
             log.warning("[vault] relink failed for %s after renaming %s: %s", fp, old_rel, e)
             failed += 1
     return updated, failed
+
+
+def retarget_link(profile: dict[str, Any], rel: str, old: str, new: str) -> int | None:
+    """Rewrites every `[[old]]` in the note `rel` to `[[new]]`, where `old` and `new` are the link's target as written
+    (a `#heading` and a `|alias` are left alone), and returns how many it rewrote; `None` when the persona may not
+    write the note or it cannot be read or written. Zero means the link is no longer there."""
+    scope = vault_paths.resolve_sandbox(profile)
+    if scope is None:
+        return None
+    mv, allowed_dirs = scope
+    fp = os.path.join(mv, rel)
+    if not os.path.isfile(fp) or not any(is_safe_path(fp, allowed) for allowed in allowed_dirs):
+        return None
+    hits = 0
+
+    def repl(m: "re.Match[str]") -> str:
+        nonlocal hits
+        head = re.match(r"^([^#|]*)(.*)$", m.group(2))
+        if head.group(1).strip() != old:
+            return m.group(0)
+        hits += 1
+        return f"{m.group(1)}[[{new}{head.group(2)}]]"
+
+    try:
+        with get_file_lock(fp):
+            with open(fp, "r", encoding="utf-8", errors="surrogateescape", newline="") as f:
+                content = f.read()
+            rewritten = _WIKILINK_RE.sub(repl, content)
+            if hits:
+                write_atomic_text(fp, rewritten, newline="", errors="surrogateescape")
+    except OSError as e:
+        log.warning("[vault] retargeting a link in %s failed: %s", fp, e)
+        return None
+    return hits
