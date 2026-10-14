@@ -57,15 +57,15 @@ def gather(
 ) -> Evidence:
     # In `ask` Sympose does not search the vault for the message: the persona decides (docs/decisions/040).
     if modes.ask:
-        vault_hits, searched, rewrite = [], None, False
+        vault_hits, searched, rewrite, rewritten = [], None, False, None
     else:
         turn_status.set_phase(handle, turn_status.SEARCHING)
-        vault_hits, searched, rewrite = followup.ground(persona, user_message, history, target_model, limits)
+        vault_hits, searched, rewrite, rewritten = followup.ground(persona, user_message, history, target_model, limits)
         turn_status.set_phase(handle, turn_status.ASKING)
     # The two sources take turns, the reference first: when the prompt does not fit, the
     # end of the list goes first, so the best passage of each source stays longest and
     # neither's evidence is dropped wholesale before the other's (docs/decisions/022).
-    grounding_results = interleave(reference.ground(persona, user_message), vault_hits)
+    grounding_results = interleave(reference.ground(persona, user_message, rewritten), vault_hits)
     # Each note's connections to others (docs/decisions/035) ride inside its own passage, before
     # properties are appended below, so both `gate` and the sacrifice loop see them as one item.
     grounding_results = connections.for_hits(persona, grounding_results)

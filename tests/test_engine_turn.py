@@ -582,7 +582,7 @@ def test_the_reference_passages_come_first_and_travel_in_their_own_block(session
     _library_persona(sessions_root)
     calls = _capture_call(monkeypatch)
     monkeypatch.setattr(grounding, "ground", lambda profile, msg, max_results=5: [_fake_grounding_result()])
-    monkeypatch.setattr(reference, "ground", lambda persona, msg: [_reference_hit()])
+    monkeypatch.setattr(reference, "ground", lambda persona, msg, rewritten=None: [_reference_hit()])
 
     result = turn.run_turn("samantha", "do you remember last time?")
 
@@ -590,6 +590,19 @@ def test_the_reference_passages_come_first_and_travel_in_their_own_block(session
     last = calls[0]["messages"][-1]["content"]
     assert last.index("Notes found in the vault") < last.index(prompt.REFERENCE_LABEL)
     assert "A new conversation starts without the last one." in last
+
+
+def test_the_library_is_searched_with_the_rewritten_query_of_a_follow_up(sessions_root, monkeypatch):
+    _library_persona(sessions_root)
+    _capture_call(monkeypatch)
+    monkeypatch.setattr(grounding, "ground", lambda profile, msg, max_results=5: [])
+    monkeypatch.setattr(followup, "ground", lambda *a, **k: followup.Followed([], None, True, "undo the /default command"))
+    seen = []
+    monkeypatch.setattr(reference, "ground", lambda persona, msg, rewritten=None: seen.append((msg, rewritten)) or [])
+
+    turn.run_turn("samantha", "and how do I undo that?")
+
+    assert seen == [("and how do I undo that?", "undo the /default command")]
 
 
 def test_a_persona_without_the_library_never_searches_it(sessions_root, monkeypatch):
@@ -604,7 +617,7 @@ def test_a_persona_without_the_library_never_searches_it(sessions_root, monkeypa
 
 def test_the_rewritten_query_is_reported_only_for_the_vaults_passages(sessions_root, monkeypatch):
     _library_persona(sessions_root)
-    monkeypatch.setattr(reference, "ground", lambda persona, msg: [_reference_hit()])
+    monkeypatch.setattr(reference, "ground", lambda persona, msg, rewritten=None: [_reference_hit()])
     result, _ = _first_turn_then_follow_up(
         monkeypatch, "why SQLite for Atlas", {"why SQLite for Atlas": [_fake_grounding_result()]}
     )
@@ -620,7 +633,7 @@ def test_when_the_prompt_does_not_fit_the_vaults_passages_go_before_the_referenc
     big = {**_fake_grounding_result(), "text": _text_of_tokens(_free_tokens() * 2)}  # too big to fit even alone
     calls = _capture_call(monkeypatch)
     monkeypatch.setattr(grounding, "ground", lambda profile, msg, max_results=5: [big, {**big, "title": "Other"}])
-    monkeypatch.setattr(reference, "ground", lambda persona, msg: [_reference_hit()])
+    monkeypatch.setattr(reference, "ground", lambda persona, msg, rewritten=None: [_reference_hit()])
 
     result = turn.run_turn("samantha", "hello")
 
@@ -661,7 +674,7 @@ def test_vault_passages_left_out_are_counted_while_the_reference_stays(sessions_
     vault = [{**_fake_grounding_result(), "title": f"V{i}", "text": _text_of_tokens(size)} for i in range(3)]
     calls = _capture_call(monkeypatch)
     monkeypatch.setattr(grounding, "ground", lambda profile, msg, max_results=5: list(vault))
-    monkeypatch.setattr(reference, "ground", lambda persona, msg: [_reference_hit()])
+    monkeypatch.setattr(reference, "ground", lambda persona, msg, rewritten=None: [_reference_hit()])
 
     result = turn.run_turn("samantha", "hello")
 
@@ -679,7 +692,7 @@ def test_reference_passages_left_out_are_counted_apart_from_the_vaults(sessions_
     text = _text_of_tokens(int(_free_tokens() * 0.7))  # one fits, two do not
     two = [_reference_hit(text), {**_reference_hit(text), "title": "Other"}]
     calls = _capture_call(monkeypatch)
-    monkeypatch.setattr(reference, "ground", lambda persona, msg: list(two))
+    monkeypatch.setattr(reference, "ground", lambda persona, msg, rewritten=None: list(two))
 
     result = turn.run_turn("samantha", "hello")
 
@@ -718,7 +731,7 @@ def test_in_ask_mode_the_message_is_not_searched_and_no_rewrite_is_recorded(monk
         raise AssertionError("the vault was searched for the message")
 
     monkeypatch.setattr(followup, "ground", never)
-    monkeypatch.setattr(turn_evidence.reference, "ground", lambda persona, message: [])
+    monkeypatch.setattr(turn_evidence.reference, "ground", lambda persona, message, rewritten=None: [])
     monkeypatch.setattr(turn_evidence.recap_refresh, "wait_for_refresh", lambda handle: None)
     monkeypatch.setattr(turn_evidence.past_chats, "find", lambda *a, **k: [])
     monkeypatch.setattr(turn_evidence.recap, "latest", lambda *a, **k: [])
@@ -744,7 +757,7 @@ def test_under_a_tight_window_the_best_vault_passage_outlasts_the_weaker_referen
     vault = [{**_fake_grounding_result(), "title": f"V{i}", "text": text} for i in range(2)]
     _capture_call(monkeypatch)
     monkeypatch.setattr(grounding, "ground", lambda profile, msg, max_results=5: list(vault))
-    monkeypatch.setattr(reference, "ground", lambda persona, msg: list(refs))
+    monkeypatch.setattr(reference, "ground", lambda persona, msg, rewritten=None: list(refs))
 
     result = turn.run_turn("samantha", "hello")
 
@@ -897,7 +910,7 @@ def test_the_turn_record_says_which_notes_reached_the_model_without_their_text(s
     _capture_call(monkeypatch)
     vault = {**_fake_grounding_result(), "heading": "Fonts"}
     monkeypatch.setattr(grounding, "ground", lambda profile, msg, max_results=5: [vault])
-    monkeypatch.setattr(reference, "ground", lambda persona, msg: [_reference_hit()])
+    monkeypatch.setattr(reference, "ground", lambda persona, msg, rewritten=None: [_reference_hit()])
 
     result = turn.run_turn("samantha", "what fonts do I use?")
 
@@ -1002,7 +1015,7 @@ def test_the_first_turn_of_a_chat_records_no_rewrite(sessions_root, monkeypatch)
 def test_the_rewritten_query_is_not_recorded_when_only_the_library_grounded_the_reply(sessions_root, monkeypatch):
     _library_persona(sessions_root)
     _capture_call(monkeypatch)
-    monkeypatch.setattr(reference, "ground", lambda persona, msg: [_reference_hit()])
+    monkeypatch.setattr(reference, "ground", lambda persona, msg, rewritten=None: [_reference_hit()])
     monkeypatch.setattr(followup, "ground", lambda *a, **k: followup.Followed([], "a query that found nothing", True))
 
     result = turn.run_turn("samantha", "do you remember last time?")
@@ -1106,7 +1119,7 @@ def test_the_sympose_reference_reaches_a_cloud_model_with_nothing_approved(sessi
     _library_persona(sessions_root)
     calls = _capture_call(monkeypatch)
     monkeypatch.setattr(grounding, "ground", lambda profile, msg, max_results=5: [_fake_grounding_result()])
-    monkeypatch.setattr(reference, "ground", lambda persona, msg: [_reference_hit()])
+    monkeypatch.setattr(reference, "ground", lambda persona, msg, rewritten=None: [_reference_hit()])
 
     result = turn.run_turn("samantha", "do you remember last time?", model=CLOUD)
 
@@ -1263,7 +1276,7 @@ def test_the_search_step_shows_searching_and_the_model_call_shows_asking(session
 
     def fake_ground(persona, message, history, model, limits):
         captured["ground_phase"] = turn_status.phase("samantha")
-        return [], None, False
+        return followup.Followed([], None, False)
 
     monkeypatch.setattr(followup, "ground", fake_ground)
 

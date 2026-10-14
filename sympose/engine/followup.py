@@ -45,6 +45,12 @@ class Followed(NamedTuple):
     passages: list[dict[str, Any]]
     query: str | None
     rewrite: bool
+    # The standalone query the rewrite wrote for the message when it found no vault note: the Sympose
+    # reference library is searched with it too (docs/decisions/022). `None` when no rewrite was asked, it
+    # could not judge, vouched for the message as it was, found the message had no topic, or found a vault
+    # note (then the follow-up is about the vault, and a library passage that shares two words with it
+    # would be noise).
+    rewritten: str | None = None
 
 
 def enabled() -> bool:
@@ -130,4 +136,4 @@ def ground(
     if query == NO_TOPIC_QUERY:
         return Followed([], None, True)
     found = grounding.ground(persona, query)
-    return Followed(found, query if found else None, True)
+    return Followed(found, query, True) if found else Followed(found, None, True, query)

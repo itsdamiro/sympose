@@ -476,6 +476,24 @@ REF_CASES: list[RefCase] = [
     RefCase("cannot-edit-open-note", "why can't you edit the note I have open?", find=("check four things",)),  # the Troubleshooting entry; the notes on editing may rank above it
 ]
 
+@dataclass(frozen=True)
+class RefFollowUp:
+    """A follow-up in a conversation about Sympose: the message alone finds nothing useful, the rewrite
+    `gemma2:9b` gave for it (3 of 3 runs, 2026-10-14) finds the answer (docs/decisions/017, 022)."""
+
+    id: str
+    message: str
+    rewrite: str
+    find: str
+
+
+REF_FOLLOW_UPS: list[RefFollowUp] = [
+    RefFollowUp("undo-the-default", "and how do I undo that?", "undo /default command", "/default"),
+    RefFollowUp("which-is-the-default", "which one is the default?", "edit_mode default setting", "manual"),
+    RefFollowUp("cannot-use-tools", "what if it can't use tools?", "model tools usage", "call tools"),
+    RefFollowUp("the-minimum", "and the minimum?", "history_tokens setting minimum", "500"),
+]
+
 # Every message the vault eval already uses must attach nothing from the
 # library, except the one that really is about Sympose.
 _ABOUT_SYMPOSE = {"a-request-matching-only-ordinary-words-grounds-nothing"}

@@ -179,7 +179,7 @@ def test_weak_evidence_is_put_to_the_rewrite_with_or_without_earlier_turns(monke
 def test_weak_evidence_is_replaced_by_the_rewritten_querys_hits(monkeypatch):
     asked = fake_ground(monkeypatch, {"where did you get this information?": [WEAK], "Atlas database": [STRONG]})
     result = followup.ground({}, "where did you get this information?", HISTORY, "m", None, rewriter=rewriter("Atlas database"))
-    assert result == ([STRONG], "Atlas database", True)
+    assert result == ([STRONG], "Atlas database", True, None)
     assert asked == ["where did you get this information?", "Atlas database"]
 
 
@@ -192,6 +192,31 @@ def test_weak_evidence_stands_when_the_model_vouches_for_the_message_as_it_is(mo
     asked = fake_ground(monkeypatch, {"who is Priya?": [WEAK]})
     assert pair(followup.ground({}, "who is Priya?", [], "m", None, rewriter=rewriter("who is Priya?"))) == ([WEAK], None)
     assert asked == ["who is Priya?"]  # and is not searched twice
+
+
+def test_the_rewritten_query_is_handed_on_when_it_found_no_vault_note(monkeypatch):
+    """The Sympose library is searched with it too (docs/decisions/022)."""
+    fake_ground(monkeypatch, {})
+    result = followup.ground({}, "and how do I undo that?", HISTORY, "m", None, rewriter=rewriter("undo the /default command"))
+    assert (result.passages, result.query, result.rewritten) == ([], None, "undo the /default command")
+
+
+def test_a_rewritten_query_that_found_a_vault_note_is_not_handed_on(monkeypatch):
+    fake_ground(monkeypatch, {"Atlas database": [STRONG]})
+    result = followup.ground({}, "where did you get this?", HISTORY, "m", None, rewriter=rewriter("Atlas database"))
+    assert (result.query, result.rewritten) == ("Atlas database", None)
+
+
+@pytest.mark.parametrize("answer", [None, followup.NO_TOPIC_QUERY, "and how do I undo that?"])
+def test_there_is_no_rewritten_query_when_the_model_could_not_judge_found_no_topic_or_vouched(monkeypatch, answer):
+    fake_ground(monkeypatch, {})
+    result = followup.ground({}, "and how do I undo that?", HISTORY, "m", None, rewriter=rewriter(answer))
+    assert result.rewritten is None
+
+
+def test_there_is_no_rewritten_query_when_no_rewrite_was_asked(monkeypatch):
+    fake_ground(monkeypatch, {"why SQLite?": [STRONG]})
+    assert followup.ground({}, "why SQLite?", HISTORY, "m", None, rewriter=rewriter("x")).rewritten is None
 
 
 @pytest.mark.parametrize("query", ["who is priya", "Who is Priya", "who is  Priya??"])

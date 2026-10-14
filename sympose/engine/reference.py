@@ -5,6 +5,7 @@ have them. Read-only, and never the user's vault."""
 
 import logging
 import os
+from itertools import zip_longest
 from typing import Any
 
 from sympose.engine import semantic
@@ -39,16 +40,30 @@ def library_index(persona: dict[str, Any]) -> Index | None:
     return _index() if persona.get("sympose_reference") else None
 
 
-def ground(persona: dict[str, Any], message: str) -> list[dict[str, Any]]:
+def ground(persona: dict[str, Any], message: str, rewritten: str | None = None) -> list[dict[str, Any]]:
     """Passages of the reference library for `message`, best first, or `[]`:
     for a persona without the library, when nothing qualifies, or when the notes
-    are missing from this install (a packaging fault must not fail a turn)."""
+    are missing from this install (a packaging fault must not fail a turn).
+    `rewritten` is the standalone query the follow-up rewrite wrote for a message such as "and how do I
+    undo that?" (docs/decisions/017): its passages and the message's own take turns, its first, without repeats."""
     if not persona.get("sympose_reference"):
         return []
     index = _index()
     if index is None:
         log.warning("The Sympose reference notes are missing from this install: %s", REFERENCE_DIR)
         return []
-    hits = retrieve(index, message, MAX_PASSAGES, strict=True)
-    hits = semantic.refine(index, message, hits, library=True, max_results=MAX_PASSAGES)  # docs/decisions/027
+    hits = _search(index, message)
+    if rewritten:
+        seen = {(h["rel_path"], h["text"]) for h in hits}
+        # The rewrite is searched by words only: the meaning search refines the message, whose own wording it matches.
+        extra = [h for h in _search(index, rewritten, refine=False) if (h["rel_path"], h["text"]) not in seen]
+        # They take turns, the rewrite's first: a rewrite that lost a key word must not push out the message's own best passage.
+        hits = [h for pair in zip_longest(extra, hits) for h in pair if h is not None][:MAX_PASSAGES]
     return [{**hit, "rel_path": f"{LABEL}/{hit['rel_path']}", "source": SOURCE} for hit in hits]
+
+
+def _search(index: Index, message: str, refine: bool = True) -> list[dict[str, Any]]:
+    hits = retrieve(index, message, MAX_PASSAGES, strict=True)
+    if not refine:
+        return hits
+    return semantic.refine(index, message, hits, library=True, max_results=MAX_PASSAGES)  # docs/decisions/027

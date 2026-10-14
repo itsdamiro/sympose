@@ -7,7 +7,10 @@ import re
 import tomllib
 
 import pytest
-from reference_cases import REF_CASES, REFERENCE_DIR, VAULT_QUESTIONS_MUST_NOT_ATTACH, run_ref_case
+from grounding_cases import FOLLOWUP_CASES, WHOLE, setup_env
+from reference_cases import REF_CASES, REF_FOLLOW_UPS, REFERENCE_DIR, VAULT_QUESTIONS_MUST_NOT_ATTACH, run_ref_case
+
+from sympose.engine import followup, reference
 
 from sympose.engine.grounding_index import MAX_PASSAGE_CHARS
 
@@ -22,6 +25,24 @@ def _param(case):
 @pytest.mark.parametrize("case", [_param(c) for c in REF_CASES + VAULT_QUESTIONS_MUST_NOT_ATTACH])
 def test_reference_case(case):
     assert run_ref_case(case) is None
+
+
+@pytest.mark.parametrize("case", REF_FOLLOW_UPS, ids=lambda c: c.id)
+def test_a_follow_up_finds_its_answer_in_the_library_through_its_rewrite(case):
+    persona = {"sympose_reference": True}
+    on_its_own = "\n".join(h["text"] for h in reference.ground(persona, case.message))
+    assert case.find not in on_its_own  # the case is a real gap: the message alone does not find it
+    assert case.find in "\n".join(h["text"] for h in reference.ground(persona, case.message, case.rewrite))
+
+
+@pytest.mark.parametrize("case", [c for c in FOLLOWUP_CASES if c.rewrite], ids=lambda c: c.id)
+def test_a_follow_up_about_the_vault_attaches_nothing_from_the_library(case, monkeypatch, tmp_path):
+    setup_env(monkeypatch, str(tmp_path / "settings.json"))
+    history = [
+        {"role": role, "content": text} for user, assistant in case.history for role, text in (("user", user), ("assistant", assistant))
+    ]
+    followed = followup.ground(WHOLE, case.message, history, "ollama_chat/gemma2:9b", None, rewriter=lambda *_: case.rewrite)
+    assert reference.ground({**WHOLE, "sympose_reference": True}, case.message, followed.rewritten) == []
 
 
 def _notes() -> list[tuple[str, str]]:

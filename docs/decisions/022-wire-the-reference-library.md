@@ -23,7 +23,7 @@ ADR 019 built and measured a library of notes about Sympose itself; ADR 020 fixe
 
 **Who has it.** A persona has the library when its `persona.yaml` says `sympose_reference: true`, and the shipped default persona (Samantha) has it unless her file says otherwise (an explicit `false` turns it off), so a `persona.yaml` written before the key existed does not silently lose it (found in review). Every other persona needs an explicit true, and the synthetic Samantha used when no `profiles/` directory exists has it. It is a per-persona setting, so a user can give it to another persona, but nothing is on by default except the shipped one.
 
-**How it is searched.** `engine/reference.py` indexes the package's `reference/` notes (cached like the vault's index, rebuilt when a note changes) and searches them with the strict retriever (ADR 019), on the user's message, up to three passages. It returns nothing for a persona without the flag, and nothing (with a logged warning, never a failed turn) if the notes are missing from an install. Its hits are marked `source: "sympose"` and carry the path `Sympose reference/<note>.md`, so the reply header already shows them as `from Sympose reference/Personas.md`, distinct from a vault note. The follow-up rewrite (ADR 017, 021) applies to the vault only.
+**How it is searched.** `engine/reference.py` indexes the package's `reference/` notes (cached like the vault's index, rebuilt when a note changes) and searches them with the strict retriever (ADR 019), on the user's message, up to three passages. It returns nothing for a persona without the flag, and nothing (with a logged warning, never a failed turn) if the notes are missing from an install. Its hits are marked `source: "sympose"` and carry the path `Sympose reference/<note>.md`, so the reply header already shows them as `from Sympose reference/Personas.md`, distinct from a vault note. The follow-up rewrite (ADR 017, 021) searches the vault; since the 2026-10-14 amendment its query also searches the library when it found no vault note.
 
 **How the turn carries it.** The two sources take turns in the turn's list of passages, the reference first (its best, then the vault's best, then their seconds, ...), so when the prompt does not fit (ADR 015) and the end of the list goes first, the best passage of each survives longest. Putting the reference wholly first (the first version) would drop the user's own notes before the documentation on a tight window, against the vault-grounding rule (found in review). The roster that names the persona to point to is read once per turn, not once per trimming attempt. In the last user turn they get their own block after the vault's: `Sympose reference (Sympose's own documentation, for the version installed):`, and for a persona that has the library and no passage matched, `No Sympose reference matched this message.`, so it knows a search was done. The vault's wording is unchanged for a vault-only turn.
 
@@ -60,12 +60,12 @@ The header shows a reference passage as `from Sympose reference/<note>.md`.
 
 ## Not built yet
 
-- The reference search re-tokenizes each candidate passage's text on every query in strict mode (cheap for 15 notes, grows with the library).
-- The reference search does not use the rewrite step: a follow-up like "and how do I do that?" is searched on its own words.
-- The passage budget is not split between the two sources beyond the ordering above.
+- ~~The reference search re-tokenizes each candidate passage's text on every query in strict mode.~~ Measured and closed (see the amendment below).
+- ~~The reference search does not use the rewrite step.~~ Built (see the amendment below).
+- ~~The passage budget is not split between the two sources beyond the ordering above.~~ Closed (see the amendment below).
 - The drift guard beyond the version (ADR 019), a `/help` that lists the same notes, other models and cloud models.
 - The insisting-user case (above), and any check on models other than `gemma2:9b`.
-- Whether a Sympose question should also suppress the vault's design notes about Sympose; today both appear, labelled, and the persona is told which to trust.
+- ~~Whether a Sympose question should also suppress the vault's design notes about Sympose.~~ Decided: no (see the amendment below).
 
 ## Amendment (2026-10-13): the pointer names setting up, vaults and models
 
@@ -83,6 +83,19 @@ Measured on scratch data, four wordings of the pointer on both models, three que
 | the same, with the names first | 9 of 9 | 9 of 9 | 0 of 12 |
 
 **Decision.** The second row, the smallest change (`POINT_TO_REFERENCE` in `sympose/engine/prompt_text.py`); the longer wordings did not do better. The live case `another-persona-points-to-samantha` then passed 6 of 6 on `gemma4:e4b`. Only a persona without the library gets this line, so Samantha's turns are unchanged. A test pins the new words.
+
+## Amendment (2026-10-14): a follow-up searches the library by its rewrite; four leftovers closed (#7)
+
+> **Status: Accepted (damiro handed the call to the assistant, 2026-10-14; he can reopen any line).**
+
+**A follow-up now reaches the library through the follow-up rewrite (ADR 017).** "and how do I undo that?", after a talk about the default persona, has nothing to search by. Measured with `gemma2:9b` writing the rewrite (3 runs each, six follow-ups after a Sympose question): the message alone found its answer in 0 of 6, the rewrite found it in 15 of 18 runs (5 of 6 follow-ups; "and in the terminal?" never did, its rewrite is about proposals). The rewrite is the call the vault already makes, so the library costs no extra model call; its query is searched in the library as well, its passages and the message's own take turns, the rewrite's first, three at most and none twice (so a rewrite that lost a word cannot push out the message's own best passage) (`reference.ground(persona, message, rewritten)`).
+
+**When.** Only when the rewrite found no note in the vault (`Followed.rewritten`; a vault follow-up such as "can you expand on that?" after a talk about spend is about the vault, and its rewrite "Q3 cloud costs" shares two words with the library's passage on what Sympose costs, which in keyword mode would attach three passages). A user whose vault holds notes that answer a Sympose follow-up gets what they got before, the message alone. Nothing is asked of the model that was not already. Regression check: the rewrites of the eight follow-up cases of the vault eval attach nothing from the library, and five follow-ups about Sympose are pinned in `reference_cases.py` (`REF_FOLLOW_UPS`) with the rewrite the model gave; they pass in keyword mode, so the test needs no model.
+
+**Not built, and why.**
+- *Caching the tokens of the library's passages.* A strict query over the 271 passages of 17 notes takes 0.4 ms (a lenient one 0.02 ms), so a turn pays under a millisecond twice. It would take a library 100 times larger to cost a visible 40 ms. Revisit if the library grows that far.
+- *Splitting the passage budget between the two sources.* They already take turns, the library first, so when the window is tight the best passage of each survives longest (above). No case has shown a source starved.
+- *Suppressing the user's own notes about Sympose on a Sympose question.* They are the user's notes: hiding them would hide evidence from a persona whose rule is that every claim about the vault is backed by it. Both appear, labelled, and the persona is told which to trust.
 
 ## Alternatives rejected
 
