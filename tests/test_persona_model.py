@@ -121,19 +121,29 @@ def test_a_blank_value_in_the_local_file_is_not_carried_into_the_rewrite(home):
     assert yaml.safe_load((home / "persona.local.yaml").read_text(encoding="utf-8")) == {"edit_mode": "auto"}
 
 
-def test_the_skills_a_persona_carries_are_saved_beside_her_model_and_replace_the_shipped_list(home):
-    (home / "persona.yaml").write_text(FILE + "skills: ['shipped-one']\n", encoding="utf-8")
+def test_the_skills_a_persona_carries_are_saved_beside_her_model_as_what_differs_from_the_shipped_list(home):
+    (home / "persona.yaml").write_text(FILE + "skills: ['shipped-one', 'shipped-two']\n", encoding="utf-8")
     persona_model.set_model("samantha", "a/one")
 
     assert persona_model.set_skills("samantha", ["mine", "shipped-one"]) is True
 
-    assert yaml.safe_load((home / "persona.local.yaml").read_text(encoding="utf-8")) == {"model": "a/one", "skills": ["mine", "shipped-one"]}
-    assert profile.get_profile("samantha")["skills"] == ["mine", "shipped-one"]
+    saved = yaml.safe_load((home / "persona.local.yaml").read_text(encoding="utf-8"))
+    assert saved == {"model": "a/one", "skills_on": ["mine"], "skills_off": ["shipped-two"]}
+    assert profile.get_profile("samantha")["skills"] == ["shipped-one", "mine"]
     assert profile.get_profile("samantha")["model"] == "a/one"
-    assert "shipped-one" in (home / "persona.yaml").read_text(encoding="utf-8")  # the shipped file is untouched
+    assert "shipped-two" in (home / "persona.yaml").read_text(encoding="utf-8")  # the shipped file is untouched
 
 
-def test_an_empty_list_is_a_choice_of_none_and_clearing_brings_the_shipped_list_back(home):
+def test_a_skill_a_later_release_ships_is_on_unless_it_was_switched_off(home):
+    (home / "persona.yaml").write_text(FILE + "skills: ['shipped-one']\n", encoding="utf-8")
+    persona_model.set_skills("samantha", ["mine"])  # shipped-one switched off, mine switched on
+
+    (home / "persona.yaml").write_text(FILE + "skills: ['shipped-one', 'shipped-new']\n", encoding="utf-8")
+
+    assert profile.get_profile("samantha")["skills"] == ["shipped-new", "mine"]
+
+
+def test_switching_every_skill_off_is_a_choice_and_clearing_brings_the_shipped_list_back(home):
     (home / "persona.yaml").write_text(FILE + "skills: ['shipped-one']\n", encoding="utf-8")
 
     persona_model.set_skills("samantha", [])
@@ -144,6 +154,25 @@ def test_an_empty_list_is_a_choice_of_none_and_clearing_brings_the_shipped_list_
     assert profile.get_profile("samantha")["skills"] == ["shipped-one"]
 
 
+def test_switching_back_to_the_shipped_list_leaves_nothing_in_the_local_file(home):
+    (home / "persona.yaml").write_text(FILE + "skills: ['shipped-one']\n", encoding="utf-8")
+    persona_model.set_skills("samantha", [])
+    persona_model.set_skills("samantha", ["shipped-one"])
+
+    assert not (home / "persona.local.yaml").exists()
+
+
+def test_an_older_full_list_in_the_local_file_still_replaces_the_shipped_one_until_the_next_switch(home):
+    (home / "persona.yaml").write_text(FILE + "skills: ['shipped-one', 'shipped-two']\n", encoding="utf-8")
+    (home / "persona.local.yaml").write_text("skills: ['mine', 'shipped-one']\n", encoding="utf-8")
+    assert profile.get_profile("samantha")["skills"] == ["mine", "shipped-one"]
+
+    persona_model.set_skills("samantha", ["mine", "shipped-one"])
+
+    saved = yaml.safe_load((home / "persona.local.yaml").read_text(encoding="utf-8"))
+    assert saved == {"skills_on": ["mine"], "skills_off": ["shipped-two"]}
+
+
 def test_a_pick_of_the_model_keeps_the_skills(home):
     persona_model.set_skills("samantha", ["mine"])
     persona_model.set_model("samantha", "a/one")
@@ -151,7 +180,7 @@ def test_a_pick_of_the_model_keeps_the_skills(home):
     assert profile.get_profile("samantha")["skills"] == ["mine"]
 
 
-@pytest.mark.parametrize("junk", ["skills: mine\n", "skills: [1, 2]\n", "skills: {a: b}\n"])
+@pytest.mark.parametrize("junk", ["skills: mine\n", "skills: [1, 2]\n", "skills: {a: b}\n", "skills_on: [1]\n", "skills_off: x\n"])
 def test_a_skills_override_of_the_wrong_kind_is_ignored(home, junk):
     (home / "persona.yaml").write_text(FILE + "skills: ['shipped-one']\n", encoding="utf-8")
     (home / "persona.local.yaml").write_text(junk, encoding="utf-8")

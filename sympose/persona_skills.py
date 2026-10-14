@@ -3,8 +3,8 @@
 A skill is text, never run. The user points at a skill's folder; the server (on the user's own computer) checks its
 `SKILL.md` by the rules `skills.check` has, copies that one file into the persona's `skills/` folder and leaves it
 **off**: nothing in a folder the user did not write reaches a prompt until it has been read and switched on. Switching
-writes the persona's `skills:` list into `persona.local.yaml` (`persona_model.set_skills`), the same list the shipped file
-holds for the bundled skills. A refusal is a `SkillRefused` whose message is for the user."""
+writes what differs from the persona's shipped `skills:` list into `persona.local.yaml` (`persona_model.set_skills`).
+A refusal is a `SkillRefused` whose message is for the user."""
 
 import os
 import threading

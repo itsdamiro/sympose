@@ -1,8 +1,8 @@
 """Saving what the user chose for a persona: her model (docs/decisions/044, 046), from the terminal's `/model` and the
 web app's picker alike, her edit mode (docs/decisions/072) and the skills she carries (docs/decisions/077). A pick goes
 into `persona.local.yaml` beside the persona, an untracked file the app owns, never into the shipped `persona.yaml`: what
-is committed stays exactly the defaults. The local file holds only `model:`, `edit_mode:` and `skills:`, each pick keeps
-the others, and it is written whole and atomically; clearing the last pick deletes the file."""
+is committed stays exactly the defaults. The local file holds only `model:`, `edit_mode:`, `skills_on:` and `skills_off:`,
+each pick keeps the others, and it is written whole and atomically; clearing the last pick deletes the file."""
 
 import logging
 import os
@@ -37,13 +37,29 @@ def set_edit_mode(handle: str, mode: str | None) -> bool:
 
 
 def set_skills(handle: str, names: list[str] | None) -> bool:
-    """Save `names` as the skills the persona carries, in place of the shipped file's list (an empty list is a choice:
-    none; `None` removes it, so the shipped list applies again). `False` when it could not be done: no such persona, or a
-    failed write."""
-    return _set(handle, "skills", names)
+    """Save `names` as the skills the persona carries now, as what differs from the shipped file's list: `skills_on` the
+    ones it does not name, `skills_off` the ones it names that are left out, so a skill a later release adds to the shipped
+    list is on unless it was switched off. `None` removes both, so the shipped list applies again. `False` when it could
+    not be done: no such persona, or a failed write."""
+    if names is None:
+        return _set(handle, {"skills": None, "skills_on": None, "skills_off": None})
+    try:
+        with open(os.path.join(persona_dir(handle), PERSONA_FILENAME), encoding="utf-8") as f:
+            shipped = (yaml.safe_load(f) or {}).get("skills")
+    except (ValueError, OSError, UnicodeDecodeError, yaml.YAMLError, AttributeError):
+        return False
+    shipped = [n for n in shipped if isinstance(n, str)] if isinstance(shipped, list) else []
+    return _set(
+        handle,
+        {
+            "skills": None,  # an older full list, now said as the two below
+            "skills_on": [n for n in dict.fromkeys(names) if n not in shipped] or None,
+            "skills_off": [n for n in shipped if n not in names] or None,
+        },
+    )
 
 
-def _set(handle: str, key: str, value: Any) -> bool:
+def _set(handle: str, key: str | dict[str, Any], value: Any = None) -> bool:
     try:
         folder = persona_dir(handle)
     except ValueError:
@@ -54,9 +70,10 @@ def _set(handle: str, key: str, value: Any) -> bool:
     with _LOCK:
         try:
             kept = local_overrides(local)
-            kept.pop(key, None)
-            if value is not None:
-                kept[key] = value
+            for k, v in (key if isinstance(key, dict) else {key: value}).items():
+                kept.pop(k, None)
+                if v is not None:
+                    kept[k] = v
             if kept:
                 write_atomic_text(local, yaml.safe_dump(kept, default_flow_style=False))
             elif os.path.isfile(local):

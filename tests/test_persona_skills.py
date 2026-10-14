@@ -149,7 +149,7 @@ def test_switching_on_puts_the_skill_in_the_local_list_and_the_persona_carries_i
     row = persona_skills.set_enabled("ada", "trip-planning", True)
 
     assert row["enabled"] is True
-    assert yaml.safe_load((home / "persona.local.yaml").read_text(encoding="utf-8")) == {"skills": ["poem-writing", "trip-planning"]}
+    assert yaml.safe_load((home / "persona.local.yaml").read_text(encoding="utf-8")) == {"skills_on": ["trip-planning"]}
     assert sorted(s.name for s in skills.carried(profile.get_profile("ada"))) == ["poem-writing", "trip-planning"]
     assert "trip-planning" not in (home / "persona.yaml").read_text(encoding="utf-8")  # the shipped file is untouched
 
