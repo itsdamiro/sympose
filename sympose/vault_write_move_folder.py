@@ -27,6 +27,7 @@ class FolderMoved:
     renamed_notes: tuple[tuple[str, str], ...] = ()  # notes renamed to avoid a clash, as `(old, new)` vault paths, before the move
     renamed_others: int = 0  # other files or folders renamed the same way
     left_behind: int = 0  # files a merge left where they were (hidden, or taken meanwhile), keeping the folder
+    left_notes: tuple[str, ...] = ()  # of those, the notes (vault-relative paths), which keep what belongs to them
 
 
 def move_folder_to_path(
@@ -65,14 +66,17 @@ def move_folder_to_path(
         return NOTE_EXISTS, None
 
     renamed: list[tuple[str, str]] = []
-    others = left = 0
+    others = left = failed = 0
+    left_notes: tuple[str, ...] = ()
     if merging:
-        renamed, error = rename_clashes(profile, mv, src, dst, clashing, on_note_renamed)
-        if error:
-            return error, None
+        done = rename_clashes(profile, mv, src, dst, clashing, on_note_renamed)
+        if done.error:
+            return done.error, None
+        renamed, failed = done.notes, done.failed
         others = len(clashing) - len(renamed)
         inside = _files_inside(mv, src)  # after the renames: a link to a note now numbered follows it, not the one there
         left = merge_files(src, dst)
+        left_notes = _left_notes(mv, src) if left else ()
     else:
         inside = _files_inside(mv, src)
         with get_file_locks(src, dst):
@@ -83,5 +87,19 @@ def move_folder_to_path(
             except OSError as error:
                 return f"Error: Failed to move folder: {error}", None
 
-    relinked, failed = relink_folder(mv, allowed_dirs, old_rel, posixpath.basename(old_rel), inside, new_rel)
-    return OK, FolderMoved(new_rel, relinked, failed, merging, tuple(renamed), others, left)
+    updated, lost = relink_folder(mv, allowed_dirs, old_rel, posixpath.basename(old_rel), inside, new_rel)
+    return OK, FolderMoved(new_rel, updated, failed + lost, merging, tuple(renamed), others, left, left_notes)
+
+
+def _left_notes(mv: str, src: str) -> tuple[str, ...]:
+    """The notes a merge left under `src`: a hidden name is not a note (nothing belongs to it), what is left is a note
+    that was taken meanwhile or could not be moved."""
+    found = []
+    for folder, dirs, files in os.walk(src):
+        dirs[:] = sorted(d for d in dirs if not d.startswith("."))
+        found += [
+            os.path.relpath(os.path.join(folder, n), mv).replace(os.sep, "/")
+            for n in sorted(files)
+            if n.endswith(".md") and not n.startswith(".")
+        ]
+    return tuple(found)

@@ -234,3 +234,58 @@ def test_a_link_to_a_folder_left_in_place_counts_as_left_behind(vault):
     status, got = merge(vault)
 
     assert status == mf.OK and got.left_behind == 1 and os.path.islink(os.path.join(vault, "People", "Link"))
+
+
+def test_a_link_to_a_renamed_file_that_is_not_a_note_follows_it(vault):
+    write(vault, "People/photo.png", "incoming")
+    write(vault, "Archive/People/photo.png", "there")
+    write(vault, "People/Anna.md", "![[photo.png]] and ![[People/photo.png|small]]\n")
+    write(vault, "Journal/Day.md", "![[People/photo.png]], ![[Archive/People/photo.png]], ![[photo.png]]\n")
+
+    status, got = merge(vault, rename_clashing_notes=True)
+
+    assert status == mf.OK and got.renamed_others == 1
+    assert read(vault, "Archive/People/photo (2).png") == "incoming" and read(vault, "Archive/People/photo.png") == "there"
+    # In the incoming folder a bare link meant its own file; one elsewhere is ambiguous and left alone.
+    assert read(vault, "Archive/People/Anna.md") == "![[photo (2).png]] and ![[Archive/People/photo (2).png|small]]\n"
+    assert read(vault, "Journal/Day.md") == "![[Archive/People/photo (2).png]], ![[Archive/People/photo.png]], ![[photo.png]]\n"
+    assert got.failed == 0
+
+
+def test_a_file_that_is_not_a_note_and_has_no_links_is_renamed_without_touching_a_note(vault):
+    write(vault, "People/photo.png", "incoming")
+    write(vault, "Archive/People/photo.png", "there")
+    write(vault, "Journal/Day.md", "no link here\n")
+    before = os.stat(os.path.join(vault, "Journal/Day.md")).st_mtime_ns
+
+    status, got = merge(vault, rename_clashing_notes=True)
+
+    assert status == mf.OK and got.relinked == 0 and os.stat(os.path.join(vault, "Journal/Day.md")).st_mtime_ns == before
+
+
+def test_a_merge_names_the_notes_it_left_behind_and_not_a_hidden_file(vault, monkeypatch):
+    from sympose import vault_write_merge_folder as mg
+
+    write(vault, "People/Anna.md")
+    write(vault, "People/Sub/Cleo.md")
+    write(vault, "People/.keep")
+    write(vault, "Archive/People/Ben.md")
+    real = mg.os.makedirs
+
+    def refuse_sub(path, *a, **k):
+        if os.path.basename(path) == "Sub":
+            raise OSError("a file is in the way")
+        return real(path, *a, **k)
+
+    monkeypatch.setattr(mg.os, "makedirs", refuse_sub)
+
+    status, got = merge(vault)
+
+    assert status == mf.OK and got.left_behind == 2 and got.left_notes == ("People/Sub/Cleo.md",)
+    assert merge_without_leftovers(vault) == ()
+
+
+def merge_without_leftovers(vault):
+    write(vault, "Plain/Anna.md")
+    write(vault, "Archive/Plain/Ben.md")
+    return mf.move_folder_to_path(ALL, "Plain", "Archive", if_exists="merge")[1].left_notes

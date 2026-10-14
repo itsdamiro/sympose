@@ -3,9 +3,12 @@ a new name so nothing is overwritten, and moving the folder's files across one a
 
 import os
 import posixpath
+from dataclasses import dataclass, field
 from typing import Any, Callable
 
+from sympose import vault_paths
 from sympose.vault_write import get_file_locks
+from sympose.vault_write_relink_folder import relink_renamed_file
 from sympose.vault_write_rename import rename_note_to_path
 
 
@@ -18,16 +21,26 @@ def free_name(name: str, is_dir: bool, *folders: str) -> str:
     return f"{stem} ({n}){ext}"
 
 
+@dataclass
+class ClashesRenamed:
+    notes: list[tuple[str, str]] = field(default_factory=list)  # `(old, new)` vault-relative paths
+    failed: int = 0  # notes whose links to a renamed file that is not a note could not be rewritten
+    error: str | None = None
+
+
 def rename_clashes(
     profile: dict[str, Any], mv: str, src: str, target: str, clashing: tuple[str, ...],
     on_note_renamed: Callable[[str, str], None] | None = None,
-) -> tuple[list[tuple[str, str]], str | None]:
+) -> ClashesRenamed:
     """Rename what the incoming folder holds that is also at `target` (paths relative to the folder) to the first free
     numbered name, a note through the note rename so the links that named it follow. `on_note_renamed(old, new)` is
     called as each note is renamed, so what follows a note (the persona's pending changes) is not lost when a later
-    one fails. Returns the notes' `(old, new)` vault-relative paths and an error message when one could not be renamed
-    (what was renamed stays renamed)."""
-    notes: list[tuple[str, str]] = []
+    one fails. A file that is not a note is renamed too and the links that named it follow (`relink_renamed_file`).
+    Returns the notes' `(old, new)` vault-relative paths, how many of those file links could not be rewritten and an error message
+    when one could not be renamed (what was renamed stays renamed)."""
+    done = ClashesRenamed()
+    scope = vault_paths.resolve_sandbox(profile)
+    allowed_dirs = scope[1] if scope else []
     for rel in clashing:
         folder, name = posixpath.split(rel)
         here = os.path.join(src, *folder.split("/")) if folder else src
@@ -39,8 +52,9 @@ def rename_clashes(
         if name.endswith(".md") and not is_dir:
             result, _ = rename_note_to_path(profile, old_rel, new)
             if not result.startswith("Renamed"):
-                return notes, f"Error: could not rename `{old_rel}` before merging: {result}"
-            notes.append((old_rel, new_rel))
+                done.error = f"Error: could not rename `{old_rel}` before merging: {result}"
+                return done
+            done.notes.append((old_rel, new_rel))
             if on_note_renamed:
                 on_note_renamed(old_rel, new_rel)
             continue
@@ -49,8 +63,12 @@ def rename_clashes(
             try:
                 os.rename(old_abs, new_abs)
             except OSError as error:
-                return notes, f"Error: could not rename `{old_rel}` before merging: {error}"
-    return notes, None
+                done.error = f"Error: could not rename `{old_rel}` before merging: {error}"
+                return done
+        if not is_dir:
+            there_rel = os.path.relpath(os.path.join(there, name), mv).replace(os.sep, "/")
+            done.failed += relink_renamed_file(mv, allowed_dirs, old_rel, new_rel, {there_rel})[1]
+    return done
 
 
 def _remaining(src: str) -> int:

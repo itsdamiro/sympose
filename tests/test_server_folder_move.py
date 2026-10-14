@@ -275,3 +275,42 @@ def test_a_note_renamed_by_a_merge_has_its_pending_changes_followed_even_when_a_
 
     assert res.status_code == 500
     assert [d["path"] for d in nc.drafts("samantha")] == ["People/Anna (2).md"]
+
+
+def test_a_note_a_merge_left_behind_keeps_its_pending_changes_and_hidden_state(env, monkeypatch):
+    client, vault, _ = env
+    (vault / "Archive/People").mkdir()
+    nc.propose_edit("samantha", "People/Anna.md", NOTE, find="three times", replace="four times", say="")
+    nc.propose_edit("samantha", "People/Sub/Ben.md", "Ben\n", find="Ben", replace="Benny", say="")
+    vault_hidden.hide(str(vault), "People/Sub/Ben.md")
+    from sympose import vault_write_merge_folder as mg
+
+    real = mg.os.makedirs
+
+    def refuse_sub(path, *a, **k):
+        if path.endswith("Sub"):
+            raise OSError("a file is in the way")
+        return real(path, *a, **k)
+
+    monkeypatch.setattr(mg.os, "makedirs", refuse_sub)
+
+    body = move(client, if_exists="merge").json()
+
+    assert body["left_behind"] == 1 and (vault / "People/Sub/Ben.md").exists()
+    assert sorted(d["path"] for d in nc.drafts("samantha")) == ["Archive/People/Anna.md", "People/Sub/Ben.md"]
+    assert vault_hidden.hidden_paths(str(vault)) == ["People/Sub/Ben.md"]
+
+
+def test_what_belongs_to_a_note_does_not_go_back_when_something_else_is_now_at_the_new_path(env):
+    from types import SimpleNamespace
+
+    from sympose import server_folder_handlers as handlers
+
+    _, vault, _ = env
+    (vault / "Archive/People/Sub").mkdir(parents=True)
+    (vault / "Archive/People/Sub/Ben.md").write_text("someone else's\n")  # taken meanwhile
+    nc.propose_edit("samantha", "Archive/People/Sub/Ben.md", "someone else's\n", find="else", replace="other", say="")
+
+    handlers._keep_what_a_merge_left(str(vault), "People", SimpleNamespace(path="Archive/People", left_notes=("People/Sub/Ben.md",)))
+
+    assert [d["path"] for d in nc.drafts("samantha")] == ["Archive/People/Sub/Ben.md"]

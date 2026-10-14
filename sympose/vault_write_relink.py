@@ -27,6 +27,7 @@ def rewrite_wikilink_targets(
     source_rel_path: str,
     same_stem_paths: set[str],
     new_rel_path: str | None = None,
+    whole_name: bool = False,
 ) -> tuple[str, int]:
     """Retarget every `[[old]]` / `![[old]]` / `[[old#h]]` / `[[old|a]]`
     (and the `Folder/old` path form) that actually refers to the note being
@@ -43,8 +44,9 @@ def rewrite_wikilink_targets(
     actually match the renamed note's own path. With `new_rel_path` (where the note now lives) a folder-qualified
     link also takes the note's new folder, as many trailing segments as it had before, so a move leaves no stale
     `[[Projects/Idea]]`; a link that becomes a note at the vault root loses its qualifier. A link whose text would
-    not change is left out of the count."""
-    old_stem = os.path.splitext(os.path.basename(old_rel_path))[0]
+    not change is left out of the count. `whole_name` is for a file that is not a note (an image): its links carry the
+    extension, so the name is matched, and `new_stem` given, with it."""
+    old_stem = os.path.basename(old_rel_path) if whole_name else os.path.splitext(os.path.basename(old_rel_path))[0]
     old_l = old_stem.strip().lower()
     old_segs_l = [s.lower() for s in old_rel_path.replace("\\", "/").split("/")[:-1]]
     old_top = old_segs_l[0] if old_segs_l else ""
@@ -95,6 +97,7 @@ def relink_referencing_notes(
     dst: str,
     new_stem: str,
     same_stem_paths: set[str],
+    whole_name: bool = False,
 ) -> tuple[int, int]:
     """Returns (updated, failed) — `failed` counts a referencing file whose
     rewrite was attempted but lost to an OSError (permissions, a concurrent
@@ -119,7 +122,7 @@ def relink_referencing_notes(
                 with open(fp, "r", encoding="utf-8", errors="surrogateescape", newline="") as f:
                     content = f.read()
                 rewritten, hits = rewrite_wikilink_targets(
-                    content, old_rel, new_stem, source_rel, same_stem_paths, new_rel
+                    content, old_rel, new_stem, source_rel, same_stem_paths, new_rel, whole_name
                 )
                 if not hits:
                     continue

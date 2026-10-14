@@ -7,11 +7,12 @@ where its note lives and is never touched; a link whose path qualifier names the
 
 import logging
 import os
+import posixpath
 import re
 
 from sympose.security import is_safe_path
 from sympose.vault_write import get_file_lock, write_atomic_text
-from sympose.vault_write_relink import _WIKILINK_RE
+from sympose.vault_write_relink import _WIKILINK_RE, relink_referencing_notes
 
 log = logging.getLogger(__name__)
 
@@ -95,3 +96,25 @@ def relink_folder(
             log.warning("[vault] relink failed for %s after renaming folder %s: %s", fp, old_folder, error)
             failed += 1
     return updated, failed
+
+
+def relink_renamed_file(
+    mv: str, allowed_dirs: list[str], old_rel: str, new_rel: str, same_name_paths: set[str]
+) -> tuple[int, int]:
+    """A file that is not a note (an image) was renamed in place, as a merge does to what is in both folders
+    (docs/decisions/074): the links that named it follow, by the note rename's own rule (`same_name_paths` are the
+    other files of that name). Returns `(updated, failed)`."""
+    needle = posixpath.basename(old_rel).lower()
+    referencing = []
+    for fp in _notes(mv):
+        try:
+            with open(fp, encoding="utf-8", errors="surrogateescape", newline="") as f:
+                if needle not in f.read().lower():
+                    continue
+        except OSError:
+            continue
+        referencing.append(os.path.relpath(fp, mv))
+    return relink_referencing_notes(
+        mv, allowed_dirs, referencing, old_rel, new_rel, os.path.join(mv, new_rel), posixpath.basename(new_rel),
+        same_name_paths, whole_name=True,
+    )

@@ -2,6 +2,7 @@
 follows it outside the vault's files (the personas' own scopes, the hidden list, every persona's pending changes) is done
 here, after the directory has moved, best effort and reported."""
 
+import os
 from typing import Any
 
 from fastapi import HTTPException
@@ -107,6 +108,7 @@ def move_folder(body: FolderMove) -> dict[str, Any]:
     if vault:
         vault_hidden.rename_folder(vault, plan.path, got.path)
     note_changes.rename_folder_everywhere(plan.path, got.path)
+    _keep_what_a_merge_left(vault, plan.path, got)
     bits = []
     if got.relinked:
         bits.append(f"{_plural(got.relinked, 'note')} relinked")
@@ -132,6 +134,19 @@ def move_folder(body: FolderMove) -> dict[str, Any]:
         "definition": plan.definition, "personas": changed, "personas_unchanged": unchanged,
         "merged": got.merged, "renamed": len(got.renamed_notes) + got.renamed_others, "left_behind": got.left_behind,
     }
+
+
+def _keep_what_a_merge_left(vault: str | None, old_folder: str, got: Any) -> None:
+    """A note a merge left in the source folder (taken meanwhile, or it could not be moved) is still there, so its pending
+    changes and its hidden state go back to it: they followed the folder as a whole, which moved without it. Not when
+    something else is now at the new path, whose they might be (docs/decisions/074)."""
+    for old in got.left_notes:
+        new = got.path + old[len(old_folder):]
+        if vault and os.path.lexists(os.path.join(vault, *new.split("/"))):
+            continue
+        note_changes.rename_everywhere(new, old)
+        if vault:
+            vault_hidden.rename_folder(vault, new, old)
 
 
 def _raise_move_error(status: str, body: FolderMove) -> None:

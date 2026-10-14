@@ -79,6 +79,12 @@ Things that exist already and are reused: `vault_write_rename_folder`, `vault_wr
 
 **Checked in real headless Chrome** (invented vault, three personas, a hidden note, a pending change and a comment, a pin, an open note): a plain move with the folder's open state kept, its links, a persona's scope, her pending change; a clash answered by a new name (the folder there untouched, links inside and outside, the hidden list, the comment, the pin); a merge with a note in both, with the editor open on the incoming one; a move that changes two personas' reach, cancelled and then agreed; a drop on itself, its parent and the heading, which send nothing; a move to the vault root by the vault name and by the empty space. **Found there and fixed:** a drag lost its highlight when it moved onto a row's own icon or label (the browser reports the child's `dragenter` before the parent's `dragleave`); it now stays lit until the drag leaves the row (this also fixes it for notes). The review found and I fixed: a bad new name was reported as "into itself", the reach asked about was the merge's when the user had chosen a new name, a failing rename in the middle of a merge lost the pending changes of the ones before it, a failing merge step raised instead of reporting what was left, the vault-root highlight could stay on over a row, and the section after moving a root folder inside another.
 
+## Amended (2026-10-14): the two leftovers of the merge
+
+**A renamed file that is not a note.** A file in both folders that is not a note (an image) is renamed like a note, and the wikilinks and embeds that named it now follow (`relink_renamed_file` in `vault_write_relink_folder`, which calls the note rename's own relinking with the name matched whole, extension included). The rule is the note rename's: a link that names the incoming file by its path follows it; a bare link (`![[photo.png]]`) follows it only from a note in the incoming folder's top-level folder, since anywhere else it was ambiguous between the two files and is left alone. The folder's own relinking then moves the link to the folder's new path, as for a note.
+
+**A note a merge left behind** (taken meanwhile or not movable; hidden names are not notes and own nothing). The pending changes and hidden state followed the folder as a whole, so they now go back to the note that stayed (`_keep_what_a_merge_left` in `server_folder_handlers`), unless something else is now at the new path, whose they might be. The personas' folder scopes still follow the folder: a scope names folders, not files.
+
 ## Not covered
 
 - A deleted note or folder in the bin keeps the path it came from (ADR 045, 050).
@@ -86,6 +92,4 @@ Things that exist already and are reused: `vault_write_rename_folder`, `vault_wr
 - Plain Markdown links are not rewritten (#42, #101); health does not yet look for them.
 - Moving a folder that holds a persona's own files (`profiles/` is not in the vault).
 - A move across two vaults.
-- The links to a file that a merge renamed and that is not a note (an image in both folders) are not followed; they keep the old path, which is the other folder's file now. Only notes have the note rename's relinking.
-- A hidden file, or a hidden note in a folder, that a merge left in the source folder keeps the scope, the hidden state and the pending changes of the folder it was in, which have moved.
 - The drop handlers of the tree, the heading and the main menu are three copies of one idea with small differences; a shared hook would hold them together (tech debt, no behaviour in it).
