@@ -26,6 +26,7 @@ def rewrite_wikilink_targets(
     new_stem: str,
     source_rel_path: str,
     same_stem_paths: set[str],
+    new_rel_path: str | None = None,
 ) -> tuple[str, int]:
     """Retarget every `[[old]]` / `![[old]]` / `[[old#h]]` / `[[old|a]]`
     (and the `Folder/old` path form) that actually refers to the note being
@@ -39,7 +40,10 @@ def rewrite_wikilink_targets(
     an unqualified link — leaving it alone rather than guessing at the
     others. A link already folder-qualified in its own text is unaffected
     by that ambiguity: it's only rewritten when its qualifying segments
-    actually match the renamed note's own path."""
+    actually match the renamed note's own path. With `new_rel_path` (where the note now lives) a folder-qualified
+    link also takes the note's new folder, as many trailing segments as it had before, so a move leaves no stale
+    `[[Projects/Idea]]`; a link that becomes a note at the vault root loses its qualifier. A link whose text would
+    not change is left out of the count."""
     old_stem = os.path.splitext(os.path.basename(old_rel_path))[0]
     old_l = old_stem.strip().lower()
     old_segs_l = [s.lower() for s in old_rel_path.replace("\\", "/").split("/")[:-1]]
@@ -47,6 +51,11 @@ def rewrite_wikilink_targets(
     source_segs = source_rel_path.replace("\\", "/").split("/")[:-1]
     source_top = source_segs[0].lower() if source_segs else ""
     bare_is_safe = not same_stem_paths or source_top == old_top
+    new_folder = (
+        [s for s in new_rel_path.replace("\\", "/").split("/")[:-1] if s]
+        if new_rel_path is not None
+        else None
+    )
     rewritten = 0
 
     def repl(m: "re.Match[str]") -> str:
@@ -64,9 +73,14 @@ def rewrite_wikilink_targets(
             qualifier = [s.lower() for s in segs[:-1]]
             if qualifier != old_segs_l[-len(qualifier) :]:
                 return m.group(0)
-        rewritten += 1
+        if len(segs) > 1 and new_folder is not None:
+            segs[:-1] = new_folder[-(len(segs) - 1) :]
         segs[-1] = new_stem
-        return f"{bang}[[{'/'.join(segs)}{tail}]]"
+        replacement = f"{bang}[[{'/'.join(segs)}{tail}]]"
+        if replacement == m.group(0):
+            return replacement
+        rewritten += 1
+        return replacement
 
     new_text = _WIKILINK_RE.sub(repl, text)
     return new_text, rewritten
@@ -105,7 +119,7 @@ def relink_referencing_notes(
                 with open(fp, "r", encoding="utf-8", errors="surrogateescape", newline="") as f:
                     content = f.read()
                 rewritten, hits = rewrite_wikilink_targets(
-                    content, old_rel, new_stem, source_rel, same_stem_paths
+                    content, old_rel, new_stem, source_rel, same_stem_paths, new_rel
                 )
                 if not hits:
                     continue

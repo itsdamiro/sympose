@@ -15,8 +15,8 @@ from sympose.vault_write_status import NOTE_INVALID_NAME
 ALL = {"vault_folders": ["*"]}
 
 
-def rw(text, old="Old.md", new="New", source="Other.md", same=frozenset()):
-    return relink.rewrite_wikilink_targets(text, old, new, source, set(same))
+def rw(text, old="Old.md", new="New", source="Other.md", same=frozenset(), new_rel=None):
+    return relink.rewrite_wikilink_targets(text, old, new, source, set(same), new_rel)
 
 
 # --- rewrite_wikilink_targets: which links are retargeted -----------------------------------
@@ -71,6 +71,35 @@ def test_a_folder_qualified_link_is_retargeted_only_when_the_folder_matches():
     assert rw("[[Projects/Old]]", old=old) == ("[[Projects/New]]", 1)
     assert rw("[[Elsewhere/Old]]", old=old) == ("[[Elsewhere/Old]]", 0)
     assert rw("[[Deep/Projects/Old]]", old=old) == ("[[Deep/Projects/Old]]", 0)
+
+
+def test_a_folder_qualified_link_follows_the_note_to_its_new_folder():
+    old = "Projects/Idea.md"
+    assert rw("[[Projects/Idea]]", old=old, new="Idea", new_rel="Archive/Idea.md") == ("[[Archive/Idea]]", 1)
+    assert rw("![[Projects/Idea#h|a]]", old=old, new="Idea2", new_rel="Archive/Idea2.md") == (
+        "![[Archive/Idea2#h|a]]",
+        1,
+    )
+
+
+def test_a_moved_notes_qualified_link_keeps_the_number_of_folders_it_named():
+    old = "Work/Projects/Idea.md"
+    new_rel = "Archive/2024/Idea.md"
+    assert rw("[[Projects/Idea]]", old=old, new="Idea", new_rel=new_rel) == ("[[2024/Idea]]", 1)
+    assert rw("[[Work/Projects/Idea]]", old=old, new="Idea", new_rel=new_rel) == ("[[Archive/2024/Idea]]", 1)
+
+
+def test_a_qualified_link_to_a_note_moved_to_the_vault_root_loses_its_qualifier():
+    assert rw("[[Projects/Idea]]", old="Projects/Idea.md", new="Idea", new_rel="Idea.md") == ("[[Idea]]", 1)
+
+
+def test_a_link_that_would_not_change_is_not_counted():
+    old = "Projects/Idea.md"
+    assert rw("[[Projects/Idea]] [[Idea]]", old=old, new="Idea", new_rel="Projects/Idea.md") == (
+        "[[Projects/Idea]] [[Idea]]",
+        0,
+    )
+    assert rw("[[Idea]]", old=old, new="Idea", new_rel="Archive/Idea.md") == ("[[Idea]]", 0)
 
 
 def test_a_qualified_link_to_a_top_level_note_does_not_match():
@@ -155,6 +184,15 @@ def test_referencing_files_are_rewritten_and_counted(vault):
     assert run(vault, ["A.md", "Sub/B.md"]) == (2, 0)
     assert read(a) == b"one [[New]] two"
     assert read(b) == b"![[New#h]]"
+
+
+def test_a_move_without_a_new_name_relinks_the_qualified_links_and_leaves_the_bare_ones(vault):
+    a = write(vault, "A.md", "[[Projects/Idea]] and [[Idea]]")
+    assert run(vault, ["A.md"], old="Projects/Idea.md", new="Archive/Idea.md") == (1, 0)
+    assert read(a) == b"[[Archive/Idea]] and [[Idea]]"
+    b = write(vault, "B.md", "[[Idea]]")
+    assert run(vault, ["B.md"], old="Projects/Idea.md", new="Archive/Idea.md") == (0, 0)
+    assert read(b) == b"[[Idea]]"
 
 
 def test_a_file_with_nothing_to_retarget_is_not_written(vault):
