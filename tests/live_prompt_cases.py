@@ -360,8 +360,9 @@ def run_case(case: LiveCase) -> tuple[bool, str]:
         session_id, reply = result.session_id, result.reply
     shutil.rmtree(recaps, ignore_errors=True)  # the scratch persona's own folders, made above
     shutil.rmtree(session.sessions_dir(case.persona), ignore_errors=True)  # scratch: no case sees another's sessions
-    ok = all(re.search(p, reply, re.I) for p in case.expect) and not any(
-        re.search(p, reply, re.I) for p in case.forbid
+    scored = reply.replace("\u2019", "'")  # some models write a curly apostrophe; the patterns have a straight one
+    ok = all(re.search(p, scored, re.I) for p in case.expect) and not any(
+        re.search(p, scored, re.I) for p in case.forbid
     )
     return ok, " ".join(reply.split())
 
