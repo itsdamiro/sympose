@@ -85,7 +85,7 @@ Measured on 2026-10-09 and 2026-10-10 on one machine (the owner's Mac, Ollama, `
 | **total of 48 runs** | **41** | **44** |
 | **seconds per turn** | 5.5 | 29.1 |
 
-**Edits** (an edit proposed to an open note, scored as in ADR 072; before the sentence). `gemma2:9b` cannot call tools, so the tools column does not apply to it (its run failed every call with "does not support tools"). `duplicate` is 0 of 3 everywhere because the request names "the first" of two identical lines and the engine requires the text to match once; no model can pass it, so it is a fault of the case, not of a model. No proposal when none was asked for: 9 of 9 for both models in every mode.
+**Edits** (an edit proposed to an open note, scored as in ADR 072; before the sentence). `gemma2:9b` cannot call tools, so the tools column does not apply to it (its run failed every call with "does not support tools"). `duplicate` is 0 of 3 everywhere because the request names "the first" of two identical lines and the engine requires the text to match once; a model passes it only by sending a longer `find` that is unique (Flash did, 36 of 36 in ADR 076), so it is not a fault of the case: the local models send the bare line and the engine refuses it, a safe failure. Reworded to name the section (2026-10-14) it was still 0 of 3 on `gemma4:e4b` with tools, so it was kept as written. No proposal when none was asked for: 9 of 9 for both models in every mode.
 
 | Request | `gemma2:9b` (marker) | `gemma4:e4b` (marker) | `gemma4:e4b` (tools) |
 |---|---|---|---|

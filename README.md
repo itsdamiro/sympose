@@ -11,7 +11,7 @@ What works today:
 - **Memory and note lookup:** a persona reads its own memory files (plain markdown you can open and edit, in the web app from the Persona page's FILES chip, where its soul opens too) and can propose updates to them, which you review before anything changes (`/memory`). Two things are off until you switch them on: letting the persona save a line when you ask it to remember something (`/remember`), and letting the persona search and open notes itself while it answers instead of Sympose searching for it (`vault_lookup`).
 - **Housekeeping:** `sympose doctor [--fix]` checks the installation, and `sympose vault --health` and `--draft <folder>` look after the notes themselves.
 
-A persona can propose edits, new notes and comments, which you review as tracked changes and accept or decline; nothing reaches your notes until you do. Not built yet: Slack, skills, a persona that creates personas or tunes your installation, archiving a conversation as a note, and searching past conversations. See `docs/VISION.md` for what's next and why, and the GitHub issues for open work.
+A persona can propose edits, new notes and comments, which you review as tracked changes and accept or decline; nothing reaches your notes until you do. A persona can also propose a new persona or one setting change, and follow a skill you have switched on in Settings. Not built yet: Slack, MCP tools, archiving a conversation as a note, and searching past conversations. See `docs/VISION.md` for what's next and why, and the GitHub issues for open work.
 
 ## Project layout
 
@@ -39,7 +39,7 @@ Checks: `pytest` and `ruff check .` from the repo root; `npm run test`, `npm run
 
 ## Standards and decisions
 
-- `docs/VISION.md` — the product principles and what is not built yet: Slack, a persona that acts on the vault, skills, and archiving of conversations, and what's deliberately out of scope.
+- `docs/VISION.md` — the product principles and what is not built yet: Slack, MCP tools, archiving of conversations, and searching past ones, and what's deliberately out of scope.
 - `docs/COLLABORATION_STANDARDS.md` — tone, pacing, and working practices.
 - `docs/CODE_QUALITY_STANDARDS.md` — the engineering process: tooling, review tiers, verification discipline, commit hygiene.
 - `docs/decisions/` — architecture decision records; see its `README.md` for the index.
