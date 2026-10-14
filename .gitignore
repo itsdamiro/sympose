@@ -53,6 +53,7 @@ profiles/samantha/*
 docs/CHECKLIST.md
 # The working handoff and its reference notes (private paths, local setup): local-only, like the checklist.
 docs/HANDOFF.md
+docs/requests/
 docs/CLOSING_A_SLICE.md
 docs/reference/
 
