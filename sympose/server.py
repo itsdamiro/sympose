@@ -36,11 +36,12 @@ from sympose import server_settings_handlers as seh
 from sympose import server_sharing_handlers as sph
 from sympose import server_search_handlers as sh
 from sympose import server_session_handlers as sess
+from sympose import server_skill_handlers as skh
 from sympose import server_trash_handlers as th
 from sympose import server_vault_handlers as vh
 from sympose import vault_paths
 from sympose.server_change_models import AnnotationChange, AnnotationCreate, ChangesResolve, DraftText
-from sympose.server_models import ChatBinAction, ChatCancel, ChatCompact, ChatSessionStart, ChatSessionUpdate, ChatTurn, DefinitionsSwitch, EditModeChoice, FolderDefinition, FolderIcon, FolderMove, FolderMovePlan, FolderRename, HiddenPath, ModelChoice, PersonaFileWrite, SettingChange, SharingChange, TrashEmpty, TrashRestore, VaultActivate
+from sympose.server_models import ChatBinAction, ChatCancel, ChatCompact, ChatSessionStart, ChatSessionUpdate, ChatTurn, DefinitionsSwitch, EditModeChoice, FolderDefinition, FolderIcon, FolderMove, FolderMovePlan, FolderRename, HiddenPath, ModelChoice, PersonaFileWrite, SettingChange, SharingChange, SkillAdd, SkillSwitch, TrashEmpty, TrashRestore, VaultActivate
 
 
 def create_app() -> FastAPI:
@@ -203,6 +204,22 @@ def create_app() -> FastAPI:
     @app.get("/api/personas")
     def get_personas() -> dict[str, Any]:
         return ph.get_personas()
+
+    @app.get("/api/personas/{handle}/skills")
+    def list_persona_skills(handle: str) -> dict[str, Any]:
+        return skh.list_skills(handle)
+
+    @app.get("/api/personas/{handle}/skills/{name}")
+    def get_persona_skill(handle: str, name: str) -> dict[str, Any]:
+        return skh.get_skill(handle, name)
+
+    @app.post("/api/personas/{handle}/skills")
+    def post_persona_skill(handle: str, body: SkillAdd) -> dict[str, Any]:
+        return skh.post_skill(handle, body)
+
+    @app.put("/api/personas/{handle}/skills/{name}")
+    def put_persona_skill(handle: str, name: str, body: SkillSwitch) -> dict[str, Any]:
+        return skh.put_skill(handle, name, body)
 
     @app.get("/api/personas/{handle}/files")
     def list_persona_files(handle: str) -> dict[str, Any]:

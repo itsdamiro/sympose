@@ -1,24 +1,25 @@
 """Saving what the user chose for a persona: her model (docs/decisions/044, 046), from the terminal's `/model` and the
-web app's picker alike, and her edit mode (docs/decisions/072). A pick goes into `persona.local.yaml` beside the
-persona, an untracked file the app owns, never into the shipped `persona.yaml`: what is committed stays exactly the
-defaults. The local file holds only `model:` and `edit_mode:`, each pick keeps the other, and it is written whole and
-atomically; clearing the last pick deletes the file."""
+web app's picker alike, her edit mode (docs/decisions/072) and the skills she carries (docs/decisions/077). A pick goes
+into `persona.local.yaml` beside the persona, an untracked file the app owns, never into the shipped `persona.yaml`: what
+is committed stays exactly the defaults. The local file holds only `model:`, `edit_mode:` and `skills:`, each pick keeps
+the others, and it is written whole and atomically; clearing the last pick deletes the file."""
 
 import logging
 import os
 import threading
+from typing import Any
 
 import yaml
 
 from sympose.atomic_write import write_atomic_text
 from sympose.engine import edit_mode
 from sympose.persona_files import PERSONA_FILENAME, PERSONA_LOCAL_FILENAME, persona_dir, profiles_dir
+from sympose.profile import local_overrides
 from sympose.security import is_safe_path
 
 log = logging.getLogger(__name__)
 
 _LOCK = threading.Lock()  # one write of a persona's override at a time
-_KEYS = ("model", "edit_mode")
 
 
 def set_model(handle: str, model: str | None) -> bool:
@@ -35,17 +36,14 @@ def set_edit_mode(handle: str, mode: str | None) -> bool:
     return _set(handle, "edit_mode", mode)
 
 
-def _read(local: str) -> dict[str, str]:
-    """What the local file holds that is ours; a missing, broken or foreign file holds nothing."""
-    try:
-        with open(local, "r", encoding="utf-8") as f:
-            data = yaml.safe_load(f)
-    except (OSError, UnicodeDecodeError, yaml.YAMLError):
-        return {}
-    return {k: v for k in _KEYS if isinstance(data, dict) and isinstance(v := data.get(k), str) and v.strip()}
+def set_skills(handle: str, names: list[str] | None) -> bool:
+    """Save `names` as the skills the persona carries, in place of the shipped file's list (an empty list is a choice:
+    none; `None` removes it, so the shipped list applies again). `False` when it could not be done: no such persona, or a
+    failed write."""
+    return _set(handle, "skills", names)
 
 
-def _set(handle: str, key: str, value: str | None) -> bool:
+def _set(handle: str, key: str, value: Any) -> bool:
     try:
         folder = persona_dir(handle)
     except ValueError:
@@ -55,7 +53,7 @@ def _set(handle: str, key: str, value: str | None) -> bool:
         return False
     with _LOCK:
         try:
-            kept = _read(local)
+            kept = local_overrides(local)
             kept.pop(key, None)
             if value is not None:
                 kept[key] = value

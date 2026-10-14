@@ -122,23 +122,29 @@ def get_profile(handle: str) -> dict[str, Any] | None:
     if not isinstance(data, dict):
         return None
     local = os.path.join(os.path.dirname(path), PERSONA_LOCAL_FILENAME)
-    overrides = {key: value for key in ("model", "edit_mode") if (value := _local_value(local, key))}
-    return _normalize({**data, **overrides}, handle)
+    return _normalize({**data, **local_overrides(local)}, handle)
 
 
-def _local_value(path: str, key: str) -> str | None:
-    """A text value the user set in the untracked override beside the shipped file (the model, docs/decisions/046; the
-    edit mode, docs/decisions/072). An absent, unreadable or invalid file gives `None`: it never costs the persona her place."""
+def local_overrides(path: str) -> dict[str, Any]:
+    """What the user set in the untracked override beside the shipped file: the model (docs/decisions/046), the edit
+    mode (docs/decisions/072), each a text, and the skills she carries (docs/decisions/077), a list of names (an empty
+    one is a choice). An absent, unreadable or invalid file, or a value of the wrong kind, gives nothing for it: it never
+    costs the persona her place."""
     if not os.path.isfile(path):
-        return None
+        return {}
     try:
         with open(path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
     except (OSError, UnicodeDecodeError, yaml.YAMLError) as e:
         log.warning("Ignoring %s: %s", path, e)
-        return None
-    value = data.get(key) if isinstance(data, dict) else None
-    return value if isinstance(value, str) and value.strip() else None
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    found: dict[str, Any] = {k: v for k in ("model", "edit_mode") if isinstance(v := data.get(k), str) and v.strip()}
+    names = data.get("skills")
+    if isinstance(names, list) and all(isinstance(n, str) for n in names):
+        found["skills"] = names
+    return found
 
 
 def resolve_profile(persona: str | None) -> dict[str, Any] | None:

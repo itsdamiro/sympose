@@ -572,6 +572,8 @@ export function AppShell() {
         sharingState={sharingState}
         setShared={setShared}
         cloudNotice={cloudNotice}
+        persona={activePersona}
+        personaName={activePersonaName}
         query={vaultSearchQuery}
       />
     ) : (

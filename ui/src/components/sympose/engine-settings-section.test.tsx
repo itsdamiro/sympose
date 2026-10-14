@@ -54,6 +54,14 @@ describe("EngineSettingsSections", () => {
     expect(screen.getByText("The room kept for the reply")).toBeTruthy()
   })
 
+  it("draws a page's own rows at the end of the group they are named for, and nowhere else", async () => {
+    stubBackend(() => ok({}))
+    render(<EngineSettingsSections extras={{ Memory: <p>an extra row</p>, Nowhere: <p>never drawn</p> }} />)
+    const extra = await screen.findByText("an extra row")
+    expect(screen.queryByText("never drawn")).toBeNull()
+    expect(extra.closest("[data-slot=control-section]")?.textContent).toContain("Adding to decisions.md")
+  })
+
   it("flips a toggle through the backend and shows what it now reports", async () => {
     stubBackend((_, value) => ok(row({ key: "memory_remember", value, is_default: false, text: "on" })))
     render(<EngineSettingsSections />)

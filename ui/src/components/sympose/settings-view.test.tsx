@@ -71,6 +71,8 @@ function setup(over: Record<string, unknown> = {}) {
         sharingState={state}
         setShared={spies.setShared}
         cloudNotice={{ open: true, reopen: spies.reopen, close: spies.close }}
+        persona="samantha"
+        personaName="Samantha"
         {...over}
       />
     )

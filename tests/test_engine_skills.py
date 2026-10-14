@@ -59,16 +59,33 @@ def test_a_skill_with_a_bad_header_or_no_steps_is_skipped(text):
     assert skills.parse(text, "a-b", "bundled") is None
 
 
-def test_a_persona_carries_the_bundled_skills_it_names_and_all_of_its_own(bundled, tmp_path, monkeypatch):
+def test_a_persona_carries_only_the_skills_it_names_bundled_or_its_own(bundled, tmp_path, monkeypatch):
     monkeypatch.setenv("SYMPOSE_PROFILES_DIR", str(tmp_path / "profiles"))
     write_skill(bundled, "poem-writing")
     write_skill(bundled, "not-named")
     write_skill(tmp_path / "profiles" / "ada" / "skills", "her-own")
+    write_skill(tmp_path / "profiles" / "ada" / "skills", "her-other")
 
-    carried = skills.carried({"handle": "ada", "skills": ["poem-writing"]})
+    carried = skills.carried({"handle": "ada", "skills": ["poem-writing", "her-own"]})
 
-    assert sorted(s.name for s in carried) == ["her-own", "poem-writing"]
     assert {s.name: s.source for s in carried} == {"her-own": "persona", "poem-writing": "bundled"}
+
+
+def test_a_skill_folder_put_in_is_off_until_it_is_named(bundled, tmp_path, monkeypatch):
+    monkeypatch.setenv("SYMPOSE_PROFILES_DIR", str(tmp_path / "profiles"))
+    write_skill(tmp_path / "profiles" / "ada" / "skills", "her-own")
+
+    assert skills.carried({"handle": "ada", "skills": []}) == []
+    assert skills.carried({"handle": "ada"}) == []
+    assert skills.select({"handle": "ada", "skills": []}, "please write me a poem about the sea", ALL, True) is None
+
+
+def test_every_skill_a_persona_could_carry_is_available_on_or_off(bundled, tmp_path, monkeypatch):
+    monkeypatch.setenv("SYMPOSE_PROFILES_DIR", str(tmp_path / "profiles"))
+    write_skill(bundled, "poem-writing")
+    write_skill(tmp_path / "profiles" / "ada" / "skills", "her-own")
+
+    assert sorted(s.name for s in skills.available({"handle": "ada", "skills": []})) == ["her-own", "poem-writing"]
 
 
 def test_her_own_skill_replaces_a_bundled_one_of_the_same_name(bundled, tmp_path, monkeypatch):
@@ -79,6 +96,22 @@ def test_her_own_skill_replaces_a_bundled_one_of_the_same_name(bundled, tmp_path
     (only,) = skills.carried({"handle": "ada", "skills": ["poem-writing"]})
 
     assert only.body == "Her steps."
+
+
+@pytest.mark.parametrize(
+    "text, reason",
+    [
+        ("no header\n", "header between two lines"),
+        ("---\n: : bad\n---\nSteps.\n", "can't be read"),
+        ("---\nname: other\ndescription: d\n---\nSteps.\n", "must be the folder's name, a-b"),
+        ("---\nname: a-b\n---\nSteps.\n", "needs a description"),
+        ("---\nname: a-b\ndescription: d\ntools: nope\n---\nSteps.\n", "tools:"),
+        ("---\nname: a-b\ndescription: d\ncontext: elsewhere\n---\nSteps.\n", "context:"),
+        ("---\nname: a-b\ndescription: d\n---\n\n", "no steps"),
+    ],
+)
+def test_a_refused_skill_says_which_rule_it_broke(text, reason):
+    assert reason in skills.check(text, "a-b")
 
 
 def test_a_file_over_the_size_limit_is_not_read(bundled):
@@ -202,7 +235,7 @@ def test_a_skill_of_the_personas_own_is_never_given_to_a_model_that_is_not_local
     monkeypatch.setenv("SYMPOSE_PROFILES_DIR", str(tmp_path / "profiles"))
     write_skill(bundled, "poem-writing")
     write_skill(tmp_path / "profiles" / "ada" / "skills", "trip-planning", desc="Plans a trip itinerary. Use when the user wants to plan a journey or trip.")
-    persona = {"handle": "ada", "skills": ["poem-writing"]}
+    persona = {"handle": "ada", "skills": ["poem-writing", "trip-planning"]}
 
     assert skills.select(persona, "help me plan a trip to Lisbon", ALL, True).name == "trip-planning"
     assert skills.select(persona, "help me plan a trip to Lisbon", ALL, False) is None

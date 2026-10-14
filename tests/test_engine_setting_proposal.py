@@ -7,7 +7,7 @@ import json
 import pytest
 from helpers import write_persona
 
-from sympose import persona_model, settings_store
+from sympose import persona_model, profile, settings_store
 from sympose.engine import confirmations as c, followup, persona_proposal, setting_proposal, setting_targets, sharing, tool_support, turn
 from sympose.engine.model import ModelReply
 from sympose.engine.model_tools import ToolCall
@@ -145,7 +145,7 @@ def test_the_persona_model_is_saved_for_the_persona_that_asked():
 
     c.resolve("samantha", only_request()["id"], True, None, ())
 
-    assert persona_model._read(persona_model.persona_dir("samantha") + "/persona.local.yaml") == {"model": CLOUD}
+    assert profile.local_overrides(persona_model.persona_dir("samantha") + "/persona.local.yaml") == {"model": CLOUD}
 
 
 PRO = "gemini/gemini-pro-latest"

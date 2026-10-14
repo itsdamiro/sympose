@@ -27,6 +27,7 @@ export { FolderSetupDialog } from "./folder-setup-dialog"
 export { RootCreateDialog } from "./root-create-dialog"
 export { FrontmatterCard } from "./frontmatter-card"
 export { EngineSettingsSections } from "./engine-settings-section"
+export { SkillsRows } from "./skills-rows"
 export { HiddenSection } from "./hidden-section"
 // `AmbientNebula` is intentionally NOT re-exported here — it pulls in
 // `react-force-graph`. The app shell lazy-imports it directly from

@@ -2,8 +2,9 @@
 and the steps as its body. A skill is text only: it tells the persona what to do with the tools she already has, and
 nothing in a skill is ever run.
 
-Where they live: the bundled ones in `sympose/skills/` (a persona carries those her `persona.yaml` names under
-`skills:`), and the user's own in `profiles/<handle>/skills/` (a persona carries all of its own). A skill needing a
+Where they live: the bundled ones in `sympose/skills/` and the user's own in `profiles/<handle>/skills/`. A persona
+carries only the skills its `skills:` list names, bundled or its own: a folder put in is off until the user turns it on
+(docs/decisions/077, the amendment of 2026-10-14; `persona_skills` adds and switches them). A skill needing a
 tool the persona cannot use this turn (its `tools:` line) is not offered. `tool_calls` there is not a tool but a
 demand on the model: it calls tools rather than writing markers in its reply, which a skill that must file a faithful
 note needs (a model without tools did not, docs/decisions/077). `context: folder` asks for the shape of the folder the
@@ -69,36 +70,40 @@ def cap() -> int:
     return value if ok else DEFAULT_CAP
 
 
-def parse(text: str, folder_name: str, source: str) -> Skill | None:
-    """The skill a `SKILL.md` holds, or `None` when its header is missing, unreadable or names it other than its folder
-    (a lowercase name of letters, digits and hyphens that is the folder's own), or has no description or no steps."""
-    if not text.startswith("---"):
-        return None
-    end = _HEADER_END.search(text, 3)
+def check(text: str, folder_name: str, source: str = "persona") -> Skill | str:
+    """The skill a `SKILL.md` holds, or, in the user's words, the rule it breaks: no header, an unreadable one, a name
+    other than its folder's (lowercase letters, digits and hyphens), no description or one that is too long, a `tools`
+    that is not a list, a `context` nobody provides, or no steps."""
+    end = _HEADER_END.search(text, 3) if text.startswith("---") else None
     if end is None:
-        return None
-    head, body = text[3:end.start()], text[end.end():]
+        return "SKILL.md must start with a header between two lines of ---."
     try:
-        meta = yaml.safe_load(head)
+        meta = yaml.safe_load(text[3:end.start()])
     except yaml.YAMLError:
-        return None
+        meta = None
     if not isinstance(meta, dict):
-        return None
+        return "The header of SKILL.md can't be read. It needs a name and a description."
     name, description = meta.get("name"), meta.get("description")
     if name != folder_name or not isinstance(name, str) or not _NAME.fullmatch(name):
-        return None
+        return f"The name in the header must be the folder's name, {folder_name}, in lowercase letters, digits and hyphens."
     if not isinstance(description, str) or not description.strip() or len(description) > MAX_DESCRIPTION:
-        return None
+        return f"The header needs a description of at most {MAX_DESCRIPTION} characters."
     needs = meta.get("tools") or []
     if not isinstance(needs, list) or not all(isinstance(t, str) for t in needs):
-        return None
+        return "tools: in the header must be a list of names."
     context = meta.get("context") or ""
     if context not in ("", FOLDER):
-        return None
-    steps = body.lstrip("\n").strip()
+        return f"context: in the header may only be {FOLDER}."
+    steps = text[end.end():].lstrip("\n").strip()
     if not steps:
-        return None
+        return "SKILL.md has no steps after the header."
     return Skill(name, " ".join(description.split()), steps, tuple(needs), source, context)
+
+
+def parse(text: str, folder_name: str, source: str) -> Skill | None:
+    """The skill a `SKILL.md` holds, or `None` when `check` finds a rule broken."""
+    skill = check(text, folder_name, source)
+    return skill if isinstance(skill, Skill) else None
 
 
 def _read(folder: str, source: str, only: set[str] | None = None) -> list[Skill]:
@@ -126,17 +131,31 @@ def _read(folder: str, source: str, only: set[str] | None = None) -> list[Skill]
     return found
 
 
-def carried(persona: dict[str, Any]) -> list[Skill]:
-    """The skills a persona carries: the bundled ones her `persona.yaml` names, then all of her own folder's
-    (a skill of her own with a bundled one's name replaces it)."""
-    wanted = {s for s in persona.get("skills") or [] if isinstance(s, str)}
-    skills = {s.name: s for s in _read(BUNDLED_DIR, "bundled", wanted)}
+def _gather(persona: dict[str, Any], only: set[str] | None) -> list[Skill]:
+    skills = {s.name: s for s in _read(BUNDLED_DIR, "bundled", only)}
     try:
-        own = os.path.join(persona_dir(persona.get("handle") or ""), "skills")
+        own = own_dir(persona.get("handle") or "")
     except ValueError:
         return list(skills.values())
-    skills.update({s.name: s for s in _read(own, "persona")})
+    skills.update({s.name: s for s in _read(own, "persona", only)})
     return list(skills.values())
+
+
+def own_dir(handle: str) -> str:
+    """The folder of a persona's own skills; `ValueError` when `handle` is not a persona's."""
+    return os.path.join(persona_dir(handle), "skills")
+
+
+def carried(persona: dict[str, Any]) -> list[Skill]:
+    """The skills a persona carries: those its `skills:` list names, from the bundled ones and from its own folder
+    (its own replaces a bundled one of the same name)."""
+    wanted = {s for s in persona.get("skills") or [] if isinstance(s, str)}
+    return _gather(persona, wanted)
+
+
+def available(persona: dict[str, Any]) -> list[Skill]:
+    """Every skill the persona could carry, switched on or not: all the bundled ones and all of its own."""
+    return _gather(persona, None)
 
 
 def tools_of(ask: bool, edit: bool, calls: bool = False) -> frozenset[str]:

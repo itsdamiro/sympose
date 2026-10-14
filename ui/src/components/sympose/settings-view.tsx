@@ -13,6 +13,7 @@ import {
   NebulaAppearanceSection,
   NotificationsSection,
   RecentNotesPreferencesSection,
+  SkillsRows,
   WorkspaceSection,
 } from "@/components/sympose"
 import { EmptyState } from "@/components/sympose/empty-state"
@@ -48,6 +49,8 @@ export function SettingsView({
   sharingState,
   setShared,
   cloudNotice,
+  persona,
+  personaName,
   query = "",
 }: {
   title: string
@@ -73,6 +76,9 @@ export function SettingsView({
   sharingState: React.ComponentProps<typeof CloudSharingSection>["state"]
   setShared: React.ComponentProps<typeof CloudSharingSection>["onChange"]
   cloudNotice: { open: boolean; reopen: () => void; close: () => void }
+  /** The persona that is open: the skills listed under Skills are hers. */
+  persona: string | null
+  personaName: string
   /** What the toolbar's search field holds (docs/decisions/065): rows and sections without a match are hidden. */
   query?: string
 }) {
@@ -119,7 +125,7 @@ export function SettingsView({
           noticeOpen={cloudNotice.open}
           onNoticeOpenChange={(open) => (open ? cloudNotice.reopen() : cloudNotice.close())}
         />
-        <EngineSettingsSections />
+        <EngineSettingsSections extras={{ Skills: <SkillsRows persona={persona} personaName={personaName} /> }} />
         {query.trim() !== "" && (
           // shown only while no row is visible and no section matched by its title (the page has no state of its own
           // about that: the rows and sections hide themselves)

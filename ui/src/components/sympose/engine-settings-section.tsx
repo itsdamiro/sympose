@@ -112,9 +112,10 @@ function Control({ setting, change }: { setting: EngineSetting; change: Change }
 /**
  * Settings → the engine settings, one section per group (docs/decisions/044). The same list the terminal's
  * `/settings` shows, described by the backend, which also decides what a value may be: this only draws each
- * row as a switch, a set of choices or a number field, and shows the reason when a value is refused.
+ * row as a switch, a set of choices or a number field, and shows the reason when a value is refused. `extras` adds rows
+ * of the page's own under a group by its name (the skills, which belong to the persona that is open).
  */
-function EngineSettingsSections() {
+function EngineSettingsSections({ extras = {} }: { extras?: Record<string, React.ReactNode> }) {
   const { state, change } = useEngineSettings()
 
   if (state.status === "loading") return null
@@ -141,6 +142,7 @@ function EngineSettingsSections() {
               <Control setting={s} change={change} />
             </ControlRow>
           ))}
+          {extras[group.name]}
         </ControlSection>
       ))}
     </>

@@ -23,7 +23,7 @@ ASK = "help me plan a trip to Lisbon"
 @pytest.fixture(autouse=True)
 def scratch(tmp_path, monkeypatch):
     base = tmp_path / "profiles"
-    write_persona(base, "samantha", "name: Samantha\nvault_folders: []\nsympose_reference: false\nskills: ['poem-writing']\n")
+    write_persona(base, "samantha", "name: Samantha\nvault_folders: []\nsympose_reference: false\nskills: ['poem-writing', 'trip-planning']\n")
     (base / "samantha" / "skills" / "trip-planning").mkdir(parents=True)
     (base / "samantha" / "skills" / "trip-planning" / "SKILL.md").write_text(TRIP, encoding="utf-8")
     bundled = tmp_path / "bundled" / "poem-writing"

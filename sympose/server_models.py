@@ -235,6 +235,18 @@ class EditModeChoice(BaseModel):
     mode: str | None = None
 
 
+class SkillAdd(BaseModel):
+    """Body of `POST /api/personas/{handle}/skills` (docs/decisions/077): the path of a skill's folder on this computer."""
+
+    folder: str
+
+
+class SkillSwitch(BaseModel):
+    """Body of `PUT /api/personas/{handle}/skills/{name}`: switch a skill on or off for the persona."""
+
+    enabled: bool
+
+
 class PersonaFileWrite(BaseModel):
     """Body of `PUT /api/personas/{handle}/files/{name}` (docs/decisions/061): the editor saving one of a persona's
     own files. `expected_mtime` is the mtime it was opened at, so a change made meanwhile is a 409, not overwritten."""

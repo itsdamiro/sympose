@@ -210,7 +210,9 @@ The `annotations_cap` setting is how many of your open comments on the open note
 
 The `skill_lookup` setting decides whether a persona follows a skill: `"auto"` (the default) picks the skill whose description fits your message, if there is one, and adds its steps to that message; `"off"` never does.
 
-A skill is a folder with a `SKILL.md` that says what it does and the steps to follow. It is only text: nothing in it is ever run. Samantha carries the bundled ones named in her `persona.yaml`, and a persona also carries every skill in its own `skills/` folder in its profile.
+A skill is a folder with a `SKILL.md` that says what it does and the steps to follow. It is only text: nothing in it is ever run. In Settings, under Skills, every skill a persona could carry has a switch, and a persona follows only the skills that are on; Samantha starts with the bundled ones on.
+
+To add a skill of your own, paste the full path of its folder in the same place. Sympose copies its `SKILL.md` (nothing else in the folder) into the persona's profile, turned off, and opens it so you can read it before you turn it on. A skill of your own goes only to a model on your computer, never to a cloud model.
 
 A skill that needs to propose a note is not used where the persona cannot propose notes: in the terminal, or when its `edit_mode` is `"plan"`. The skill that drafts a new note in a folder's style also needs a model that calls tools itself; a model that does not (the default local `gemma2:9b`) is not given it, and answers as it always did.
 
