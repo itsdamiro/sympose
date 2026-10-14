@@ -29,11 +29,13 @@ _CASES = {
     ),
     "names-the-folders-from-the-map": (("which folders does my vault have?",), (r"Journal", r"Recipes")),
     "decision-asked-in-its-own-word": (("what is the Atlas database decision?",), (r"SQLite",)),
+    "decision-asked-without-the-notes-name": (("what is the database decision?",), (r"SQLite",)),
 }
 EXTRA = [LiveCase(name, messages, expect=expect) for name, (messages, expect) in _CASES.items()]
 NEEDS_A_NOTE = {
     "uses-the-note", "prefers-the-note-to-its-own-ideas", "asked-to-search", "honest-when-nothing-matches",
     "open-named-note", "follow-up-needs-a-second-lookup", "decision-asked-in-its-own-word",
+    "decision-asked-without-the-notes-name",
 }
 NEEDS_NONE = {
     "small-talk-stays-small-talk", "general-knowledge-with-no-notes", "recap-stays-out-of-small-talk",

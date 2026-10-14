@@ -504,3 +504,60 @@ def test_a_hit_from_a_body_says_it_is_text():
     index = build_index([_note("Typography", "Some notes about fonts.")])
 
     assert [h["kind"] for h in grounding.retrieve(index, "typography")] == ["text"]
+
+
+# A note found by one passage brings its opening passage when that matches a word of the message
+# (the passage that decided never says "database", the Timeline line that does is no answer alone).
+
+_ATLAS = _note("Atlas", "We decided to use SQLite for the prototype.\n\n## Timeline\n\nReview the database decision in October.")
+
+
+def _texts(notes: list[dict], message: str, **kwargs) -> list[str]:
+    return [h["text"] for h in grounding.retrieve(build_index(notes), message, **kwargs)]
+
+
+def test_a_note_found_by_one_passage_brings_its_opening_passage_when_it_matches_a_word():
+    texts = _texts([_ATLAS], "database decision")
+
+    assert texts[0] == "Review the database decision in October."
+    assert "We decided to use SQLite for the prototype." in texts
+
+
+def test_only_the_opening_passage_joins_not_any_passage_matching_one_ordinary_word():
+    router = _note("Router", "The router sits in the hall.\n\n## Backups\n\nChange the schedule here.\n\n## Wifi\n\nChange the wifi name and the password.")
+
+    assert _texts([router], "change wifi name") == ["Change the wifi name and the password."]
+
+
+def test_a_note_none_of_whose_passages_were_found_does_not_bring_its_opening_passage():
+    holiday = _note("Holiday", "We decided to go to the sea.\n\nPack the car.")
+
+    texts = _texts([_ATLAS, holiday], "database decision")
+
+    assert "We decided to go to the sea." not in texts
+    assert len(texts) == 2  # only Atlas's two
+
+
+def test_the_opening_passage_does_not_join_beyond_the_passages_a_note_may_have():
+    note = _note("Notes", "Gamma is first.\n\nGamma and delta, one.\n\nGamma and delta, two.")
+
+    assert _texts([note], "gamma delta") == ["Gamma and delta, one.", "Gamma and delta, two."]
+
+
+def test_the_opening_passage_does_not_join_beyond_max_results():
+    assert _texts([_ATLAS], "database decision", max_results=1) == ["Review the database decision in October."]
+
+
+def test_a_strict_source_never_adds_the_opening_passage():
+    note = _note("Notes", "Gamma is first.\n\n## Both\n\nGamma and delta together.")
+
+    assert "Gamma is first." in _texts([note], "gamma delta")
+    assert "Gamma is first." not in [h["text"] for h in grounding.retrieve(build_index([note], paired=False), "gamma delta", strict=True)]
+
+
+def test_an_opening_passage_matching_only_the_personas_own_name_does_not_join():
+    note = _note("Notes", "Gamma is first.\n\n## Both\n\nGamma and delta together.")
+
+    texts = [h["text"] for h in grounding.retrieve(build_index([note]), "gamma delta", address=frozenset({"gamma"}))]
+
+    assert "Gamma is first." not in texts

@@ -132,6 +132,20 @@ def _score(passage: Passage, terms: list[str], index: Index) -> float:
     return total
 
 
+def _hit(passage: Passage, score: float, matched: int, position: int) -> dict[str, Any]:
+    return {
+        "rel_path": passage.rel_path,
+        "title": passage.title,
+        "heading": passage.heading,
+        "text": passage.text,
+        "tags": list(passage.tags),
+        "kind": passage.kind,
+        "score": round(score, 3),
+        "matched": matched,
+        "index": position,
+    }
+
+
 def retrieve(
     index: Index,
     message: str,
@@ -151,11 +165,16 @@ def retrieve(
     if not terms:
         return []
     scored = []
+    partial = []  # matched a message word, not enough alone: a sibling of a note found by another passage
     for passage in index.passages:
         matched = [t for t in terms if t in passage.tf]
-        if matched and _qualifies(passage, matched, informative, strict, index):
-            evidence = [t for t in matched if not _is_addressing(t, address)]
+        if not matched:
+            continue
+        evidence = [t for t in matched if not _is_addressing(t, address)]
+        if _qualifies(passage, matched, informative, strict, index):
             scored.append((_score(passage, terms, index), passage, len(evidence)))
+        elif evidence and not strict:
+            partial.append((_score(passage, terms, index), passage, len(evidence)))
     if not scored:
         return []
     scored.sort(key=lambda sp: -sp[0])
@@ -169,19 +188,17 @@ def retrieve(
         if per_note.get(passage.rel_path, 0) >= PASSAGES_PER_NOTE:
             continue
         per_note[passage.rel_path] = per_note.get(passage.rel_path, 0) + 1
-        hits.append(
-            {
-                "rel_path": passage.rel_path,
-                "title": passage.title,
-                "heading": passage.heading,
-                "text": passage.text,
-                "tags": list(passage.tags),
-                "kind": passage.kind,
-                "score": round(score, 3),
-                "matched": matched_count,
-                "index": len(hits) + 1,
-            }
-        )
+        hits.append(_hit(passage, score, matched_count, len(hits) + 1))
+    # A note found by one of its passages brings its opening passage, the one that says what the note is, when
+    # it matches a word of the message: the passage that decided never says "database", and the Timeline line
+    # that does is no answer alone. Any other passage matching one ordinary word is noise (docs/decisions/014).
+    partial.sort(key=lambda sp: -sp[0])
+    for score, passage, matched_count in partial:
+        if len(hits) >= max_results:
+            break
+        if passage is index.passages_by_path[passage.rel_path][0] and 0 < per_note.get(passage.rel_path, 0) < PASSAGES_PER_NOTE:
+            per_note[passage.rel_path] += 1
+            hits.append(_hit(passage, score, matched_count, len(hits) + 1))
     return hits
 
 
