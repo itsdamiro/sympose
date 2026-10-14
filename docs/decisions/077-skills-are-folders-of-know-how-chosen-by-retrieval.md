@@ -13,7 +13,7 @@ tags: [type/decision, status/accepted, project/sympose, topic/retrieval]
 
 > **Summary.** Skills are folders with a `SKILL.md` in Anthropic's Agent Skills format, bundled in `sympose/skills/` or the user's own in `profiles/<handle>/skills/`, and chosen by retrieval. A persona had knowledge, powers and identity but no written procedures for recurring jobs, and the soul cannot hold them. In `auto` mode a prompt grows by at most one skill body, bounded by `skill_cap`; `ask` and `use_skill` were tried and removed (second amendment).
 
-> **Status: Accepted; `auto` built (2026-10-08), `ask` and `use_skill` tried and removed (2026-10-09).** Design agreed with damiro, 2026-10-07. See the amendment for what was built and measured.
+> **Status: Accepted; `auto` built (2026-10-08), `ask` and `use_skill` tried and removed (2026-10-09), adding, reviewing and switching skills from Settings built (2026-10-14).** Design agreed with damiro, 2026-10-07. See the amendment for what was built and measured.
 
 ## Context
 
@@ -144,3 +144,21 @@ What it showed: on Gemini Flash `ask` matched `auto` on every soul and near-miss
 **Measured** (strict test, `python tests/live_skill_cases.py -v 3 gemini/gemini-flash-latest`, damiro's go-ahead, invented data only): drafts in the folder's style 3 of 3, keeps the section order 3 of 3, the soul cases 3 of 3 in each of the four, near misses 3 of 3 and 3 of 3, small talk 3 of 3. Every filed note had its properties between `---` lines, `rating:` and `tags:` empty, and nothing the user did not say. In a re-measure on `gemma4:e4b` (5 runs, skills on against off): drafting cases 4 of 5 and 4 of 5 with the skill, 0 of 5 and 0 of 5 without; the misses were a reply that said it could not save notes and one empty reply (the model-layer problem of ADR 080). Samples of 3 to 5 are direction, not a figure.
 
 **Decision.** Samantha carries `drafting-a-note-in-a-folders-style` next to `deriving-a-persona-soul`. It is offered only to a model that calls tools, so `gemma2:9b`, the default local model, answers as before. The reference library (`Settings.md`, `skill_lookup`) says so.
+
+## Amendment (2026-10-14): adding, reviewing and turning on a skill from Settings
+
+**Why.** A user's own skill was carried the moment its folder existed, and the only way to add one was to copy a folder into `profiles/<handle>/skills/` by hand. Item 4 above (a page with a review before a copied-in skill is enabled) asked for the opposite order: nothing a stranger wrote reaches the prompt until the user has read it and said yes. Anthropic's own flow was the model (a skill is added by putting its folder in place, switched on and off per skill, and read before it is trusted; the vetting is the user's), minus what Sympose never does: a skill here is text and nothing in it is run.
+
+**Where.** Settings, in the existing Skills group beside `skill_lookup` and `skill_cap` (no new page or section), for the persona that is open, as the cloud-sharing rows already are. One row per skill the persona can carry (bundled and own): its name and description and a switch. Above them, one field: the path of the skill's folder.
+
+**Add.** The user gives the folder's path; the server reads it (it runs on the user's own computer), checks the `SKILL.md` by the rules `skills.parse` already has (name equal to the folder's, description, steps, size cap) and says which rule a refused one broke. Only `SKILL.md` is copied, into `profiles/<handle>/skills/<name>/`: nothing else in a skill's folder is ever read (the extra files were for `ask`, which was removed), so scripts and binaries beside it are neither copied nor mentioned beyond one line saying so. A name the persona already has, bundled or its own, is refused. The copy is **off**.
+
+**Review.** Opening a skill shows its text exactly as stored, how long it is against `skill_cap`, the tools its `tools:` line names, and one fact the user cannot see otherwise: a skill of the user's own is sent only to a model on their own computer (ADR 031). After an add the review opens by itself with the switch in it. No scanner for suspicious phrases: it would add a surface and a false comfort, and the user reading the text is the control.
+
+**On.** A skill is carried only if its name is in the persona's `skills:` list, bundled or own alike. The user's switch writes that list into `persona.local.yaml` (the untracked file the app owns, ADR 046; the shipped `persona.yaml` is never written), which replaces the shipped list while it exists. A skill folder put in by hand is therefore off until switched on; no skill existed in any persona folder of this checkout when this was built.
+
+**Known consequence.** The local list replaces the shipped one whole, so a bundled skill that a later release adds to a persona's shipped list stays off for a persona whose list was saved from Settings (the user can switch it on there). A list of differences from the shipped one would avoid that and was left out as more than four rows need.
+
+**Not built.** Removing a skill from the page (a deletion with no undo; the folder can be deleted by hand), a zip or an upload (a dropped folder gives a browser no path), a check of whether the persona's model can carry out the `tools:` line (the review names the tools; the engine still withholds a skill that cannot be carried out, as above).
+
+**Alternatives rejected.** A separate Skills page (a new surface for four rows). Copying the whole folder (it would bring files nothing reads). Keeping own skills on by default and adding an off list (a skill someone else wrote would be live before the user had read it).
