@@ -9,7 +9,7 @@ import { cn, stripMdExtension } from "@/lib/utils"
 import { vaultScopedKey } from "@/lib/cookies"
 import { folderIconFor } from "@/lib/vault-folders"
 import { useBinPreferences } from "@/lib/use-bin-section-preference"
-import { canDropDraggedFolder, canDropFolder, endFolderDrag, isNoteDrag, leavesTarget, readFolderDrag, readNoteDrag } from "@/lib/vault-drag"
+import { folderDropHandlers } from "@/lib/vault-drag"
 import type { VaultSearchResult } from "@/lib/vault-search-api"
 import {
   SearchResultRow,
@@ -98,36 +98,13 @@ export function VaultFolderView({
   const [dragOverRootHeading, setDragOverRootHeading] = React.useState(false)
   // The heading takes a note or a folder into the folder in view (docs/decisions/074 for the folder).
   const onMoveFolder = vaultTreeActions.onMoveFolder
-  const takes = (e: React.DragEvent) =>
-    !!activeRootFolder && (isNoteDrag(e) || (!!onMoveFolder && canDropDraggedFolder(e, activeRootFolder.path)))
-  const headingDrop: React.HTMLAttributes<HTMLHeadingElement> = activeRootFolder
-    ? {
-        onDragOver: (e) => {
-          if (!takes(e)) return
-          e.preventDefault()
-          e.dataTransfer.dropEffect = "move"
-        },
-        onDragEnter: (e) => {
-          if (takes(e)) setDragOverRootHeading(true)
-        },
-        onDragLeave: (e) => {
-          if (leavesTarget(e)) setDragOverRootHeading(false)
-        },
-        onDrop: (e) => {
-          setDragOverRootHeading(false)
-          const folder = onMoveFolder ? readFolderDrag(e) : undefined
-          if (folder) {
-            e.preventDefault()
-            endFolderDrag()
-            if (canDropFolder(folder, activeRootFolder.path)) onMoveFolder!(folder, activeRootFolder.path)
-            return
-          }
-          const path = readNoteDrag(e)
-          if (!path) return
-          e.preventDefault()
-          moveNote(path, activeRootFolder.path)
-        },
-      }
+  const headingDrop = activeRootFolder
+    ? folderDropHandlers<HTMLHeadingElement>({
+        destination: activeRootFolder.path,
+        onMoveNote: moveNote,
+        onMoveFolder,
+        setOver: setDragOverRootHeading,
+      })
     : {}
   const [bin, setBin] = useBinPreferences()
   // The drafts of the folder in view, shown above the notes while browsing (docs/decisions/071).

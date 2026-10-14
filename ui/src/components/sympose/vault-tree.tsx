@@ -17,17 +17,7 @@ import { cn, stripMdExtension } from "@/lib/utils"
 import { readList, remapPrefix, writeList } from "@/lib/cookie-list"
 import { getCookie, setCookie } from "@/lib/cookies"
 import { onFolderMoved } from "@/lib/folder-moved"
-import {
-  canDropDraggedFolder,
-  canDropFolder,
-  endFolderDrag,
-  isNoteDrag,
-  leavesTarget,
-  readFolderDrag,
-  readNoteDrag,
-  startFolderDrag,
-  startNoteDrag,
-} from "@/lib/vault-drag"
+import { endFolderDrag, folderDropHandlers, startFolderDrag, startNoteDrag } from "@/lib/vault-drag"
 import { useAnimatedNodeList } from "@/lib/use-animated-node-list"
 import { GroupCaption } from "@/components/sympose/group-caption"
 import { VaultRowMenu } from "@/components/sympose/vault-row-menu"
@@ -522,37 +512,15 @@ export function VaultTreeRow({
   const canMove = !!actions.onMoveNote
   const canMoveFolders = !!actions.onMoveFolder
   // What this row takes: a note (to move it into the folder) or a folder that may go here (docs/decisions/074).
-  const takes = (e: React.DragEvent) =>
-    (canMove && isNoteDrag(e)) || (canMoveFolders && canDropDraggedFolder(e, node.path))
   const folderDropProps: React.HTMLAttributes<HTMLButtonElement> =
     canMove || canMoveFolders
       ? {
-          onDragOver: (e) => {
-            if (!takes(e)) return
-            e.preventDefault()
-            e.dataTransfer.dropEffect = "move"
-          },
-          onDragEnter: (e) => {
-            if (!takes(e)) return
-            setDragOver(true)
-          },
-          onDragLeave: (e) => {
-            if (leavesTarget(e)) setDragOver(false)
-          },
-          onDrop: (e) => {
-            setDragOver(false)
-            const folder = canMoveFolders ? readFolderDrag(e) : undefined
-            if (folder) {
-              e.preventDefault()
-              endFolderDrag()
-              if (canDropFolder(folder, node.path)) actions.onMoveFolder!(folder, node.path)
-              return
-            }
-            const path = canMove ? readNoteDrag(e) : undefined
-            if (!path) return
-            e.preventDefault()
-            actions.onMoveNote!(path, node.path)
-          },
+          ...folderDropHandlers<HTMLButtonElement>({
+            destination: node.path,
+            onMoveNote: actions.onMoveNote,
+            onMoveFolder: actions.onMoveFolder,
+            setOver: setDragOver,
+          }),
           ...(canMoveFolders
             ? { draggable: true, onDragStart: (e: React.DragEvent) => startFolderDrag(e, node.path), onDragEnd: endFolderDrag }
             : {}),

@@ -11,7 +11,7 @@ import {
 
 import { cn } from "@/lib/utils"
 import { useResizable } from "@/lib/use-resizable"
-import { canDropDraggedFolder, canDropFolder, endFolderDrag, isFolderDrag, isNoteDrag, leavesTarget, readFolderDrag, readNoteDrag } from "@/lib/vault-drag"
+import { folderDropHandlers } from "@/lib/vault-drag"
 import { Logo } from "@/components/logo"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { MainMenuRowMenu } from "@/components/sympose/main-menu-row-menu"
@@ -237,27 +237,7 @@ function MainMenu({
 
   // The vault root takes a folder: the vault name at the top and the empty space below the folders (docs/decisions/074).
   const rootDrop: React.HTMLAttributes<HTMLElement> = onDropFolder
-    ? {
-        onDragOver: (e) => {
-          if (!canDropDraggedFolder(e, "")) return
-          e.preventDefault()
-          e.dataTransfer.dropEffect = "move"
-        },
-        onDragEnter: (e) => {
-          if (canDropDraggedFolder(e, "")) setDragOverRoot(true)
-        },
-        onDragLeave: (e) => {
-          if (leavesTarget(e)) setDragOverRoot(false)
-        },
-        onDrop: (e) => {
-          setDragOverRoot(false)
-          const folder = readFolderDrag(e)
-          if (!folder) return
-          e.preventDefault()
-          endFolderDrag()
-          if (canDropFolder(folder, "")) onDropFolder(folder, "")
-        },
-      }
+    ? folderDropHandlers<HTMLElement>({ destination: "", onMoveFolder: onDropFolder, setOver: setDragOverRoot })
     : {}
   const rootOver = "rounded-md bg-accent/60 text-foreground ring-1 ring-brand/60 ring-inset"
 
@@ -319,47 +299,16 @@ function MainMenu({
         const folderTarget = onDropFolder && item.type !== "note"
         // A note, or a folder that may go in this one (docs/decisions/074). A folder dragged over the row never falls
         // through to the vault root behind it: the row answers for it, even when it does not take it.
-        const takes = (e: React.DragEvent) =>
-          (!!dropTarget && isNoteDrag(e)) || (!!folderTarget && canDropDraggedFolder(e, item.id))
-        const ownFolderDrag = (e: React.DragEvent) => !!onDropFolder && isFolderDrag(e)
         const itemDrop: React.HTMLAttributes<HTMLButtonElement> =
           dropTarget || onDropFolder
-            ? {
-                onDragOver: (e) => {
-                  if (ownFolderDrag(e)) e.stopPropagation()
-                  if (!takes(e)) return
-                  e.preventDefault()
-                  e.dataTransfer.dropEffect = "move"
-                },
-                onDragEnter: (e) => {
-                  if (ownFolderDrag(e)) {
-                    e.stopPropagation()
-                    setDragOverRoot(false) // over a row, not over the empty space behind it
-                  }
-                  if (takes(e)) setDragOverId(item.id)
-                },
-                onDragLeave: (e) => {
-                  if (ownFolderDrag(e)) e.stopPropagation()
-                  if (leavesTarget(e)) setDragOverId(null)
-                },
-                onDrop: (e) => {
-                  setDragOverId(null)
-                  setDragOverRoot(false)
-                  if (ownFolderDrag(e)) {
-                    e.stopPropagation()
-                    const folder = folderTarget ? readFolderDrag(e) : undefined
-                    if (!folder) return
-                    e.preventDefault()
-                    endFolderDrag()
-                    if (canDropFolder(folder, item.id)) onDropFolder!(folder, item.id)
-                    return
-                  }
-                  const path = dropTarget ? readNoteDrag(e) : undefined
-                  if (!path) return
-                  e.preventDefault()
-                  onDropNote!(path, item.id)
-                },
-              }
+            ? folderDropHandlers<HTMLButtonElement>({
+                destination: item.id,
+                onMoveNote: dropTarget ? onDropNote : undefined,
+                onMoveFolder: folderTarget ? onDropFolder : undefined,
+                setOver: (over) => setDragOverId(over ? item.id : null),
+                // over a row, not over the empty space behind it: with this the row answers for every folder drag
+                onClaim: onDropFolder ? () => setDragOverRoot(false) : undefined,
+              })
             : {}
         const row = (
           <button
