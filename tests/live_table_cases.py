@@ -4,10 +4,10 @@ the whole table. Scratch data and an invented note only, so a cloud model may be
 applying them with the app's own check (`table_spans.problem`): a change it would refuse is a failure, and a request the rule
 says cannot be made must propose nothing and say so. Opt-in, not deterministic: read the failing replies.
 
-    TABLE_ARM=rule|none|reword python tests/live_table_cases.py [runs] [model]      (default model: gemini/gemini-flash-latest)
+    TABLE_ARM=rule|none python tests/live_table_cases.py [runs] [model]      (default model: gemini/gemini-flash-latest)
 
-`rule` is the shipped text, `none` blanks the table rule, `reword` adds a sentence for a cell whose words are found elsewhere
-in the note (a count such as `2` also sits inside `12`, so a single cell cannot be quoted alone)."""
+`rule` is the shipped text, `none` blanks the table rule. The shipped text ends with the sentence for a cell whose words are found
+elsewhere in the note (a count such as `2` also sits inside `12`, so a single cell cannot be quoted alone)."""
 
 import json
 import os
@@ -42,7 +42,6 @@ CASES = [
     ("delete-table", "Delete the whole table from the note.", "decline", None),
     ("typo", "Fix the typo in the schedule.", "ok", lambda n: "receive" in n and "recieve" not in n and "| Basil | 2 | window |" in n),
 ]
-REWORD = " If the cell's words are also found elsewhere in the note, so that they are not found once, quote the whole table instead."
 
 
 def run(model: str, runs: int, verbose: bool) -> None:
@@ -54,8 +53,6 @@ def run(model: str, runs: int, verbose: bool) -> None:
     arm = os.environ.get("TABLE_ARM", "rule")
     if arm == "none":
         edit_turn._TABLES = ""
-    elif arm == "reword":
-        edit_turn._TABLES += REWORD
     system = prompt.build_system_prompt(profile.get_profile("samantha"))
     wanted, declined, refused = [0, 0], [0, 0], 0
     for cid, request, kind, check in CASES:

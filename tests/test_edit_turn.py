@@ -75,6 +75,14 @@ def test_manual_does_not_push_her_to_propose_unasked_and_auto_does():
     assert "propose nothing" in manual
 
 
+def test_only_a_model_with_tools_is_told_a_would_it_be_better_question_is_a_question():
+    line = "is a question: answer it and propose nothing until the user asks for the change"
+    for mode in ("manual", "accept"):
+        assert line in edit_turn.message(edit_turn.resolve(persona(mode), True, NOTE), "x")
+        assert line not in edit_turn.message(edit_turn.resolve(persona(mode), False, NOTE), "x")  # every further line cost it edits (ADR 072)
+    assert line not in edit_turn.message(edit_turn.resolve(persona("auto"), True, NOTE), "x")
+
+
 def test_plan_tells_her_she_cannot_change_notes_and_names_no_marker():
     text = edit_turn.message(edit_turn.resolve(persona("plan"), False, NOTE), "make it four")
 
@@ -205,6 +213,7 @@ def test_a_model_with_tools_is_told_how_far_a_change_goes_in_a_table_only_when_t
 
     assert "quote the whole table" in with_table and "same number of cells in every row" in with_table
     assert "removing the table" in with_table and "leave a comment" in with_table
+    assert "also found elsewhere in the note" in with_table  # a count such as 2 sits inside 12: one cell cannot be quoted alone
     assert "table" not in without
 
 

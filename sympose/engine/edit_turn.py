@@ -179,12 +179,17 @@ _TABLES = (
     "The note has a table. A change inside a table is one cell's own words, replaced by words that stay in that cell. To add or remove a "
     "row or a column, quote the whole table exactly, from its first row to its last, and give the whole new table, with the same number "
     "of cells in every row; say in your reply what you changed. You cannot propose any other change across cells or rows, or removing "
-    "the table: say so plainly and leave a comment instead of offering the edit."
+    "the table: say so plainly and leave a comment instead of offering the edit. If the cell's words are also found elsewhere in the "
+    "note, so that they are not found once, quote the whole table instead."
 )
 _REVIEW = "The user reviews each change before anything is saved. Do not rewrite the note."
 _ASKED = (
     "If the request needs information that is neither in the note nor in the request, propose nothing and say what you "
     "need. If the user is only asking or talking, propose nothing."
+)
+_ASKED_TOOLS = (
+    " A question about whether a change would be better, or what you think of the note, is a question: answer it and propose "
+    "nothing until the user asks for the change."
 )
 _UNASKED = (
     "You may also propose a change you notice the note needs, even if the user did not ask, and a new note when it "
@@ -222,7 +227,7 @@ def message(edit: Edit, user_message: str) -> str:
         rules.insert(1, _TABLES)  # learnt from a refusal otherwise, after she had offered it (the table rule is in `table_spans`)
     if edit.cut:
         rules.append(_CUT.format(n=len(edit.note.text)))
-    rules.append(_UNASKED if edit.mode == edit_mode.AUTO else _ASKED)
+    rules.append(_UNASKED if edit.mode == edit_mode.AUTO else _ASKED + (_ASKED_TOOLS if edit.tool else ""))  # a model without tools lost edits to every further line
     fence = "`" * max(4, 1 + max((len(run) for run in re.findall(r"`+", edit.note.text)), default=0))
     comments = ""
     if edit.comments or edit.decided:
