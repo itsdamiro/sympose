@@ -69,12 +69,22 @@ The rewrite step also runs when the first search is *weak* (every hit rests on o
 
 ## Not built yet
 
-- The `recent-words` mode (`model-searches` moved to ADR 040).
-- A separate cheaper model for the rewrite, and any measurement on cloud or other local models.
-- A settings screen and a slash command for the knob (settings file only for now). **Update (docs/decisions/036):** the settings screen is built and lists `grounding_followups`; there is still no command of its own for it.
-- Showing that a rewrite ran but found nothing, and counting the rewrite call in the time the header shows.
-- Skipping the call for small talk: any ungrounded message with history pays it, since the trigger is structural (a miss), not a guess about wording; a "thanks" costs one short call that answers `NONE`. A mixed query (a topic change whose rewrite drags in the old topic's name, "Atlas tax filing deadline") is possible from a small model and was not seen in the measured cases; the query is visible in the header and the retriever's gates still apply.
-- Rewriting in the same call as the chat (one call, but the model would then have to write the query before the evidence exists).
+- A settings screen and a slash command for the knob. **Update (docs/decisions/036):** the settings screen is built and lists `grounding_followups`; there is still no command of its own for it.
+- A mixed query (a topic change whose rewrite drags in the old topic's name, "Atlas tax filing deadline") is possible from a small model and was not seen in the measured cases; the query is visible in the header and the retriever's gates still apply.
+- Any measurement on cloud or other local models (#14).
+
+## Decided not to build (2026-10-14, #10)
+
+> **Status: Accepted (damiro handed the call to the assistant, 2026-10-14; he can reopen any line).**
+
+Each was a leftover in this record's "Not built yet" list. None has evidence behind it, and each costs more than it earns:
+
+- **The `recent-words` mode** is rejected below (it attaches stale notes on a topic change), and `model-searches` is what `vault_lookup: ask` is (ADR 040). The two reserved values are retired.
+- **A separate, cheaper model for the rewrite.** The call runs on the chat's own model on purpose: on a local setup a second model is a reload of seconds (ADR 015), against a rewrite that costs about a second on the model already loaded. For a cloud model the saving is a fraction of one short call; nobody has measured a cost worth a second setting.
+- **Showing that a rewrite ran but found nothing.** A notice for something the user cannot act on. `sent.rewrite` (ADR 025) already records that the call was made, for measuring.
+- **Counting the rewrite call in the time the header shows.** The header's time is the chat model's own time to first token, which every figure in the decision records is compared against; adding the search and the rewrite to it would make those figures stop meaning what they say.
+- **Skipping the call for small talk.** It would take a guess about wording, which this project does not do; the call answers `NONE` in about a second and only on a message that grounded nothing or only weakly.
+- **Rewriting in the same call as the chat.** The query has to exist before the evidence does, so a single call cannot do both (see the alternatives below).
 
 ## Alternatives rejected
 
