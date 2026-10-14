@@ -30,7 +30,7 @@ def _index() -> Index | None:
         return None
     snapshot = get_vault_snapshot(REFERENCE_DIR, [REFERENCE_DIR])
     if _CACHE is None or _CACHE[0] is not snapshot:
-        _CACHE = (snapshot, build_index(snapshot))
+        _CACHE = (snapshot, build_index(snapshot, paired=False))
     return _CACHE[1]
 
 

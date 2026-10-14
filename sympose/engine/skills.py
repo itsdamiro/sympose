@@ -165,7 +165,7 @@ def select(persona: dict[str, Any], message: str, tools: frozenset[str], local: 
         {"rel_path": s.name, "file_name": s.name, "meta": {}, "body": f"# {s.name.replace('-', ' ')}\n\n{s.description}"}
         for s in usable
     ]
-    hits = retrieve(build_index(notes), message, 1, strict=True)
+    hits = retrieve(build_index(notes, paired=False), message, 1, strict=True)
     return next((s for s in usable if hits and s.name == hits[0]["rel_path"]), None)
 
 

@@ -7,6 +7,7 @@ sandboxing, so it can index any set of notes."""
 import re
 from collections import Counter
 from dataclasses import dataclass, field
+from functools import partial
 from typing import Any
 
 from sympose.engine.grounding_properties import properties_text, values_of
@@ -45,14 +46,23 @@ PASSAGES_PER_NOTE = 2  # at most this many passages of one note are attached (by
 _TITLE_WEIGHT, _TAG_WEIGHT, _HEADING_WEIGHT = 3, 3, 2
 
 
-def fold(word: str) -> str:
-    """Plural-'s' folding so "flights" matches "flight". Applied to both the
-    index and the query, so the folded form never needs to be a real word."""
+# A verb and the noun made from it that share no stem ("decide", "decision"; "divide", "division";
+# "provide", "provision"): the words a message and the note answering it use for the same thing.
+_VERB_AND_NOUN = re.compile(r"(.{2,}i)(?:sions?|ded|des|ding|de)$")
+
+
+def fold(word: str, paired: bool = True) -> str:
+    """Folding so "flights" matches "flight" and, with `paired`, "decision" matches "decided". Applied to
+    both the index and the query, so the folded form never needs to be a real word. A strict source (the
+    reference library, skills) is indexed without `paired`: there a looser match is a wrong passage."""
+    tied = _VERB_AND_NOUN.match(word) if paired else None
+    if tied:
+        return tied.group(1)
     return word[:-1] if len(word) > 3 and word.endswith("s") and not word.endswith("ss") else word
 
 
-def index_terms(text: str) -> list[str]:
-    return [fold(w) for w in _WORD.findall(text.lower()) if w not in STOPWORDS and len(w) > 1]
+def index_terms(text: str, paired: bool = True) -> list[str]:
+    return [fold(w, paired) for w in _WORD.findall(text.lower()) if w not in STOPWORDS and len(w) > 1]
 
 
 @dataclass(frozen=True)
@@ -97,6 +107,11 @@ class Index:
     # A note's own passages (at most `PASSAGES_PER_NOTE`), by its path, for the rescue to attach without a scan
     # of every passage in the vault.
     passages_by_path: dict[str, list[Passage]] = field(default_factory=dict)
+    # Whether a verb and its noun share a term ("decide", "decision"); a message is folded the same way (`terms`).
+    paired: bool = True
+
+    def terms(self, text: str) -> list[str]:
+        return index_terms(text, self.paired)
 
 
 def _aliases_of(meta: dict[str, Any]) -> list[str]:
@@ -113,7 +128,7 @@ def _aliases_of(meta: dict[str, Any]) -> list[str]:
     return [name for name in names if not (name.lower() in seen or seen.add(name.lower()))]
 
 
-def _names_of(note: dict[str, Any]) -> set[tuple[str, ...]]:
+def _names_of(note: dict[str, Any], paired: bool) -> set[tuple[str, ...]]:
     """The informative words of each name of a note: its title, its file name and its aliases, folded and with
     filler stripped exactly as the index terms are (`index_terms`), so a message that drops a name's own filler
     word ("the Great Gatsby" said as "great gatsby") or uses the other number ("flight" for a note "Flights")
@@ -121,13 +136,14 @@ def _names_of(note: dict[str, Any]) -> set[tuple[str, ...]]:
     meta = note.get("meta") or {}
     stem = _stem(note["file_name"])
     labels = [str(meta.get("title") or meta.get("name") or stem), stem, *_aliases_of(meta)]
-    return {words for label in labels if (words := tuple(index_terms(label)))}
+    return {words for label in labels if (words := tuple(index_terms(label, paired)))}
 
 
-def _note_passages(note: dict[str, Any]) -> list[Passage]:
+def _note_passages(note: dict[str, Any], paired: bool) -> list[Passage]:
     """The passages of one note: its body paragraphs; else, when everything in it is filler words, those
     (findable by the title, shown as the text they are); else, when it has no text, its title, aliases and
     headings as one passage that says so (docs/decisions/030)."""
+    terms = partial(index_terms, paired=paired)
     meta = note.get("meta") or {}
     stem = _stem(note["file_name"])
     title = str(meta.get("title") or meta.get("name") or stem)
@@ -135,24 +151,24 @@ def _note_passages(note: dict[str, Any]) -> list[Passage]:
     aliases = _aliases_of(meta)
     # A set: a title that equals the filename (the usual case) must not count double. The aliases are
     # other names for the same title.
-    title_terms = frozenset(index_terms(f"{title} {stem} {' '.join(aliases)}"))
+    title_terms = frozenset(terms(f"{title} {stem} {' '.join(aliases)}"))
     header = Counter({term: _TITLE_WEIGHT for term in title_terms})
-    for term in index_terms(" ".join(tags)):
+    for term in terms(" ".join(tags)):
         header[term] += _TAG_WEIGHT
 
     def passage(heading: str, text: str, body_terms: list[str], length: int, labelled: tuple[str, ...], kind: str = "text"):
         tf = Counter(body_terms)
-        for term in index_terms(heading):
+        for term in terms(heading):
             tf[term] += _HEADING_WEIGHT
         tf.update(header)
-        labels = tuple(dict.fromkeys(frozenset(index_terms(label)) for label in (title, stem, *aliases, *tags, *labelled)))
+        labels = tuple(dict.fromkeys(frozenset(terms(label)) for label in (title, stem, *aliases, *tags, *labelled)))
         return Passage(note["rel_path"], title, heading, text, tags, tf, length, labels, title_terms, kind)
 
     body = note.get("body") or ""
     found: list[Passage] = []
     filler: list[tuple[str, str]] = []
     for heading, text in split_passages(body):
-        body_terms = index_terms(text)
+        body_terms = terms(text)
         if body_terms:
             found.append(passage(heading, text, body_terms, len(body_terms), (heading,)))
         elif has_words(text):
@@ -164,13 +180,13 @@ def _note_passages(note: dict[str, Any]) -> list[Passage]:
     if filler:
         return [passage(h, t, [], max(1, len(title_terms)), (h,)) for h, t in filler] if header else []
     headings = headings_of(body)
-    if not header and not index_terms(" ".join(headings)):
+    if not header and not terms(" ".join(headings)):
         return []
-    return [passage(", ".join(headings), ", ".join(aliases), [], len(title_terms) + len(index_terms(" ".join(headings))), tuple(headings), "title")]
+    return [passage(", ".join(headings), ", ".join(aliases), [], len(title_terms) + len(terms(" ".join(headings))), tuple(headings), "title")]
 
 
-def build_index(notes: list[dict[str, Any]]) -> Index:
-    """`notes`: dicts with `rel_path`, `file_name`, `meta`, `body`."""
+def build_index(notes: list[dict[str, Any]], paired: bool = True) -> Index:
+    """`notes`: dicts with `rel_path`, `file_name`, `meta`, `body`. `paired`: see `fold`."""
     passages: list[Passage] = []
     note_df: Counter = Counter()
     note_count = 0
@@ -178,16 +194,16 @@ def build_index(notes: list[dict[str, Any]]) -> Index:
     values: dict[tuple[str, ...], list[str]] = {}
     passages_by_path: dict[str, list[Passage]] = {}
     for note in notes:
-        made = _note_passages(note)
+        made = _note_passages(note, paired)
         if made:
             note_count += 1
-            for words in _names_of(note):
+            for words in _names_of(note, paired):
                 names.setdefault(words, []).append(note["rel_path"])
-            for words in {tuple(index_terms(text)) for text in values_of(note.get("meta") or {})} - {()}:
+            for words in {tuple(index_terms(text, paired)) for text in values_of(note.get("meta") or {})} - {()}:
                 values.setdefault(words, []).append(note["rel_path"])  # once per note, however many properties hold it
             note_df.update(set().union(*(p.tf.keys() for p in made)))
             passages_by_path[note["rel_path"]] = made[:PASSAGES_PER_NOTE]
             passages += made
     avg = sum(p.length for p in passages) / len(passages) if passages else 0.0
     properties = {note["rel_path"]: text for note in notes if (text := properties_text(note.get("meta") or {}))}
-    return Index(passages, dict(note_df), note_count, avg, properties, names, values, passages_by_path)
+    return Index(passages, dict(note_df), note_count, avg, properties, names, values, passages_by_path, paired)

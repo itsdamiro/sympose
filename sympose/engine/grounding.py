@@ -13,7 +13,7 @@ from typing import Any
 
 from sympose import vault_paths
 from sympose.engine import semantic
-from sympose.engine.grounding_index import PASSAGES_PER_NOTE, Index, Passage, build_index, index_terms
+from sympose.engine.grounding_index import PASSAGES_PER_NOTE, Index, Passage, build_index
 from sympose.engine.grounding_named import rescue
 from sympose.vault_snapshot import get_vault_snapshot
 
@@ -63,7 +63,7 @@ def _informative_terms(message: str, index: Index, strict: bool) -> list[str]:
     `strict` (single-topic) source keeps those, since there most notes share
     the subject's own words."""
     terms: list[str] = []
-    for word in dict.fromkeys(index_terms(message)):
+    for word in dict.fromkeys(index.terms(message)):
         df = index.note_df.get(word, 0)
         if not strict and index.note_count >= _MIN_NOTES_FOR_SHARE and df / index.note_count > _MAX_NOTE_SHARE:
             continue
@@ -71,13 +71,13 @@ def _informative_terms(message: str, index: Index, strict: bool) -> list[str]:
     return terms
 
 
-def _own_terms(passage: Passage) -> set[str]:
+def _own_terms(passage: Passage, index: Index) -> set[str]:
     """The terms of the passage's own text and heading, not the note's title
     words that `tf` adds to every passage of the note. A heading that only
     repeats the title (a note's first line usually does) is not the passage's."""
-    own = set(index_terms(passage.text))
+    own = set(index.terms(passage.text))
     if passage.heading.strip().lower() != passage.title.strip().lower():
-        own.update(index_terms(passage.heading))
+        own.update(index.terms(passage.heading))
     return own
 
 
@@ -89,7 +89,7 @@ def _covers_a_field(passage: Passage, matched: list[str]) -> bool:
     return any(label and 2 * len(label & said) >= len(label) for label in passage.labels)
 
 
-def _qualifies(passage: Passage, matched: list[str], informative: list[str], strict: bool) -> bool:
+def _qualifies(passage: Passage, matched: list[str], informative: list[str], strict: bool, index: Index) -> bool:
     """Precision over recall: a wrong note derails a small model's reply
     (tested on the default model: it answered the irrelevant context instead
     of the question, and instructions to ignore it did not help), while no
@@ -109,7 +109,7 @@ def _qualifies(passage: Passage, matched: list[str], informative: list[str], str
     ("thanks, that helps!", "I'm getting started on my taxes") is a heading
     word or two away from a note."""
     if strict:
-        own = _own_terms(passage)
+        own = _own_terms(passage, index)
         found = [t for t in matched if t in own]
         return len(found) >= 2 or any("_" in t for t in found) or set(informative) <= passage.title_terms
     return (
@@ -153,7 +153,7 @@ def retrieve(
     scored = []
     for passage in index.passages:
         matched = [t for t in terms if t in passage.tf]
-        if matched and _qualifies(passage, matched, informative, strict):
+        if matched and _qualifies(passage, matched, informative, strict, index):
             evidence = [t for t in matched if not _is_addressing(t, address)]
             scored.append((_score(passage, terms, index), passage, len(evidence)))
     if not scored:
@@ -199,7 +199,7 @@ def ground(profile: dict[str, Any], user_message: str, max_results: int = 5) -> 
         return []
     # The persona's name, handle and aliases: what the user calls her is addressing, not a topic.
     names = [profile.get("name") or "", profile.get("handle") or "", *(profile.get("aliases") or [])]
-    address = frozenset(index_terms(" ".join(n for n in names if isinstance(n, str))))
+    address = frozenset(index.terms(" ".join(n for n in names if isinstance(n, str))))
     hits = retrieve(index, user_message, max_results, address=address)
     hits = semantic.refine(index, user_message, hits, max_results=max_results)  # the knob (docs/decisions/027)
     return rescue(index, user_message, hits, address, max_results)  # a note named in full (docs/decisions/030)

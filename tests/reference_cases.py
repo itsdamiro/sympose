@@ -13,9 +13,8 @@ from typing import Any
 
 from grounding_cases import CASES
 
+from sympose.engine import reference
 from sympose.engine.grounding import retrieve
-from sympose.engine.grounding_index import build_index
-from sympose.vault_snapshot import get_vault_snapshot
 
 REFERENCE_DIR = os.path.join(os.path.dirname(__file__), "..", "sympose", "reference")
 
@@ -488,8 +487,7 @@ VAULT_QUESTIONS_MUST_NOT_ATTACH: list[RefCase] = [
 
 
 def ground_reference(message: str) -> list[dict[str, Any]]:
-    root = os.path.abspath(REFERENCE_DIR)
-    return retrieve(build_index(get_vault_snapshot(root, [root])), message, strict=True)
+    return retrieve(reference.library_index({"sympose_reference": True}), message, strict=True)
 
 
 def run_ref_case(case: RefCase) -> str | None:

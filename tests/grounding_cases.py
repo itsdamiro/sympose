@@ -52,6 +52,12 @@ CASES: list[Case] = [
         first="Projects/Atlas.md",
     ),
     Case(
+        "decision-asked-for-brings-the-note-that-decided",
+        "Atlas database decision",
+        find=("SQLite",),
+        first="Projects/Atlas.md",
+    ),
+    Case(
         "title-hit-brings-content-not-just-the-heading",
         "tell me one thing about the Atlas project",
         find=("SQLite",),

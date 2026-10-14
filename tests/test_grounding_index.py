@@ -84,6 +84,13 @@ def test_index_terms_drop_filler_and_fold_plurals():
     assert gi.index_terms("The boss has a class") == ["boss", "class"]  # 'ss' is not a plural
 
 
+def test_a_verb_and_the_noun_made_from_it_fold_together():
+    assert len({gi.fold(w) for w in ("decide", "decides", "decided", "deciding", "decision", "decisions")}) == 1
+    assert gi.fold("division") == gi.fold("divide") and gi.fold("provision") == gi.fold("provide")
+    assert len({gi.fold(w) for w in ("vision", "side", "ride", "hide", "decisive", "precise")}) == 6  # not paired
+    assert [gi.fold(w) for w in ("vision", "side", "hide")] == ["vision", "side", "hide"]  # a short stem is left whole
+
+
 def test_a_title_or_tag_term_outweighs_a_body_term():
     [passage] = gi.build_index(
         [
@@ -266,3 +273,12 @@ def test_passages_with_no_real_words_are_not_indexed():
     )
 
     assert [p.text for p in index.passages] == ["Priya is my cousin."]
+
+
+def test_a_strict_source_is_indexed_without_the_verb_and_noun_tie():
+    note = {"rel_path": "A.md", "file_name": "A.md", "meta": {}, "body": "You decide the mode."}
+
+    assert gi.build_index([note]).terms("decision") == ["deci"]
+    assert gi.Index([], {}, 0, 0.0).terms("decision") == ["deci"]  # an index made by hand is a vault's
+    assert gi.build_index([note], paired=False).terms("decision") == ["decision"]
+    assert "decide" in gi.build_index([note], paired=False).passages[0].tf

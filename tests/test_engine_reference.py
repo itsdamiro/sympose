@@ -47,7 +47,7 @@ def test_the_index_is_reused_until_a_note_changes(monkeypatch, tmp_path):
     monkeypatch.setattr(reference, "_CACHE", None)
     built = []
     real = reference.build_index
-    monkeypatch.setattr(reference, "build_index", lambda snap: built.append(1) or real(snap))
+    monkeypatch.setattr(reference, "build_index", lambda snap, **kwargs: built.append(1) or real(snap, **kwargs))
 
     reference.ground(HAS, "what is a persona")
     reference.ground(HAS, "what is a persona")

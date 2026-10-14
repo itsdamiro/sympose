@@ -97,6 +97,14 @@ def test_the_best_match_is_chosen_and_small_talk_chooses_none(bundled):
     assert skills.select(persona, "good morning, how are you?", ALL, True) is None
 
 
+def test_a_skill_is_not_chosen_by_a_word_that_only_pairs_with_its_own(bundled):
+    write_skill(bundled, "form-choice", desc="Helps the user decide which poem form to use.")
+    persona = {"handle": "ada", "skills": ["form-choice"]}
+
+    assert skills.select(persona, "I made my decision about the poem", ALL, True) is None  # "decision" is not "decide" here
+    assert skills.select(persona, "please decide the poem form", ALL, True).name == "form-choice"
+
+
 def test_skills_off_chooses_none(bundled):
     write_skill(bundled, "poem-writing")
     settings_store.set(skills.LOOKUP_SETTING, skills.OFF)

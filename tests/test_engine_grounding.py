@@ -228,7 +228,14 @@ def _note(name: str, body: str) -> dict:
 
 
 def _strict(notes: list[dict], message: str) -> list[str]:
-    return [h["rel_path"] for h in grounding.retrieve(build_index(notes), message, strict=True)]
+    return [h["rel_path"] for h in grounding.retrieve(build_index(notes, paired=False), message, strict=True)]  # as the library is
+
+
+def test_strict_does_not_tie_a_word_to_the_verb_it_is_made_from():
+    notes = [_note("Modes", "## The edit mode\n\nYou decide the edit mode in the dropdown.")]
+
+    assert _strict(notes, "who owns the dark mode decision?") == []
+    assert grounding.retrieve(build_index(notes), "who owns the edit mode decision?")  # a vault's notes are tied
 
 
 def test_strict_keeps_a_word_most_notes_share_where_the_default_drops_it():

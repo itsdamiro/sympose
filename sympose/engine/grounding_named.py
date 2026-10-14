@@ -10,7 +10,7 @@ full and whose title reads the same as a found note's (a twin: "Workspace" and "
 from typing import Any
 
 from sympose.engine import embeddings
-from sympose.engine.grounding_index import Index, index_terms
+from sympose.engine.grounding_index import Index
 from sympose.engine.semantic_pick import hit
 
 _MAX_NOTES_PER_NAME = 2  # a name that three or more notes carry is a category, not a note
@@ -29,7 +29,7 @@ _MIN_NOTES_FOR_SHARE = 10
 
 
 def _is_name(words: tuple[str, ...], index: Index, address: frozenset[str]) -> bool:
-    terms = index_terms(" ".join(words))
+    terms = index.terms(" ".join(words))
     if len("".join(words)) < _MIN_LETTERS or set(terms) <= address:
         return False  # too short, only filler words (no terms), or only the persona's own name (docs/decisions/021)
     rarest = min(index.note_df.get(term, 0) for term in terms)
@@ -74,7 +74,7 @@ def rescue(
     `max_results` passages."""
     if not index.names or embeddings.mode() == embeddings.KEYWORDS:  # (a note with values has a name too)
         return hits
-    said = tuple(index_terms(message))
+    said = tuple(index.terms(message))
     name_matches = _matches(index.names, said, index, address, _MAX_NOTES_PER_NAME)
     value_matches = _matches(index.values, said, index, address, max_results)
     covered = {word for words in (*name_matches, *value_matches) for word in words}
@@ -83,11 +83,11 @@ def rescue(
     valued = [path for path in _ordered_paths(value_matches, unexplained) if path not in named]
     if hits:  # the search found notes: only a missed note named in full and titled like one it found (a twin) joins them
         found_paths = {h["rel_path"] for h in hits}
-        found_titles = {frozenset(index_terms(h["title"])) for h in hits}
+        found_titles = {frozenset(index.terms(h["title"])) for h in hits}
         twins = [
             index.passages_by_path[p][0] for p in named
             if p not in found_paths and index.passages_by_path.get(p)
-            and frozenset(index_terms(index.passages_by_path[p][0].title)) in found_titles
+            and frozenset(index.terms(index.passages_by_path[p][0].title)) in found_titles
         ]
         merged = hits + [hit(passage, 0.0, "name") for passage in twins]
         return [{**h, "index": n} for n, h in enumerate(merged[:max_results], start=1)] if twins else hits
