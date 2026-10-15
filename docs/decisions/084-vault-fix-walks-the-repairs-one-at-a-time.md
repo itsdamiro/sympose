@@ -36,7 +36,7 @@ Facts about the code:
 
 **`--health`.** Read-only again: the prompt and its `ask` parameter are removed. When a finding has a repair, the report ends with one line saying `sympose vault --fix` offers it.
 
-**What is not fixed here.** Empty notes (never deleted, ADR 034), a link to a name no note has (no target to suggest), Markdown links, links inside code blocks (the limit recorded on #42: the rewrite reads them like any other, as the check does), and a note outside what the persona can read.
+**What is not fixed here.** Empty notes (never deleted, ADR 034), a link to a name no note has (no target to suggest), Markdown links, and a note outside what the persona can read. A `[[link]]` shown as code (a fenced block or an inline span) is a sample, not a link: the stale-link check does not read it and the repair does not rewrite it (the rename's own rewrite still does, the limit recorded on #42).
 
 ## Measured (2026-10-14, scratch copies, nothing of the real vaults written)
 
@@ -44,6 +44,13 @@ The whole walk was run, answering yes to everything, on a scratch copy and the l
 - A copy of the `garden` vault (186 notes): one repair offered (an icon), 0 failures, graph identical. It has no title mismatch and no stale link, so it did not exercise the rename.
 - A generated vault of 285 notes in 6 folders with 1710 links in seven forms (bare, qualified, alias, heading, embed, qualified with heading and alias, and a stale folder), a fifth of the notes with a different title, a tenth sharing a name across folders: 254 repairs in 9.9 s (the vault scanned again after each), 0 failures, edge count 1710 before and after, every edge identical, no ghost made. The first run also renamed notes whose name another note shares: 9 of the 1710 links then reached a different note, all of them bare links to a name several notes have. That is why the rename is not offered for those (the Decision above); with it, the graph is identical.
 - Not measured: a vault with 600 notes of the owner's own (`~/obsidian`; a copy was not made, since the sandbox declined it). The 62 renames ADR 034 predicted for it are the owner's to run with `--fix`, one yes at a time.
+
+## Update (2026-10-15, after a `/code-review xhigh` of the slice)
+
+- **A title is refused as a name by one set of rules** (`vault_file_names.py`), read by the report and by the repair, so they cannot disagree: besides what a disk refuses and what a wikilink cannot hold, a name that starts with a dot (the note would be hidden), one that starts or ends with a space, one that is a Windows device name (`CON`, `AUX`, `COM1` to `LPT9`, with or without an extension), and one that starts or ends with an apostrophe (the rename drops a quote at the edge of a name, so `'90s music` would become `90s music.md` and the report would flag it again). The report says which reason applies.
+- **The summary counts a repair that failed apart** from one left as it is ("1 changed, 1 left as they are, 1 could not be made"), and Ctrl-C at the prompt stops like `q` and still gives the summary.
+- **A link shown as code is left alone** by the stale-link check and by `retarget_link` (`markdown_code.py`: fenced blocks, inline spans closed by as many backticks as opened them, within a paragraph). Measured by tests, including a fence that never closes and a run of backticks of another length.
+- **A refused relink says why**, as a rename does: the persona may not write there, or the note is not there any more.
 
 ## Consequences
 

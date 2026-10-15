@@ -153,7 +153,8 @@ def retrieve(
     strict: bool = False,
     address: frozenset[str] = frozenset(),
 ) -> list[dict[str, Any]]:
-    """The best passages for `message`, best first, as hit dicts. Knows
+    """The best passages for `message`, best first, as hit dicts, then the opening passage of any note found by
+    another passage when it matches a word of the message (docs/decisions/014), which is not in score order. Knows
     nothing about vaults or personas. `strict` is for a small source about one
     subject (docs/decisions/019): common words are kept, and a passage needs
     two of the message's words in its own text, or a message that is just the

@@ -12,7 +12,7 @@ import re
 
 from sympose.security import is_safe_path
 from sympose.vault_write import get_file_lock, write_atomic_text
-from sympose.vault_write_relink import _WIKILINK_RE, relink_referencing_notes
+from sympose.vault_write_relink import WIKILINK_RE, relink_referencing_notes
 
 log = logging.getLogger(__name__)
 
@@ -57,7 +57,7 @@ def rewrite_folder_links(
                 return f"{bang}[[{'/'.join(segs)}{tail}]]"
         return m.group(0)
 
-    return _WIKILINK_RE.sub(repl, text), rewritten
+    return WIKILINK_RE.sub(repl, text), rewritten
 
 
 def _notes(root: str):

@@ -6,6 +6,7 @@ import pytest
 
 from sympose import vault_health_links as links
 from sympose.vault_write_relink import retarget_link
+from sympose.vault_write_status import NOTE_DENIED, NOTE_NOT_FOUND
 
 
 def note(rel, text=""):
@@ -56,6 +57,38 @@ def test_one_finding_per_link_target_per_note_and_a_dotted_name_is_kept_whole():
     assert [(o, n) for _, _, o, n in found] == [("Old/Node.js", "Tech/Node.js"), ("Old/Node.js.md", "Tech/Node.js.md")]
 
 
+CODE_SAMPLES = [
+    "```\n[[Projects/Idea]]\n```",
+    "~~~md\n[[Projects/Idea]]\n~~~",
+    "````\n```\n[[Projects/Idea]]\n```\n````",
+    "```\n[[Projects/Idea]]\nnever closed",
+    "Write `[[Projects/Idea]]` to link it.",
+    "Write ``[[Projects/Idea]] and `x` `` to link it.",
+    "> ```\n> [[Projects/Idea]]\n> ```",
+]
+
+
+@pytest.mark.parametrize("text", CODE_SAMPLES)
+def test_a_link_shown_as_code_is_a_sample_and_is_not_stale(text):
+    assert stale(note("Ideas/Idea.md"), note("Log/Day.md", text)) == []
+
+
+def test_a_link_after_a_code_sample_is_still_found():
+    found = stale(note("Ideas/Idea.md"), note("Log/Day.md", "`[[Projects/Idea]]` then [[Projects/Idea]]\n\n```\nx\n```\n[[Archive/Idea]]"))
+
+    assert [o for _, _, o, _ in found] == ["Projects/Idea", "Archive/Idea"]
+
+
+def test_a_backtick_that_never_closes_is_not_code():
+    assert len(stale(note("Ideas/Idea.md"), note("Log/Day.md", "A lone ` tick, then [[Projects/Idea]]"))) == 1
+    assert len(stale(note("Ideas/Idea.md"), note("Log/Day.md", "A tick ` here\n\n[[Projects/Idea]] and another ` there"))) == 1
+
+
+def test_a_run_of_backticks_is_closed_only_by_a_run_of_as_many():
+    assert len(stale(note("Ideas/Idea.md"), note("Log/Day.md", "A ```[[Projects/Idea]]`` b"))) == 1
+    assert stale(note("Ideas/Idea.md"), note("Log/Day.md", "A ```[[Projects/Idea]]``` b")) == []
+
+
 def test_a_note_the_persona_cannot_read_is_not_a_target():
     assert stale(note("L.md", "[[Old/Idea]]")) == []
 
@@ -79,14 +112,14 @@ def test_only_the_exact_target_is_rewritten_and_heading_alias_and_embed_stay(vau
     assert (vault / "L.md").read_bytes() == b"[[New/Idea]] [[New/Idea#H|a]] ![[New/Idea]] [[Old/Idea2]] [[Idea]] `x`\r\nend\r\n"
 
 
-def test_a_link_that_is_not_there_changes_nothing_and_a_missing_or_outside_note_is_none(vault, tmp_path):
+def test_a_link_that_is_not_there_changes_nothing_and_a_missing_or_outside_note_says_why(vault, tmp_path):
     (vault / "L.md").write_text("[[Other]]", encoding="utf-8")
     before = os.stat(vault / "L.md").st_mtime_ns
 
     assert retarget_link(ALL, "L.md", "Old/Idea", "New/Idea") == 0
     assert os.stat(vault / "L.md").st_mtime_ns == before
-    assert retarget_link(ALL, "Nope.md", "a/b", "c/b") is None
-    assert retarget_link(ALL, "../outside.md", "a/b", "c/b") is None
+    assert retarget_link(ALL, "Nope.md", "a/b", "c/b") == NOTE_NOT_FOUND
+    assert retarget_link(ALL, "../outside.md", "a/b", "c/b") == NOTE_DENIED
 
 
 def test_a_note_the_persona_may_not_write_is_not_touched(vault):
@@ -94,5 +127,31 @@ def test_a_note_the_persona_may_not_write_is_not_touched(vault):
     (vault / "B").mkdir()
     (vault / "B" / "L.md").write_text("[[Old/Idea]]", encoding="utf-8")
 
-    assert retarget_link({"handle": "x", "vault_folders": ["A"]}, "B/L.md", "Old/Idea", "New/Idea") is None
+    assert retarget_link({"handle": "x", "vault_folders": ["A"]}, "B/L.md", "Old/Idea", "New/Idea") == NOTE_DENIED
     assert (vault / "B" / "L.md").read_text(encoding="utf-8") == "[[Old/Idea]]"
+
+
+@pytest.mark.parametrize("text", CODE_SAMPLES)
+def test_a_link_shown_as_code_is_not_rewritten(vault, text):
+    (vault / "L.md").write_text(text, encoding="utf-8")
+
+    assert retarget_link(ALL, "L.md", "Projects/Idea", "Ideas/Idea") == 0
+    assert (vault / "L.md").read_text(encoding="utf-8") == text
+
+
+def test_only_the_links_outside_code_are_rewritten(vault):
+    (vault / "L.md").write_text("[[Projects/Idea]] `[[Projects/Idea]]`\n```\n[[Projects/Idea]]\n```\n[[Projects/Idea|a]]\n", encoding="utf-8")
+
+    assert retarget_link(ALL, "L.md", "Projects/Idea", "Ideas/Idea") == 2
+    assert (vault / "L.md").read_text(encoding="utf-8") == "[[Ideas/Idea]] `[[Projects/Idea]]`\n```\n[[Projects/Idea]]\n```\n[[Ideas/Idea|a]]\n"
+
+
+def test_a_note_that_cannot_be_written_is_refused_as_denied(vault, monkeypatch):
+    (vault / "L.md").write_text("[[Projects/Idea]]", encoding="utf-8")
+
+    def refuse(*args, **kwargs):
+        raise PermissionError("read only")
+
+    monkeypatch.setattr("sympose.vault_write_relink.write_atomic_text", refuse)
+
+    assert retarget_link(ALL, "L.md", "Projects/Idea", "Ideas/Idea") == NOTE_DENIED

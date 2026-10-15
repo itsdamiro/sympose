@@ -16,11 +16,10 @@ from sympose import folder_definitions_write as write_defs
 from sympose import folder_looks
 from sympose import vault_fixes, vault_graph, vault_health_links, vault_health_moves, vault_paths
 from sympose.vault_defaults import ATTACHMENT_EXTENSIONS, IGNORE_FOLDERS, NOTE_EXTENSIONS
+from sympose.vault_file_names import why_not_a_file_name
 from sympose.vault_snapshot import get_vault_snapshot
 
 _EMPTY_FRONTMATTER = re.compile(r"---\s*---")
-_UNSAFE_IN_A_NAME = re.compile(r'[\\/:*?"<>|]')
-_LONGEST_NAME = 250  # bytes a file name may have, less its `.md`
 _SHOWN_TITLE = 60
 OBSIDIAN_OWN = frozenset({".canvas", ".base"})  # file types Obsidian makes itself, so not clutter
 
@@ -73,7 +72,7 @@ def check_definition_icons(scope: Scope) -> list[Finding]:
         lines = folder_looks.offer(folder, scope.notes)
         if lines:
             colours = " and its colours" if len(lines) > 1 else ""
-            found.append(Finding(folder, defs.definition_path(folder), f"has no icon; one can be added: {lines[0]}{colours}", tuple(lines), vault_fixes.Repair(vault_fixes.ICON, (f"Add to {defs.definition_path(folder)}:", *(f"  {line}" for line in lines)), folder)))
+            found.append(Finding(folder, defs.definition_path(folder), f"has no icon; one can be added: {lines[0]}{colours}", tuple(lines), vault_fixes.icon_repair(folder, lines)))
     return found
 
 
@@ -147,11 +146,9 @@ def check_titles(scope: Scope) -> list[Finding]:
             continue
         shown = title if len(title) <= _SHOWN_TITLE else title[: _SHOWN_TITLE - 1] + "…"
         message = f'the title "{shown}" is not the file name'
-        unsafe = _UNSAFE_IN_A_NAME.search(title)
-        if unsafe:
-            message += f" and cannot be one: a file name cannot hold {unsafe.group()!r}"
-        elif len(title.encode("utf-8")) > _LONGEST_NAME:
-            message += " and cannot be one: it is too long for a file name"
+        reason = why_not_a_file_name(title)
+        if reason:
+            message += f" and cannot be one: {reason}"
         rel = note["rel_path"]
         repair = vault_fixes.title_rename(rel, title, stems)
         found.append(Finding(folder_of(rel), rel, message, repair=repair))

@@ -2,7 +2,6 @@
 `apply` makes the change through the layer that already owns it: the rename layer for a title, `retarget_link` for a
 stale link, `folder_looks_write` for an icon. Nothing here asks; the walk in `vault_command` asks before each call."""
 
-import re
 import os
 from collections import Counter
 from dataclasses import dataclass
@@ -10,7 +9,8 @@ from typing import Any
 
 from sympose import folder_looks_write, note_changes
 from sympose.folder_definitions import definition_path
-from sympose.vault_write_relink import WIKILINK_UNSAFE_CHARS, retarget_link
+from sympose.vault_file_names import why_not_a_file_name
+from sympose.vault_write_relink import retarget_link
 from sympose.vault_write_rename import rename_note_to_path
 from sympose.vault_write_status import NOTE_DENIED, NOTE_EXISTS, NOTE_INVALID_NAME, NOTE_NOT_FOUND
 
@@ -53,15 +53,16 @@ def apply(profile: dict[str, Any], repair: Repair) -> tuple[bool, str]:
         note_changes.rename_everywhere(repair.path, new_path)  # a persona's pending changes follow the note (ADR 070)
         return True, result
     hits = retarget_link(profile, repair.path, repair.old, repair.new)
-    if hits is None:
-        return False, "The note could not be read or written, so nothing was changed."
+    if isinstance(hits, str):
+        return False, _REFUSED.get(hits, hits)
     if not hits:
         return False, "The link is not in the note any more, so nothing was changed."
     return True, f"Changed {hits} link{'s' if hits != 1 else ''} in {repair.path}."
 
 
-_UNSAFE_NAME = re.compile(r'[\\/:*?"<>|\x00-\x1f]')
-_LONGEST_NAME = 250  # bytes a file name may have, less its `.md`
+def icon_repair(folder: str, lines: list[str]) -> Repair:
+    """Adding the icon's property lines to the folder's definition note; what is shown is made here from the lines."""
+    return Repair(ICON, (f"Add to {definition_path(folder)}:", *(f"  {line}" for line in lines)), folder)
 
 
 def title_rename(rel_path: str, title: str, stems: Counter[str]) -> Repair | None:
@@ -69,7 +70,7 @@ def title_rename(rel_path: str, title: str, stems: Counter[str]) -> Repair | Non
     name and as a wikilink, another note already has the new name, or another note has the old one. In the last two a
     bare `[[link]]` names more than one note and a rename changes which one it reaches, so it is left to the person.
     `stems` counts every note's file name without `.md`, lower case."""
-    if _UNSAFE_NAME.search(title) or WIKILINK_UNSAFE_CHARS.intersection(title) or title.endswith(".") or len(title.encode("utf-8")) > _LONGEST_NAME:
+    if why_not_a_file_name(title):
         return None
     if stems[title.lower()] or stems[os.path.splitext(os.path.basename(rel_path))[0].lower()] > 1:
         return None

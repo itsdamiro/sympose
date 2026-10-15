@@ -38,9 +38,10 @@ def health(persona: str | None = None, out: TextIO | None = None) -> int:
 
 
 def fix(persona: str | None = None, out: TextIO | None = None, ask: Callable[[str], str] | None = None) -> int:
-    """Offers each repair the report has, one at a time (ADR 084), and makes it only on a yes; `q` stops. The vault is
-    scanned again after every answer, so nothing is done from stale information, and an answered repair is not
-    offered twice. 0, or 1 when a repair failed or there is no terminal to ask in."""
+    """Offers each repair the report has, one at a time (ADR 084), and makes it only on a yes; `q` stops, and so
+    do Ctrl-C and the end of the input. The vault is scanned again after every answer, so nothing is done from stale
+    information, and an answered repair is not offered twice. 0, or 1 when a repair failed or there is no terminal to
+    ask in."""
     out = out or sys.stdout
     if ask is None:
         if not (sys.stdin.isatty() and out.isatty()):  # a prompt into a pipe or a file would hang unseen
@@ -51,36 +52,42 @@ def fix(persona: str | None = None, out: TextIO | None = None, ask: Callable[[st
     if found is None:
         return 1
     answered: set[tuple[str, str, str, str]] = set()
-    changed = failed = 0
-    while True:
-        scanned = vault_health.scan(found)
-        if scanned is None:
-            print(NO_VAULT, file=out)
-            return 1
-        results = scanned[1]
-        offers = [f for _, here in results for f in here if f.repair and f.repair.key not in answered]
-        if not offers:
-            break
-        if not answered:
-            print(f"{len(offers)} repair{'s' if len(offers) != 1 else ''} can be offered, one at a time. y makes it, n or Enter leaves it, q stops.", file=out)
-        offer = offers[0]
-        print(f"\n{offer.note}: {offer.message}", *(f"  {line}" for line in offer.repair.show), sep="\n", file=out)
-        try:
-            answer = ask("Make this change? [y/N/q] ").strip().lower()
-        except EOFError:
-            break
-        if answer in ("q", "quit"):
-            break
-        answered.add(offer.repair.key)
-        if answer not in ("y", "yes"):
-            print("Left as it is.", file=out)
-            continue
-        done, message = vault_fixes.apply(found, offer.repair)
-        print(message, file=out)
-        changed += done
-        failed += not done
+    changed = failed = declined = 0
+    results: list[Any] = []
+    try:  # Ctrl-C stops the walk wherever it falls, a prompt or the scan between two, and the summary is still given
+        while True:
+            scanned = vault_health.scan(found)
+            if scanned is None:
+                print(NO_VAULT, file=out)
+                return 1
+            results = scanned[1]
+            offers = [f for _, here in results for f in here if f.repair and f.repair.key not in answered]
+            if not offers:
+                break
+            if not answered:
+                print(f"{len(offers)} repair{'s' if len(offers) != 1 else ''} can be offered, one at a time. y makes it, n or Enter leaves it, q stops.", file=out)
+            offer = offers[0]
+            print(f"\n{offer.note}: {offer.message}", *(f"  {line}" for line in offer.repair.show), sep="\n", file=out)
+            try:
+                answer = ask("Make this change? [y/N/q] ").strip().lower()
+            except EOFError:
+                break
+            if answer in ("q", "quit"):
+                break
+            answered.add(offer.repair.key)
+            if answer not in ("y", "yes"):
+                print("Left as it is.", file=out)
+                declined += 1
+                continue
+            done, message = vault_fixes.apply(found, offer.repair)
+            print(message, file=out)
+            changed += done
+            failed += not done
+    except KeyboardInterrupt:
+        print("\nStopped.", file=out)
     left = sum(1 for check, here in results for f in here if check.fixable and f.repair is None)
-    print(f"\n{changed} changed, {len(answered) - changed} left as they are." + (f" {left} more findings have no repair here." if left else ""), file=out)
+    summary = f"{changed} changed, {declined} left as they are" + (f", {failed} could not be made." if failed else ".")
+    print(f"\n{summary}" + (f" {left} more findings have no repair here." if left else ""), file=out)
     return 1 if failed else 0
 
 

@@ -362,7 +362,7 @@ def test_anything_but_a_yes_leaves_a_repair_alone(scratch, answer):
     assert os.path.exists(os.path.join(scratch, "Notes/old name.md"))
 
 
-@pytest.mark.parametrize("title", ["Ends with a dot.", "x" * 300])
+@pytest.mark.parametrize("title", ["Ends with a dot.", "x" * 300, ".NET notes", "AUX", "Com3", "\"'90s music\"", "\"Her notes'\""])
 def test_a_title_a_file_cannot_have_gets_no_repair(scratch, title):
     titled(scratch, "A/note.md", title)
     ask = answers()
@@ -372,16 +372,87 @@ def test_a_title_a_file_cannot_have_gets_no_repair(scratch, title):
     assert ask.prompts == []
 
 
-def test_a_rename_made_by_fix_moves_the_personas_pending_changes_with_it(scratch, monkeypatch):
-    from sympose import note_changes
+def test_a_rename_made_by_fix_moves_the_personas_pending_changes_with_it(scratch):
+    from sympose import note_changes, note_changes_store
 
-    moved = []
-    monkeypatch.setattr(note_changes, "rename_everywhere", lambda old, new: moved.append((old, new)))
     titled(scratch)
+    note_changes.propose_edit("samantha", "Notes/old name.md", "Words.", find="Words", replace="Better words", say="Reworded.")
+    assert note_changes_store.read("samantha", "Notes/old name.md")["proposals"]
 
     run(vault_command.fix, ask=answers("y"))
 
-    assert moved == [("Notes/old name.md", "Notes/Better name.md")]
+    assert not note_changes_store.read("samantha", "Notes/old name.md").get("proposals")
+    (moved,) = note_changes_store.read("samantha", "Notes/Better name.md")["proposals"]
+    assert (moved["find"], moved["replace"]) == ("Words", "Better words")
+
+
+def test_the_summary_counts_a_repair_that_failed_apart_from_one_left_as_it_is(scratch, monkeypatch):
+    from sympose import vault_fixes
+
+    movies(scratch)
+    titled(scratch, "Notes/one.md", "First")
+    titled(scratch, "Notes/two.md", "Second")
+    results = iter([(False, "It could not be done."), (True, "Done.")])
+    monkeypatch.setattr(vault_fixes, "apply", lambda profile, repair: next(results))
+
+    code, text = run(vault_command.fix, ask=answers("n", "y", "y"))
+
+    assert code == 1 and "1 changed, 1 left as they are, 1 could not be made." in text
+
+
+def test_ctrl_c_at_the_prompt_stops_like_q_and_still_gives_the_summary(scratch):
+    movies(scratch)
+
+    def interrupted(prompt):
+        raise KeyboardInterrupt
+
+    code, text = run(vault_command.fix, ask=interrupted)
+
+    assert code == 0 and "0 changed, 0 left as they are." in text and "icon:" not in read(scratch, "Movies/Movies.md")
+
+
+def test_ctrl_c_while_the_vault_is_scanned_between_two_prompts_stops_too(scratch, monkeypatch):
+    from sympose import vault_health
+
+    movies(scratch)
+    put(scratch, "People/People.md", "---\ntype: folder\n---\nPeople.\n")
+    real_scan, scans = vault_health.scan, []
+
+    def interrupted_second_scan(profile):
+        scans.append(1)
+        if len(scans) == 2:
+            raise KeyboardInterrupt
+        return real_scan(profile)
+
+    monkeypatch.setattr(vault_health, "scan", interrupted_second_scan)
+
+    code, text = run(vault_command.fix, ask=answers("y"))
+
+    assert code == 0 and "Stopped." in text and "1 changed, 0 left as they are." in text
+
+
+def test_ctrl_c_during_the_first_scan_gives_the_summary_too(scratch, monkeypatch):
+    from sympose import vault_health
+
+    def interrupted(profile):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(vault_health, "scan", interrupted)
+
+    code, text = run(vault_command.fix, ask=answers())
+
+    assert code == 0 and "Stopped." in text and "0 changed, 0 left as they are." in text
+
+
+def test_a_link_in_a_note_the_persona_may_not_write_says_so_like_a_rename_does(scratch):
+    from sympose import vault_fixes
+
+    put(scratch, "B/L.md", "[[Old/Idea]]")
+    repair = vault_fixes.Repair(vault_fixes.RELINK, (), "B/L.md", "Old/Idea", "New/Idea")
+    only_a = {"handle": "x", "vault_folders": ["A"]}
+
+    assert vault_fixes.apply(only_a, repair) == (False, "This persona may not write there, so nothing was changed.")
+    assert read(scratch, "B/L.md") == "[[Old/Idea]]"
 
 
 def test_a_note_whose_name_another_note_shares_is_not_renamed(scratch):

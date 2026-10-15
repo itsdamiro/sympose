@@ -1,15 +1,16 @@
 """Links whose folder no longer matches (docs/decisions/084): a `[[Folder/Note]]` that names no note's path but whose
 name one note has, which is what a move leaves behind (#101). The graph resolves a link by its last segment, so the
 "Links to no note" check never sees these; Obsidian reads the qualifier as a path and does not find the note.
-Returns `(note path, message, old target, new target or None)`; `vault_health` turns them into findings."""
+A link shown as code is a sample and is not read. Returns `(note path, message, old target, new target or None)`;
+`vault_health` turns them into findings."""
 
 import os
 import re
 from typing import Any
 
+from sympose import markdown_code
 from sympose.vault_defaults import ATTACHMENT_EXTENSIONS, NOTE_EXTENSIONS
-
-_WIKILINK = re.compile(r"!?\[\[([^\[\]\r\n]+?)\]\]")
+from sympose.vault_write_relink import WIKILINK_RE
 
 
 def _target(inner: str) -> str:
@@ -24,13 +25,17 @@ def stale_folder_links(notes: list[dict[str, Any]]) -> list[tuple[str, str, str,
         by_name.setdefault(os.path.splitext(os.path.basename(rel))[0].lower(), []).append(rel)
     found = []
     for note in sorted(notes, key=lambda n: n["rel_path"]):
-        source, seen = note["rel_path"].replace("\\", "/"), set()
-        for match in _WIKILINK.finditer(note.get("full_content") or ""):
-            target = _target(match.group(1))
+        source, seen, code, text = note["rel_path"].replace("\\", "/"), set(), None, note.get("full_content") or ""
+        for match in WIKILINK_RE.finditer(text):
+            target = _target(match.group(2))
             segments = target.replace("\\", "/").lstrip("/").split("/")
             stem, ext = os.path.splitext(segments[-1])
             if len(segments) < 2 or target in seen or ext.lower() in ATTACHMENT_EXTENSIONS:
                 continue
+            if code is None:
+                code = markdown_code.code_spans(text)
+            if markdown_code.inside(code, match.start()):
+                continue  # a link shown as code is a sample, not a link
             seen.add(target)
             leaf = stem if ext.lower() in NOTE_EXTENSIONS else segments[-1]
             qualified = "/".join(segments[:-1] + [leaf]).lower()

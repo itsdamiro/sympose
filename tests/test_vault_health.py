@@ -106,6 +106,15 @@ def test_a_title_a_file_name_cannot_hold_is_reported_as_one_that_cannot_match(sc
     assert "cannot be one: it is too long" in messages["A/Long.md"] and len(messages["A/Long.md"]) < 150
 
 
+@pytest.mark.parametrize("title, reason", [(".NET notes", "starts with a dot"), ("\"'90s music\"", "apostrophe"), ("CON", "Windows"), ("\"Part #2\"", "'#'")])
+def test_a_title_a_rename_would_get_wrong_says_why_it_cannot_be_the_name(scratch, title, reason):
+    put(scratch, "A/One.md", f"---\ntitle: {title}\n---\nx")
+
+    [finding] = found(vh.check_titles)
+
+    assert "cannot be one: " in finding.message and reason in finding.message and finding.repair is None
+
+
 # --- links ----------------------------------------------------------------------------------
 def test_a_wikilink_to_no_note_is_reported_once_per_note_and_target(scratch):
     put(scratch, "A/Source.md", "[[Missing]] and [[Missing]] and [[Real]] and [[missing|again]].")

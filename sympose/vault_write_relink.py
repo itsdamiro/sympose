@@ -8,9 +8,10 @@ import os
 import re
 from typing import Any
 
-from sympose import vault_paths
+from sympose import markdown_code, vault_paths
 from sympose.security import is_safe_path
 from sympose.vault_write import get_file_lock, write_atomic_text
+from sympose.vault_write_status import NOTE_DENIED, NOTE_NOT_FOUND
 
 log = logging.getLogger(__name__)
 
@@ -19,7 +20,7 @@ log = logging.getLogger(__name__)
 # of these would silently corrupt every backlink rewritten to point at it.
 WIKILINK_UNSAFE_CHARS = frozenset("[]|#")
 
-_WIKILINK_RE = re.compile(r"(!?)\[\[([^\[\]\r\n]+?)\]\]")
+WIKILINK_RE = re.compile(r"(!?)\[\[([^\[\]\r\n]+?)\]\]")
 
 
 def rewrite_wikilink_targets(
@@ -86,7 +87,7 @@ def rewrite_wikilink_targets(
         rewritten += 1
         return replacement
 
-    new_text = _WIKILINK_RE.sub(repl, text)
+    new_text = WIKILINK_RE.sub(repl, text)
     return new_text, rewritten
 
 
@@ -136,23 +137,32 @@ def relink_referencing_notes(
     return updated, failed
 
 
-def retarget_link(profile: dict[str, Any], rel: str, old: str, new: str) -> int | None:
+def retarget_link(profile: dict[str, Any], rel: str, old: str, new: str) -> int | str:
     """Rewrites every `[[old]]` in the note `rel` to `[[new]]`, where `old` and `new` are the link's target as written
-    (a `#heading` and a `|alias` are left alone), and returns how many it rewrote; `None` when the persona may not
-    write the note or it cannot be read or written. Zero means the link is no longer there."""
+    (a `#heading` and a `|alias` are left alone), and returns how many it rewrote; zero means the link is no longer
+    there. A link shown as code (a fenced block or an inline span) is a sample, not a link, and stays as it is. When
+    nothing could be done it returns why instead, as `NOTE_DENIED` (the persona may not write the note, or it cannot be
+    written) or `NOTE_NOT_FOUND`."""
     scope = vault_paths.resolve_sandbox(profile)
     if scope is None:
-        return None
+        return NOTE_DENIED
     mv, allowed_dirs = scope
     fp = os.path.join(mv, rel)
-    if not os.path.isfile(fp) or not any(is_safe_path(fp, allowed) for allowed in allowed_dirs):
-        return None
+    if not any(is_safe_path(fp, allowed) for allowed in allowed_dirs):
+        return NOTE_DENIED
+    if not os.path.isfile(fp):
+        return NOTE_NOT_FOUND
     hits = 0
+    code: list[tuple[int, int]] | None = None
 
     def repl(m: "re.Match[str]") -> str:
-        nonlocal hits
+        nonlocal hits, code
         head = re.match(r"^([^#|]*)(.*)$", m.group(2))
         if head.group(1).strip() != old:
+            return m.group(0)
+        if code is None:
+            code = markdown_code.code_spans(m.string)
+        if markdown_code.inside(code, m.start()):
             return m.group(0)
         hits += 1
         return f"{m.group(1)}[[{new}{head.group(2)}]]"
@@ -161,10 +171,10 @@ def retarget_link(profile: dict[str, Any], rel: str, old: str, new: str) -> int 
         with get_file_lock(fp):
             with open(fp, "r", encoding="utf-8", errors="surrogateescape", newline="") as f:
                 content = f.read()
-            rewritten = _WIKILINK_RE.sub(repl, content)
+            rewritten = WIKILINK_RE.sub(repl, content)
             if hits:
                 write_atomic_text(fp, rewritten, newline="", errors="surrogateescape")
     except OSError as e:
         log.warning("[vault] retargeting a link in %s failed: %s", fp, e)
-        return None
+        return NOTE_DENIED
     return hits
