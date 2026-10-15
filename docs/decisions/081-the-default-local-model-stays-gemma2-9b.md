@@ -159,6 +159,16 @@ The line fixes the premises the model misses, and the price is the one the amend
 
 **What is known.** The problem is a property of two of the three local models, not of Sympose: `gemma4:e4b` passes every one of these cases but one run in two cases (the model ADR 081 already recommends for dependable answers). Cloud models corrected the premise (ADR 012). The remaining options are to leave it a documented limit with that recommendation (the "done when" of issue 16 allows it), or to ship a next-to-the-message line and accept the invented contrasts on true premises; an engine-side check that costs a second round trip was not measured.
 
+## Amendment (2026-10-15): a fourth local model, `qwen2.5-14b`, on the grounding cases (issue 14)
+
+> **Status: Proposed (not yet accepted by damiro).**
+
+**What.** All 34 cases of `tests/live_prompt_cases.py`, 3 runs per case, the rules as shipped, on `richardyoung/qwen2.5-14b-instruct-abliterated` (14.8B, Q4_K_M, 9.0 GB on disk, tools in Ollama; a community build with the refusal behaviour removed, not the maker's own). Samples, direction and not a figure; grounding only: lookup and edits were not run on it.
+
+**Result.** 94 of 102 as scored, against 98 for `gemma4:e4b` and 83 for `gemma2:9b` with the same rules; 10.1 seconds per turn on average (`gemma2:9b` about 5, `gemma4:e4b` about 30, same Mac). 29 cases at 3 of 3. Eight misses, read by hand: seven are the patterns, not the reply (`does-not-agree-when-pressed` 1 of 3 and `does-not-agree-to-what-is-not-built` 2 of 3: the reply says "I don't review them" or "I never read them myself", which `expect` does not list; `recap-open-item-is-still-open` 1 of 3: "hadn't made a decision yet", the pattern has "haven't"; `recap-does-not-derail-a-follow-up-mid-chat` 2 of 3: Johann Strauss is not in the list of composers; `honest-when-nothing-matches` 2 of 3: the known "do you remember" case). One is a real miss: `wrong-premise-is-corrected` 2 of 3, where the reply gave the distance from Sydney to Melbourne and did not correct "Sydney is the capital". No invented fact about the vault, and no false confession of reading the logs. The patterns were not changed, so the figures above are as scored.
+
+**What it says.** The wrong-premise weakness (issue 16) is not a property of every local model: `gemma4:e4b` and `qwen2.5-14b` pass it, `gemma2:9b` and `qwen3:8b` mostly do not. `qwen2.5-14b` grounds about as well as `gemma4:e4b` at a third of its time per turn, so it is a second choice for people who find `gemma4:e4b` too slow. Not measured, so not recommended: lookup, edits (ADR 072), skills, the follow-up rewrite (ADR 017), recall at a full window (ADR 015).
+
 ## Alternatives rejected
 
 - **Make `gemma4:e4b` the default.** Better on every set after the fix, and it turns the tool features on out of the box, but six times slower and almost twice the memory, and it still fails the second-vault case. It becomes right if turns under 10 seconds can be had with it (a faster machine, or a setting that makes it faster) or if the tool features become the main reason to run Sympose.
