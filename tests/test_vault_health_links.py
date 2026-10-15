@@ -79,6 +79,11 @@ def test_a_link_after_a_code_sample_is_still_found():
     assert [o for _, _, o, _ in found] == ["Projects/Idea", "Archive/Idea"]
 
 
+def test_a_line_separator_that_markdown_does_not_know_does_not_open_a_fence():
+    for separator in ("\u2028", "\x0c", "\x85"):
+        assert len(stale(note("Ideas/Idea.md"), note("Log/Day.md", f"intro{separator}```\n[[Projects/Idea]]\nnever closed"))) == 1
+
+
 def test_a_backtick_that_never_closes_is_not_code():
     assert len(stale(note("Ideas/Idea.md"), note("Log/Day.md", "A lone ` tick, then [[Projects/Idea]]"))) == 1
     assert len(stale(note("Ideas/Idea.md"), note("Log/Day.md", "A tick ` here\n\n[[Projects/Idea]] and another ` there"))) == 1
@@ -129,6 +134,12 @@ def test_a_note_the_persona_may_not_write_is_not_touched(vault):
 
     assert retarget_link({"handle": "x", "vault_folders": ["A"]}, "B/L.md", "Old/Idea", "New/Idea") == NOTE_DENIED
     assert (vault / "B" / "L.md").read_text(encoding="utf-8") == "[[Old/Idea]]"
+
+
+def test_a_note_taken_away_after_the_check_is_reported_as_not_found(vault, monkeypatch):
+    monkeypatch.setattr("sympose.vault_write_relink.os.path.isfile", lambda path: True)
+
+    assert retarget_link(ALL, "Gone.md", "Projects/Idea", "Ideas/Idea") == NOTE_NOT_FOUND
 
 
 @pytest.mark.parametrize("text", CODE_SAMPLES)

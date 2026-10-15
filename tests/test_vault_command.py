@@ -444,6 +444,22 @@ def test_ctrl_c_during_the_first_scan_gives_the_summary_too(scratch, monkeypatch
     assert code == 0 and "Stopped." in text and "0 changed, 0 left as they are." in text
 
 
+def test_ctrl_c_while_a_repair_is_being_made_says_which_note_to_look_at_and_counts_it_as_failed(scratch, monkeypatch):
+    from sympose import vault_fixes
+
+    titled(scratch)
+
+    def interrupted(profile, repair):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(vault_fixes, "apply", interrupted)
+
+    code, text = run(vault_command.fix, ask=answers("y"))
+
+    assert code == 1 and "Stopped while changing Notes/old name.md: it may be half made" in text
+    assert "Stopped." in text and "0 changed, 0 left as they are, 1 could not be made." in text
+
+
 def test_a_link_in_a_note_the_persona_may_not_write_says_so_like_a_rename_does(scratch):
     from sympose import vault_fixes
 

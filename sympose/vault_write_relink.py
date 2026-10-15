@@ -174,6 +174,8 @@ def retarget_link(profile: dict[str, Any], rel: str, old: str, new: str) -> int 
             rewritten = WIKILINK_RE.sub(repl, content)
             if hits:
                 write_atomic_text(fp, rewritten, newline="", errors="surrogateescape")
+    except FileNotFoundError:  # taken away between the check above and the open
+        return NOTE_NOT_FOUND
     except OSError as e:
         log.warning("[vault] retargeting a link in %s failed: %s", fp, e)
         return NOTE_DENIED
