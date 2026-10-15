@@ -36,6 +36,16 @@ NO_PROPOSAL = [
     ("thanks", GARDEN, "Thanks, that looks good."),
     ("discuss", GARDEN, "Would it be better to put the carrots somewhere else, do you think?"),
 ]
+# What the user asks for when the note is open and the answer is not an edit: a comment on a passage (comment_on, with a
+# `find` found once and a `text`) or a new note drafted (propose_note, with a text and no change to the open note).
+EXTRA = [
+    ("comment-sun", "comment", "Leave a comment on the carrots line asking whether the long bed gets enough sun.", "Carrots in the long bed"),
+    ("comment-basil", "comment", "Put a comment on the basil line: I am not sure the Herbs note is up to date.", "Basil near the [[Herbs]] note"),
+    ("comment-schedule", "comment", "Add a comment on the watering sentence saying it should say which beds.", "Water the beds every morning"),
+    ("draft-camping", "draft", "Draft a new note with a packing list for a weekend camping trip.", ""),
+    ("draft-herbs", "draft", "Write me a new note about how to grow basil and parsley in raised beds.", ""),
+    ("draft-schedule", "draft", "Draft a new note that turns the schedule here into a month-by-month plan.", ""),
+]
 _MARKER = re.compile(r"<!--\s*propose_edit:\s*(\{.*?\})\s*-->", re.S)
 
 
@@ -45,8 +55,8 @@ _MARKER = re.compile(r"<!--\s*propose_edit:\s*(\{.*?\})\s*-->", re.S)
 # call is turned into the same marker as the default shape (a model without tools), so scoring is identical.
 MODE = os.environ.get("EDIT_MODE", "manual")
 TOOL = os.environ.get("EDIT_TOOL") == "1"
-# EDIT_LEAN=1 drops the rules for a new note and for a comment, to see whether the longer block costs a small model
-# its edits (the lines are there for the cases that need them, and cost the others).
+# EDIT_LEAN=1 drops the rules for a new note and for a comment (both shapes), to see whether the longer block costs a
+# small model its edits (the lines are there for the cases that need them, and cost the others).
 LEAN = os.environ.get("EDIT_LEAN") == "1"
 
 
@@ -54,7 +64,7 @@ def user_turn(note: str, request: str) -> str:
     from sympose.engine import edit_turn
 
     if LEAN:
-        edit_turn._NOTE_MARKER = edit_turn._COMMENT_MARKER = ""
+        edit_turn._NOTE_MARKER = edit_turn._NOTE_TOOL = edit_turn._COMMENT_TOOL = ""
     edit = edit_turn.Edit(MODE, TOOL, edit_turn.OpenNote("Garden plan.md", note))
     return edit_turn.message(edit, request)
 
@@ -82,6 +92,23 @@ def apply(reply: str, note: str) -> tuple[bool, bool, str]:
             return True, False, note
         text = text.replace(find, replace, 1)
     return True, True, text
+
+
+def extra_ok(kind: str, reply: str, pointed: str) -> bool:
+    """A comment: one `comment_on` whose `find` is in the note once and holds the words pointed at, and no change to the
+    note. A draft: one `propose_note` with some text, and no change to the open note."""
+    calls = re.findall(r"<!--\s*(propose_edit|propose_note|comment_on):\s*(\{.*?\})\s*-->", reply, re.S)
+    try:
+        args = {name: json.loads(raw) for name, raw in calls}
+    except Exception:
+        return False
+    if "propose_edit" in args:
+        return False
+    if kind == "comment":
+        said = args.get("comment_on", {})
+        found = said.get("find", "")
+        return "propose_note" not in args and bool(found) and GARDEN.count(found) == 1 and (found in pointed or pointed in found) and bool(said.get("text"))
+    return "comment_on" not in args and len(args.get("propose_note", {}).get("text", "")) > 40
 
 
 def system_prompt() -> str:
@@ -220,7 +247,21 @@ def run(model: str, runs: int, verbose: bool) -> None:
         quiet += none
         print(f"  quiet    {cid:12} no proposal {none}/{runs}", flush=True)
     print(f"{model} [{MODE}{'+tools' if TOOL else ''}] no unasked proposal{' except the seeded typo' if MODE == 'auto' else ''}: {quiet}/{runs * len(NO_PROPOSAL)}"
-          + (f"  (noticed the typo in {noticed})" if MODE == "auto" else "") + "\n", flush=True)
+          + (f"  (noticed the typo in {noticed})" if MODE == "auto" else ""), flush=True)
+
+    done = {"comment": 0, "draft": 0}
+    for cid, kind, request, pointed in EXTRA:
+        right = 0
+        for _ in range(runs):
+            reply = ask(GARDEN, request)
+            if extra_ok(kind, reply, pointed):
+                right += 1
+            elif verbose:
+                print(f"      [{cid}] {reply[:300]!r}", flush=True)
+        done[kind] += right
+        print(f"  {kind:8} {cid:16} right {right}/{runs}", flush=True)
+    each = runs * len(EXTRA) // 2
+    print(f"{model} [{MODE}{'+tools' if TOOL else ''}{'+lean' if LEAN else ''}] comment {done['comment']}/{each}  draft {done['draft']}/{each}\n", flush=True)
 
 
 if __name__ == "__main__":

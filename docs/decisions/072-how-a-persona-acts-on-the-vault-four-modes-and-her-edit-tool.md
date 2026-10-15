@@ -193,3 +193,15 @@ Scratch data and invented notes only; the cloud runs used `gemini/gemini-flash-l
 **A vague follow-up about Sympose in `ask` against `auto` (Flash, four two-turn cases, 4 runs each).** `auto` 16 of 16, `ask` 14 of 16: one answer to "what if it can't use tools?" listed what changes without the automatic-search fallback, and one "which model is that?" was asked back. The rewrite does not run in `ask`, but most facts were already in the first reply in the history, so this does not show a gap on Flash; a follow-up that needs a passage the first turn did not carry is not measured.
 
 **`gemma4:e4b` on the two watched cases (6 runs, twice).** `no-false-learning` 4 of 6 and 4 of 6, `honest-when-nothing-matches` 3 of 6 and 5 of 6 by the patterns. Read in full, the misses are mostly the patterns (a straight quote around "learn", a question "do you remember what we were looking at" the case forbids); no reply invented a decision. One reply to "are you learning about me as we talk?" began "yes, I am paying close attention" and described a `profile.md` of memories, a mild false yes.
+
+## Measured (2026-10-15): do the comment and new-note lines cost a model with tools its edits?
+
+Scratch data and invented notes only, local models, manual mode with the product's tool definitions (`EDIT_TOOL=1`), 4 runs per case: 36 edit requests, 12 that must propose nothing, 12 comments and 12 drafts, each with the lines of the turn text for a comment and a new note (`_COMMENT_TOOL`, `_NOTE_TOOL`) and without them (`EDIT_LEAN=1`; the tool definitions stay). The harness' lean switch only dropped the marker lines before, so this is the first time the tool shape was compared.
+
+**No model lost edits to the two lines.** Edits right, with and without: `gemma4:e4b` 30 and 30 of 36, `qwen3:8b` 30 and 29, `qwen2.5-14b` 22 and 23 (10 and 9 placed wrong, its known fault; see ADR 081). The difference is inside the noise of 4 runs, so the lines cost nothing that this sample can show.
+
+**The lines help the draft and the quiet cases.** Drafts of a new note with a note open: `gemma4:e4b` 8 of 12 with the lines and 5 of 12 without; `qwen3:8b` 12 and 12; `qwen2.5-14b` 10 and 10. Comments on a passage: 12 of 12 for every model, both ways. No proposal when only talking: `gemma4:e4b` 12 and 12, `qwen3:8b` 11 and 12, `qwen2.5-14b` 10 and 7.
+
+**What `gemma4:e4b` gets wrong in a draft** is an empty reply (no text, no call) in most misses, and in some a reply that says it drafted the note without calling the tool, which the user sees as no draft; no run invented vault content. Nothing in the prompt fixed it here, and no wording was tried.
+
+**Conclusion.** The cost "a small model cannot comment or draft with a note open without costing its edits" was `gemma2:9b`'s marker shape, as ADR 072 found on 2026-10-06 (the setting `show_note_marker` stays off by default). A model that can call tools comments and drafts at no measured cost to its edits, so the lines stay and no change is made. Not measured: a long note (the cap is 12000 characters), more than the one invented note, a cloud model.
