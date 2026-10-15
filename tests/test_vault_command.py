@@ -458,6 +458,7 @@ def test_ctrl_c_while_a_repair_is_being_made_says_which_note_to_look_at_and_coun
 
     assert code == 1 and "Stopped while changing Notes/old name.md: it may be half made" in text
     assert "Stopped." in text and "0 changed, 0 left as they are, 1 could not be made." in text
+    assert "a rename may have moved it to" in text
 
 
 def test_a_link_in_a_note_the_persona_may_not_write_says_so_like_a_rename_does(scratch):

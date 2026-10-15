@@ -80,8 +80,12 @@ def test_a_link_after_a_code_sample_is_still_found():
 
 
 def test_a_line_separator_that_markdown_does_not_know_does_not_open_a_fence():
-    for separator in ("\u2028", "\x0c", "\x85"):
+    for separator in ("\u2028", "\u2029", "\x0b", "\x0c", "\x1c", "\x85"):
         assert len(stale(note("Ideas/Idea.md"), note("Log/Day.md", f"intro{separator}```\n[[Projects/Idea]]\nnever closed"))) == 1
+
+
+def test_a_fence_in_a_note_with_bare_carriage_returns_is_still_code():
+    assert stale(note("Ideas/Idea.md"), note("Log/Day.md", "intro\r```\r[[Projects/Idea]]\rnever closed")) == []
 
 
 def test_a_backtick_that_never_closes_is_not_code():

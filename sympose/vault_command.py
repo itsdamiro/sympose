@@ -83,7 +83,8 @@ def fix(persona: str | None = None, out: TextIO | None = None, ask: Callable[[st
                 done, message = vault_fixes.apply(found, offer.repair)
             except KeyboardInterrupt:  # cut off in the middle: a rename may have moved the note and not yet rewritten its links
                 failed += 1
-                print(f"\nStopped while changing {offer.note}: it may be half made, so look at that note.", file=out)
+                moved = f" (a rename may have moved it to {offer.repair.new})" if offer.repair.kind == vault_fixes.RENAME else ""
+                print(f"\nStopped while changing {offer.note}: it may be half made{moved}, so look at that note.", file=out)
                 raise
             print(message, file=out)
             changed += done
