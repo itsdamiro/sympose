@@ -132,6 +132,10 @@ Installing numpy (`pip install "sympose[fast]"`) makes each search much faster o
 
 The `embedding_model` setting is the embedding model used by `grounding_search`. The default is `ollama/nomic-embed-text`. Another model needs its own `embedding_min_similarity`.
 
+Others that work, with a number to start from: `ollama/all-minilm` (very small, for a computer short of room) 0.64, `ollama/bge-m3` 0.68, `ollama/mxbai-embed-large` 0.74, and `gemini/gemini-embedding-001` 0.76, a cloud model, so passages of your notes leave your computer and only if you allow notes for cloud models with /share.
+
+`ollama/embeddinggemma` brought more notes that did not belong and is not recommended. These numbers are starting points from two small vaults: raise one if you get notes that have nothing to do with what you ask, lower it if she misses notes.
+
 ## library_sync_limit
 
 The `library_sync_limit` setting is how many of the help passages Sympose may prepare for searching by meaning at once, the first time they are needed. The default is 512, enough for the whole built-in help.

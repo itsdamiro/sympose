@@ -72,7 +72,7 @@ Through the built code (`tests/live_retrieval_cases.py`, the default threshold, 
 
 **Correction (issue #1).** The final update's explanation of the short-title misses (people, films, quotes) was wrong for most of them: measured on a 619-note personal vault, about a quarter of the notes have no body text (frontmatter only, outlines, empty) and are not in the index at all, so neither search can return them, and 7 of the 14 needed notes that meaning-based search missed were of this kind. A title-match rescue on top was measured and is not worth building (the best rule fixed 1 of 76 messages). The fix is to index such notes, which needed its own decision record: it is ADR 030, built in two stages (title passage and aliases, then properties as a labelled passage) and measured with the real embedding model (#1, closed). The short-title rescue below stays unbuilt, by that measurement.
 
-A threshold that adjusts to the vault, a model reranker on top, embedding the user's messages across sessions, embedding models other than the default (the query and document prefixes are set for `nomic-embed-text` only), and showing a note's similarity in the reply header.
+A threshold that adjusts to the vault, a model reranker on top, embedding the user's messages across sessions, embedding models other than the default (measured 2026-10-15, see the last section; the query and document prefixes are set for `nomic-embed-text` only), and showing a note's similarity in the reply header.
 
 ## Update: a notice while the index is building
 
@@ -144,3 +144,27 @@ The build of the vectors was started when the terminal chat launched and when it
 
 The limit on how many passages of the Sympose library are embedded on the spot on its first use (`semantic._LIBRARY_SYNC_LIMIT`, 256) was a constant, and the library grew past it (257 passages): a fresh install then searched the library by keyword until a background build finished, and the tests that assumed it was under the limit failed. It is now the setting `library_sync_limit` (`semantic.library_sync_limit`, listed under Search in both channels, a whole number of 1 or more; a bad value falls back to the default). **The default is 512,** the same headroom of about twice the library that 256 gave when the library was about 110 passages; embedding all 257 passages on the spot took 3.7 seconds once on the development machine with `nomic-embed-text`, and happens only if the launch-time build has not finished. Below the library's size the behaviour is as before (background build, keywords meanwhile). The vault's own limit (64 passages) is not a setting.
 
+
+## Measured (2026-10-15): other embedding models (issue 4)
+
+**What.** The retrieval eval (`auto`, the shipped margin, 14 thresholds from 0.40 to 0.84) on two labelled sets: the 32-note invented vault with its 68 messages (`tests/fixtures/retrieval_vault`) and the English Obsidian help documentation (174 notes) with 79 messages, 147 in all. Six local variants and one cloud model, each with its own cache, on the maintainer's Mac with Ollama; the cloud model saw only those two sets (invented notes and public documentation, nothing private; the approval was written in a scratch settings file alone). The third set the earlier figures stood on (a personal vault) was not used: its labels name notes that are no longer in that vault (recall 0 of 5), so it can no longer be scored.
+
+**Result.** The row for each model is the one threshold that scored most across both sets. The figures are a sample on two small vaults, with the threshold chosen and scored on the same messages, so a few points either way are noise.
+
+| model (size) | threshold | pass of 147 | needed notes found, of 82 | messages with a note that did not belong |
+|---|---|---|---|---|
+| `nomic-embed-text` (274 MB, the default) | 0.80 | 127 | 67 | 3 |
+| the same at the shipped 0.72 | 0.72 | 107 | 75 | 11 |
+| `gemini/gemini-embedding-001` (cloud) | 0.76 | 124 | 68 | 1 |
+| `bge-m3` (1.2 GB) | 0.68 | 122 | 63 | 7 |
+| `mxbai-embed-large` (669 MB) | 0.74 | 121 | 69 | 7 |
+| `mxbai-embed-large` with its query prefix | 0.76 | 119 | 70 | 5 |
+| `all-minilm` (45 MB) | 0.64 | 119 | 69 | 5 |
+| `embeddinggemma` (621 MB) | 0.60 | 113 | 68 | 15 |
+| `embeddinggemma` with its task prefixes | 0.55 | 117 | 67 | 10 |
+
+**What it says.** (1) No model beat the default on these sets; the cloud model matched it on needed notes and attached the fewest strangers, at the price of sending passages to Google. (2) A model's threshold is its own: the best one ranged from 0.55 to 0.80, so a model changed without its threshold changed is badly off (`all-minilm` at 0.72 found 58 needed notes, at 0.64 it found 69). The Settings reference note now lists a starting number for each. (3) The prefixes the vendors document did not pay: `mxbai-embed-large` lost 2 points with its query prefix, and only `embeddinggemma` gained, 4 points, at a threshold of 0.55 and still the worst model; no prefix was added to the code. (4) `all-minilm` is 45 MB and 8 points behind the default, the answer for a computer short of room. (5) On these two sets the default model's best threshold is 0.80 against the shipped 0.72, which was chosen on larger vaults (the update above: the best number rises with the vault); this was not changed. The documentation set's pass rate at 0.72 is also lower than the 78 percent recorded above, because the set now has 79 messages including eight worded as requests, which that table did not.
+
+**Not measured:** a larger or a private vault (the personal-vault set is stale), another cloud embedder, the Gemini model's task types, speed and the cost of indexing (the cloud model took about 40 minutes to score the two sets through the network, against 2 to 3 for the local ones), and a model through any other route than litellm's Ollama and Gemini calls.
+
+**Decision.** No code change: the default, the prefixes and the thresholds stay. The Settings reference note names the tested models and a starting threshold for each, with the caveat above; the persona quotes it. Retrieval eval before and after the note: library 113 of 119 and 113 of 119 at 0.72, fixture 62 of 68 and 62 of 68.
