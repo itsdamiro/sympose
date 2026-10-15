@@ -93,3 +93,13 @@ Each was a leftover in this record's "Not built yet" list. None has evidence beh
 - **Only searching on the last few turns concatenated.** Kept as the free `recent-words` idea, not built, because it attaches stale notes on a topic change.
 - **Model-driven search as the first step.** Needs tool-calling and round trips; reserved as the fourth mode.
 - **Letting the rewrite run without a way to say "no topic".** Measured: it invents a query from the old topic for small talk.
+
+## Measured (2026-10-15): a follow-up about Sympose that needs a passage the first reply did not carry, on Gemini Flash
+
+Four two-turn conversations about Sympose in `tests/live_lookup_cases.py` (`sympose-follow-up-*`): how much history is sent and then "what is the lowest I can set it to?"; the edit modes and then "which one is the default?"; opening a note and then "what if the model can't use tools?"; `/default` and then "and where is that remembered?". Each answer is in a library passage the first question did not bring. Flash, 4 runs per case, `vault_lookup` `auto` and `ask`, with keyword search and again with the shipped meaning search (`LOOKUP_SEARCH=auto`).
+
+**Result: 1 of 16 in `auto` and 0 of 16 in `ask`, both ways of searching.** Every miss is an honest "I don't know that about Sympose from the documentation"; no reply invented a setting, a default or a file. The earlier four follow-up cases (ADR 072) passed 14 and 16 of 16 because their answers were already in the first reply.
+
+**Why.** The rewrite works (Flash writes `lowest setting for conversation history sent to model`, `persona default edit mode`), but the library is searched with it by words only (`reference.ground`, the rewrite is searched with `refine=False`, written for the short keyword rewrites `gemma2:9b` gives). Searched by words that rewrite does not find the passage with `500` or `manual`; searched by meaning it does for 3 of the 4 (the fourth, "what if the model can't use tools?", is not rewritten into a message about opening notes, so neither way finds it). In `ask` there is no rewrite at all (`turn_evidence`: the vault is not searched for the message and nothing is rewritten), so the library is searched with the follow-up's own words, which find nothing, and the model's own vault lookups find nothing about Sympose.
+
+**Not changed.** Searching the rewrite by meaning as well is a change to the search (retrieval eval before and after, and the keyword rewrites of `gemma2:9b`, the four in `tests/reference_cases.py`, kept working). Not built here; this is the measurement.

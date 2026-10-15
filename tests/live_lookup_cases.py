@@ -9,6 +9,8 @@ Opt-in and not deterministic; it calls a real model and every figure is a fact a
 
     python tests/live_lookup_cases.py <auto|ask> [model [runs [case-id ...]]]
 
+`LOOKUP_SEARCH=auto` runs the search by meaning (the shipped default) instead of keywords.
+
 Per case it prints how many runs passed, the model calls and lookups per turn, and each reply. At the end,
 the two numbers the ADR's bar is about: how often a case that needs a note looked one up (`ask`), and how
 often one that needs none did not; and every run that passed no check without looking anything up."""
@@ -30,6 +32,16 @@ _CASES = {
     "names-the-folders-from-the-map": (("which folders does my vault have?",), (r"Journal", r"Recipes")),
     "decision-asked-in-its-own-word": (("what is the Atlas database decision?",), (r"SQLite",)),
     "decision-asked-without-the-notes-name": (("what is the database decision?",), (r"SQLite",)),
+    # About Sympose, not the vault: the second message alone finds nothing, and its answer is in a library passage the first
+    # reply did not carry (ADR 072, "a vague follow-up"; they need no note, so they are in neither set below).
+    "sympose-follow-up-the-lowest": (
+        ("how much of our earlier conversation is sent to the model with each message?", "and what is the lowest I can set it to?"), (r"\b500\b",),
+    ),
+    "sympose-follow-up-the-default": (("what edit modes does a persona have?", "which one is the default?"), (r"manual",)),
+    "sympose-follow-up-without-tools": (
+        ("can you open a note in the editor for me?", "what if the model can't use tools?"), (r"(?i)turn(ed)? on|setting", r"(?i)cost|edits"),
+    ),
+    "sympose-follow-up-where-remembered": (("what does the /default command do?", "and where is that remembered?"), (r"default_persona",)),
 }
 EXTRA = [LiveCase(name, messages, expect=expect) for name, (messages, expect) in _CASES.items()]
 NEEDS_A_NOTE = {
@@ -80,7 +92,7 @@ def main(mode: str, model: str, runs: int, only: list[str]) -> None:
     settings_store.set("chat_model", model)
     settings_store.set("vault_lookup", mode)
     settings_store.set("cloud_share", list(sharing.CATEGORIES))  # scratch settings: the fixture vault is synthetic
-    settings_store.set("grounding_search", "keywords")  # no embedding server needed
+    settings_store.set("grounding_search", os.environ.get("LOOKUP_SEARCH", "keywords"))  # keywords needs no embedding server; LOOKUP_SEARCH=auto is the shipped default and needs Ollama with nomic-embed-text
     pool = {case.id: case for case in [*LIVE_CASES, *EXTRA]}
     names = only or DEFAULT_CASES
     rows: list[tuple[str, int, list[dict], list[str]]] = []
