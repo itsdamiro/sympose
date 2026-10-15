@@ -156,7 +156,8 @@ def _run(
             recheck=unfiled.recheck(modes.edit) if modes.edit and modes.edit.active and modes.edit.tool else None,
         )
         reply, reply_ttft, lookups = done.reply, done.ttft_ms, done.lookups
-        grounding_results = grounding_results + done.hits
+        grounding_results = list(grounding_results)
+        lookup.merge_hits(grounding_results, done.hits)  # a library passage the search already attached is not listed twice
         chats_sent = chats_sent + done.chats
         for category, count in done.withheld.items():
             withheld[category] = withheld.get(category, 0) + count

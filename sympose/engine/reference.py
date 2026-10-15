@@ -19,6 +19,7 @@ REFERENCE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__f
 SOURCE = "sympose"  # the `source` of a hit, so the prompt can tell it from a vault note
 LABEL = "Sympose reference"  # the path prefix the reply header shows
 MAX_PASSAGES = 3
+MAX_WITH_REWRITE = 5  # a follow-up has two searches' passages to share: its answer was fifth of five in a measured case (docs/decisions/017)
 
 # `(snapshot list object, its Index)`: the snapshot is mtime-cached and returns the
 # very same list until a note changes, so an identity check is enough.
@@ -55,15 +56,12 @@ def ground(persona: dict[str, Any], message: str, rewritten: str | None = None) 
     hits = _search(index, message)
     if rewritten:
         seen = {(h["rel_path"], h["text"]) for h in hits}
-        # The rewrite is searched by words only: the meaning search refines the message, whose own wording it matches.
-        extra = [h for h in _search(index, rewritten, refine=False) if (h["rel_path"], h["text"]) not in seen]
+        extra = [h for h in _search(index, rewritten) if (h["rel_path"], h["text"]) not in seen]
         # They take turns, the rewrite's first: a rewrite that lost a key word must not push out the message's own best passage.
-        hits = [h for pair in zip_longest(extra, hits) for h in pair if h is not None][:MAX_PASSAGES]
+        hits = [h for pair in zip_longest(extra, hits) for h in pair if h is not None][:MAX_WITH_REWRITE]
     return [{**hit, "rel_path": f"{LABEL}/{hit['rel_path']}", "source": SOURCE} for hit in hits]
 
 
-def _search(index: Index, message: str, refine: bool = True) -> list[dict[str, Any]]:
+def _search(index: Index, message: str) -> list[dict[str, Any]]:
     hits = retrieve(index, message, MAX_PASSAGES, strict=True)
-    if not refine:
-        return hits
     return semantic.refine(index, message, hits, library=True, max_results=MAX_PASSAGES)  # docs/decisions/027

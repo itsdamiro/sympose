@@ -22,7 +22,7 @@ from sympose.engine.prompt_blocks import (
     chats_block, compaction_block, memory_block, notes_block, recaps_block, reference_block, vault_map_block,
 )
 from sympose.engine.prompt_text import (
-    ANSWER_FROM_CHATS, CHAT_TOOLS_TEXT, ANSWER_FROM_NOTES, ANSWER_FROM_RECAPS, ANSWER_FROM_REFERENCE, CHATS_LABEL, SKILL_LABEL, WITHHELD_CHATS, CONNECTED_TO, RELATED_TO, DEFAULT_SOUL, GROUNDING_RULE,
+    ANSWER_FROM_CHATS, CHAT_TOOLS_TEXT, ANSWER_FROM_NOTES, ANSWER_FROM_RECAPS, ANSWER_FROM_REFERENCE, SEARCH_THE_REFERENCE, CHATS_LABEL, SKILL_LABEL, WITHHELD_CHATS, CONNECTED_TO, RELATED_TO, DEFAULT_SOUL, GROUNDING_RULE,
     HOW_YOU_WORK, HOW_YOU_WORK_ASK, GROUNDING_RULE_ASK, MEMORY_CONTEXT_LABEL, MEMORY_CONTEXT_MARK,
     MEMORY_DECISIONS_LABEL, MEMORY_NO_CHANGE, MEMORY_PROFILE_LABEL, MEMORY_PROFILE_MARK, MEMORY_REFRESH_INSTRUCTIONS,
     NO_NOTES, NO_RECAP, NO_REFERENCE, NO_TOPIC, POINT_TO_REFERENCE, RECAPS_LABEL,
@@ -150,6 +150,8 @@ def build_user_turn(
         parts.append(reference_block(reference_hits, reference_omitted))
         if reference_hits:
             parts.append(ANSWER_FROM_REFERENCE)
+        if lookup:
+            parts.append(SEARCH_THE_REFERENCE)
     if point_to and not reference:
         parts.append(POINT_TO_REFERENCE.format(names=" or ".join(point_to)))
     if chats_withheld:

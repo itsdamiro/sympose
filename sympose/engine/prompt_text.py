@@ -157,6 +157,12 @@ SKILL_LABEL = (
     "tools you have and in your own voice, without asking first. If the message asks for something else, ignore the skill."
 )
 ANSWER_FROM_REFERENCE = "If the message is about Sympose itself, answer it from the Sympose reference above."
+# Beside the reference when the persona looks up notes itself (docs/decisions/040): nothing rewrites a follow-up such as
+# "and what is the lowest?" for the automatic search of the reference, but the query the persona writes is standalone.
+SEARCH_THE_REFERENCE = (
+    "The reference above was found from the message's own words. If the message is a follow-up about Sympose that it does "
+    "not answer, search_notes also searches the Sympose reference: call it with a standalone question before you say you don't know."
+)
 
 # Next to the notes, only when there are some.
 ANSWER_FROM_NOTES = (

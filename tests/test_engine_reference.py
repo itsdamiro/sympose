@@ -35,7 +35,7 @@ def test_a_follow_up_is_found_by_its_rewritten_query_which_comes_first():
 
     hits = reference.ground(HAS, message, "undo the /default command")
 
-    assert "/default" in hits[0]["text"] and len(hits) <= 3
+    assert "/default" in hits[0]["text"] and len(hits) <= reference.MAX_WITH_REWRITE
     assert all(h["source"] == "sympose" and h["rel_path"].startswith("Sympose reference/") for h in hits)
 
 
@@ -43,21 +43,27 @@ def test_the_rewritten_query_never_brings_the_passages_past_the_cap(monkeypatch)
     def hit(name):
         return {"rel_path": f"{name}.md", "text": name, "title": name, "index": 0}
 
-    found = {"message": [hit("m1"), hit("m2"), hit("m3")], "rewritten": [hit("r1"), hit("r2"), hit("m1")]}
-    monkeypatch.setattr(reference, "_search", lambda index, query, refine=True: list(found[query]))
+    found = {"message": [hit("m1"), hit("m2"), hit("m3")], "rewritten": [hit("r1"), hit("r2"), hit("r3"), hit("m1")]}
+    monkeypatch.setattr(reference, "_search", lambda index, query: list(found[query]))
 
     hits = reference.ground(HAS, "message", "rewritten")
 
-    assert [h["text"] for h in hits] == ["r1", "m1", "r2"]  # they take turns, the rewrite's first, nothing twice, three at most
+    assert [h["text"] for h in hits] == ["r1", "m1", "r2", "m2", "r3"]  # they take turns, the rewrite's first, nothing twice, five at most
 
 
-def test_the_meaning_search_refines_the_message_and_not_the_rewrite(monkeypatch):
+def test_a_message_alone_brings_at_most_three_library_passages():
+    hits = reference.ground(HAS, "what are the settings of Sympose and what do the chat commands do?")
+
+    assert 0 < len(hits) <= reference.MAX_PASSAGES
+
+
+def test_the_meaning_search_refines_the_message_and_the_rewrite(monkeypatch):
     refined = []
     monkeypatch.setattr(reference.semantic, "refine", lambda index, query, hits, **kw: refined.append(query) or hits)
 
     reference.ground(HAS, "and how do I undo that?", "undo the /default command")
 
-    assert refined == ["and how do I undo that?"]
+    assert refined == ["and how do I undo that?", "undo the /default command"]
 
 
 def test_the_rewritten_query_adds_nothing_twice_and_nothing_for_a_persona_without_the_library():

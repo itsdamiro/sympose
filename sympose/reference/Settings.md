@@ -10,7 +10,7 @@ The list has `show_grounding`, `show_trim_notice`, `show_context_meter`, `show_b
 
 It also has `grounding_search`, `embedding_min_similarity`, `embedding_margin`, `library_sync_limit`, `vault_lookup`, `vault_lookup_rounds`, `auto_compact`, `compact_at`, `compact_to` and `parallel_replies`.
 
-`edit_mode`, `open_note_cap` and `annotations_cap` are the editing settings. `memory_remember`, `memory_rewrite` and `memory_auto_refresh` are the memory settings. The model, the persona and what a cloud model may receive have /model, /persona and /share.
+`edit_mode`, `show_note_marker`, `open_note_cap` and `annotations_cap` are the editing settings. `memory_remember`, `memory_rewrite` and `memory_auto_refresh` are the memory settings. The model, the persona and what a cloud model may receive have /model, /persona and /share.
 
 ## Can Samantha change a setting for me?
 
@@ -201,6 +201,10 @@ Setting `memory_auto_refresh` to `true` makes Samantha check for a context.md/pr
 The `edit_mode` setting is what a persona does with your notes before your Accept: `"plan"` (it only talks about a change), `"manual"` (the default: it proposes tracked changes when you ask, and you accept or decline each), `"accept"` (its edits are applied in the editor as it makes them, and your save keeps them) or `"auto"` (it may propose a change on its own).
 
 In every mode the file changes only when you click Accept or save. A persona can have its own `edit_mode` in its `persona.yaml` or in `persona.local.yaml`; that wins over this setting. This is the web app only.
+
+## show_note_marker
+
+The `show_note_marker` setting lets a model that cannot call tools, such as gemma2:9b, open a note in the web app's editor when you give it the note's name or path, off by default. Turned on, that model is told how to ask for a note to be shown, which costs it some of its edits. A model that can call tools opens notes without it.
 
 ## open_note_cap
 

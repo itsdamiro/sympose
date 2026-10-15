@@ -122,7 +122,7 @@ def _fit(text: str, model: str, room: int) -> str:
     return text + _CUT
 
 
-def _merge(into: list[dict[str, Any]], hits: list[dict[str, Any]]) -> None:
+def merge_hits(into: list[dict[str, Any]], hits: list[dict[str, Any]]) -> None:
     seen = {(hit["rel_path"], hit.get("heading"), hit.get("kind")) for hit in into}
     for hit in hits:
         key = (hit["rel_path"], hit.get("heading"), hit.get("kind"))
@@ -210,7 +210,7 @@ def converse(
             if text == _NO_ROOM:  # the model never saw these notes: they did not ground the reply and were not sent
                 lookups.append({**result.lookup, "found": 0, "no_room": True})
                 continue
-            _merge(hits, result.hits)
+            merge_hits(hits, result.hits)
             chats.extend(c for c in result.chats if (c['session'], c['turn']) not in {(k['session'], k['turn']) for k in chats})
             for category, count in result.withheld.items():
                 withheld[category] = withheld.get(category, 0) + count

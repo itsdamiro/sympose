@@ -208,3 +208,32 @@ def test_the_tools_are_read_only_and_named_as_the_engine_runs_them():
     assert names == ["search_notes", "open_note", "list_notes", "find_notes"]
     # every filter of find_notes is optional (at least one is checked when it runs); the others need their one argument
     assert all(tool["function"]["parameters"].get("required") for tool in lookup_tools.TOOLS if tool["function"]["name"] != "find_notes")
+
+
+def test_a_persona_with_the_sympose_library_finds_its_passages_through_its_own_search(scratch):
+    put(scratch, "Projects/Atlas.md", ATLAS)
+    question = "how do I make a different persona the default?"
+
+    with_library = lookup_tools.search_notes({**ALL, "sympose_reference": True}, CLOUD, question)
+    without = lookup_tools.search_notes(ALL, CLOUD, question)
+
+    assert any(h["rel_path"].startswith("Sympose reference/") for h in with_library.hits)
+    assert not any(h["rel_path"].startswith("Sympose reference/") for h in without.hits)
+    assert "Sympose reference/" in with_library.text  # a cloud model may read it: it is public documentation
+
+
+def test_a_vault_note_that_shares_a_library_path_gets_no_properties_passage_from_a_library_hit(scratch):
+    put(scratch, "Sympose reference/Settings.md", "---\nstatus: active\n---\n# Mine\nNothing about the topic.")
+
+    result = lookup_tools.search_notes({**ALL, "sympose_reference": True}, LOCAL, "how do I make a different persona the default?")
+
+    assert result.hits and not any(h.get("kind") == "properties" for h in result.hits)
+
+
+def test_a_library_hit_keeps_how_it_was_found(scratch, monkeypatch):
+    hit = {"rel_path": "Sympose reference/Settings.md", "title": "Settings", "heading": "", "text": "x", "source": "sympose", "via": "keyword"}
+    monkeypatch.setattr(lookup_tools.reference, "ground", lambda profile, query: [hit])
+
+    result = lookup_tools.search_notes({**ALL, "sympose_reference": True}, LOCAL, "anything")
+
+    assert [h["via"] for h in result.hits] == ["keyword"]

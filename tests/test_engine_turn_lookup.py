@@ -259,3 +259,15 @@ def test_the_time_to_first_token_includes_the_rounds_before_the_reply(monkeypatc
     result = turn.run_turn("samantha", "what did we choose for Atlas?", model=LOCAL)
 
     assert result.ttft_ms >= 60 + 40
+
+
+def test_a_library_passage_the_search_already_attached_is_not_listed_again_when_she_searches_for_it(tmp_path, monkeypatch):
+    write_persona(tmp_path / "profiles", "samantha", "name: Samantha\nvault_folders: '*'\nsympose_reference: true\n")
+    settings_store.set("vault_lookup", "ask")
+    question = "how do I make a different persona the default?"
+    model_that(monkeypatch, asks("search_notes", {"query": question}), ModelReply("Use /default.", 5))
+
+    result = turn.run_turn("samantha", question, model=LOCAL)
+
+    library = [(h["rel_path"], h.get("heading"), h.get("kind")) for h in result.grounding if h["rel_path"].startswith("Sympose reference/")]
+    assert library and len(library) == len(set(library))

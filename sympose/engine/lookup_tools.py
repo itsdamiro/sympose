@@ -10,7 +10,9 @@ returned as passages, gated by `sharing` like the automatic search's, before any
 import json
 from typing import Any
 
-from sympose.engine import connections, grounding, grounding_properties, lookup_find, lookup_list, lookup_scope, related, sharing
+from sympose.engine import (
+    connections, grounding, grounding_properties, lookup_find, lookup_list, lookup_scope, reference, related, sharing,
+)
 from sympose.engine.lookup_result import Result
 from sympose.engine.prompt_blocks import passage_text
 from sympose.engine.prompt_text import WITHHELD_CONNECTIONS, WITHHELD_NOTES, WITHHELD_PROPERTIES
@@ -93,10 +95,11 @@ def _with_extras(profile: dict[str, Any], hits: list[dict[str, Any]]) -> list[di
     """`hits` with each note's connections and, after all the text, its properties, as a turn's own
     search adds them (docs/decisions/030 and 035), so the two ways of finding notes give the same passages."""
     with_connections = related.for_hits(profile, connections.for_hits(profile, hits))
-    index = grounding.scope_index(profile) if hits else None
+    vault_hits = [h for h in with_connections if h.get("source") != reference.SOURCE]  # the library has no properties
+    index = grounding.scope_index(profile) if vault_hits else None
     if index is None:
         return with_connections
-    return with_connections + grounding_properties.for_hits(index.properties, with_connections)
+    return with_connections + grounding_properties.for_hits(index.properties, vault_hits)
 
 
 _WITHHELD_TEXT = {
@@ -126,6 +129,9 @@ def _describe(model: str, profile: dict[str, Any], hits: list[dict[str, Any]], h
 
 def search_notes(profile: dict[str, Any], model: str, query: str) -> Result:
     hits = [{**hit, "via": hit.get("via", "search")} for hit in grounding.ground(profile, query)]
+    # A persona with the Sympose library finds it here too, by the query it wrote: in `ask` nothing rewrites a follow-up
+    # such as "and the lowest?" for the automatic library search, but the persona's own query is already standalone.
+    hits += [{**hit, "via": hit.get("via", "search")} for hit in reference.ground(profile, query)]
     return _describe(model, profile, hits, f"Notes found for the search {query!r}:", _NOTHING.format(query=repr(query)))
 
 

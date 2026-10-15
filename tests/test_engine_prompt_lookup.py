@@ -3,7 +3,7 @@ notes block claims "nothing matched" for a search that was never made, and that 
 
 from sympose.engine import prompt
 from sympose.engine.prompt_text import (
-    ANSWER_FROM_NOTES, GROUNDING_RULE, GROUNDING_RULE_ASK, HOW_YOU_WORK, HOW_YOU_WORK_ASK, NO_NOTES,
+    ANSWER_FROM_NOTES, GROUNDING_RULE, GROUNDING_RULE_ASK, HOW_YOU_WORK, HOW_YOU_WORK_ASK, NO_NOTES, SEARCH_THE_REFERENCE,
 )
 
 PERSONA = {"handle": "nobody", "name": "Ada"}
@@ -61,6 +61,15 @@ def test_the_vault_map_and_the_reference_still_come_with_the_message_when_she_lo
 
     assert "17 notes in 9 folders" in turn and "Sympose reference" in turn and turn.endswith("User's message: how do I add a vault?")
     assert NO_NOTES not in turn
+
+
+def test_a_persona_who_looks_things_up_is_told_search_notes_also_searches_the_reference_and_only_then():
+    asks = prompt.build_user_turn("and the lowest?", [], reference=True, lookup=True)
+    auto = prompt.build_user_turn("and the lowest?", [], reference=True)
+    no_library = prompt.build_user_turn("and the lowest?", [], lookup=True)
+
+    assert SEARCH_THE_REFERENCE in asks
+    assert SEARCH_THE_REFERENCE not in auto and SEARCH_THE_REFERENCE not in no_library
 
 
 def test_build_messages_passes_the_mode_to_both_parts():

@@ -42,7 +42,7 @@ Without a chip she is sent the whole open note. With one, a model that can use t
 
 ## Can she bring a note up on screen for me?
 
-Yes. Give her a note's name or path and the web app shows it in the editor panel, for reading. A model that can call tools does it as is. For one that cannot, such as gemma2:9b, turn on the setting for opening notes on a model without tools; it costs that model some edits. Nothing in your vault changes, and she says so when there is no such note.
+Yes. Give her a note's name or path and the web app shows it in the editor panel, for reading. A model that can call tools does it as is. For one that cannot, such as gemma2:9b, turn on the `show_note_marker` setting (opening notes on a model without tools); it costs that model some edits. Nothing in your vault changes, and she says so when there is no such note.
 
 ## What is the Drafts section?
 
