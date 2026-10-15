@@ -25,7 +25,7 @@ _LOCK = threading.Lock()  # one write of a persona's override at a time
 def set_model(handle: str, model: str | None) -> bool:
     """Save `model` as the persona's own (`None` removes it, so the shipped file's model, the setting or
     the default applies). `False` when it could not be done: no such persona, or a failed write."""
-    return _set(handle, "model", model)
+    return _set(handle, {"model": model})
 
 
 def set_edit_mode(handle: str, mode: str | None) -> bool:
@@ -33,7 +33,7 @@ def set_edit_mode(handle: str, mode: str | None) -> bool:
     `manual` applies). `False` when it could not be done: not one of the modes, no such persona, or a failed write."""
     if mode is not None and edit_mode.valid(mode) is None:
         return False
-    return _set(handle, "edit_mode", mode)
+    return _set(handle, {"edit_mode": mode})
 
 
 def set_skills(handle: str, names: list[str] | None) -> bool:
@@ -42,7 +42,7 @@ def set_skills(handle: str, names: list[str] | None) -> bool:
     list is on unless it was switched off. `None` removes both, so the shipped list applies again. `False` when it could
     not be done: no such persona, or a failed write."""
     if names is None:
-        return _set(handle, {"skills": None, "skills_on": None, "skills_off": None})
+        return _set(handle, {"skills_on": None, "skills_off": None})
     try:
         with open(os.path.join(persona_dir(handle), PERSONA_FILENAME), encoding="utf-8") as f:
             shipped = (yaml.safe_load(f) or {}).get("skills")
@@ -52,14 +52,14 @@ def set_skills(handle: str, names: list[str] | None) -> bool:
     return _set(
         handle,
         {
-            "skills": None,  # an older full list, now said as the two below
             "skills_on": [n for n in dict.fromkeys(names) if n not in shipped] or None,
             "skills_off": [n for n in shipped if n not in names] or None,
         },
     )
 
 
-def _set(handle: str, key: str | dict[str, Any], value: Any = None) -> bool:
+def _set(handle: str, changes: dict[str, Any]) -> bool:
+    """Lays `changes` over what the local file holds: a value of `None` removes its key."""
     try:
         folder = persona_dir(handle)
     except ValueError:
@@ -70,7 +70,7 @@ def _set(handle: str, key: str | dict[str, Any], value: Any = None) -> bool:
     with _LOCK:
         try:
             kept = local_overrides(local)
-            for k, v in (key if isinstance(key, dict) else {key: value}).items():
+            for k, v in changes.items():
                 kept.pop(k, None)
                 if v is not None:
                     kept[k] = v
@@ -80,5 +80,5 @@ def _set(handle: str, key: str | dict[str, Any], value: Any = None) -> bool:
                 os.unlink(local)
             return True
         except OSError as e:
-            log.warning("Couldn't save %s into %s: %s", key, local, e)
+            log.warning("Couldn't save %s into %s: %s", list(changes), local, e)
             return False

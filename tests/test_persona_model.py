@@ -162,10 +162,10 @@ def test_switching_back_to_the_shipped_list_leaves_nothing_in_the_local_file(hom
     assert not (home / "persona.local.yaml").exists()
 
 
-def test_an_older_full_list_in_the_local_file_still_replaces_the_shipped_one_until_the_next_switch(home):
+def test_a_full_skills_list_left_in_the_local_file_is_ignored_and_the_next_switch_drops_it(home):
     (home / "persona.yaml").write_text(FILE + "skills: ['shipped-one', 'shipped-two']\n", encoding="utf-8")
     (home / "persona.local.yaml").write_text("skills: ['mine', 'shipped-one']\n", encoding="utf-8")
-    assert profile.get_profile("samantha")["skills"] == ["mine", "shipped-one"]
+    assert profile.get_profile("samantha")["skills"] == ["shipped-one", "shipped-two"]
 
     persona_model.set_skills("samantha", ["mine", "shipped-one"])
 

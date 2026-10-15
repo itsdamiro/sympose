@@ -125,6 +125,9 @@ def get_profile(handle: str) -> dict[str, Any] | None:
     return _normalize(_with_overrides(data, local_overrides(local)), handle)
 
 
+_SKILL_KEYS = ("skills_on", "skills_off")  # what the user changed from the shipped list of skills
+
+
 def _names(value: Any) -> list[str]:
     """A list's strings, in order and once each; anything that is not a list names none."""
     return list(dict.fromkeys(n for n in value if isinstance(n, str))) if isinstance(value, list) else []
@@ -133,21 +136,19 @@ def _names(value: Any) -> list[str]:
 def _with_overrides(data: dict[str, Any], overrides: dict[str, Any]) -> dict[str, Any]:
     """The shipped file with the user's local choices laid over it. The skills are merged, not replaced (docs/decisions/077):
     the shipped list less the ones the user switched off, then the ones they switched on, so a skill a later release adds
-    to the shipped list is on unless they turned it off. An older `skills:` list in the local file still replaces the
-    shipped list whole until the next switch rewrites it as the two lists."""
-    merged = {**data, **{k: v for k, v in overrides.items() if k not in ("skills_on", "skills_off")}}
-    if "skills_on" in overrides or "skills_off" in overrides:
+    to the shipped list is on unless they turned it off."""
+    merged = {**data, **{k: v for k, v in overrides.items() if k not in _SKILL_KEYS}}
+    if any(k in overrides for k in _SKILL_KEYS):
         off = set(overrides.get("skills_off", []))
-        merged["skills"] = [n for n in _names(data.get("skills")) if n not in off] + overrides.get("skills_on", [])
-        merged["skills"] = list(dict.fromkeys(merged["skills"]))
+        merged["skills"] = list(dict.fromkeys([n for n in _names(data.get("skills")) if n not in off] + overrides.get("skills_on", [])))
     return merged
 
 
 def local_overrides(path: str) -> dict[str, Any]:
     """What the user set in the untracked override beside the shipped file: the model (docs/decisions/046), the edit
     mode (docs/decisions/072), each a text, and the skills she carries (docs/decisions/077): `skills_on` and `skills_off`,
-    lists of names laid over the shipped list (an older full `skills` list is still read). An absent, unreadable or invalid file, or a value of the wrong kind, gives nothing for it: it never
-    costs the persona her place."""
+    lists of names laid over the shipped list. An absent, unreadable or invalid file, or a value of the wrong kind, gives
+    nothing for it: it never costs the persona her place."""
     if not os.path.isfile(path):
         return {}
     try:
@@ -159,7 +160,7 @@ def local_overrides(path: str) -> dict[str, Any]:
     if not isinstance(data, dict):
         return {}
     found: dict[str, Any] = {k: v for k in ("model", "edit_mode") if isinstance(v := data.get(k), str) and v.strip()}
-    for key in ("skills", "skills_on", "skills_off"):
+    for key in _SKILL_KEYS:
         names = data.get(key)
         if isinstance(names, list) and all(isinstance(n, str) for n in names):
             found[key] = names
