@@ -180,3 +180,13 @@ The limit on how many passages of the Sympose library are embedded on the spot o
 **Caveats.** One vault, labels written by Claude from the notes' summaries, the same messages used to choose and score; a vault about Sympose makes the library match its own questions, which the score counts as strangers (a share of the 20 at 0.72).
 
 **Decision.** No code change: the threshold stays 0.72. The weak result for messages phrased as a request is not acted on; its cause comes first (strip the request words before embedding is one idea, measured before any change).
+
+## Measured (2026-10-16): why messages phrased as a request fail, and stripping the request words does not fix it (issue 4)
+
+**What.** The 7 request-phrased messages of the garden set, at the shipped 0.72. The request words ("can you search my vault for", "do I have a note on", "remind me what", "please find my notes on") were stripped with a leading-phrase pattern, applied repeatedly, and each message was embedded raw and stripped; the needed note's best score and rank were compared, and the library notes attached to every message not about the library (all 71 minus the 5 the library answers) were compared raw and stripped. Read-only, local Ollama, `nomic-embed-text`, scripts kept out of the repository.
+
+**Result.** The "0 or 1 of 7" is two different faults, neither the request words. (1) Four messages miss their note because it scores under 0.72, as plain questions do (0.708, 0.709, 0.677, 0.758 at ranks 2, 1, 17 and 4; the clear-winner rule needs a 0.06 lead and only one of them had it): of the 7, 3 found the note, against 35 of 51 over the whole set. (2) Two messages find their note and also attach two library notes each ("Troubleshooting", "Choosing a model"; "The web app", "Chat commands"), because the words vault, note and search are what the library is about; the score counts those as strangers. Stripping changed the needed note's score by +0.07, +0.03, 0.00, -0.01, 0.00, -0.01 and -0.05 (no direction), and changed the library notes attached for none of the 66 messages not about the library (22 attach one raw and 22 stripped).
+
+**What it says.** The sample is 7, and the plain questions pass only 10 of 44 on the same strict rule (neighbour notes of one project count as strangers), so the gap in the 027 update above was overstated: request-phrased messages are not a separate failure mode of the meaning search. The weak part is the library attaching on a message about the user's own notes, which the earlier updates already list.
+
+**Decision.** No code change; the stripping idea is dropped. If the library's strangers are worth a fix, it is a library question (its own margin or threshold for a message that names "my" notes), not a query rewrite.
