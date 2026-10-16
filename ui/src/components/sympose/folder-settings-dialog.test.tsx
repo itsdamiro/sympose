@@ -199,7 +199,7 @@ describe("FolderSettingsDialog: opened by hand from a folder's menu", () => {
     expect(iconField().value).toBe("book")
     expect(screen.queryByText(/Started from/)).toBeNull()
     expect((screen.getByLabelText("Light theme colour") as HTMLInputElement).value).toBe("#1d4ed8")
-    expect(screen.getByRole("img", { name: "Dark theme colour, matched" })).toBeTruthy()
+    expect((screen.getByLabelText("Dark theme colour") as HTMLInputElement).value).toMatch(/^#[0-9a-f]{6}$/)
   })
 
   it("keeps Save off until something differs from the note", () => {

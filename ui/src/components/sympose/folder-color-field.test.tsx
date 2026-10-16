@@ -40,41 +40,32 @@ describe("FolderColorField", () => {
     expect(onChange).not.toHaveBeenCalled()
   })
 
-  it("sets the light colour from its one input and works out the dark one from it", () => {
+  it("sets the light colour from its input and works out the dark one from it", () => {
     const onChange = setup("#be123c", "#f2889b")
     fireEvent.change(screen.getByLabelText("Light theme colour"), { target: { value: "#112233" } })
     expect(onChange).toHaveBeenLastCalledWith({ accent: "#112233", accentDark: counterpart("#112233", "light") })
-    expect(screen.queryByLabelText("Dark theme colour")).toBeNull()
   })
 
-  it("in the dark theme the one input is the dark colour and the light one is worked out", () => {
-    document.documentElement.classList.add("dark")
-    try {
-      const onChange = setup("#be123c", "#f2889b")
-      expect((screen.getByLabelText("Dark theme colour") as HTMLInputElement).value).toBe("#f2889b")
-      fireEvent.change(screen.getByLabelText("Dark theme colour"), { target: { value: "#aabbcc" } })
-      expect(onChange).toHaveBeenLastCalledWith({ accent: counterpart("#aabbcc", "dark"), accentDark: "#aabbcc" })
-    } finally {
-      document.documentElement.classList.remove("dark")
-    }
+  it("sets the dark colour from its input and works out the light one from it, whichever theme is in use", () => {
+    const onChange = setup("#be123c", "#f2889b")
+    expect((screen.getByLabelText("Dark theme colour") as HTMLInputElement).value).toBe("#f2889b")
+    fireEvent.change(screen.getByLabelText("Dark theme colour"), { target: { value: "#aabbcc" } })
+    expect(onChange).toHaveBeenLastCalledWith({ accent: counterpart("#aabbcc", "dark"), accentDark: "#aabbcc" })
   })
 
-  it("shows the colour in effect, not an unset one, when only the other theme's is set", () => {
-    document.documentElement.classList.add("dark")
-    try {
-      setup("#be123c", null)
-      const input = screen.getByLabelText("Dark theme colour") as HTMLInputElement
-      expect(input.value).toBe("#be123c")
-      expect(input.className).not.toContain("opacity-40")
-    } finally {
-      document.documentElement.classList.remove("dark")
-    }
-  })
-
-  it("shows the matching colour of the other theme, read only, in its own swatch", () => {
+  it("shows both inputs as the same kind of control", () => {
     setup("#be123c", "#f2889b")
-    const swatch = screen.getByRole("img", { name: "Dark theme colour, matched" })
-    expect(swatch.style.background).toBe("rgb(242, 136, 155)")
+    const light = screen.getByLabelText("Light theme colour") as HTMLInputElement
+    const dark = screen.getByLabelText("Dark theme colour") as HTMLInputElement
+    expect([light.type, dark.type]).toEqual(["color", "color"])
+    expect(light.className).toBe(dark.className)
+  })
+
+  it("shows the colour in effect, not an unset one, when only one theme's is set", () => {
+    setup("#be123c", null)
+    const input = screen.getByLabelText("Dark theme colour") as HTMLInputElement
+    expect(input.value).toBe("#be123c")
+    expect(input.className).not.toContain("opacity-40")
   })
 })
 

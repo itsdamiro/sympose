@@ -1,17 +1,16 @@
-import { Cancel01Icon, Moon02Icon, Sun01Icon, Tick02Icon } from "@hugeicons/core-free-icons"
+import { Cancel01Icon, Tick02Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 
 import { COLOR_PRESETS, counterpart, presetFor } from "@/lib/folder-colors"
-import { useEffectiveTheme } from "@/lib/use-effective-theme"
 import { cn } from "@/lib/utils"
 
 const SWATCH =
   "inline-flex size-6 items-center justify-center rounded-md ring-offset-2 ring-offset-popover transition-shadow focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none disabled:opacity-60"
 
 /**
- * A folder's colour in the Knowledge Nebula (docs/decisions/087): a row of preset pairs, a cross for none, and one
- * colour input for the theme in use (a sun or a moon). Picking sets that theme's colour and works out the matching
- * one for the other theme (`counterpart`), shown beside it, so one pick is enough. `null` is a colour that is not
+ * A folder's colour in the Knowledge Nebula (docs/decisions/087): a row of preset pairs, a cross for none, and a
+ * colour input for each theme, labelled Light and Dark, alike. Picking either sets that theme's colour and works out
+ * the matching one for the other theme (`counterpart`), so one pick is enough, from whichever side. `null` is a colour that is not
  * set. A preset sets both.
  */
 export function FolderColorField({
@@ -25,9 +24,6 @@ export function FolderColorField({
   onChange: (next: { accent: string | null; accentDark: string | null }) => void
   disabled?: boolean
 }) {
-  const theme = useEffectiveTheme()
-  const own = theme === "light" ? accent : accentDark
-  const other = theme === "light" ? accentDark : accent
   const chosen = presetFor(accent, accentDark)
   const none = accent === null && accentDark === null
   return (
@@ -59,33 +55,27 @@ export function FolderColorField({
         </button>
       ))}
       <span className="mx-1 h-5 w-px bg-border" aria-hidden />
-      <label className="inline-flex items-center gap-1 text-muted-foreground" title={`Pick a colour for the ${theme} theme`}>
-        <HugeiconsIcon icon={theme === "light" ? Sun01Icon : Moon02Icon} className="size-4" />
-        <input
-          type="color"
-          aria-label={`${theme === "light" ? "Light" : "Dark"} theme colour`}
-          disabled={disabled}
-          value={own ?? other ?? "#888888"}
-          onChange={(e) => {
-            const picked = e.target.value
-            const other = counterpart(picked, theme)
-            onChange(theme === "light" ? { accent: picked, accentDark: other } : { accent: other, accentDark: picked })
-          }}
-          className={cn("size-6 cursor-pointer rounded-md border border-border bg-transparent p-0", own === null && other === null && "opacity-40")}
-        />
-      </label>
-      <span
-        className="inline-flex items-center gap-1 text-muted-foreground"
-        title={`The ${theme === "light" ? "dark" : "light"} theme gets the matching colour`}
-      >
-        <HugeiconsIcon icon={theme === "light" ? Moon02Icon : Sun01Icon} className="size-4" />
-        <span
-          role="img"
-          aria-label={`${theme === "light" ? "Dark" : "Light"} theme colour, matched`}
-          style={{ background: other ?? undefined }}
-          className={cn("size-6 rounded-md border border-border", other === null && "opacity-40")}
-        />
-      </span>
+      {(["light", "dark"] as const).map((side) => {
+        const mine = side === "light" ? accent : accentDark
+        const theirs = side === "light" ? accentDark : accent
+        return (
+          <label key={side} className="inline-flex items-center gap-1 text-muted-foreground" title={`Pick a colour for the ${side} theme`}>
+            <span className="text-xs">{side === "light" ? "Light" : "Dark"}</span>
+            <input
+              type="color"
+              aria-label={`${side === "light" ? "Light" : "Dark"} theme colour`}
+              disabled={disabled}
+              value={mine ?? theirs ?? "#888888"}
+              onChange={(e) => {
+                const picked = e.target.value
+                const matched = counterpart(picked, side)
+                onChange(side === "light" ? { accent: picked, accentDark: matched } : { accent: matched, accentDark: picked })
+              }}
+              className={cn("size-6 cursor-pointer rounded-md border border-border bg-transparent p-0", none && "opacity-40")}
+            />
+          </label>
+        )
+      })}
     </div>
   )
 }
