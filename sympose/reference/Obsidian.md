@@ -24,4 +24,4 @@ Yes. Wikilinks between notes, like [[Another note]], are what the Knowledge Nebu
 
 A persona never changes a note by itself. The web app's editor writes, and what it saves are ordinary edits to the markdown files, the same files Obsidian shows. A persona can propose a change, a new note or a comment in the web app, and the file changes only when you click Accept or save.
 
-The other writers are `sympose vault --draft` and the web app's setup step for a new folder, which each create one folder definition note, and only when you say yes.
+The other writers are `sympose vault --draft` and the web app's folder settings, which each make or change one folder definition note, and only when you say yes.

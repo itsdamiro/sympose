@@ -229,6 +229,51 @@ def test_no_purpose_paragraph_at_all_is_none():
     assert defs.read_purpose("") is None
 
 
+def test_the_frontmatter_of_a_definition_is_not_its_purpose():
+    text = defs.render("People", ["role:"], "People I know.", ["icon: users", "accent: '#c2410c'"])
+
+    assert text.startswith("---\nicon: users\naccent: '#c2410c'\n---\n# People")
+    assert defs.read_purpose(text) == "People I know."
+    assert defs.read_purpose(text.replace("People I know.\n\n", "")) is None
+    assert defs.read_template(text) == "role:"
+
+
+def test_a_heading_shaped_comment_in_the_frontmatter_is_not_the_template_heading():
+    text = "---\n# Template\n---\n\n```yaml\nwrong:\n```\n\n## Template\n\n```yaml\nrole:\n```\n"
+
+    assert defs.read_template(text) == "role:"
+
+
+def test_a_frontmatter_block_that_never_closes_is_read_as_the_text_it_is():
+    assert defs.read_purpose("---\nicon: a\n\nPurpose.") == "---\nicon: a\n\nPurpose."
+
+
+@pytest.mark.parametrize(
+    "text, parts",
+    [
+        ("---\na: 1\n---\nBody\n", ("---\na: 1\n---\n", "Body\n")),
+        ("---\r\na: 1\r\n---\r\nBody", ("---\r\na: 1\r\n---\r\n", "Body")),
+        ("---\n---\nBody", ("---\n---\n", "Body")),
+        ("---\na: 1\n---", ("---\na: 1\n---", "")),
+        ("\ufeff---\na: 1\n---\nBody", ("\ufeff---\na: 1\n---\n", "Body")),
+        ("Body\n---\nnot front\n---\n", ("", "Body\n---\nnot front\n---\n")),
+        ("", ("", "")),
+    ],
+)
+def test_the_frontmatter_is_split_from_the_rest_without_losing_a_character(text, parts):
+    assert defs.split_frontmatter(text) == parts
+    assert "".join(parts) == text
+
+
+def test_an_unclosed_frontmatter_block_is_none():
+    assert defs.split_frontmatter("---\na: 1\nBody") is None
+
+
+def test_a_definition_renders_without_frontmatter_when_it_has_no_look():
+    assert defs.render("People", ["role:"], "x") == defs.render("People", ["role:"], "x", [])
+    assert not defs.render("People", [], "x").startswith("---")
+
+
 def test_a_purpose_of_several_sentences_is_kept_whole():
     text = defs.render("People", [], "People I know. Family, friends and colleagues.")
 

@@ -22,9 +22,11 @@ DEFAULT_SHARE = 0.5
 _NOT_FOLDERS = {name.lower() for name in IGNORE_FOLDERS} | {"templates"}  # not the user's content: no definition
 _MAX_CONSTANT = 60  # a value longer than this is not a constant of the folder, it is a sentence
 _KEY = generic_template.KEY
-_HEADING = re.compile(r"^#{1,6}[ \t]+template[ \t]*#*[ \t]*$", re.IGNORECASE)  # `#template` is a tag, not a heading
+TEMPLATE_HEADING = re.compile(r"^#{1,6}[ \t]+template[ \t]*#*[ \t]*$", re.IGNORECASE)  # `#template` is a tag, not a heading
 _ANY_HEADING = re.compile(r"^#{1,6}[ \t]+\S")  # a heading needs a space after the hashes: `#todo` is prose
 _FENCE = re.compile(r"^[ \t]*(```|~~~)")
+FRONT_OPEN = re.compile("\ufeff?---[ \t]*\r?\n")
+FRONT_CLOSE = re.compile("^---[ \t\r]*$", re.MULTILINE)
 
 
 def min_notes() -> int:
@@ -107,31 +109,54 @@ def template_lines(notes: list[dict[str, Any]], folder: str, share: float | None
     return [f"{key}: {_constant(seen[key]) if len(seen[key]) == len(metas) else ''}".rstrip() for key in common]
 
 
-def read_template(body: str) -> str | None:
-    """The property lines of a definition's `## Template` section: the first fenced block under a heading called
-    Template (any level, any case) with no other heading between them. Every such heading is tried, so a note
-    that has a title called Template (a folder of that name) or a stray heading first still has its section found.
-    `None` when there is none or the block is empty; the rest of the note is not read."""
-    lines = body.splitlines()
+def split_frontmatter(text: str) -> tuple[str, str] | None:
+    """`(frontmatter, rest)` of a note's text, the frontmatter with its `---` lines and their line breaks (`""` when
+    the note has none); `None` when it opens a frontmatter block it never closes, which nothing here repairs."""
+    opening = FRONT_OPEN.match(text)
+    if opening is None:
+        return "", text
+    closing = FRONT_CLOSE.search(text, opening.end())
+    if closing is None:
+        return None
+    cut = closing.end() + (1 if text.startswith("\n", closing.end()) else 0)
+    return text[:cut], text[cut:]
+
+
+def template_span(lines: list[str]) -> tuple[int, int, int] | None:
+    """`(heading, opening fence, closing fence)` line indexes of a definition's `## Template` block: the first
+    fenced block under a heading called Template (any level, any case) with no other heading between them. Every
+    such heading is tried, so a note that has a title called Template (a folder of that name) or a stray heading
+    first still has its section found. The closing index is `len(lines)` for a block that is never closed. `None`
+    when there is none."""
     for start, line in enumerate(lines):
-        if not _HEADING.match(line.strip()):
+        if not TEMPLATE_HEADING.match(line.strip()):
             continue
         fence = next((i for i in range(start + 1, len(lines)) if _FENCE.match(lines[i])), None)
         if fence is None or any(_ANY_HEADING.match(text.strip()) for text in lines[start + 1 : fence]):
             continue  # this heading has no block of its own: the next one may
         marker = _FENCE.match(lines[fence]).group(1)
         end = next((i for i in range(fence + 1, len(lines)) if lines[i].strip().startswith(marker)), len(lines))
-        return "\n".join(lines[fence + 1 : end]).strip() or None
+        return start, fence, end
     return None
+
+
+def read_template(body: str) -> str | None:
+    """The property lines of a definition's `## Template` section (`template_span`), `None` when there is none or
+    the block is empty; the rest of the note is not read."""
+    lines = (split_frontmatter(body) or ("", body))[1].splitlines()
+    span = template_span(lines)
+    if span is None:
+        return None
+    return "\n".join(lines[span[1] + 1 : span[2]]).strip() or None
 
 
 def read_purpose(body: str) -> str | None:
     """The purpose paragraph of a definition (`render`'s own shape, docs/decisions/035): everything before
-    its `## Template` section, minus the note's own `# <Folder>` title line. `None` when there is none — an
-    empty note, or a purpose the vault owner never wrote (ADR 033 stage 2's `unclear`, `withheld` or
-    `failed`, where the draft has the template and no purpose)."""
-    lines = body.splitlines()
-    end = next((i for i, line in enumerate(lines) if _HEADING.match(line.strip())), len(lines))
+    its `## Template` section, minus the note's own `# <Folder>` title line and its frontmatter (the folder's icon
+    and colour, docs/decisions/064). `None` when there is none — an empty note, or a purpose the vault owner never
+    wrote (ADR 033 stage 2's `unclear`, `withheld` or `failed`, where the draft has the template and no purpose)."""
+    lines = (split_frontmatter(body) or ("", body))[1].splitlines()
+    end = next((i for i, line in enumerate(lines) if TEMPLATE_HEADING.match(line.strip())), len(lines))
     before = [line for line in lines[:end] if not line.strip().startswith("# ")]
     text = "\n".join(before).strip()
     return text or None
@@ -173,10 +198,12 @@ def template_for_folder(vault: str, folder: str, allowed_dirs: list[str] | None 
     return as_template(block) if block else None
 
 
-def render(folder: str, template: list[str], purpose: str = "") -> str:
-    """The text of a definition: the purpose paragraph when there is one (never a made-up one), then the template."""
+def render(folder: str, template: list[str], purpose: str = "", look: list[str] | None = None) -> str:
+    """The text of a definition: the folder's look as frontmatter when it has one (`look`, property lines), the
+    purpose paragraph when there is one (never a made-up one), then the template."""
     parts = [f"# {folder}"]
     if purpose.strip():
         parts.append(purpose.strip())
     parts.append("## Template\n\n```yaml\n" + "\n".join(template) + ("\n" if template else "") + "```")
-    return "\n\n".join(parts) + "\n"
+    front = "---\n" + "".join(f"{line}\n" for line in look) + "---\n" if look else ""
+    return front + "\n\n".join(parts) + "\n"

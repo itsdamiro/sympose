@@ -42,7 +42,7 @@ from sympose import server_trash_handlers as th
 from sympose import server_vault_handlers as vh
 from sympose import vault_paths
 from sympose.server_change_models import AnnotationChange, AnnotationCreate, ChangesResolve, DraftText
-from sympose.server_models import ChatBinAction, ChatCancel, ChatCompact, ChatSessionArchive, ChatSessionStart, ChatSessionUpdate, ChatTurn, DefinitionsSwitch, EditModeChoice, FolderDefinition, FolderIcon, FolderMove, FolderMovePlan, FolderRename, HiddenPath, ModelChoice, PersonaFileWrite, SettingChange, SharingChange, SkillAdd, SkillSwitch, TrashEmpty, TrashRestore, VaultActivate
+from sympose.server_models import ChatBinAction, ChatCancel, ChatCompact, ChatSessionArchive, ChatSessionStart, ChatSessionUpdate, ChatTurn, DefinitionsSwitch, EditModeChoice, FolderIcon, FolderMove, FolderMovePlan, FolderRename, FolderSettings, HiddenPath, ModelChoice, PersonaFileWrite, SettingChange, SharingChange, SkillAdd, SkillSwitch, TrashEmpty, TrashRestore, VaultActivate
 
 
 def create_app() -> FastAPI:
@@ -321,16 +321,16 @@ def create_app() -> FastAPI:
     def create_folder(body: h.FolderCreate) -> dict[str, Any]:
         return h.create_folder(body)
 
-    @app.get("/api/vault/note-template")
-    def get_note_template(
-        folder: str | None = Query(None, description="A root folder to ask whether it can have a definition"),
+    @app.get("/api/vault/folder/settings")
+    def get_folder_settings(
+        folder: str = Query(..., description="A top-level folder"),
         persona: str | None = Query(None),
     ) -> dict[str, Any]:
-        return dh.get_note_template(folder, persona)
+        return dh.get_folder_settings(folder, persona)
 
-    @app.post("/api/vault/folder/definition", status_code=201)
-    def write_folder_definition(body: FolderDefinition) -> dict[str, Any]:
-        return dh.write_definition(body)
+    @app.put("/api/vault/folder/settings")
+    def put_folder_settings(body: FolderSettings) -> dict[str, Any]:
+        return dh.put_folder_settings(body)
 
     @app.patch("/api/vault/folder")
     def rename_folder(body: FolderRename) -> dict[str, Any]:

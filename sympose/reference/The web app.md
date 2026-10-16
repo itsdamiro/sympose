@@ -26,6 +26,12 @@ Sympose asks first when something needs your word: a folder with that name is al
 
 It then rewrites the wikilinks that name the folder, and updates the personas' folder lists, the hidden list, pending changes, pins and recent notes. Links written as Markdown links, like [text](Folder/Note.md), are not changed.
 
+## How do I change a folder's icon, colour or description?
+
+Right-click a top-level folder in the main menu and choose Folder settings. Type in the Icon field (film, travel, food) and pick from the matches, choose a colour for the Knowledge Nebula, and say what the folder is for and which properties its files start with.
+
+Save puts them in the folder's definition, like People/People.md, and changes only what you changed. A new folder offers the same dialog when you make it, and Skip leaves everything as it was.
+
 ## What are tracked changes and comments?
 
 When a persona proposes a change to the note you have open, the editor shows it as a tracked change: the old text struck through and the new text beside it. A small tab above it holds Accept and Decline (and a paperclip). The toolbar has Accept all and save, and Decline all, for the whole note. A change you edited underneath is marked outdated, not merged.

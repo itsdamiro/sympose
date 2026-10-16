@@ -21,6 +21,12 @@ def of_note(meta: dict[str, Any]) -> dict[str, str]:
     return {key: value for key, value in found.items() if value}
 
 
+def line(key: str, value: str) -> str:
+    """The property line that sets `key` to `value` in a definition note: a colour is quoted, because `#` starts a
+    comment in YAML."""
+    return f"{key}: {value}" if key == "icon" else f"{key}: '{value}'"
+
+
 def _is_definition(note: dict[str, Any], folder: str) -> bool:
     return (note.get("rel_path") or "").replace("\\", "/") == defs.definition_path(folder)
 
@@ -70,9 +76,9 @@ def offer(folder: str, notes: list[dict[str, Any]]) -> list[str]:
     if "icon" in meta:
         return []
     icon, accent, accent_dark = built_in
-    lines = [f"icon: {icon}"]
+    lines = [line("icon", icon)]
     if "accent" not in meta:
-        lines.append(f"accent: '{accent}'")
+        lines.append(line("accent", accent))
     if "accent_dark" not in meta:
-        lines.append(f"accent_dark: '{accent_dark}'")
+        lines.append(line("accent_dark", accent_dark))
     return lines

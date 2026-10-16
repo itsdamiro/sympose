@@ -75,6 +75,20 @@ def test_a_definition_with_no_purpose_paragraph_shows_the_count_only(scratch):
     assert "- Movies (1 note)." in text
 
 
+def test_a_definitions_icon_and_colour_are_not_read_as_its_purpose(scratch):
+    put(scratch, "Movies/Movies.md", "---\nicon: film-roll\naccent: '#be123c'\n---\n# Movies\n\nFilms I watched.\n\n## Template\n\n```yaml\n```\n")
+    put(scratch, "Movies/Up.md")
+
+    assert "- Movies (1 note): Films I watched." in vault_map.build(ALL)
+
+
+def test_a_definition_with_only_a_look_shows_the_count_only(scratch):
+    put(scratch, "Movies/Movies.md", "---\nicon: film-roll\n---\n# Movies\n")
+    put(scratch, "Movies/Up.md")
+
+    assert "- Movies (1 note)." in vault_map.build(ALL)
+
+
 def test_root_and_ignored_folders_count_toward_the_total_but_have_no_line(scratch):
     put(scratch, "Loose.md")
     put(scratch, "Templates/Note template.md")

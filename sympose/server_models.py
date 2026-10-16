@@ -129,14 +129,17 @@ class FolderIcon(BaseModel):
     folder: str = Field(..., min_length=1)
 
 
-class FolderDefinition(BaseModel):
-    """Body of `POST /api/vault/folder/definition` — write the definition note of the top-level folder `path` from
-    what the user typed: an optional `purpose` and the property lines of the folder's `template`
-    (docs/decisions/038)."""
+class FolderSettings(BaseModel):
+    """Body of `PUT /api/vault/folder/settings` — everything the Folder settings dialog holds for the top-level
+    folder `path` (docs/decisions/087): the `purpose`, the property lines of the `template`, and the folder's look
+    (`icon` by name, `accent` and `accent_dark` as hex colours; `None` for one that is not set)."""
 
     path: str = Field(..., min_length=1)
     purpose: str = ""
     template: list[str] = Field(default_factory=list)
+    icon: str | None = None
+    accent: str | None = None
+    accent_dark: str | None = None
     persona: str | None = None
 
 

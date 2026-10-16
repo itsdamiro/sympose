@@ -54,7 +54,7 @@ When another note is already called by the title, when another note shares the n
 
 ## What is a folder definition?
 
-A note named after a top-level folder, like People/People.md, that says what the folder is for and holds a template of the properties its notes carry. Sympose can draft one for a folder that has enough notes and no definition yet, with `sympose vault --draft People`.
+A note named after a top-level folder, like People/People.md, that says what the folder is for and holds a template of the properties its notes carry. Sympose can draft one for a folder that has enough notes and no definition yet, with `sympose vault --draft People`. In the web app, right-click the folder and choose Folder settings to make or change one yourself.
 
 ## Which folders does the report offer a definition for?
 

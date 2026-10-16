@@ -25,5 +25,6 @@ ICON_NAMES = (
     "dna", "fire", "flash", "ghost", "globe", "graduation", "home", "idea", "key", "lamp", "leaf", "mic", "moon", "music",
     "paintbrush", "pen", "plant", "rocket", "shield", "star", "stethoscope", "sun", "telescope", "user", "wrench", "calendar",
     "chef-hat", "copy", "film-roll", "folder", "folder-library", "hourglass", "paintbrush-2", "pencil-edit", "quote",
-    "source-code", "users",
+    "source-code", "users", "airplane", "archive", "bookmark", "briefcase", "car", "checklist", "dumbbell", "game", "health",
+    "heart", "image", "location", "mail", "notebook", "paw", "school", "video", "wallet",
 )

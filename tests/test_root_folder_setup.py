@@ -1,6 +1,7 @@
-"""Setting up a new root folder (docs/decisions/038): a definition written from what the user typed, what is
-refused so the note stays readable, that nothing existing is replaced, and the two routes. Everything runs in a
-temporary vault, profile directory and settings file."""
+"""Giving a folder its first definition from the Folder settings dialog (docs/decisions/038, 087): a definition
+written from what the user typed, what is refused so the note stays readable, who may do it, and the two routes.
+Changing a definition that exists is `test_folder_settings_write.py`. Everything runs in a temporary vault, profile
+directory and settings file."""
 
 import os
 
@@ -10,11 +11,13 @@ from helpers import write_persona
 
 from sympose import folder_definitions as defs
 from sympose import folder_definitions_write as write_defs
-from sympose import generic_template, server_definition_handlers, settings_store
+from sympose import folder_settings_write as settings_write
+from sympose import generic_template, settings_store
+from sympose.folder_looks_write import Changed, Failed, Missing, Refused
 from sympose.server import create_app
-from sympose.server_models import FolderDefinition
-from sympose.vault_write_status import NOTE_DENIED, NOTE_EXISTS, NOTE_NOT_FOUND
+from sympose.vault_write_status import NOTE_DENIED, NOTE_EXISTS
 
+SETTINGS = "/api/vault/folder/settings"
 ALL = {"vault_folders": ["*"]}
 LINES = ['title: "{{title}}"', "created: {{date}}", "tags: []"]
 
@@ -42,46 +45,52 @@ def read(vault, rel):
         return f.read()
 
 
-# --- write_own ------------------------------------------------------------------------------
+def save(profile, folder, purpose="", template=(), **look):
+    return settings_write.save(profile, folder, settings_write.Settings(purpose, list(template), **look))
+
+
+# --- save, for a folder without a definition ------------------------------------------------
 
 
 def test_the_typed_purpose_and_lines_become_the_definition(vault):
-    result = write_defs.write_own(ALL, "Books", "What I read.", LINES)
-    assert result == f"Created note: `{os.path.join('Books', 'Books.md')}`"
+    assert save(ALL, "Books", "What I read.", LINES) is True
     text = read(vault, "Books/Books.md")
     assert text == '# Books\n\nWhat I read.\n\n## Template\n\n```yaml\ntitle: "{{title}}"\ncreated: {{date}}\ntags: []\n```\n'
 
 
 def test_what_is_written_reads_back_through_the_readers_the_rest_of_sympose_uses(vault):
-    write_defs.write_own(ALL, "Books", "What I read.", LINES)
+    save(ALL, "Books", "What I read.", LINES)
     text = read(vault, "Books/Books.md")
     assert defs.read_purpose(text) == "What I read."
     assert defs.read_template(text) == "\n".join(LINES)
 
 
 def test_a_definition_without_a_purpose_has_only_the_template(vault):
-    write_defs.write_own(ALL, "Books", "  ", LINES)
+    save(ALL, "Books", "  ", LINES)
     assert read(vault, "Books/Books.md").startswith("# Books\n\n## Template")
 
 
 def test_a_definition_without_lines_has_an_empty_block(vault):
-    write_defs.write_own(ALL, "Books", "What I read.", ["", "  "])
+    save(ALL, "Books", "What I read.", ["", "  "])
     assert read(vault, "Books/Books.md").endswith("```yaml\n```\n")
 
 
 def test_lines_are_split_and_stripped_of_blank_ones_and_trailing_space(vault):
-    write_defs.write_own(ALL, "Books", "", ["title: a  \n\nrole:", "  ", "tags: []"])
+    save(ALL, "Books", "", ["title: a  \n\nrole:", "  ", "tags: []"])
     assert defs.read_template(read(vault, "Books/Books.md")) == "title: a\nrole:\ntags: []"
 
 
-def test_an_existing_definition_is_never_replaced(vault):
-    write_defs.write_own(ALL, "Books", "First.", LINES)
-    assert write_defs.write_own(ALL, "Books", "Second.", LINES) == NOTE_EXISTS
+def test_a_definition_made_while_the_dialog_was_open_is_not_replaced_by_a_create(vault, monkeypatch):
+    save(ALL, "Books", "First.", LINES)
+    monkeypatch.setattr(write_defs, "defined", lambda vault, folder: False)  # the dialog saw no definition
+    with pytest.raises(Changed, match="got a description while this was open"):
+        save(ALL, "Books", "Second.", LINES)
     assert "First." in read(vault, "Books/Books.md")
 
 
 def test_the_folder_must_exist_and_nothing_is_created_for_one_that_does_not(vault):
-    assert write_defs.write_own(ALL, "Nope", "x", LINES) == NOTE_NOT_FOUND
+    with pytest.raises(Missing):
+        save(ALL, "Nope", "x", LINES)
     assert not os.path.exists(os.path.join(vault, "Nope"))
 
 
@@ -89,27 +98,30 @@ def test_the_folder_must_exist_and_nothing_is_created_for_one_that_does_not(vaul
 def test_only_a_top_level_folder_of_the_users_content_can_have_one(vault, folder):
     os.makedirs(os.path.join(vault, "Templates"), exist_ok=True)
     os.makedirs(os.path.join(vault, ".obsidian"), exist_ok=True)
-    with pytest.raises(write_defs.Refused, match="not a folder that can have a definition"):
-        write_defs.write_own(ALL, folder, "x", LINES)
+    with pytest.raises(Refused, match="not a folder that can have a definition"):
+        save(ALL, folder, "x", LINES)
 
 
 def test_a_persona_scoped_away_from_the_folder_is_told_what_a_missing_folder_is_told(vault):
     scoped = {"vault_folders": ["Other"]}
     os.makedirs(os.path.join(vault, "Other"))
-    assert write_defs.write_own(scoped, "Books", "x", LINES) == NOTE_NOT_FOUND  # exists, but not for this persona
-    assert write_defs.write_own(scoped, "Nope", "x", LINES) == NOTE_NOT_FOUND  # does not exist
+    with pytest.raises(Missing):  # exists, but not for this persona
+        save(scoped, "Books", "x", LINES)
+    with pytest.raises(Missing):  # does not exist
+        save(scoped, "Nope", "x", LINES)
     assert not os.path.exists(os.path.join(vault, "Books", "Books.md"))
 
 
 def test_a_persona_may_write_in_a_folder_of_its_own_scope(vault):
     os.makedirs(os.path.join(vault, "Other"))
-    result = write_defs.write_own({"vault_folders": ["Other"]}, "Other", "x", LINES)
-    assert result.startswith("Created note:")
+    assert save({"vault_folders": ["Other"]}, "Other", "x", LINES) is True
+    assert os.path.exists(os.path.join(vault, "Other", "Other.md"))
 
 
 def test_a_folder_that_is_a_file_is_not_a_folder(vault):
     open(os.path.join(vault, "Plain"), "w").close()
-    assert write_defs.write_own(ALL, "Plain", "x", LINES) == NOTE_NOT_FOUND
+    with pytest.raises(Missing):
+        save(ALL, "Plain", "x", LINES)
 
 
 # --- what is refused ------------------------------------------------------------------------
@@ -134,8 +146,8 @@ def test_a_folder_that_is_a_file_is_not_a_folder(vault):
     ],
 )
 def test_a_definition_that_the_readers_could_not_read_back_is_refused_and_writes_nothing(vault, purpose, template):
-    with pytest.raises(ValueError):
-        write_defs.write_own(ALL, "Books", purpose, template)
+    with pytest.raises(Refused):
+        save(ALL, "Books", purpose, template)
     assert not os.path.exists(os.path.join(vault, "Books", "Books.md"))
 
 
@@ -159,82 +171,98 @@ def test_the_limits_are_inclusive_and_a_hash_or_backticks_inside_a_line_are_fine
 # --- the routes -----------------------------------------------------------------------------
 
 
-def test_the_generic_template_route_answers_the_setting_and_says_so(client):
-    response = client.get("/api/vault/note-template")
-    assert response.status_code == 200
-    assert response.json() == {"lines": LINES, "source": "settings"}
+def put(client, **body):
+    return client.put(SETTINGS, json=body)
 
 
-def test_the_generic_template_route_answers_the_vaults_own_file_when_it_has_one(client, vault):
+def test_the_settings_route_starts_an_undefined_folder_from_the_generic_template_and_says_so(client):
+    answer = client.get(SETTINGS, params={"folder": "Books"}).json()
+    assert answer == {"editable": True, "defined": False, "purpose": "", "template": LINES, "template_source": "settings"}
+
+
+def test_the_settings_route_starts_from_the_vaults_own_template_file_when_it_has_one(client, vault):
     os.makedirs(os.path.join(vault, "Templates"))
     with open(os.path.join(vault, "Templates", "Note template.md"), "w", encoding="utf-8") as f:
         f.write("---\ntitle: {{title}}\nstatus: new\n---")
-    assert client.get("/api/vault/note-template").json() == {"lines": ["title: {{title}}", "status: new"], "source": "vault"}
+    answer = client.get(SETTINGS, params={"folder": "Books"}).json()
+    assert (answer["template"], answer["template_source"]) == (["title: {{title}}", "status: new"], "vault")
 
 
-def test_the_generic_template_route_follows_the_users_keys(client):
+def test_the_settings_route_follows_the_users_keys(client):
     settings_store.set(generic_template.KEYS_SETTING, ["title", "aliases"])
-    assert client.get("/api/vault/note-template").json()["lines"] == ['title: "{{title}}"', "aliases:"]
+    assert client.get(SETTINGS, params={"folder": "Books"}).json()["template"] == ['title: "{{title}}"', "aliases:"]
 
 
-def test_the_definition_route_writes_the_note_and_answers_201(client, vault):
-    response = client.post("/api/vault/folder/definition", json={"path": "Books", "purpose": "What I read.", "template": LINES})
-    assert response.status_code == 201
-    assert response.json()["path"] == "Books"
-    assert defs.read_purpose(read(vault, "Books/Books.md")) == "What I read."
+def test_the_settings_route_writes_the_note_and_says_it_was_created(client, vault):
+    response = put(client, path="Books", purpose="What I read.", template=LINES, icon="book", accent="#1d4ed8")
+    assert response.status_code == 200 and response.json() == {"path": "Books", "created": True}
+    text = read(vault, "Books/Books.md")
+    assert defs.read_purpose(text) == "What I read." and text.startswith("---\nicon: book\naccent: '#1d4ed8'\n---\n# Books")
 
 
-def test_the_definition_route_answers_409_when_one_exists(client):
-    body = {"path": "Books", "purpose": "x", "template": LINES}
-    assert client.post("/api/vault/folder/definition", json=body).status_code == 201
-    response = client.post("/api/vault/folder/definition", json=body)
-    assert response.status_code == 409 and "already has a definition" in response.json()["detail"]
+def test_the_settings_route_edits_a_definition_that_exists_and_says_so(client, vault):
+    put(client, path="Books", purpose="First.", template=LINES)
+    response = put(client, path="Books", purpose="Second.", template=LINES)
+    assert response.json() == {"path": "Books", "created": False} and "Second." in read(vault, "Books/Books.md")
 
 
-def test_the_definition_route_answers_404_for_a_folder_that_is_not_there(client):
-    assert client.post("/api/vault/folder/definition", json={"path": "Nope", "template": LINES}).status_code == 404
+def test_the_settings_route_answers_404_for_a_folder_that_is_not_there(client):
+    assert put(client, path="Nope", template=LINES).status_code == 404
 
 
-def test_the_definition_route_answers_a_folder_outside_the_personas_scope_like_one_that_is_missing(client):
-    scoped = client.post("/api/vault/folder/definition", json={"path": "Books", "template": LINES, "persona": "scoped"})
-    missing = client.post("/api/vault/folder/definition", json={"path": "Nope", "template": LINES, "persona": "scoped"})
+def test_the_settings_route_answers_a_folder_outside_the_personas_scope_like_one_that_is_missing(client):
+    scoped = put(client, path="Books", template=LINES, persona="scoped")
+    missing = put(client, path="Nope", template=LINES, persona="scoped")
     assert (scoped.status_code, missing.status_code) == (404, 404)
 
 
-def test_the_definition_route_answers_400_for_a_folder_that_cannot_have_one(client, vault):
+def test_the_settings_route_answers_400_for_a_folder_that_cannot_have_one(client, vault):
     os.makedirs(os.path.join(vault, "Templates"))
     for path in ("Templates", "Books/Sub"):
-        response = client.post("/api/vault/folder/definition", json={"path": path, "purpose": "x"})
+        response = put(client, path=path, purpose="x")
         assert response.status_code == 400 and "not a folder that can have a definition" in response.json()["detail"]
 
 
 def test_a_failed_write_is_not_reported_as_a_success(client, monkeypatch):
     monkeypatch.setattr(write_defs, "write", lambda profile, made: "Error: Failed to create note: disk full")
-    response = client.post("/api/vault/folder/definition", json={"path": "Books", "purpose": "x"})
+    response = put(client, path="Books", purpose="x")
     assert response.status_code == 500 and "disk full" in response.json()["detail"]
 
 
-def test_a_value_error_that_is_not_a_refusal_is_not_shown_as_a_400(vault, monkeypatch):
+def test_a_value_error_that_is_not_a_refusal_is_not_shown_as_a_400(client, monkeypatch):
     def boom(profile, made):
         raise ValueError("internal detail")
 
     monkeypatch.setattr(write_defs, "write", boom)
     with pytest.raises(ValueError, match="internal detail") as caught:
-        server_definition_handlers.write_definition(FolderDefinition(path="Books", purpose="x"))
-    assert not isinstance(caught.value, write_defs.Refused)
+        put(client, path="Books", purpose="x")
+    assert not isinstance(caught.value, Refused)
 
 
-def test_the_definition_route_answers_400_with_the_reason_for_a_refusal(client):
-    response = client.post("/api/vault/folder/definition", json={"path": "Books", "template": ["```"]})
+def test_the_settings_route_answers_400_with_the_reason_for_a_refusal(client):
+    response = put(client, path="Books", template=["```"])
     assert response.status_code == 400 and "code fence" in response.json()["detail"]
 
 
-def test_the_definition_route_answers_404_for_an_unknown_persona(client):
-    assert client.post("/api/vault/folder/definition", json={"path": "Books", "persona": "ghost"}).status_code == 404
+def test_the_settings_route_answers_404_for_an_unknown_persona(client):
+    assert put(client, path="Books", purpose="x", persona="ghost").status_code == 404
+    assert client.get(SETTINGS, params={"folder": "Books", "persona": "ghost"}).status_code == 404
 
 
-def test_the_definition_route_needs_a_path(client):
-    assert client.post("/api/vault/folder/definition", json={"path": "", "template": []}).status_code == 422
+def test_the_settings_route_needs_a_path_and_a_folder(client):
+    assert put(client, path="", template=[]).status_code == 422
+    assert client.get(SETTINGS).status_code == 422
+
+
+def test_a_denial_from_the_writer_is_a_400_not_a_created_note(client, monkeypatch):
+    monkeypatch.setattr(write_defs, "write", lambda profile, made: NOTE_DENIED)
+    assert put(client, path="Books", purpose="x").status_code == 400
+
+
+def test_a_create_that_lost_the_race_is_a_409(client, monkeypatch):
+    monkeypatch.setattr(write_defs, "write", lambda profile, made: NOTE_EXISTS)
+    response = put(client, path="Books", purpose="x")
+    assert response.status_code == 409 and "got a description" in response.json()["detail"]
 
 
 def test_a_folder_with_a_typed_definition_is_not_offered_as_due(vault):
@@ -242,68 +270,94 @@ def test_a_folder_with_a_typed_definition_is_not_offered_as_due(vault):
         with open(os.path.join(vault, "Books", f"B{n}.md"), "w") as f:
             f.write("x")
     assert [f for f, _ in write_defs.due(ALL)] == ["Books"]
-    write_defs.write_own(ALL, "Books", "What I read.", LINES)
+    save(ALL, "Books", "What I read.", LINES)
     assert write_defs.due(ALL) == []
 
 
 def test_a_note_created_in_the_folder_starts_from_the_typed_template(vault):
     from sympose import vault_write_create
 
-    write_defs.write_own(ALL, "Books", "", ['title: "{{title}}"', "author:", "rating:"])
+    save(ALL, "Books", "", ['title: "{{title}}"', "author:", "rating:"])
     vault_write_create.create_note(ALL, "Books/Dune")
     text = read(vault, "Books/Dune.md")
     assert text.startswith('---\ntitle: "Dune"\nauthor:\nrating:\n---')
 
 
-# --- definable ------------------------------------------------------------------------------
+# --- which folders have settings ------------------------------------------------------------
 
 
-def test_a_root_folder_of_the_users_content_without_a_definition_is_definable(vault):
-    assert write_defs.definable(ALL, "Books") is True
+def editable(profile, folder):
+    return settings_write.read(profile, folder)["editable"]
+
+
+def test_a_root_folder_of_the_users_content_is_editable_with_or_without_a_definition(vault):
+    assert editable(ALL, "Books") is True
+    save(ALL, "Books", "x", LINES)
+    assert editable(ALL, "Books") is True
 
 
 @pytest.mark.parametrize("folder", ["", "Nope", "Templates", ".obsidian", "Books/Sub", "Books\\Sub", "Plain"])
-def test_anything_else_is_not_definable(vault, folder):
+def test_anything_else_is_not_editable(vault, folder):
     os.makedirs(os.path.join(vault, "Templates"), exist_ok=True)
     os.makedirs(os.path.join(vault, ".obsidian"), exist_ok=True)
     os.makedirs(os.path.join(vault, "Books", "Sub"), exist_ok=True)
     open(os.path.join(vault, "Plain"), "w").close()
-    assert write_defs.definable(ALL, folder) is False
+    assert settings_write.read(ALL, folder) == {"editable": False}
 
 
-def test_a_folder_with_a_definition_is_not_definable(vault):
-    write_defs.write_own(ALL, "Books", "x", LINES)
-    assert write_defs.definable(ALL, "Books") is False
-
-
-def test_a_folder_outside_the_personas_scope_is_not_definable(vault):
-    assert write_defs.definable({"vault_folders": ["Other"]}, "Books") is False
+def test_a_folder_outside_the_personas_scope_is_not_editable(vault):
+    assert editable({"vault_folders": ["Other"]}, "Books") is False
 
 
 def test_a_folder_the_persona_created_below_its_own_primary_folder_is_not_a_root_folder(vault):
     os.makedirs(os.path.join(vault, "Personas", "X", "Foo"))
-    profile = {"vault_folders": ["Personas/X"]}
-    assert write_defs.definable(profile, "Foo") is False  # `Foo` is not at the vault's root
+    assert editable({"vault_folders": ["Personas/X"]}, "Foo") is False  # `Foo` is not at the vault's root
 
 
-def test_the_template_route_says_whether_a_folder_is_definable_only_when_asked(client, vault):
-    assert "definable" not in client.get("/api/vault/note-template").json()
-    assert client.get("/api/vault/note-template", params={"folder": "Books"}).json()["definable"] is True
-    assert client.get("/api/vault/note-template", params={"folder": "Nope"}).json()["definable"] is False
-    assert client.get("/api/vault/note-template", params={"folder": "Books", "persona": "scoped"}).json()["definable"] is False
+def test_the_settings_route_says_whether_a_folder_is_editable(client, vault):
+    assert client.get(SETTINGS, params={"folder": "Books"}).json()["editable"] is True
+    assert client.get(SETTINGS, params={"folder": "Nope"}).json() == {"editable": False}
+    assert client.get(SETTINGS, params={"folder": "Books", "persona": "scoped"}).json() == {"editable": False}
 
 
-def test_the_template_route_404s_an_unknown_persona_when_asked_about_a_folder(client):
-    assert client.get("/api/vault/note-template", params={"folder": "Books", "persona": "ghost"}).status_code == 404
-
-
-def test_no_vault_means_not_definable_and_not_found(vault, monkeypatch):
+def test_no_vault_means_not_editable_and_not_found(vault, monkeypatch):
     monkeypatch.delenv("VAULT_PATHS")
-    assert write_defs.definable(ALL, "Books") is False
-    assert write_defs.write_own(ALL, "Books", "x", LINES) == NOTE_NOT_FOUND
+    assert editable(ALL, "Books") is False
+    with pytest.raises(Missing):
+        save(ALL, "Books", "x", LINES)
 
 
-def test_a_denial_from_the_writer_is_a_403_not_a_created_note(client, monkeypatch):
-    monkeypatch.setattr(write_defs, "write", lambda profile, made: NOTE_DENIED)
-    response = client.post("/api/vault/folder/definition", json={"path": "Books", "purpose": "x"})
-    assert response.status_code == 403
+def test_the_settings_route_answers_409_when_there_is_no_vault(client, monkeypatch):
+    monkeypatch.delenv("VAULT_PATHS")
+    assert client.get(SETTINGS, params={"folder": "Books"}).status_code == 409
+
+
+def test_a_look_alone_is_enough_for_a_first_definition(vault):
+    assert save(ALL, "Books", icon="book") is True
+    text = read(vault, "Books/Books.md")
+    assert text.startswith("---\nicon: book\n---\n# Books") and defs.read_purpose(text) is None
+
+
+@pytest.mark.parametrize(
+    "look, reason",
+    [
+        ({"icon": "not-in-the-set"}, "not an icon Sympose has"),
+        ({"icon": "Book"}, "not an icon Sympose has"),
+        ({"accent": "red"}, "six hexadecimal digits"),
+        ({"accent_dark": "#12345"}, "six hexadecimal digits"),
+        ({"accent": "rgb(1,2,3)"}, "six hexadecimal digits"),
+        ({"accent": "#fff\n---"}, "six hexadecimal digits"),
+        ({"accent": "#1234567"}, "six hexadecimal digits"),
+        ({"accent_dark": "#be123c\n"}, "six hexadecimal digits"),
+    ],
+)
+def test_a_look_the_page_could_not_draw_is_refused_and_writes_nothing(vault, look, reason):
+    with pytest.raises(Refused, match=reason):
+        save(ALL, "Books", "x", LINES, **look)
+    assert not os.path.exists(os.path.join(vault, "Books", "Books.md"))
+
+
+def test_a_failed_create_is_a_failure_not_a_refusal(vault, monkeypatch):
+    monkeypatch.setattr(write_defs, "write", lambda profile, made: "Error: disk full")
+    with pytest.raises(Failed, match="disk full"):
+        save(ALL, "Books", "x", LINES)
