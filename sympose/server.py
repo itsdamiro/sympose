@@ -4,8 +4,8 @@ editing, trash recovery, and the Knowledge Nebula graph. Ported from
 sympose-legacy's much larger `server.py` (~21 routes: chat, personas,
 skills, Slack, search, TLS, and a password-auth middleware), trimmed to
 the routes the web app's tree, editor, note-management menus, bin,
-nebula, and search actually call. Deliberately not included yet: asset
-(image) serving. No auth yet — this is a local dev server bound to
+nebula, and search actually call, plus one read-only route for a note's
+images. No auth yet — this is a local dev server bound to
 localhost; add `DashboardAuthMiddleware` back before this is ever exposed
 beyond that.
 
@@ -26,6 +26,7 @@ from sympose import server_confirmation_handlers as cfh
 from sympose import server_definition_handlers as dh
 from sympose import server_origin
 from sympose import server_handlers as h
+from sympose import server_image_handlers as ih
 from sympose import server_hidden_handlers as hh
 from sympose import server_edit_mode_handlers as emh
 from sympose import server_folder_handlers as fh
@@ -295,6 +296,14 @@ def create_app() -> FastAPI:
         persona: str | None = Query(None),
     ) -> dict[str, Any]:
         return h.read_note(path, persona)
+
+    @app.api_route("/api/vault/image", methods=["GET", "HEAD"])
+    def read_image(
+        path: str = Query(..., description="The image as written in the note"),
+        from_path: str = Query("", alias="from", description="Path of the open note"),
+        persona: str | None = Query(None),
+    ) -> Any:
+        return ih.get_vault_image(path, from_path, persona)
 
     @app.put("/api/vault/note")
     def write_note(body: h.NoteWrite) -> dict[str, Any]:
