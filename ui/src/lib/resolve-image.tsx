@@ -34,7 +34,7 @@ function addressName(src: string): string {
  * One image of the vault for both stylo hooks (docs/decisions/085): `![[shot.png|300]]` through `embedSource` and
  * `![alt|300](path)` through `imageSource`. `null` keeps the source as text, which is what a reference with no
  * file behind it gets, and a remote (`http:`, `https:`) or inline (`data:`) source, so opening a note never loads
- * an address of its own.
+ * an address of its own. So does a source that is not an image file, which is never asked of the backend.
  */
 export async function resolveImage(
   persona: string,
@@ -44,7 +44,7 @@ export async function resolveImage(
   hint?: string
 ): Promise<ReactNode> {
   const path = src.trim()
-  if (!path || HAS_SCHEME.test(path)) return null
+  if (!isImageRef(path) || HAS_SCHEME.test(path)) return null
   const url = vaultImageUrl(path, from, persona)
   if (!(await imageExists(url))) return null
   const { width, height } = readSize(hint)

@@ -97,6 +97,14 @@ describe("an image written as ![alt](path)", () => {
     }
   )
 
+  it("never asks the backend about a source that is not an image file", async () => {
+    found()
+    for (const src of ["readme.md", "Architecture", "#section", "page.html"]) {
+      expect(await resolveImageSource("s", "n.md", src, "x"), src).toBeNull()
+    }
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
   it("asks for the decoded name of an address with %20 or angle brackets", async () => {
     found()
     await resolveImageSource("s", "n.md", "my%20shot.png", "x")

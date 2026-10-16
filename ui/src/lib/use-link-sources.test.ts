@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
-import { renderHook } from "@testing-library/react"
-import { describe, expect, it, vi } from "vitest"
+import * as React from "react"
+import { render, renderHook } from "@testing-library/react"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 import type { VaultNode } from "@/components/sympose"
 import { buildMasterGraph } from "./nebula-graph"
@@ -15,6 +16,8 @@ const graphWith = (tag: string) =>
     nodes: [{ id: "a.md", label: "a", folder: "Notes", tags: [tag], val: 1 }],
     links: [],
   })
+
+afterEach(() => vi.unstubAllGlobals())
 
 describe("useLinkSources", () => {
   it("completes [[wikilinks]] from the live tree", () => {
@@ -58,7 +61,7 @@ describe("useLinkSources", () => {
     expect(fetchVaultNote).toHaveBeenCalledWith("Atlas.md", "other")
   })
 
-  it("reads the open note from the live value for an image, with the same function identity", async () => {
+  it("asks for an image from the open note's path, and gives a new function when the note changes", async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true })
     vi.stubGlobal("fetch", fetchMock)
     const { result, rerender } = renderHook(
@@ -66,14 +69,37 @@ describe("useLinkSources", () => {
       { initialProps: { from: "Old.md" } }
     )
     const first = result.current
-    rerender({ from: "Folder/New.md" })
+    rerender({ from: "Old.md" })
     expect(result.current.imageSource).toBe(first.imageSource)
+    rerender({ from: "Folder/New.md" })
+    expect(result.current.imageSource).not.toBe(first.imageSource)
     await result.current.imageSource("a.png", "")
     await result.current.embedSource("b.png")
     expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
       "/api/vault/image?path=a.png&from=Folder%2FNew.md&persona=samantha",
       "/api/vault/image?path=b.png&from=Folder%2FNew.md&persona=samantha",
     ])
-    vi.unstubAllGlobals()
+  })
+
+  it("gives an editor that mounts for another note the new note's path, not the last one's", () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true })
+    vi.stubGlobal("fetch", fetchMock)
+    // Like <Stylo key={path}>: it takes its source at mount and asks it in a mount effect, which runs before the
+    // effects of the component that called the hook.
+    function Editor({ source }: { source: (src: string, alt: string) => Promise<unknown> }) {
+      const mounted = React.useRef(source)
+      React.useEffect(() => void mounted.current("a.png", ""), [])
+      return null
+    }
+    function Shell({ from }: { from: string }) {
+      const { imageSource } = useLinkSources([], graphWith("x"), "samantha", from)
+      return React.createElement(Editor, { key: from, source: imageSource })
+    }
+    const { rerender } = render(React.createElement(Shell, { from: "Old.md" }))
+    rerender(React.createElement(Shell, { from: "Folder/New.md" }))
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      "/api/vault/image?path=a.png&from=Old.md&persona=samantha",
+      "/api/vault/image?path=a.png&from=Folder%2FNew.md&persona=samantha",
+    ])
   })
 })

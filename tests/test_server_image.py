@@ -65,6 +65,20 @@ def test_a_bare_name_is_found_anywhere_shortest_path_first_then_alphabetical(vau
     assert get(client, "tie.png").content == b"aa"
 
 
+def test_a_bare_name_is_found_whatever_its_case(vault, client):
+    (vault / "deep/er/photo.png").write_bytes(b"lower")
+    assert get(client, "Photo.PNG").content == b"lower"
+
+
+def test_a_name_that_is_not_an_image_type_does_not_walk_the_vault(vault, client, monkeypatch):
+    def walked(*args, **kwargs):
+        raise AssertionError("walked the vault for a non-image name")
+
+    monkeypatch.setattr(vault_image.os, "walk", walked)
+    assert get(client, "Architecture").status_code == 404
+    assert get(client, "readme.md").status_code == 404
+
+
 def test_a_name_with_a_folder_in_it_is_never_searched_for(vault, client):
     (vault / "deep/er/pic.png").write_bytes(PNG)
     assert get(client, "other/pic.png").status_code == 404

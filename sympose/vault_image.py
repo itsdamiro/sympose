@@ -30,9 +30,10 @@ def media_type(path: str) -> str | None:
 
 
 def _served(mv: str, allowed_dirs: list[str], path: str) -> bool:
-    """An image file inside the persona's folders, with no part of its path from the vault's root that starts
-    with a dot (`.obsidian`, `.trash`, `..`). A hidden or `Attachments` folder is not refused."""
-    if media_type(path) is None or not os.path.isfile(path):
+    """A file inside the persona's folders, with no part of its path from the vault's root that starts with a
+    dot (`.obsidian`, `.trash`, `..`). A hidden or `Attachments` folder is not refused. The caller has checked
+    that the name is an image type."""
+    if not os.path.isfile(path):
         return False
     rel = os.path.relpath(path, mv)
     if rel.startswith("..") or any(part.startswith(".") for part in rel.split(os.sep)):
@@ -42,11 +43,11 @@ def _served(mv: str, allowed_dirs: list[str], path: str) -> bool:
 
 def _by_name(mv: str, allowed_dirs: list[str], name: str) -> str | None:
     found: set[str] = set()
+    wanted = name.lower()  # Obsidian finds a file by name whatever the case
     for base in allowed_dirs:
         for folder, dirs, files in os.walk(base):
             dirs[:] = [d for d in dirs if not d.startswith(".")]
-            if name in files:
-                found.add(os.path.join(folder, name))
+            found.update(os.path.join(folder, f) for f in files if f.lower() == wanted)
     ranked = sorted(((os.path.relpath(p, mv), p) for p in found), key=lambda item: (len(item[0]), item[0]))
     return next((p for _, p in ranked if _served(mv, allowed_dirs, p)), None)
 
@@ -55,7 +56,7 @@ def resolve_image(profile: dict[str, Any], ref: str, from_path: str = "") -> str
     """The absolute path of the image `ref` names, or `None`. Raises `ImageTooLarge` for one over the limit."""
     scope = vault_paths.resolve_sandbox(profile)
     clean = ref.strip().strip("\"'").replace("\\", "/")
-    if scope is None or not clean or os.path.isabs(clean):
+    if scope is None or media_type(clean) is None or os.path.isabs(clean):
         return None
     mv, allowed_dirs = scope
     note_folder = os.path.dirname(from_path.strip().replace("\\", "/"))

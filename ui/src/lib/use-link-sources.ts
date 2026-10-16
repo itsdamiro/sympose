@@ -16,8 +16,11 @@ import { resolveImageSource } from "@/lib/resolve-image"
  * must keep its identity across a tree refetch (a new persona, a new note)
  * instead of being rebuilt every render. A ref carries the live value and the
  * callback itself never changes. `activePersona` gets a ref too because a
- * persona switch alone does not remount `<Stylo>`, and so does the open
- * note's path. Tag candidates come from
+ * persona switch alone does not remount `<Stylo>`. The open note's path is the
+ * exception: it is a dependency of `embedSource` and `imageSource`, because a
+ * ref set in an effect here would still hold the previous note when a
+ * remounting editor asks, and `<Stylo>` remounts for every note anyway
+ * (it is keyed by the path). Tag candidates come from
  * `buildMasterGraph`'s pre-indexed tag hubs (`nebula-graph.ts`), not a
  * separate scan of the vault.
  */
@@ -30,12 +33,10 @@ export function useLinkSources(
   const vaultTreeRef = React.useRef(vaultTree)
   const nebulaGraphRef = React.useRef(nebulaGraph)
   const activePersonaRef = React.useRef(activePersona)
-  const openNotePathRef = React.useRef(openNotePath)
   React.useEffect(() => {
     vaultTreeRef.current = vaultTree
     nebulaGraphRef.current = nebulaGraph
     activePersonaRef.current = activePersona
-    openNotePathRef.current = openNotePath
   })
 
   const wikiLinkSource = React.useCallback(
@@ -47,12 +48,12 @@ export function useLinkSources(
     []
   )
   const embedSource = React.useCallback(
-    (ref: string) => resolveEmbed(vaultTreeRef.current, activePersonaRef.current, ref, openNotePathRef.current),
-    []
+    (ref: string) => resolveEmbed(vaultTreeRef.current, activePersonaRef.current, ref, openNotePath),
+    [openNotePath]
   )
   const imageSource = React.useCallback(
-    (src: string, alt: string) => resolveImageSource(activePersonaRef.current, openNotePathRef.current, src, alt),
-    []
+    (src: string, alt: string) => resolveImageSource(activePersonaRef.current, openNotePath, src, alt),
+    [openNotePath]
   )
   return { wikiLinkSource, tagSource, embedSource, imageSource }
 }
