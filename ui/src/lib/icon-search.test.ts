@@ -19,7 +19,9 @@ describe("searchIcons", () => {
   })
 
   it("puts names that start with the query before names that contain it, before words people use", () => {
-    expect(searchIcons("he").slice(0, 2)).toEqual(["health", "heart"]) // "chef" contains "he" but sorts first
+    const he = searchIcons("he")
+    expect(he.indexOf("health")).toBeLessThan(he.indexOf("chef")) // "chef" contains "he" but does not start with it
+    expect(he.indexOf("heart")).toBeLessThan(he.indexOf("chef"))
     const found = searchIcons("ar") // archive starts with it, chart and heart contain it, paintbrush has the word "art"
     expect(found[0]).toBe("archive")
     expect(found.indexOf("chart")).toBeLessThan(found.indexOf("paintbrush"))
@@ -28,8 +30,15 @@ describe("searchIcons", () => {
 
   it("finds an icon by a word people use for it", () => {
     expect(searchIcons("food")).toEqual(expect.arrayContaining(["chef", "chef-hat"]))
+    expect(searchIcons("puzzle")[0]).toBe("puzzle")
     expect(searchIcons("travel")).toContain("airplane")
     expect(searchIcons("money")).toEqual(expect.arrayContaining(["coins", "wallet"]))
+  })
+
+  it("lists the catalogue beside the hand-named icons, and a hand-named one wins a name they share", () => {
+    expect(searchIcons("")).toEqual(expect.arrayContaining(["puzzle", "film-roll", "book"]))
+    expect(Object.keys(ICON_SET).length).toBeGreaterThan(500)
+    expect(ICON_SET["film-roll"]).toBeDefined()
   })
 
   it("finds nothing for a word no icon answers to", () => {

@@ -70,6 +70,8 @@ import {
 } from "@hugeicons/core-free-icons"
 import type { IconSvgElement } from "@hugeicons/react"
 
+import { CATALOGUE } from "@/lib/icon-catalogue"
+
 /**
  * The icons a persona may name as her own in her `persona.yaml` (`icon:`, docs/decisions/062) and a folder in its
  * definition note (`icon:`, docs/decisions/064). This is the one icon set the app ships, keyed by the names those
@@ -77,7 +79,7 @@ import type { IconSvgElement } from "@hugeicons/react"
  * from (a theme setting, later); a persona names her icon within the set in use, and a name the set does not have
  * falls back to the default, so a file written for another set never breaks.
  */
-export const ICON_SET: Record<string, IconSvgElement> = {
+const CURATED: Record<string, IconSvgElement> = {
   anchor: AnchorIcon,
   atom: Atom01Icon,
   bird: BirdIcon,
@@ -149,6 +151,9 @@ export const ICON_SET: Record<string, IconSvgElement> = {
   video: Video01Icon,
   wallet: Wallet01Icon,
 }
+
+/** Every icon the app can draw: the hand-named ones above, which keep their names, and the catalogue (docs/decisions/088). */
+export const ICON_SET: Record<string, IconSvgElement> = { ...CATALOGUE, ...CURATED }
 
 /** The icon a persona file names, or `undefined` when it names none or one the set does not have. */
 export function iconByName(name: string | null | undefined): IconSvgElement | undefined {

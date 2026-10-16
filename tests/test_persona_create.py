@@ -150,9 +150,34 @@ def test_what_create_writes_is_what_the_roster_reads(world):
 def test_the_engines_icon_names_are_the_web_apps():
     import re
 
-    source = open(os.path.join(os.path.dirname(__file__), "..", "ui", "src", "lib", "persona-icons.ts"), encoding="utf-8").read()
-    block = source[source.index("export const ICON_SET"):]
+    from sympose import icon_catalogue
+
+    lib = os.path.join(os.path.dirname(__file__), "..", "ui", "src", "lib")
+    source = open(os.path.join(lib, "persona-icons.ts"), encoding="utf-8").read()
+    block = source[source.index("const CURATED"):]
     block = block[: block.index("\n}\n")]
     names = re.findall(r'^\s+"?([a-z0-9-]+)"?:\s', block, re.M)
+    assert sorted(names) == sorted(look.SUGGESTED_ICON_NAMES) and len(set(names)) == len(names)
 
-    assert sorted(names) == sorted(look.ICON_NAMES) and len(set(names)) == len(names)
+    catalogue = open(os.path.join(lib, "icon-catalogue.ts"), encoding="utf-8").read()
+    drawn = re.findall(r'^\s+"([a-z0-9-]+)":\s', catalogue, re.M)
+    assert sorted(drawn) == sorted(icon_catalogue.NAMES) and len(set(drawn)) == len(drawn)
+    assert not set(drawn) & set(look.SUGGESTED_ICON_NAMES)
+    assert look.ICON_NAMES == look.SUGGESTED_ICON_NAMES + icon_catalogue.NAMES
+    for name in look.ICON_NAMES:
+        assert look.ICON_NAME.fullmatch(name), name
+
+
+def test_the_catalogue_files_are_what_the_list_makes():
+    import subprocess
+    import sys
+
+    root = os.path.join(os.path.dirname(__file__), "..")
+    done = subprocess.run([sys.executable, os.path.join(root, "scripts", "gen_icon_catalogue.py"), "--check"],
+                          capture_output=True, text=True, cwd=root)
+    assert done.returncode == 0, done.stdout + done.stderr
+
+
+def test_a_persona_may_name_an_icon_the_catalogue_has_though_it_was_not_offered_one(world):
+    assert "puzzle" not in look.SUGGESTED_ICON_NAMES and "puzzle" in look.ICON_NAMES
+    assert persona_create.problem(draft(icon="puzzle"), SAM, TOOLS) is None

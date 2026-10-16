@@ -5,6 +5,8 @@ colour in a style attribute), so one of any other shape is ignored rather than p
 import re
 from typing import Any
 
+from sympose import icon_catalogue
+
 ICON_NAME = re.compile(r"[a-z0-9][a-z0-9_-]{0,39}")
 COLOR = re.compile(r"[#a-zA-Z0-9(),.%/ -]{1,64}")
 
@@ -17,10 +19,9 @@ def clean(value: Any, pattern: re.Pattern[str]) -> str | None:
     value = value.strip()
     return value if pattern.fullmatch(value) else None
 
-# The names of the icons the web app draws (`ui/src/lib/persona-icons.ts`, the one set it ships). The engine needs them to
-# offer a persona a choice and to refuse a name the app could not draw (docs/decisions/078); a test pins that the two lists
-# are the same.
-ICON_NAMES = (
+# The hand-named icons of the set the web app draws (`ui/src/lib/persona-icons.ts`, the one set it ships): the ones a persona
+# is offered when it proposes a new persona (docs/decisions/078). A test pins that the two lists are the same.
+SUGGESTED_ICON_NAMES = (
     "anchor", "atom", "bird", "book", "book-open", "brain", "camera", "chart", "chef", "code", "coins", "compass", "crown",
     "dna", "fire", "flash", "ghost", "globe", "graduation", "home", "idea", "key", "lamp", "leaf", "mic", "moon", "music",
     "paintbrush", "pen", "plant", "rocket", "shield", "star", "stethoscope", "sun", "telescope", "user", "wrench", "calendar",
@@ -28,3 +29,7 @@ ICON_NAMES = (
     "source-code", "users", "airplane", "archive", "bookmark", "briefcase", "car", "checklist", "dumbbell", "game", "health",
     "heart", "image", "location", "mail", "notebook", "paw", "school", "video", "wallet",
 )
+
+# Every name the app can draw: the ones above and the catalogue (docs/decisions/088). The server refuses any other, so what
+# the page draws is always a name Sympose knows.
+ICON_NAMES = SUGGESTED_ICON_NAMES + icon_catalogue.NAMES

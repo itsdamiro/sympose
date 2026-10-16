@@ -34,7 +34,7 @@ def tool(persona: dict[str, Any], share_folders: bool = True) -> dict[str, Any]:
         "title": "A few words on what it is, such as 'Patient mathematics tutor'.",
         "soul": "How it talks and what it is like to talk to: voice and temperament only, about 1,500 characters, written to it "
                 "('You are ...'). Never rules for the vault, never what it can do or which tools it has, never anything about the user.",
-        "icon": "Its icon, the one that suits its character. One of: " + ", ".join(look.ICON_NAMES) + ".",
+        "icon": "Its icon, the one that suits its character. One of: " + ", ".join(look.SUGGESTED_ICON_NAMES) + ".",
         "accent": "Its colour in light mode, suited to its character, such as #3366cc.",
         "accent_dark": "Its colour in dark mode, a lighter version of the same hue.",
         "edit_mode": "How far it acts on notes: " + ", ".join(edit_mode.MODES) + ". plan talks only; manual proposes changes the user accepts.",

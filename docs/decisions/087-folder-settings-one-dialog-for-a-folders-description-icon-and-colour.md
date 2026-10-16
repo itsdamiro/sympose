@@ -49,6 +49,8 @@ Folder definitions are built (ADRs 033, 034, 038, 064) but three things were mis
 - `POST /api/vault/folder/definition` and `GET /api/vault/note-template` are gone; the web app was their only caller.
 - A purpose that holds several paragraphs or headings (everything before the Template heading counts as the purpose) is shown whole in the dialog and rewritten whole if the user edits it; leaving it alone leaves it exactly as it is.
 
+> **Amendment (2026-10-17): the icon set is larger (ADR 088).** The curated 68 became 780 (the hand-named ones and a catalogue of one icon per concept), still found by typing and still checked by the server against a list; the rejection below of the whole library stands for the whole 6,000, not for a considered cut of it.
+
 ## Alternatives rejected
 
 - **A model that picks the icon from the folder's name or notes.** A guess the user cannot see or correct (ADR 064 rejected it); typing is one step. Right if a user ever has hundreds of folders to dress at once.

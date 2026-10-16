@@ -36,7 +36,8 @@ describe("IconPicker", () => {
   it("narrows as the person types, by name or by a word for it, best match first", () => {
     const { input } = setup()
     fireEvent.change(input, { target: { value: "food" } })
-    expect(options()).toEqual(["chef", "chef-hat"])
+    expect(options()).toEqual(expect.arrayContaining(["chef", "chef-hat"]))
+    expect(options().indexOf("street-food")).toBeLessThan(options().indexOf("chef")) // its name has the word, the chef's is a keyword
     fireEvent.change(input, { target: { value: "zzzz" } })
     expect(screen.getByText("No icon matches")).toBeTruthy()
   })

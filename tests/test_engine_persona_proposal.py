@@ -57,7 +57,7 @@ def test_the_tool_lists_the_icons_and_the_folders_she_can_read():
     function = persona_proposal.tool({"handle": "samantha", "vault_folders": "*"})["function"]
 
     assert function["name"] == "propose_persona"
-    assert all(name in function["parameters"]["properties"]["icon"]["description"] for name in look.ICON_NAMES)
+    assert all(name in function["parameters"]["properties"]["icon"]["description"] for name in look.SUGGESTED_ICON_NAMES)
     assert "Recipes, Work" in function["parameters"]["properties"]["folders"]["description"]
     assert set(function["parameters"]["required"]) == {"name", "title", "soul", "icon", "accent", "accent_dark", "edit_mode", "folders"}
 

@@ -311,3 +311,11 @@ def test_the_get_route_answers_409_for_a_note_that_is_not_text(client, vault):
     with open(os.path.join(vault, "Movies", "Movies.md"), "wb") as f:
         f.write(b"\xff\xfe")
     assert client.get("/api/vault/folder/settings", params={"folder": "Movies"}).status_code == 409
+
+
+def test_an_icon_from_the_catalogue_is_accepted_and_one_outside_the_set_is_refused(vault):
+    put_note(vault, NOTE)
+    save(vault, icon="puzzle")
+    assert read(vault) == NOTE.replace("icon: old", "icon: puzzle")
+    with pytest.raises(Refused, match="icon"):
+        save(vault, icon="envelope")

@@ -2,8 +2,8 @@ import { ICON_SET } from "@/lib/persona-icons"
 
 /**
  * What a person might type to find an icon, besides its name (docs/decisions/087): `food` finds the chef's hat, `film`
- * the film roll. An icon with no entry is found by its name alone. Matching is done here, in the browser: the set is
- * under a hundred names, so there is nothing to ask a server.
+ * the film roll. An icon with no entry (most of the catalogue, docs/decisions/088) is found by its name alone. Matching is
+ * done here, in the browser: the set is under a thousand names, so there is nothing to ask a server.
  */
 const KEYWORDS: Record<string, string[]> = {
   airplane: ["travel", "trip", "flight", "holiday", "plane"],

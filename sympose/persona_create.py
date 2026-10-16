@@ -68,7 +68,7 @@ def problem(draft: Draft, proposer: dict[str, Any], tool_names: tuple[str, ...],
     if len(draft.title) > MAX_TITLE:
         return f"The title is over {MAX_TITLE} characters; shorten it."
     if draft.icon not in look.ICON_NAMES:
-        return "The icon must be one of: " + ", ".join(look.ICON_NAMES) + "."
+        return "The icon must be one of: " + ", ".join(look.SUGGESTED_ICON_NAMES) + "."
     for label, colour in (("accent", draft.accent), ("accent_dark", draft.accent_dark)):
         if look.clean(colour, look.COLOR) is None:
             return f"{label} must be a colour such as #3366cc, rgb(51, 102, 204) or oklch(0.55 0.13 233)."
