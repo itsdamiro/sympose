@@ -14,6 +14,11 @@ so a cloud model may be named. Opt-in, not deterministic: read the failing repli
 
     [EDIT_MODE=manual|auto] [EDIT_TOOL=1] python tests/live_edit_cases.py [-v] [runs] [model ...]      (default model: ollama_chat/gemma2:9b)
 
+`EDIT_LONG=1` pads every note with invented filler sections before and after the part the cases edit, to about 11,500 characters (the
+open-note cap is 12,000), to see whether a long note costs an edit, a comment or a draft. The filler holds none of the words a case targets.
+
+`EDIT_NUM_CTX=n` sets Ollama's context window for the call (a long note does not fit the default).
+
 `EDIT_FOCUS=1` instead compares two things a turn could send for an edit request (docs/decisions/076): the whole open note, as
 now, against only the passage the user pointed at, with its section and the note's outline. The focus arm is scored two
 ways: `strict` (the `find` must be in the whole note exactly once, the rule the app applies today) and `scoped` (once in the
@@ -47,6 +52,31 @@ EXTRA = [
     ("draft-schedule", "draft", "Draft a new note that turns the schedule here into a month-by-month plan.", ""),
 ]
 _MARKER = re.compile(r"<!--\s*propose_edit:\s*(\{.*?\})\s*-->", re.S)
+
+
+def _filler(sections: int, prefix: str) -> str:
+    """Invented sections about a compost heap, a toolshed and the like: none holds a word a case targets."""
+    topics = ["compost heap", "toolshed", "rain barrel", "seed tray", "cold frame", "fence repair", "path gravel", "bird feeder", "bee hotel", "pond liner"]
+    out = []
+    for n in range(sections):
+        topic = topics[n % len(topics)]
+        lines = [f"- {prefix}{n + 1}.{k + 1}: the {topic} needs a check after the {['frost', 'storm', 'heat', 'first week of the month'][k % 4]}, noted on day {3 * k + n + 2}."
+                 for k in range(9)]
+        out.append(f"## {prefix}{n + 1}: {topic.capitalize()}\n\n" + "\n".join(lines) + f"\n\nThe {topic} was last looked at in week {n + 6}; leave it alone until then.\n")
+    return "\n".join(out)
+
+
+def pad(note: str) -> str:
+    """`note` with filler before its first second-level heading and after its end (the same text for a note and the note it
+    should become, so the expected result still compares equal)."""
+    head, sep, rest = note.partition("\n## ")
+    return head + "\n" + _filler(7, "Early ") + sep + rest + "\n" + _filler(7, "Late ")
+
+
+if os.environ.get("EDIT_LONG") == "1":
+    GARDEN = pad(GARDEN)
+    CASES = [(cid, pad(note), request, None if expected is None else pad(expected), *rest) for cid, note, request, expected, *rest in CASES]
+    NO_PROPOSAL = [(cid, GARDEN, request) for cid, _, request in NO_PROPOSAL]
 
 
 # The text is the product's own (`edit_turn.message`), so what is measured is what ships. EDIT_MODE picks the wording
@@ -123,11 +153,12 @@ def ask_model(model: str, system: str, note: str, request: str) -> str:
 
     try:
         messages = [{"role": "system", "content": system}, {"role": "user", "content": user_turn(note, request)}]
+        window = {"num_ctx": int(os.environ["EDIT_NUM_CTX"])} if os.environ.get("EDIT_NUM_CTX") else {}  # a long note needs Ollama's window set
         if not TOOL:
-            return litellm.completion(model=model, messages=messages, timeout=180).choices[0].message.content or ""
+            return litellm.completion(model=model, messages=messages, timeout=180, **window).choices[0].message.content or ""
         from sympose.engine import edit_tools
 
-        reply = litellm.completion(model=model, messages=messages, tools=edit_tools.TOOLS, timeout=180).choices[0].message
+        reply = litellm.completion(model=model, messages=messages, tools=edit_tools.TOOLS, timeout=180, **window).choices[0].message
         calls = "".join(f"\n<!-- {c.function.name}: {c.function.arguments} -->" for c in reply.tool_calls or [])
         return (reply.content or "") + calls
     except Exception as error:
