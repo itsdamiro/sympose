@@ -38,6 +38,11 @@ def _id() -> str:
     return uuid.uuid4().hex[:12]
 
 
+def new_note_path() -> str:
+    """The key a new-note draft is kept under until it has a file."""
+    return f"new/{_id()}"
+
+
 def _anchor(note_text: str, quote: str, start: int | None) -> tuple[str, str]:
     """The text before and after `quote`: at `start` when the caller knows where, else where it is found, which
     must be the only place."""

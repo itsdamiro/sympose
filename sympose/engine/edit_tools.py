@@ -123,7 +123,7 @@ def _propose(
                 return False, _NO_NOTE
             note_changes.comment_on(handle, path, text, quote=args["find"], text=args["text"], author="persona", within=scope)
         elif name == NOTE:
-            note_changes.propose_create(handle, f"new/{note_changes._id()}", fenced(args["text"]), say=args["say"], title=args["title"] or None, folder=args["folder"] or None)
+            note_changes.propose_create(handle, note_changes.new_note_path(), fenced(args["text"]), say=args["say"], title=args["title"] or None, folder=args["folder"] or None)
         elif path is None or text is None:
             return False, _NO_NOTE
         else:

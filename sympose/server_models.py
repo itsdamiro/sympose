@@ -203,11 +203,9 @@ class ChatBinAction(BaseModel):
 
 
 class ChatSessionArchive(BaseModel):
-    """Body of `POST /api/chat/session/<id>/archive` (docs/decisions/086): the persona, and the model to write the note with
-    (else the persona's own)."""
+    """Body of `POST /api/chat/session/<id>/archive` (docs/decisions/086): the persona, whose own model writes the note."""
 
     persona: str | None = None
-    model: str | None = None
 
 
 class ChatSessionUpdate(BaseModel):

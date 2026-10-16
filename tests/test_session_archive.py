@@ -2,6 +2,7 @@
 scratch vault and profiles folder. The model is a stub; what the real one writes is not checked here."""
 
 import os
+from datetime import datetime
 
 import pytest
 from fastapi.testclient import TestClient
@@ -24,6 +25,8 @@ def env(tmp_path, monkeypatch):
     write_persona(profiles, "samantha", "name: Samantha\nvault_folders: ['Projects']\nsympose_reference: false\n")
     write_persona(profiles, "nowhere", "name: Nowhere\nvault_folders: []\nsympose_reference: false\n")
     write_persona(profiles, "everywhere", "name: Everywhere\nvault_folders: '*'\nsympose_reference: false\n")
+    write_persona(profiles, "cloudy", "name: Cloudy\nvault_folders: ['Projects']\nsympose_reference: false\nmodel: openai/gpt-4o\n")
+    write_persona(profiles, "colon", "name: 'Sam: the planner'\nvault_folders: ['Projects']\nsympose_reference: false\n")
     monkeypatch.setenv("VAULT_PATHS", str(vault))
     monkeypatch.setenv("SYMPOSE_PROFILES_DIR", str(profiles))
     monkeypatch.setenv("SYMPOSE_SETTINGS_PATH", str(tmp_path / "settings.json"))
@@ -76,7 +79,7 @@ def test_an_archive_is_a_new_note_draft_in_sessions_under_her_folder(env, asked)
     waiting = note_changes.drafts("samantha")
     assert [(d["is_new"], d["folder"]) for d in waiting] == [(True, "Projects/Sessions")]
     proposal = note_changes.store.read("samantha", draft["path"])["proposals"][0]
-    assert "type: session" in proposal["text"] and "SQLite first" in proposal["text"] and "persona: Samantha" in proposal["text"]
+    assert "type: session" in proposal["text"] and "SQLite first" in proposal["text"] and 'persona: "Samantha"' in proposal["text"]
     assert os.listdir(vault) == ["Projects"] and os.listdir(vault / "Projects") == []  # nothing written to the vault
 
 
@@ -152,7 +155,7 @@ def test_the_same_conversation_twice_waits_for_the_first_to_be_decided(env, aske
 
     again = post(client)
 
-    assert again.status_code == 409 and "already waiting" in again.json()["detail"]
+    assert again.status_code == 409 and "already waiting" in again.json()["detail"] and "this conversation" not in again.json()["detail"]
     assert len(note_changes.drafts("samantha")) == 1
 
 
@@ -174,8 +177,74 @@ def test_a_short_unknown_busy_or_vaultless_conversation_is_refused(env, asked):
 
 def test_a_cloud_model_the_user_has_not_allowed_is_not_sent_the_messages(env, asked):
     client, _ = env
+    talk("cloudy")
+
+    refused = post(client, "cloudy")
+
+    assert refused.status_code == 422 and "Settings > Sharing" in refused.json()["detail"] and asked == []
+
+
+def test_a_persona_name_with_a_colon_keeps_the_front_matter_valid(env, asked):
+    client, _ = env
+    talk("colon")
+
+    draft = post(client, "colon").json()["draft"]
+
+    assert 'persona: "Sam: the planner"\n' in note_changes.store.read("colon", draft["path"])["proposals"][0]["text"]
+
+
+@pytest.mark.parametrize("first", ["* SQLite first", "1. SQLite first", "- SQLite first", "<b>SQLite</b> first"])
+def test_a_reply_that_starts_with_a_list_item_has_no_title_line(env, first):
+    assert archive._title_and_body(f"{first}\n* backups later") == ("", f"{first}\n* backups later")
+
+
+def test_a_title_line_still_names_the_note_and_a_bold_one_is_cleaned():
+    assert archive._title_and_body("**Atlas database choice**\n\nThey planned it.") == ("Atlas database choice", "They planned it.")
+
+
+def test_a_reply_cut_right_after_a_heading_loses_the_empty_heading(env, asked):
+    client, _ = env
     talk()
+    asked.replies[:] = [model_mod.ModelReply("Title\n\nBody line.\n\n## Decided\n- SQLite fir", 5, truncated=True)]
 
-    refused = post(client, model="openai/gpt-4o")
+    draft = post(client).json()["draft"]
 
-    assert refused.status_code == 422 and asked == []
+    text = note_changes.store.read("samantha", draft["path"])["proposals"][0]["text"]
+    assert text.endswith("Body line.\n") and "Decided" not in text
+
+
+def test_a_model_that_spends_its_reply_limit_thinking_is_told_so(env, asked):
+    client, _ = env
+    talk()
+    asked.replies[:] = [model_mod.ReplyLimitError("spent it all thinking")]
+
+    refused = post(client)
+
+    assert refused.status_code == 502 and "reply limit" in refused.json()["detail"]
+    assert note_changes.drafts("samantha") == []
+
+
+def test_a_long_conversation_is_written_from_the_newest_messages_that_fit_with_room_for_the_reply(env, asked, monkeypatch):
+    client, _ = env
+    for n in range(40):
+        session.append_turn("samantha", SID, f"message {n:02d} " + "x" * 400, "reply")
+    monkeypatch.setattr(budget, "count_tokens", lambda messages, model: sum(len(m["content"]) for m in messages))
+
+    assert post(client).status_code == 200
+
+    sent = asked[0]["messages"][1]["content"]
+    assert "message 39" in sent and "message 00" not in sent
+    assert sum(len(m["content"]) for m in asked[0]["messages"]) <= 8192 - archive._MAX_TOKENS  # the 2,500-token reply is inside the window
+
+
+def test_the_prompt_room_leaves_the_reply_asked_for(env):
+    local = budget.Budget(prompt_tokens=6144, num_ctx=8192, reply_cap=2048)
+    assert archive._prompt_room(local, 2500) == 5692
+    assert archive._prompt_room(budget.Budget(prompt_tokens=6144, num_ctx=8192, reply_cap=2048), 100) == 6144
+    assert archive._prompt_room(budget.Budget(prompt_tokens=100000, num_ctx=None, reply_cap=None), 4000) == 100000
+    assert archive._prompt_room(None, 2500) is None
+
+
+def test_a_session_with_no_readable_day_is_dated_by_its_meta_then_by_today(env):
+    assert archive._day("not-a-date", {"created_at": "2026-09-30T08:00:00+00:00"}) == "2026-09-30"
+    assert archive._day("not-a-date", {}) == datetime.now().date().isoformat()

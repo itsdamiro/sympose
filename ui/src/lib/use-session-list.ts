@@ -98,15 +98,19 @@ export function useSessionList(persona: string, chat: ChatForList) {
     async (row: SessionRow) => {
       if (archiving.current.has(row.id)) return
       archiving.current.add(row.id)
-      notify.info("Writing the note…")
+      // One toast for the whole call: it stays up while the model writes (a local one takes many seconds), and the
+      // result takes its place.
+      const id = `archive-${row.id}`
+      const result = { id, duration: undefined } // the result replaces the toast and times out like any other
+      notify.info("Writing the note…", { id, duration: Infinity })
       const out = await archiveSession(persona, row.id)
       archiving.current.delete(row.id)
       if (!out.ok) {
-        notify.error(out.error)
+        notify.error(out.error, result)
         return
       }
       announceDraftsChanged()
-      notify.success(`“${out.value}” is waiting in Drafts`)
+      notify.success(`“${out.value}” is waiting in Drafts`, result)
     },
     [persona]
   )

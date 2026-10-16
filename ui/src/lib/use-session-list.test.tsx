@@ -134,7 +134,9 @@ describe("useSessionList", () => {
     expect(api.archiveSession).toHaveBeenCalledWith("samantha", "a")
     await act(async () => finish({ ok: true, value: "2026-10-01 Atlas" }))
     expect(announce).toHaveBeenCalledTimes(1)
-    expect(notify.success).toHaveBeenCalledWith("“2026-10-01 Atlas” is waiting in Drafts")
+    // One toast for the whole call: it stays up while the model writes, and the result replaces it.
+    expect(notify.info).toHaveBeenCalledWith("Writing the note…", { id: "archive-a", duration: Infinity })
+    expect(notify.success).toHaveBeenCalledWith("“2026-10-01 Atlas” is waiting in Drafts", { id: "archive-a", duration: undefined })
   })
 
   it("says why an archive was refused and does not touch the Drafts section", async () => {
@@ -143,7 +145,7 @@ describe("useSessionList", () => {
     await waitFor(() => expect(result.current.sessions).toHaveLength(2))
     await act(async () => void (await result.current.archive(result.current.sessions[0])))
     const { notify } = await import("@/lib/notify")
-    expect(notify.error).toHaveBeenCalledWith("That conversation is too short to archive.")
+    expect(notify.error).toHaveBeenCalledWith("That conversation is too short to archive.", { id: "archive-a", duration: undefined })
     expect(announce).not.toHaveBeenCalled()
   })
 

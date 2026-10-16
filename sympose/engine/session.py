@@ -18,7 +18,7 @@ from sympose.atomic_write import write_atomic_text
 from sympose.engine import reply_text
 from sympose.engine.prompt_text import CUT_OFF_NOTE
 from sympose.engine import session_compaction
-from sympose.engine.session_records import append_text as _append, has_its_text, make_title, meta_from_turns, unreadable
+from sympose.engine.session_records import append_text as _append, has_its_text, make_title, meta_from_turns, unreadable, user_lines
 from sympose.engine.session_paths import (
     new_session_id,
     recaps_dir,
@@ -38,6 +38,7 @@ __all__ = [
     "session_ids",
     "session_path",
     "sessions_dir",
+    "user_lines",
 ]
 
 log = logging.getLogger(__name__)

@@ -2,7 +2,7 @@
 the one persona-memory write a weak model can lose or garble existing content on, not just add
 to. Mirrors `recap_refresh`'s shape: run lazily on a background thread at the start of the next
 session, fed the handle's recent recaps (already-compressed, not raw session transcripts -- the
-same layering `recap_refresh.refresh` itself already uses over its own `_transcript`).
+same layering `recap_refresh.refresh` itself already uses over the user's own lines, `session.user_lines`).
 
 `profile.md` is meant to change rarely and deliberately, so a proposed change to it is always
 staged for `/memory review`, regardless of the setting below. `context.md` is meant to change

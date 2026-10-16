@@ -6,12 +6,19 @@ from datetime import datetime, timezone
 from typing import Any
 
 _TITLE_WORDS = 6
+_MAX_USER_CHARS = 1000
 
 
 def make_title(user_message: str) -> str:
     words = user_message.split()
     title = " ".join(words[:_TITLE_WORDS])
     return title + "..." if len(words) > _TITLE_WORDS else title
+
+
+def user_lines(turns: list[dict[str, Any]]) -> str:
+    """The user's own messages only: the persona's replies include what it got wrong or made up, and a recap, an
+    archive or notes that record them turn that into something "the user said"."""
+    return "\n".join(f"User: {turn['user'][:_MAX_USER_CHARS]}" for turn in turns)
 
 
 def has_its_text(turn: dict[str, Any]) -> bool:

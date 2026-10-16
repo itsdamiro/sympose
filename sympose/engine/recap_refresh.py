@@ -21,30 +21,15 @@ _MAX_TURNS = 40
 # A session touched this recently may still be running in another window.
 _QUIET = timedelta(minutes=30)
 _MAX_RECAP_TOKENS = 200
-_MAX_USER_CHARS = 1000
 
 # A model that spent its whole small reply limit thinking cannot write a recap
 # (as with the follow-up rewrite, ADR 017): not asked again until the process restarts.
 _CANNOT_RECAP: set[str] = set()
 
 
-def _transcript(turns: list[dict[str, Any]]) -> str:
-    """The user's own messages only: the persona's replies include what it got wrong or
-    made up, and a recap that records them turns that into something "the user said"."""
-    return "\n".join(f"User: {turn['user'][:_MAX_USER_CHARS]}" for turn in turns)
-
-
 def _request(turns: list[dict[str, Any]]) -> list[dict[str, str]]:
-    body = f"Conversation:\n{_transcript(turns)}\n\nRecap:"
+    body = f"Conversation:\n{session.user_lines(turns)}\n\nRecap:"
     return [{"role": "system", "content": prompt.RECAP_INSTRUCTIONS}, {"role": "user", "content": body}]
-
-
-def _fitting(turns: list[dict[str, Any]], model: str, limits: budget.Budget | None) -> list[dict[str, Any]]:
-    """The newest turns whose recap request fits the model's window."""
-    kept = list(turns)
-    while kept and limits is not None and budget.count_tokens(_request(kept), model) > limits.prompt_tokens:
-        del kept[0]
-    return kept
 
 
 def _clean(text: str) -> str | None:
@@ -63,7 +48,7 @@ def _write_one(
 ) -> bool:
     """Ask the model for one recap and keep it; `False` when the model cannot
     be used right now, so the caller stops instead of trying every session."""
-    turns = _fitting(session_turns[-_MAX_TURNS:], model, limits)
+    turns = budget.newest_that_fit(session_turns[-_MAX_TURNS:], _request, model, limits.prompt_tokens if limits else None)
     if not turns:
         return True  # nothing of it fits the window: leave it, not a model failure
     try:

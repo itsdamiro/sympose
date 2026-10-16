@@ -27,7 +27,6 @@ KEEP_TURNS = 3
 # What notes of up to 150 words count as when planning how much to fold, and the most they may write.
 _NOTES_TOKENS = 250
 _MAX_NOTES_TOKENS = 300
-_MAX_USER_CHARS = 1000
 # After an automatic attempt that wrote nothing, not again for this many more turns: a model that is down,
 # or turns too short to be worth notes, must not cost a call (on a cloud model, a paid one) every turn.
 _RETRY_AFTER_TURNS = 5
@@ -83,8 +82,7 @@ def _turn_tokens(turn: dict[str, Any], model: str) -> int:
 
 
 def _request(notes: str | None, turns: list[dict[str, Any]]) -> list[dict[str, str]]:
-    said = "\n".join(f"User: {turn['user'][:_MAX_USER_CHARS]}" for turn in turns)
-    body = f"Notes so far:\n{notes or 'NONE'}\n\nNew messages from the user:\n{said}\n\nUpdated notes:"
+    body = f"Notes so far:\n{notes or 'NONE'}\n\nNew messages from the user:\n{session.user_lines(turns)}\n\nUpdated notes:"
     return [{"role": "system", "content": INSTRUCTIONS}, {"role": "user", "content": body}]
 
 

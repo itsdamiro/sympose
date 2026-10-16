@@ -180,6 +180,14 @@ def count_tokens(messages: list[dict[str, str]], model: str) -> int:
     return math.ceil(_count_raw(messages, model) * _TOKEN_MARGIN)
 
 
+def newest_that_fit(turns: list[dict[str, Any]], request: Callable[[list[dict[str, Any]]], list[dict[str, str]]], model: str, room: int | None) -> list[dict[str, Any]]:
+    """The newest of `turns` whose `request(turns)` counts within `room` tokens (`None`: no limit)."""
+    kept = list(turns)
+    while kept and room is not None and count_tokens(request(kept), model) > room:
+        del kept[0]
+    return kept
+
+
 def fit(
     build_messages: Callable[
         [list[dict[str, str]], list[dict[str, Any]], list[dict[str, Any]], list[str]], list[dict[str, str]]
