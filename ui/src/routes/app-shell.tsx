@@ -61,7 +61,7 @@ import {
   CloudNotice,
   AttachedChips,
   ModelPicker,
-  FolderSetupDialog,
+  FolderSettingsDialog,
   FolderMoveDialog,
   RootCreateDialog,
   MainMenu,
@@ -428,7 +428,7 @@ export function AppShell() {
     hideExtension: editorPrefs.hideExtension === "on",
   })
 
-  const { submitCreate, createAtRoot, openDefinition, folderSetup, closeFolderSetup } = useCreateSubmit({
+  const { submitCreate, createAtRoot, openFolderSettings, folderSetup, closeFolderSetup } = useCreateSubmit({
     field: { pendingCreate, createName, creating, setCreating, closeCreate },
     folder: activeNode?.type === "folder" ? resolvedActive : "",
     activePersona,
@@ -690,7 +690,7 @@ export function AppShell() {
           onHideItem={(item) => hideFromView(item.id)}
           onCreateRoot={setRootCreate}
           onDeleteItem={deleteRootFolder}
-          onDefineItem={(item) => void openDefinition(item.id)}
+          onFolderSettings={(item) => void openFolderSettings(item.id)}
           persona={activePersona}
           onRenameFolder={vaultTreeActions.onFolderRenamed}
           onBeforeRenameFolder={vaultTreeActions.onBeforeFolderRename}
@@ -831,11 +831,11 @@ export function AppShell() {
 
           <RootCreateDialog kind={rootCreate} onCreate={createAtRoot} onClose={() => setRootCreate(null)} />
 
-          <FolderSetupDialog
+          <FolderSettingsDialog
             setup={folderSetup}
             persona={activePersona}
             onClose={closeFolderSetup}
-            onCreated={() => refreshVault()}
+            onSaved={() => refreshVault()}
           />
 
           <React.Suspense fallback={null}>

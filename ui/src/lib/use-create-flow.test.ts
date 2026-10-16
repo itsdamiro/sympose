@@ -6,20 +6,20 @@ import { useCreateField, useCreateSubmit } from "./use-create-flow"
 
 const createVaultNote = vi.fn()
 const createVaultFolder = vi.fn()
-const fetchNoteTemplate = vi.fn()
+const fetchFolderSettings = vi.fn()
 const notify = { error: vi.fn(), success: vi.fn(), info: vi.fn() }
 vi.mock("./vault-note-api", () => ({
   createVaultNote: (...a: unknown[]) => createVaultNote(...a),
   createVaultFolder: (...a: unknown[]) => createVaultFolder(...a),
 }))
-vi.mock("./vault-definition-api", () => ({ fetchNoteTemplate: (...a: unknown[]) => fetchNoteTemplate(...a) }))
+vi.mock("./folder-settings-api", () => ({ fetchFolderSettings: (...a: unknown[]) => fetchFolderSettings(...a) }))
 vi.mock("./notify", () => ({ notify: { error: (...a: unknown[]) => notify.error(...a), success: (...a: unknown[]) => notify.success(...a), info: (...a: unknown[]) => notify.info(...a) } }))
 
 beforeEach(() => {
   vi.resetAllMocks()
   createVaultNote.mockResolvedValue({ ok: true })
   createVaultFolder.mockResolvedValue({ ok: true })
-  fetchNoteTemplate.mockResolvedValue(null)
+  fetchFolderSettings.mockResolvedValue(null)
 })
 
 describe("useCreateField", () => {
@@ -173,23 +173,23 @@ describe("useCreateSubmit: a folder", () => {
     expect(notify.success).toHaveBeenCalledWith("Created Box")
   })
 
-  it("offers to set up a new root folder when the server says it can have a definition", async () => {
-    const template = { lines: ["title:"], source: "settings", definable: true }
-    fetchNoteTemplate.mockResolvedValue(template)
+  it("offers to set up a new root folder when the server says it can have settings", async () => {
+    const settings = { editable: true, defined: false, purpose: "", template: ["title:"], templateSource: "settings" }
+    fetchFolderSettings.mockResolvedValue(settings)
     const s = setup({ kind: "folder", name: "Projects", folder: "" })
     await act(async () => s.result.current.submitCreate())
-    expect(fetchNoteTemplate).toHaveBeenCalledWith("Projects", "samantha")
-    expect(s.result.current.folderSetup).toEqual({ folder: "Projects", template })
+    expect(fetchFolderSettings).toHaveBeenCalledWith("Projects", "samantha")
+    expect(s.result.current.folderSetup).toEqual({ folder: "Projects", settings })
     act(() => s.result.current.closeFolderSetup())
     expect(s.result.current.folderSetup).toBeNull()
   })
 
-  it("does not offer it when the folder cannot have a definition, or the server cannot be reached", async () => {
-    fetchNoteTemplate.mockResolvedValue({ lines: [], source: "settings", definable: false })
+  it("does not offer it when the folder cannot have settings, or the server cannot be reached", async () => {
+    fetchFolderSettings.mockResolvedValue({ editable: false, defined: false, purpose: "", template: [], templateSource: "settings" })
     const a = setup({ kind: "folder", name: "Templates", folder: "" })
     await act(async () => a.result.current.submitCreate())
     expect(a.result.current.folderSetup).toBeNull()
-    fetchNoteTemplate.mockResolvedValue(null)
+    fetchFolderSettings.mockResolvedValue(null)
     const b = setup({ kind: "folder", name: "Other", folder: "" })
     await act(async () => b.result.current.submitCreate())
     expect(b.result.current.folderSetup).toBeNull()
@@ -202,7 +202,7 @@ describe("useCreateSubmit: a folder", () => {
     await act(async () => slashed.result.current.submitCreate())
     const back = setup({ kind: "folder", name: "a\\b", folder: "" })
     await act(async () => back.result.current.submitCreate())
-    expect(fetchNoteTemplate).not.toHaveBeenCalled()
+    expect(fetchFolderSettings).not.toHaveBeenCalled()
   })
 
   it("does not ask about a definition for a note, or when the create failed", async () => {
@@ -211,7 +211,7 @@ describe("useCreateSubmit: a folder", () => {
     createVaultFolder.mockResolvedValue({ ok: false, error: "no" })
     const failed = setup({ kind: "folder", name: "Projects", folder: "" })
     await act(async () => failed.result.current.submitCreate())
-    expect(fetchNoteTemplate).not.toHaveBeenCalled()
+    expect(fetchFolderSettings).not.toHaveBeenCalled()
   })
 })
 
@@ -229,14 +229,14 @@ describe("useCreateSubmit: from the main menu's own menu", () => {
   })
 
   it("makes a folder at the root and offers its setup, and reports a refusal without closing", async () => {
-    const template = { lines: ["title:"], source: "settings", definable: true }
-    fetchNoteTemplate.mockResolvedValue(template)
+    const settings = { editable: true, defined: false, purpose: "", template: ["title:"], templateSource: "settings" }
+    fetchFolderSettings.mockResolvedValue(settings)
     const s = setup({ folder: "Notes" })
     await act(async () => {
       await s.result.current.createAtRoot("folder", "Projects")
     })
     expect(createVaultFolder).toHaveBeenCalledWith("Projects", "samantha")
-    expect(s.result.current.folderSetup).toEqual({ folder: "Projects", template })
+    expect(s.result.current.folderSetup).toEqual({ folder: "Projects", settings })
     createVaultFolder.mockResolvedValue({ ok: false, error: "exists" })
     let ok = true
     await act(async () => {
@@ -255,22 +255,22 @@ describe("useCreateSubmit: from the main menu's own menu", () => {
   })
 })
 
-describe("useCreateSubmit: define a folder by hand", () => {
-  it("opens the setup dialog by hand for a folder that can be defined", async () => {
-    const template = { lines: ["title:"], source: "settings", definable: true }
-    fetchNoteTemplate.mockResolvedValue(template)
+describe("useCreateSubmit: a folder's settings by hand", () => {
+  it("opens the settings dialog by hand for a folder that can have them, filled from what the server read", async () => {
+    const settings = { editable: true, defined: false, purpose: "", template: ["title:"], templateSource: "settings" }
+    fetchFolderSettings.mockResolvedValue(settings)
     const s = setup()
-    await act(async () => s.result.current.openDefinition("People"))
-    expect(s.result.current.folderSetup).toEqual({ folder: "People", template, manual: true })
+    await act(async () => s.result.current.openFolderSettings("People"))
+    expect(s.result.current.folderSetup).toEqual({ folder: "People", settings, manual: true })
   })
 
-  it("says so, and opens nothing, for a folder that has one or cannot have one, or when it cannot be read", async () => {
+  it("says so, and opens nothing, for a folder that cannot have settings, or when it cannot be read", async () => {
     const s = setup()
-    fetchNoteTemplate.mockResolvedValue({ lines: [], source: "settings", definable: false })
-    await act(async () => s.result.current.openDefinition("Movies"))
-    expect(notify.info).toHaveBeenCalledWith(expect.stringContaining("Movies can't be described"))
-    fetchNoteTemplate.mockResolvedValue(null)
-    await act(async () => s.result.current.openDefinition("Movies"))
+    fetchFolderSettings.mockResolvedValue({ editable: false, defined: false, purpose: "", template: [], templateSource: "settings" })
+    await act(async () => s.result.current.openFolderSettings("Movies"))
+    expect(notify.info).toHaveBeenCalledWith(expect.stringContaining("Movies has no settings"))
+    fetchFolderSettings.mockResolvedValue(null)
+    await act(async () => s.result.current.openFolderSettings("Movies"))
     expect(notify.error).toHaveBeenCalled()
     expect(s.result.current.folderSetup).toBeNull()
   })

@@ -121,8 +121,8 @@ interface MainMenuProps extends Omit<React.ComponentProps<"nav">, "onSelect"> {
   onCreateRoot?: (kind: "note" | "folder") => void
   /** Delete a root folder, from its row's menu (a confirmation, and to the bin, are the shell's). */
   onDeleteItem?: (item: MainMenuItem) => void
-  /** Define a root folder by hand, from its row's menu: the shell opens the setup dialog. */
-  onDefineItem?: (item: MainMenuItem) => void
+  /** Open a root folder's settings, from its row's menu: the shell opens the Folder settings dialog. */
+  onFolderSettings?: (item: MainMenuItem) => void
   /** The persona a folder's rename is made as. With `onRenameFolder` it adds Rename folder to a folder row's menu
    *  (docs/decisions/073); not offered on the collapsed rail, which has no room for the field. */
   persona?: string
@@ -215,7 +215,7 @@ function MainMenu({
   onHideItem,
   onCreateRoot,
   onDeleteItem,
-  onDefineItem,
+  onFolderSettings,
   persona,
   onRenameFolder,
   onBeforeRenameFolder,
@@ -332,7 +332,7 @@ function MainMenu({
         )
         const isFolder = item.type !== "note"
         const hasMenu =
-          onHideItem || (isFolder && (onDeleteItem || onDefineItem || (persona && onRenameFolder)))
+          onHideItem || (isFolder && (onDeleteItem || onFolderSettings || (persona && onRenameFolder)))
         return (
           <li key={item.id}>
             {hasMenu ? (
@@ -340,7 +340,7 @@ function MainMenu({
                 item={item}
                 row={row}
                 persona={collapsed ? undefined : persona}
-                onDefineItem={onDefineItem}
+                onFolderSettings={onFolderSettings}
                 onRenameFolder={onRenameFolder}
                 onBeforeRenameFolder={onBeforeRenameFolder}
                 onHideItem={onHideItem}

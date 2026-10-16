@@ -1,7 +1,7 @@
 import * as React from "react"
 
 import { notify } from "@/lib/notify"
-import { fetchNoteTemplate, type NoteTemplate } from "@/lib/vault-definition-api"
+import { fetchFolderSettings, type FolderSettings } from "@/lib/folder-settings-api"
 import { createVaultFolder, createVaultNote } from "@/lib/vault-note-api"
 
 /** Which kind the open name field is for. */
@@ -82,7 +82,7 @@ export function useCreateSubmit({
 }) {
   const [folderSetup, setFolderSetup] = React.useState<{
     folder: string
-    template: NoteTemplate
+    settings: FolderSettings
     manual?: boolean
   } | null>(null)
 
@@ -111,8 +111,8 @@ export function useCreateSubmit({
     }
     notify.success(`Created ${name}`)
     if (kind === "folder" && !inFolder && !/[\\/]/.test(name)) {
-      const template = await fetchNoteTemplate(name, activePersona)
-      if (template?.definable) setFolderSetup({ folder: name, template })
+      const settings = await fetchFolderSettings(name, activePersona)
+      if (settings?.editable) setFolderSetup({ folder: name, settings })
     }
     return true
   }
@@ -132,21 +132,22 @@ export function useCreateSubmit({
     const name = cleanName(rawName)
     return name ? perform(kind, name, "") : false
   }
-  /** "Define folder" on a folder that already exists: the same dialog, opened by hand. Only for a folder the server
-   *  says can be given a definition now (a top-level folder of the user's own notes, without one). */
-  const openDefinition = async (name: string) => {
-    const template = await fetchNoteTemplate(name, activePersona)
-    if (!template) {
+  /** "Folder settings" on a folder that already exists: the same dialog, opened by hand and filled from the folder's
+   *  definition note when it has one. Only for a folder the server says can have settings now (a top-level folder of
+   *  the user's own notes). */
+  const openFolderSettings = async (name: string) => {
+    const settings = await fetchFolderSettings(name, activePersona)
+    if (!settings) {
       notify.error("Couldn't read the folder. Check that Sympose is running, then try again.")
       return
     }
-    if (!template.definable) {
-      notify.info(`${name} can't be described: it already has a description, or it isn't one of your own folders.`)
+    if (!settings.editable) {
+      notify.info(`${name} has no settings: it isn't one of your own folders.`)
       return
     }
-    setFolderSetup({ folder: name, template, manual: true })
+    setFolderSetup({ folder: name, settings, manual: true })
   }
   const closeFolderSetup = () => setFolderSetup(null)
 
-  return { submitCreate, createAtRoot, openDefinition, folderSetup, closeFolderSetup }
+  return { submitCreate, createAtRoot, openFolderSettings, folderSetup, closeFolderSetup }
 }

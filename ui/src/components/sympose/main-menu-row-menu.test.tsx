@@ -20,18 +20,18 @@ const items: MainMenuItem[] = [
 ]
 
 function setup(extra: Partial<React.ComponentProps<typeof MainMenu>> = {}) {
-  const handlers = { onDeleteItem: vi.fn(), onDefineItem: vi.fn(), onHideItem: vi.fn(), onRenameFolder: vi.fn() }
+  const handlers = { onDeleteItem: vi.fn(), onFolderSettings: vi.fn(), onHideItem: vi.fn(), onRenameFolder: vi.fn() }
   render(<MainMenu items={items} persona="samantha" defaultCollapsed={false} {...handlers} {...extra} />)
   return handlers
 }
 
 describe("MainMenu: renaming a root folder (docs/decisions/073)", () => {
-  it("adds Rename folder to a folder row's menu, after Define folder, once the shell wires it", async () => {
+  it("adds Rename folder to a folder row's menu, after Folder settings, once the shell wires it", async () => {
     setup()
     fireEvent.contextMenu(screen.getByRole("button", { name: "People" }))
 
     expect((await screen.findAllByRole("menuitem")).map((m) => m.textContent)).toEqual([
-      "Define folder",
+      "Folder settings",
       "Rename folder",
       "Hide from view",
       "Delete folder",

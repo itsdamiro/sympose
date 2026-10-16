@@ -13,7 +13,7 @@ const items: MainMenuItem[] = [
 ]
 
 function setup(extra: Partial<React.ComponentProps<typeof MainMenu>> = {}) {
-  const handlers = { onCreateRoot: vi.fn(), onDeleteItem: vi.fn(), onDefineItem: vi.fn(), onHideItem: vi.fn() }
+  const handlers = { onCreateRoot: vi.fn(), onDeleteItem: vi.fn(), onFolderSettings: vi.fn(), onHideItem: vi.fn() }
   render(<MainMenu items={items} {...handlers} {...extra} />)
   return handlers
 }
@@ -29,11 +29,11 @@ describe("MainMenu: its own menu", () => {
     expect(h.onCreateRoot).toHaveBeenCalledWith("note")
   })
 
-  it("gives a folder row Define folder, Hide from view and Delete folder, each acting on that row", async () => {
+  it("gives a folder row Folder settings, Hide from view and Delete folder, each acting on that row", async () => {
     const h = setup()
     fireEvent.contextMenu(screen.getByRole("button", { name: "People" }))
     expect((await screen.findAllByRole("menuitem")).map((m) => m.textContent)).toEqual([
-      "Define folder",
+      "Folder settings",
       "Hide from view",
       "Delete folder",
     ])

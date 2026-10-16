@@ -1,4 +1,6 @@
 import {
+  Airplane01Icon,
+  Archive01Icon,
   AnchorIcon,
   Atom01Icon,
   BirdIcon,
@@ -49,6 +51,22 @@ import {
   QuoteDownIcon,
   SourceCodeIcon,
   UserMultiple02Icon,
+  Bookmark01Icon,
+  Briefcase01Icon,
+  Car01Icon,
+  CheckListIcon,
+  Dumbbell01Icon,
+  FavouriteIcon,
+  GameController01Icon,
+  HealthIcon,
+  Image01Icon,
+  Location01Icon,
+  Mail01Icon,
+  Notebook01Icon,
+  PawPrintIcon,
+  School01Icon,
+  Video01Icon,
+  Wallet01Icon,
 } from "@hugeicons/core-free-icons"
 import type { IconSvgElement } from "@hugeicons/react"
 
@@ -111,6 +129,25 @@ export const ICON_SET: Record<string, IconSvgElement> = {
   quote: QuoteDownIcon,
   "source-code": SourceCodeIcon,
   users: UserMultiple02Icon,
+  // Glyphs for a user's own folders (ADR 087): travel, work, money, health, tasks, places and so on.
+  airplane: Airplane01Icon,
+  archive: Archive01Icon,
+  bookmark: Bookmark01Icon,
+  briefcase: Briefcase01Icon,
+  car: Car01Icon,
+  checklist: CheckListIcon,
+  dumbbell: Dumbbell01Icon,
+  game: GameController01Icon,
+  health: HealthIcon,
+  heart: FavouriteIcon,
+  image: Image01Icon,
+  location: Location01Icon,
+  mail: Mail01Icon,
+  notebook: Notebook01Icon,
+  paw: PawPrintIcon,
+  school: School01Icon,
+  video: Video01Icon,
+  wallet: Wallet01Icon,
 }
 
 /** The icon a persona file names, or `undefined` when it names none or one the set does not have. */

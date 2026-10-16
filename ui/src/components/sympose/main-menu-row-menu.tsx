@@ -14,7 +14,7 @@ interface MenuItemLike {
 }
 
 /**
- * A main-menu row's right-click menu: Define folder, Rename folder (an inline field over the row, the same one a tree
+ * A main-menu row's right-click menu: Folder settings, Rename folder (an inline field over the row, the same one a tree
  * row has, docs/decisions/073), Hide from view and Delete folder, each only when the shell wires it. `row` is the
  * row's own button, which the menu hangs off.
  */
@@ -22,7 +22,7 @@ export function MainMenuRowMenu<T extends MenuItemLike>({
   item,
   row,
   persona,
-  onDefineItem,
+  onFolderSettings,
   onRenameFolder,
   onBeforeRenameFolder,
   onHideItem,
@@ -32,7 +32,7 @@ export function MainMenuRowMenu<T extends MenuItemLike>({
   row: React.ReactNode
   /** The persona the rename is made as; Rename is offered only with this and `onRenameFolder`. */
   persona?: string
-  onDefineItem?: (item: T) => void
+  onFolderSettings?: (item: T) => void
   /** A root folder was renamed: its old path and its new one. */
   onRenameFolder?: (oldPath: string, newPath: string) => void
   /** Before the rename request: save what is unsaved; `false` holds the rename back. */
@@ -76,10 +76,10 @@ export function MainMenuRowMenu<T extends MenuItemLike>({
         )}
       </ContextMenuTrigger>
       <ContextMenuContent className="duration-thumb ease-snappy">
-        {isFolder && onDefineItem && (
-          <DropdownMenuItem onClick={() => onDefineItem(item)}>
+        {isFolder && onFolderSettings && (
+          <DropdownMenuItem onClick={() => onFolderSettings(item)}>
             <HugeiconsIcon icon={FolderEditIcon} />
-            Define folder
+            Folder settings
           </DropdownMenuItem>
         )}
         {canRename && (
