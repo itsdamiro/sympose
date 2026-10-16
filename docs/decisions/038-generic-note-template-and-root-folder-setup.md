@@ -64,3 +64,7 @@ Two facts about the code as it stands:
 
 **Review findings (`/code-review`, high), all fixed except one that was not a defect.** The dialog opened for names that cannot have a definition, and for a slashless name that a persona scoped below the vault's root had created elsewhere, so the user found out only after filling in the form (now the `definable` answer); a definition with nothing in it was accepted by the server although the button was disabled in the page; a `---` line in the template was accepted; a key with a trailing space passed the setting's check; the folder was looked for on disk before the persona's scope was checked, so 404 against 403 said which folders exist; any `ValueError` became a 400 with its own text. Not a defect: "a failed write is reported as 201" (`translate_vault_result` already turns an `Error:` result into a 500; a test pins it).
 
+
+## Update: the setup step is the Folder settings dialog (ADR 087)
+
+The skippable step after a root folder is created is the same dialog as the right-click Folder settings, and it also offers the folder's icon and colour. `POST /api/vault/folder/definition` and `GET /api/vault/note-template` became `PUT` and `GET /api/vault/folder/settings`.

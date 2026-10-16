@@ -95,3 +95,7 @@ Three facts about the code as it stands:
 ## Update: the web app's options when a root folder is created (ADR 038)
 
 Decided in ADR 038: a skippable setup step after a root folder is created in the web app, starting from a generic template (`title`, `created`, `tags`) instead of a count, writing only what the user typed. It is the one case where a definition exists for a folder that is not due, and rule 4's "nothing is written when a folder is created empty" still holds for anything Sympose would write on its own.
+
+## Update: a definition can be changed from the app (ADR 087)
+
+"An existing definition is never replaced" still holds for drafts and for creating one. The web app's Folder settings dialog (ADR 087) now edits a definition that exists in place, on the user's own click, changing only the fields the user changed and no other line of the note.
