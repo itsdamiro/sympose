@@ -51,6 +51,7 @@ The whole walk was run, answering yes to everything, on a scratch copy and the l
 - **The summary counts a repair that failed apart** from one left as it is ("1 changed, 1 left as they are, 1 could not be made"), and Ctrl-C at the prompt stops like `q` and still gives the summary.
 - **A link shown as code is left alone** by the stale-link check and by `retarget_link` (`markdown_code.py`: fenced blocks, inline spans closed by as many backticks as opened them, within a paragraph). Measured by tests, including a fence that never closes and a run of backticks of another length.
 - **A refused relink says why**, as a rename does: the persona may not write there, or the note is not there any more.
+- **Third pass (2026-10-17):** a disk failure on a relink is its own result (`NOTE_IO_ERROR`, "could not be read or written"), not "this persona may not write there"; a fence indented four columns or more counts as code only when it closes (an unclosed one made the rest of the note code, so its stale links were never offered); the code test is one lazy search (`markdown_code.in_code`) instead of a walk per link and a copy of the memo in each caller; the link pattern and the unsafe characters live in `wikilinks.py`, so the health check and the file-name rules no longer import the write layer; a title is checked once, in `check_titles`. ADR 077: a legacy `skills:` list is dropped by the next save of any persona setting, not only a skill switch.
 
 ## Consequences
 

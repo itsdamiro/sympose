@@ -9,10 +9,9 @@ from typing import Any
 
 from sympose import folder_looks_write, note_changes
 from sympose.folder_definitions import definition_path
-from sympose.vault_file_names import why_not_a_file_name
 from sympose.vault_write_relink import retarget_link
 from sympose.vault_write_rename import rename_note_to_path
-from sympose.vault_write_status import NOTE_DENIED, NOTE_EXISTS, NOTE_INVALID_NAME, NOTE_NOT_FOUND
+from sympose.vault_write_status import NOTE_DENIED, NOTE_EXISTS, NOTE_INVALID_NAME, NOTE_IO_ERROR, NOTE_NOT_FOUND
 
 ICON, RENAME, RELINK = "icon", "rename", "relink"
 
@@ -35,6 +34,7 @@ _REFUSED = {
     NOTE_EXISTS: "A note with that name exists already, so nothing was changed.",
     NOTE_DENIED: "This persona may not write there, so nothing was changed.",
     NOTE_INVALID_NAME: "That name cannot be used in a link, so nothing was changed.",
+    NOTE_IO_ERROR: "The note could not be read or written, so nothing was changed.",
 }
 
 
@@ -66,12 +66,10 @@ def icon_repair(folder: str, lines: list[str]) -> Repair:
 
 
 def title_rename(rel_path: str, title: str, stems: Counter[str]) -> Repair | None:
-    """Renaming the note to its title, or `None` when that cannot be done without risk: the title is not safe as a file
-    name and as a wikilink, another note already has the new name, or another note has the old one. In the last two a
-    bare `[[link]]` names more than one note and a rename changes which one it reaches, so it is left to the person.
-    `stems` counts every note's file name without `.md`, lower case."""
-    if why_not_a_file_name(title):
-        return None
+    """Renaming the note to its title, or `None` when that cannot be done without risk: another note already has the new
+    name, or another note has the old one. Then a bare `[[link]]` names more than one note and a rename changes which one
+    it reaches, so it is left to the person. The caller has checked the title with `why_not_a_file_name`. `stems` counts
+    every note's file name without `.md`, lower case."""
     if stems[title.lower()] or stems[os.path.splitext(os.path.basename(rel_path))[0].lower()] > 1:
         return None
     return Repair(RENAME, (f"Rename {rel_path} to {title}.md (links to it are updated)",), rel_path, new=f"{title}.md")

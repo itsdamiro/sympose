@@ -3,7 +3,7 @@ title cannot be a file name and by the repair that renames a note to its title, 
 
 import re
 
-from sympose.vault_write_relink import WIKILINK_UNSAFE_CHARS
+from sympose.wikilinks import WIKILINK_UNSAFE_CHARS
 
 _UNSAFE = re.compile(r'[\\/:*?"<>|\x00-\x1f]')
 _RESERVED = frozenset({"con", "prn", "aux", "nul", *(f"com{n}" for n in range(1, 10)), *(f"lpt{n}" for n in range(1, 10))})  # Windows

@@ -12,7 +12,8 @@ import re
 
 from sympose.security import is_safe_path
 from sympose.vault_write import get_file_lock, write_atomic_text
-from sympose.vault_write_relink import WIKILINK_RE, relink_referencing_notes
+from sympose.vault_write_relink import relink_referencing_notes
+from sympose.wikilinks import WIKILINK_RE
 
 log = logging.getLogger(__name__)
 

@@ -12,9 +12,9 @@ from sympose import folder_definitions, vault_paths
 from sympose.vault_folder_paths import OK, resolve_folder
 from sympose.vault_write import get_file_locks
 from sympose.vault_write_rename import _dst_already_taken, rename_note_to_path
-from sympose.vault_write_relink import WIKILINK_UNSAFE_CHARS
 from sympose.vault_write_relink_folder import relink_folder
 from sympose.vault_write_status import NOTE_DENIED, NOTE_EXISTS, NOTE_INVALID_NAME
+from sympose.wikilinks import WIKILINK_UNSAFE_CHARS
 
 
 @dataclass(frozen=True)

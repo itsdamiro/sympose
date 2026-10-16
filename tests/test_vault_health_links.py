@@ -4,9 +4,10 @@ import os
 
 import pytest
 
+from sympose import markdown_code, vault_fixes
 from sympose import vault_health_links as links
 from sympose.vault_write_relink import retarget_link
-from sympose.vault_write_status import NOTE_DENIED, NOTE_NOT_FOUND
+from sympose.vault_write_status import NOTE_DENIED, NOTE_IO_ERROR, NOTE_NOT_FOUND
 
 
 def note(rel, text=""):
@@ -88,6 +89,30 @@ def test_a_fence_in_a_note_with_bare_carriage_returns_is_still_code():
     assert stale(note("Ideas/Idea.md"), note("Log/Day.md", "intro\r```\r[[Projects/Idea]]\rnever closed")) == []
 
 
+def test_an_indented_fence_that_never_closes_is_not_a_fence_but_one_that_closes_is_code():
+    assert len(stale(note("Ideas/Idea.md"), note("Log/Day.md", "Sample:\n\n    ```\n    x\n\n[[Projects/Idea]]"))) == 1
+    assert stale(note("Ideas/Idea.md"), note("Log/Day.md", "Sample:\n\n    ```\n    [[Projects/Idea]]\n    ```\n")) == []
+    assert stale(note("Ideas/Idea.md"), note("Log/Day.md", "- item\n  ```\n  [[Projects/Idea]]\n  never closed")) == []
+
+
+def test_the_code_test_answers_for_the_edges_of_every_span():
+    text = "a `b` c\n```\nd\n```\ne"
+    in_code = markdown_code.in_code(text)
+
+    assert [i for i in range(len(text)) if in_code(i)] == [2, 3, 4, *range(8, 18)]
+
+
+def test_the_code_test_finds_the_spans_only_when_asked_and_only_once(monkeypatch):
+    calls = []
+    real = markdown_code.code_spans
+    monkeypatch.setattr(markdown_code, "code_spans", lambda text: calls.append(text) or real(text))
+    in_code = markdown_code.in_code("`x`")
+
+    assert calls == []
+    assert in_code(1) and not in_code(5) and in_code(0)
+    assert len(calls) == 1
+
+
 def test_a_backtick_that_never_closes_is_not_code():
     assert len(stale(note("Ideas/Idea.md"), note("Log/Day.md", "A lone ` tick, then [[Projects/Idea]]"))) == 1
     assert len(stale(note("Ideas/Idea.md"), note("Log/Day.md", "A tick ` here\n\n[[Projects/Idea]] and another ` there"))) == 1
@@ -161,7 +186,7 @@ def test_only_the_links_outside_code_are_rewritten(vault):
     assert (vault / "L.md").read_text(encoding="utf-8") == "[[Ideas/Idea]] `[[Projects/Idea]]`\n```\n[[Projects/Idea]]\n```\n[[Ideas/Idea|a]]\n"
 
 
-def test_a_note_that_cannot_be_written_is_refused_as_denied(vault, monkeypatch):
+def test_a_note_that_cannot_be_written_is_an_io_error_not_a_refusal(vault, monkeypatch):
     (vault / "L.md").write_text("[[Projects/Idea]]", encoding="utf-8")
 
     def refuse(*args, **kwargs):
@@ -169,4 +194,13 @@ def test_a_note_that_cannot_be_written_is_refused_as_denied(vault, monkeypatch):
 
     monkeypatch.setattr("sympose.vault_write_relink.write_atomic_text", refuse)
 
-    assert retarget_link(ALL, "L.md", "Projects/Idea", "Ideas/Idea") == NOTE_DENIED
+    assert retarget_link(ALL, "L.md", "Projects/Idea", "Ideas/Idea") == NOTE_IO_ERROR
+
+
+def test_a_disk_failure_on_a_relink_is_not_called_a_refusal(vault, monkeypatch):
+    (vault / "L.md").write_text("[[Projects/Idea]]", encoding="utf-8")
+    monkeypatch.setattr("sympose.vault_write_relink.write_atomic_text", lambda *a, **k: (_ for _ in ()).throw(OSError("disk full")))
+
+    done, message = vault_fixes.apply(ALL, vault_fixes.Repair(vault_fixes.RELINK, ("x",), "L.md", "Projects/Idea", "Ideas/Idea"))
+
+    assert not done and "could not be read or written" in message and "may not write" not in message

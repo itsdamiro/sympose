@@ -8,7 +8,7 @@ from typing import Any, Callable
 
 from sympose import vault_backlinks, vault_paths
 from sympose.vault_write import get_file_locks
-from sympose.vault_write_relink import WIKILINK_UNSAFE_CHARS, relink_referencing_notes
+from sympose.vault_write_relink import relink_referencing_notes
 from sympose.vault_write_resolve import resolve_existing_note
 from sympose.vault_write_status import (
     NOTE_DENIED,
@@ -16,6 +16,7 @@ from sympose.vault_write_status import (
     NOTE_INVALID_NAME,
     NOTE_NOT_FOUND,
 )
+from sympose.wikilinks import WIKILINK_UNSAFE_CHARS
 
 
 def _dst_already_taken(dst: str, src: str) -> bool:

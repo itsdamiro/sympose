@@ -10,7 +10,7 @@ from typing import Any
 
 from sympose import markdown_code
 from sympose.vault_defaults import ATTACHMENT_EXTENSIONS, NOTE_EXTENSIONS
-from sympose.vault_write_relink import WIKILINK_RE
+from sympose.wikilinks import WIKILINK_RE
 
 
 def _target(inner: str) -> str:
@@ -25,16 +25,15 @@ def stale_folder_links(notes: list[dict[str, Any]]) -> list[tuple[str, str, str,
         by_name.setdefault(os.path.splitext(os.path.basename(rel))[0].lower(), []).append(rel)
     found = []
     for note in sorted(notes, key=lambda n: n["rel_path"]):
-        source, seen, code, text = note["rel_path"].replace("\\", "/"), set(), None, note.get("full_content") or ""
+        text = note.get("full_content") or ""
+        source, seen, in_code = note["rel_path"].replace("\\", "/"), set(), markdown_code.in_code(text)
         for match in WIKILINK_RE.finditer(text):
             target = _target(match.group(2))
             segments = target.replace("\\", "/").lstrip("/").split("/")
             stem, ext = os.path.splitext(segments[-1])
             if len(segments) < 2 or target in seen or ext.lower() in ATTACHMENT_EXTENSIONS:
                 continue
-            if code is None:
-                code = markdown_code.code_spans(text)
-            if markdown_code.inside(code, match.start()):
+            if in_code(match.start()):
                 continue  # a link shown as code is a sample, not a link
             seen.add(target)
             leaf = stem if ext.lower() in NOTE_EXTENSIONS else segments[-1]

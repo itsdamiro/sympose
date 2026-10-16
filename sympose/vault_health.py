@@ -150,7 +150,7 @@ def check_titles(scope: Scope) -> list[Finding]:
         if reason:
             message += f" and cannot be one: {reason}"
         rel = note["rel_path"]
-        repair = vault_fixes.title_rename(rel, title, stems)
+        repair = None if reason else vault_fixes.title_rename(rel, title, stems)
         found.append(Finding(folder_of(rel), rel, message, repair=repair))
     return found
 

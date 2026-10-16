@@ -6,4 +6,5 @@ NOTE_NOT_FOUND = "__note_not_found__"
 NOTE_DENIED = "__note_denied__"
 NOTE_EXISTS = "__note_exists__"
 NOTE_INVALID_NAME = "__note_invalid_name__"
-NOTE_NOT_TEXT = "__note_not_text__"  # the file on disk is not valid UTF-8, so a save would change it (docs/decisions/048)
+NOTE_IO_ERROR = "__note_io_error__"  # the disk failed while the note was read or written, which is not a refusal
+NOTE_NOT_TEXT ="__note_not_text__"  # the file on disk is not valid UTF-8, so a save would change it (docs/decisions/048)

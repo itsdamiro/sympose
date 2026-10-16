@@ -6,21 +6,15 @@ Rewriting `[[wikilink]]` references after a rename — split out of
 import logging
 import os
 import re
-from typing import Any
+from typing import Any, Callable
 
 from sympose import markdown_code, vault_paths
 from sympose.security import is_safe_path
 from sympose.vault_write import get_file_lock, write_atomic_text
-from sympose.vault_write_status import NOTE_DENIED, NOTE_NOT_FOUND
+from sympose.vault_write_status import NOTE_DENIED, NOTE_IO_ERROR, NOTE_NOT_FOUND
+from sympose.wikilinks import WIKILINK_RE
 
 log = logging.getLogger(__name__)
-
-# Structurally reserved in `[[wikilink]]` syntax (`]` closes the link, `|`
-# starts an alias, `#` starts a heading anchor) — a new stem containing any
-# of these would silently corrupt every backlink rewritten to point at it.
-WIKILINK_UNSAFE_CHARS = frozenset("[]|#")
-
-WIKILINK_RE = re.compile(r"(!?)\[\[([^\[\]\r\n]+?)\]\]")
 
 
 def rewrite_wikilink_targets(
@@ -141,8 +135,8 @@ def retarget_link(profile: dict[str, Any], rel: str, old: str, new: str) -> int 
     """Rewrites every `[[old]]` in the note `rel` to `[[new]]`, where `old` and `new` are the link's target as written
     (a `#heading` and a `|alias` are left alone), and returns how many it rewrote; zero means the link is no longer
     there. A link shown as code (a fenced block or an inline span) is a sample, not a link, and stays as it is. When
-    nothing could be done it returns why instead, as `NOTE_DENIED` (the persona may not write the note, or it cannot be
-    written) or `NOTE_NOT_FOUND`."""
+    nothing could be done it returns why instead, as `NOTE_DENIED` (the persona may not write the note), `NOTE_NOT_FOUND`
+    or `NOTE_IO_ERROR` (the disk failed on the read or the write)."""
     scope = vault_paths.resolve_sandbox(profile)
     if scope is None:
         return NOTE_DENIED
@@ -153,16 +147,16 @@ def retarget_link(profile: dict[str, Any], rel: str, old: str, new: str) -> int 
     if not os.path.isfile(fp):
         return NOTE_NOT_FOUND
     hits = 0
-    code: list[tuple[int, int]] | None = None
+    in_code: Callable[[int], bool] | None = None
 
     def repl(m: "re.Match[str]") -> str:
-        nonlocal hits, code
+        nonlocal hits, in_code
         head = re.match(r"^([^#|]*)(.*)$", m.group(2))
         if head.group(1).strip() != old:
             return m.group(0)
-        if code is None:
-            code = markdown_code.code_spans(m.string)
-        if markdown_code.inside(code, m.start()):
+        if in_code is None:
+            in_code = markdown_code.in_code(m.string)
+        if in_code(m.start()):
             return m.group(0)
         hits += 1
         return f"{m.group(1)}[[{new}{head.group(2)}]]"
@@ -178,5 +172,5 @@ def retarget_link(profile: dict[str, Any], rel: str, old: str, new: str) -> int 
         return NOTE_NOT_FOUND
     except OSError as e:
         log.warning("[vault] retargeting a link in %s failed: %s", fp, e)
-        return NOTE_DENIED
+        return NOTE_IO_ERROR
     return hits
