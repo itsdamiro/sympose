@@ -544,6 +544,7 @@ export function AppShell() {
             onOpen={(id) => void sessionList.open(id)}
             onRename={sessionList.rename}
             onPin={(id, pinned) => void sessionList.pin(id, pinned)}
+            onArchive={(row) => void sessionList.archive(row)}
             onDelete={sessionList.remove}
             query={vaultSearchQuery}
           />

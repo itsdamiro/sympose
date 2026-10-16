@@ -42,7 +42,7 @@ from sympose import server_trash_handlers as th
 from sympose import server_vault_handlers as vh
 from sympose import vault_paths
 from sympose.server_change_models import AnnotationChange, AnnotationCreate, ChangesResolve, DraftText
-from sympose.server_models import ChatBinAction, ChatCancel, ChatCompact, ChatSessionStart, ChatSessionUpdate, ChatTurn, DefinitionsSwitch, EditModeChoice, FolderDefinition, FolderIcon, FolderMove, FolderMovePlan, FolderRename, HiddenPath, ModelChoice, PersonaFileWrite, SettingChange, SharingChange, SkillAdd, SkillSwitch, TrashEmpty, TrashRestore, VaultActivate
+from sympose.server_models import ChatBinAction, ChatCancel, ChatCompact, ChatSessionArchive, ChatSessionStart, ChatSessionUpdate, ChatTurn, DefinitionsSwitch, EditModeChoice, FolderDefinition, FolderIcon, FolderMove, FolderMovePlan, FolderRename, HiddenPath, ModelChoice, PersonaFileWrite, SettingChange, SharingChange, SkillAdd, SkillSwitch, TrashEmpty, TrashRestore, VaultActivate
 
 
 def create_app() -> FastAPI:
@@ -161,6 +161,10 @@ def create_app() -> FastAPI:
     @app.delete("/api/chat/session/{session_id}")
     def chat_session_delete(session_id: str, persona: str | None = Query(None)) -> dict[str, Any]:
         return sess.delete_session(session_id, persona)
+
+    @app.post("/api/chat/session/{session_id}/archive")
+    def chat_session_archive(session_id: str, body: ChatSessionArchive) -> dict[str, Any]:
+        return sess.archive_session(session_id, body)
 
     @app.post("/api/chat/session")
     def chat_session_start(body: ChatSessionStart) -> dict[str, Any]:

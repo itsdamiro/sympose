@@ -1,6 +1,7 @@
 import * as React from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
+  Archive02Icon,
   Delete02Icon,
   Edit01Icon,
   Message01Icon,
@@ -36,6 +37,7 @@ interface ConversationListProps {
   onOpen: (id: string) => void
   onRename: (id: string, title: string) => Promise<boolean>
   onPin: (id: string, pinned: boolean) => void
+  onArchive: (row: ListedSession) => void
   onDelete: (row: ListedSession) => void
   /** What the toolbar's search field holds (docs/decisions/065): only the conversations whose title has every word. */
   query?: string
@@ -47,10 +49,11 @@ function ConversationRow({
   onOpen,
   onRename,
   onPin,
+  onArchive,
   onDelete,
 }: {
   row: ListedSession
-} & Pick<ConversationListProps, "onOpen" | "onRename" | "onPin" | "onDelete">) {
+} & Pick<ConversationListProps, "onOpen" | "onRename" | "onPin" | "onArchive" | "onDelete">) {
   const [renaming, setRenaming] = React.useState<string | null>(null)
   const [pendingRename, setPendingRename] = React.useState(false)
   const inputRef = React.useRef<HTMLInputElement>(null)
@@ -93,6 +96,14 @@ function ConversationRow({
       <DropdownMenuItem onClick={() => setPendingRename(true)}>
         <HugeiconsIcon icon={Edit01Icon} />
         Rename
+      </DropdownMenuItem>
+      <DropdownMenuItem
+        disabled={row.replying || row.turns < 2}
+        title={row.replying ? "A reply is being written: stop it first" : row.turns < 2 ? "Too short to archive" : undefined}
+        onClick={() => onArchive(row)}
+      >
+        <HugeiconsIcon icon={Archive02Icon} />
+        Archive to note
       </DropdownMenuItem>
       <DropdownMenuItem
         variant="destructive"
@@ -181,7 +192,7 @@ function ConversationGroups({
   rowProps,
 }: {
   sessions: ListedSession[]
-  rowProps: Pick<ConversationListProps, "onOpen" | "onRename" | "onPin" | "onDelete">
+  rowProps: Pick<ConversationListProps, "onOpen" | "onRename" | "onPin" | "onArchive" | "onDelete">
 }) {
   const pinned = sessions.filter((row) => row.pinned_at !== null)
   const recent = sessions.filter((row) => row.pinned_at === null)
@@ -207,10 +218,10 @@ function ConversationGroups({
  * The persona's conversations, on its profile (ADR 057): the pinned ones first, then the rest with the one last
  * used on top. A click opens one in the chat, also while a reply is being written in another; a row shows
  * `replying…` while a reply is being written into it and a dot when one has landed that nobody has read. Pin,
- * Rename and Delete are on the row's `⋯` and on a right-click (a delete goes to the Bin). The list is only its
+ * Rename, Archive to note (a draft in Drafts, ADR 086) and Delete are on the row's `⋯` and on a right-click (a delete goes to the Bin). The list is only its
  * conversations, with no title line and no New button: a new one starts from the icon under the message box.
  */
-function ConversationList({ sessions, onOpen, onRename, onPin, onDelete, query = "", className }: ConversationListProps) {
+function ConversationList({ sessions, onOpen, onRename, onPin, onArchive, onDelete, query = "", className }: ConversationListProps) {
   const shown = query.trim() ? sessions.filter((row) => matchesQuery(row.title || "New conversation", query)) : sessions
   return (
     <section className={cn("flex flex-col gap-2", className)} aria-label="Conversations">
@@ -219,7 +230,7 @@ function ConversationList({ sessions, onOpen, onRename, onPin, onDelete, query =
       ) : shown.length === 0 ? (
         <EmptyState compact icon={Search01Icon} title={`No conversations match "${query.trim()}"`} />
       ) : (
-        <ConversationGroups sessions={shown} rowProps={{ onOpen, onRename, onPin, onDelete }} />
+        <ConversationGroups sessions={shown} rowProps={{ onOpen, onRename, onPin, onArchive, onDelete }} />
       )}
     </section>
   )

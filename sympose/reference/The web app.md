@@ -78,6 +78,12 @@ Yes. The persona's profile, opened from its name at the bottom of the menu, list
 
 The row's ⋯ menu, or a right-click, pins, renames or deletes a conversation, and New starts a fresh one.
 
+## Can I archive a conversation?
+
+Yes: Archive to note, on a conversation's ⋯ menu. It needs at least two messages and no reply being written. The persona's model sums up what you said in a title, what it was about, what was decided and what was left open.
+
+The summary does not exist as a file yet. It waits in Drafts, filed for a folder called Sessions inside the persona's first folder (the top of the vault when the persona sees all of it). Open it, change what you like, and keep it or drop it. With a cloud model your messages go to it, so recaps must be allowed in /share.
+
 ## What is the Knowledge Nebula?
 
 The Knowledge Nebula is a graph of your notes, in 2D or 3D. Each note is a point and the links between notes are the lines. It shows only the folders the active persona may see.

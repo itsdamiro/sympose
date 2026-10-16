@@ -202,6 +202,14 @@ class ChatBinAction(BaseModel):
     id: str | None = None
 
 
+class ChatSessionArchive(BaseModel):
+    """Body of `POST /api/chat/session/<id>/archive` (docs/decisions/086): the persona, and the model to write the note with
+    (else the persona's own)."""
+
+    persona: str | None = None
+    model: str | None = None
+
+
 class ChatSessionUpdate(BaseModel):
     """Body of `PATCH /api/chat/session/<id>` — a new title and/or whether the conversation is pinned
     (docs/decisions/057). What is left out is left as it is."""

@@ -2,7 +2,8 @@ import * as React from "react"
 
 import { confirm } from "@/lib/confirm-store"
 import { notify } from "@/lib/notify"
-import { deleteSession, fetchSessions, updateSession, type SessionRow } from "@/lib/sessions-api"
+import { announceDraftsChanged } from "@/lib/use-drafts"
+import { archiveSession, deleteSession, fetchSessions, updateSession, type SessionRow } from "@/lib/sessions-api"
 
 /** What the chat gives the list: the conversation on screen, what each held conversation is doing, and the means to
  *  open one, start one and drop one (`useChat`). */
@@ -91,6 +92,25 @@ export function useSessionList(persona: string, chat: ChatForList) {
     [persona, forgetConversation, refresh]
   )
 
+  // A conversation being written up: its menu item does nothing a second time while the first call is out.
+  const archiving = React.useRef(new Set<string>())
+  const archive = React.useCallback(
+    async (row: SessionRow) => {
+      if (archiving.current.has(row.id)) return
+      archiving.current.add(row.id)
+      notify.info("Writing the note…")
+      const out = await archiveSession(persona, row.id)
+      archiving.current.delete(row.id)
+      if (!out.ok) {
+        notify.error(out.error)
+        return
+      }
+      announceDraftsChanged()
+      notify.success(`“${out.value}” is waiting in Drafts`)
+    },
+    [persona]
+  )
+
   const open = React.useCallback(
     async (id: string) => {
       if (!(await openConversation(id))) notify.error("Couldn't open that conversation")
@@ -107,6 +127,7 @@ export function useSessionList(persona: string, chat: ChatForList) {
     startNew: newConversation,
     rename: (id: string, title: string) => change(id, { title }),
     pin: (id: string, pinned: boolean) => change(id, { pinned }),
+    archive,
     remove,
   }
 }

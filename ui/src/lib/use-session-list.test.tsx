@@ -2,11 +2,13 @@
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-const api = vi.hoisted(() => ({ fetchSessions: vi.fn(), updateSession: vi.fn(), deleteSession: vi.fn() }))
+const api = vi.hoisted(() => ({ fetchSessions: vi.fn(), updateSession: vi.fn(), deleteSession: vi.fn(), archiveSession: vi.fn() }))
 vi.mock("@/lib/sessions-api", () => api)
 const { confirmMock } = vi.hoisted(() => ({ confirmMock: vi.fn() }))
 vi.mock("@/lib/confirm-store", () => ({ confirm: confirmMock }))
-vi.mock("@/lib/notify", () => ({ notify: { success: vi.fn(), error: vi.fn(), warning: vi.fn() } }))
+vi.mock("@/lib/notify", () => ({ notify: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() } }))
+const { announce } = vi.hoisted(() => ({ announce: vi.fn() }))
+vi.mock("@/lib/use-drafts", () => ({ announceDraftsChanged: announce }))
 
 import { useSessionList } from "./use-session-list"
 
@@ -118,6 +120,31 @@ describe("useSessionList", () => {
     expect(api.deleteSession).toHaveBeenCalledWith("samantha", "b")
     expect(c.forgetConversation).toHaveBeenCalledWith("b")
     expect(result.current.binVersion).toBe(bin + 1)
+  })
+
+  it("archives a conversation: asks the backend once, tells the Drafts section, and says what is waiting", async () => {
+    let finish!: (value: unknown) => void
+    api.archiveSession.mockImplementation(() => new Promise((resolve) => (finish = resolve)))
+    const { result } = renderHook(() => useSessionList("samantha", chat()))
+    await waitFor(() => expect(result.current.sessions).toHaveLength(2))
+    const { notify } = await import("@/lib/notify")
+    act(() => void result.current.archive(result.current.sessions[0]))
+    act(() => void result.current.archive(result.current.sessions[0])) // a second click while the first call is out
+    expect(api.archiveSession).toHaveBeenCalledTimes(1)
+    expect(api.archiveSession).toHaveBeenCalledWith("samantha", "a")
+    await act(async () => finish({ ok: true, value: "2026-10-01 Atlas" }))
+    expect(announce).toHaveBeenCalledTimes(1)
+    expect(notify.success).toHaveBeenCalledWith("“2026-10-01 Atlas” is waiting in Drafts")
+  })
+
+  it("says why an archive was refused and does not touch the Drafts section", async () => {
+    api.archiveSession.mockResolvedValue({ ok: false, error: "That conversation is too short to archive." })
+    const { result } = renderHook(() => useSessionList("samantha", chat()))
+    await waitFor(() => expect(result.current.sessions).toHaveLength(2))
+    await act(async () => void (await result.current.archive(result.current.sessions[0])))
+    const { notify } = await import("@/lib/notify")
+    expect(notify.error).toHaveBeenCalledWith("That conversation is too short to archive.")
+    expect(announce).not.toHaveBeenCalled()
   })
 
   it("keeps the conversation in the chat when the backend refuses the delete", async () => {

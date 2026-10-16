@@ -62,6 +62,12 @@ export function deleteSession(persona: string, id: string) {
   return call(`/api/chat/session/${q(id)}?persona=${q(persona)}`, { method: "DELETE" }, () => undefined)
 }
 
+/** `POST /api/chat/session/<id>/archive` — one model call writes a new-note draft that archives the conversation (ADR 086);
+ *  the vault is not written until the user accepts it. The draft's name comes back. */
+export function archiveSession(persona: string, id: string) {
+  return call(`/api/chat/session/${q(id)}/archive`, json("POST", { persona }), (b) => (b as { draft: { name: string } }).draft.name)
+}
+
 /** `GET /api/chat/sessions/bin` — the persona's deleted conversations, the last deleted first. `null` when unreadable. */
 export async function fetchBinnedSessions(persona: string): Promise<BinnedSession[] | null> {
   const out = await call(`/api/chat/sessions/bin?persona=${q(persona)}`, undefined, (b) => (b as { sessions: BinnedSession[] }).sessions)

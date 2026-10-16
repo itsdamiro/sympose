@@ -463,6 +463,8 @@ REF_CASES: list[RefCase] = [
     RefCase("auto-compact-setting", "what does the auto_compact setting do?", find=("condenses a long conversation",), first="Settings.md"),
     RefCase("deleted-conversation-bin", "how do I get back a conversation I deleted?", find=("Conversations part",), first="The web app.md"),
     RefCase("switch-while-replying", "can I open another conversation while she is still writing a reply?", find=("lands in the conversation it was sent from",)),
+    RefCase("archive-a-conversation", "can I archive a conversation as a note?", find=("Archive to note",), first="The web app.md"),
+    RefCase("archive-where-it-goes", "which folder does Archive to note put the note in?", find=("Sessions",)),
     RefCase("parallel-replies-setting", "what does the parallel_replies setting do?", find=("different conversations of one persona",), first="Settings.md"),
     RefCase("sessions-bin-command", "how do I restore a deleted conversation in the terminal?", find=("/sessions restore",)),
     RefCase("past-chats-setting", "can she read my earlier conversations word for word? what is past_chats?", find=("`past_chats` setting",)),

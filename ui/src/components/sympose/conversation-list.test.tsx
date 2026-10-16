@@ -23,6 +23,7 @@ function setup(sessions: ListedSession[], query = "") {
     onOpen: vi.fn(),
     onRename: vi.fn().mockResolvedValue(true),
     onPin: vi.fn(),
+    onArchive: vi.fn(),
     onDelete: vi.fn(),
   }
   render(<ConversationList sessions={sessions} query={query} {...spies} />)
@@ -128,6 +129,22 @@ describe("ConversationList", () => {
     fireEvent.click(screen.getByRole("button", { name: "Actions for Title b" }))
     fireEvent.click(await screen.findByText("Unpin conversation"))
     expect(again.onPin).toHaveBeenCalledWith("b", false)
+  })
+
+  it("archives from the row's menu, but not a conversation with one message or one being replied to", async () => {
+    const spies = setup([row("a"), row("b", { turns: 1 }), row("c", { replying: true })])
+    fireEvent.click(screen.getByRole("button", { name: "Actions for Title a" }))
+    fireEvent.click(await screen.findByText("Archive to note"))
+    expect(spies.onArchive).toHaveBeenCalledWith(expect.objectContaining({ id: "a" }))
+    for (const name of ["Title b", "Title c"]) {
+      cleanup()
+      const again = setup([row("b", { turns: 1 }), row("c", { replying: true })])
+      fireEvent.click(screen.getByRole("button", { name: `Actions for ${name}` }))
+      const item = (await screen.findByText("Archive to note")).closest("[role=menuitem]") as HTMLElement
+      expect(item.getAttribute("aria-disabled") ?? item.getAttribute("data-disabled")).not.toBeNull()
+      fireEvent.click(item)
+      expect(again.onArchive).not.toHaveBeenCalled()
+    }
   })
 
   it("renames in the row: Enter saves, Escape leaves it, and a name left as it was is not sent", async () => {

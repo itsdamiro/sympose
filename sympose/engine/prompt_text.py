@@ -285,6 +285,17 @@ RECAP_INSTRUCTIONS = (
     f"greeting, small talk, a test message), output exactly: {NO_RECAP}. Output only the recap or {NO_RECAP}, nothing else."
 )
 
+ARCHIVE_INSTRUCTIONS = (
+    "You write a short note that archives a conversation, for the user to keep among their own notes. You are given "
+    "only the user's own messages, in order (the assistant's replies are left out). Start with one line: a title of at "
+    "most six words naming what the conversation was about, with no quotes, no markdown and no full stop. Then a blank "
+    "line, then in at most 200 words of plain Markdown what the conversation was about, then, under the headings "
+    "'## Decided' and '## Left open', short lists of what the user said they had decided and what they left open, each "
+    "heading only when it has something under it. Use only what the user wrote and never invent anything or add advice. "
+    f"If there is nothing worth keeping (a greeting, small talk, a test message), output exactly: {NO_RECAP}. Output only "
+    f"the title line and the note, or {NO_RECAP}, nothing else."
+)
+
 # Sent to the same model to propose a rewrite of profile.md/context.md from the current files and
 # recent recaps (docs/decisions/041's `memory_rewrite`).
 MEMORY_NO_CHANGE = "NO_CHANGE"
