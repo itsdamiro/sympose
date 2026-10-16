@@ -57,4 +57,23 @@ describe("useLinkSources", () => {
     await result.current.embedSource("Atlas")
     expect(fetchVaultNote).toHaveBeenCalledWith("Atlas.md", "other")
   })
+
+  it("reads the open note from the live value for an image, with the same function identity", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true })
+    vi.stubGlobal("fetch", fetchMock)
+    const { result, rerender } = renderHook(
+      ({ from }) => useLinkSources([], graphWith("x"), "samantha", from),
+      { initialProps: { from: "Old.md" } }
+    )
+    const first = result.current
+    rerender({ from: "Folder/New.md" })
+    expect(result.current.imageSource).toBe(first.imageSource)
+    await result.current.imageSource("a.png", "")
+    await result.current.embedSource("b.png")
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      "/api/vault/image?path=a.png&from=Folder%2FNew.md&persona=samantha",
+      "/api/vault/image?path=b.png&from=Folder%2FNew.md&persona=samantha",
+    ])
+    vi.unstubAllGlobals()
+  })
 })

@@ -2,14 +2,16 @@ import type { ReactNode } from "react"
 import { Stylo } from "@damiro/stylo"
 import type { VaultNode } from "@/components/sympose"
 import { findNoteByWikilink } from "./find-note-by-wikilink"
+import { isImageRef, resolveImage } from "./resolve-image"
 import { fetchVaultNote } from "./vault-note-api"
 
 /**
  * Resolves one `![[ref]]` note embed for stylo's `embedSource` — its
  * content rendered read-only via a nested `<Stylo mode="preview">`. Returns
  * `null` (stylo's "keep it literal" signal) when `ref` is empty, doesn't
- * resolve to a note in the sandboxed tree, or the note fetch fails. Image
- * embeds aren't handled — asset serving isn't implemented on the backend.
+ * resolve to a note in the sandboxed tree, or the note fetch fails. An embed
+ * of an image file (`![[shot.png|300]]`) goes to `resolveImage` instead, with
+ * `from` the open note's path (docs/decisions/085).
  *
  * A `#Heading` / `#^blockid` suffix is recognized and stripped before
  * resolving, but not yet honored — a heading-scoped embed transcludes the
@@ -24,9 +26,13 @@ import { fetchVaultNote } from "./vault-note-api"
 export async function resolveEmbed(
   tree: VaultNode[],
   persona: string,
-  ref: string
+  ref: string,
+  from = ""
 ): Promise<ReactNode> {
-  const rawTarget = ref.split("|")[0]
+  const [rawTarget, hint] = ref.split("|")
+  if (rawTarget !== undefined && isImageRef(rawTarget.trim())) {
+    return resolveImage(persona, from, rawTarget, rawTarget.trim().split("/").pop() ?? "", hint)
+  }
   const path = rawTarget?.split("#")[0]?.trim()
   if (!path) return null
 

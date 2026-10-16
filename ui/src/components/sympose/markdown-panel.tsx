@@ -2,6 +2,7 @@ import * as React from "react"
 import {
   Stylo,
   type EmbedSource,
+  type ImageSource,
   type StyloHandle,
   type TagSource,
   type TaskToggleInfo,
@@ -76,6 +77,8 @@ interface MarkdownPanelProps extends React.ComponentProps<"div"> {
    *  on the in-place canvas (stylo `>=0.13.x`); omit to leave `![[ref]]`
    *  literal. */
   embedSource?: EmbedSource
+  /** Draws `![alt](path)` images (stylo `>=0.24.0`); omit to leave them literal. */
+  imageSource?: ImageSource
   /** The open note was renamed — value is its new vault-relative path. */
   /** Bumped each time a note is opened from the chat: the editor then shows it in preview (read) mode. */
   previewRequest?: number
@@ -198,6 +201,7 @@ function MarkdownPanel({
   wikiLinkSource,
   tagSource,
   embedSource,
+  imageSource,
   onRenamed,
   onDeleted,
   previewRequest = 0,
@@ -591,6 +595,7 @@ function MarkdownPanel({
       wikiLinkSource={wikiLinkSource}
       tagSource={tagSource}
       embedSource={embedSource}
+      imageSource={imageSource}
       onLinkClick={openMarkdownLink}
       onTaskToggle={handleTaskToggle}
       mode={readOnly ? "preview" : surface}

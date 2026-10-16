@@ -340,10 +340,12 @@ export function AppShell() {
   // panel's footer, never asked for while a persona's own file is open.
   const related = useRelatedNotes(fileEditor.path ? undefined : openableNote, activePersona)
   const showRelated = related.enabled && related.related.some((note) => !note.hidden)
-  const { wikiLinkSource, tagSource, embedSource } = useLinkSources(
+  const { wikiLinkSource, tagSource, embedSource, imageSource } = useLinkSources(
     vaultTree,
     nebulaGraph,
-    activePersona
+    activePersona,
+    // Where a relative image path starts: the note or draft shown, and nothing for a persona's own file.
+    draftEditor.path ?? (fileEditor.path ? undefined : openableNote)
   )
 
   const { menuShown, isSentinel, resolvedActive, revealMenu, selectSection } =
@@ -809,6 +811,7 @@ export function AppShell() {
             wikiLinkSource={wikiLinkSource}
             tagSource={tagSource}
             embedSource={embedSource}
+            imageSource={imageSource}
             previewRequest={previewRequest}
             onRenamed={onEditorRenamed}
             onDeleted={onEditorDeleted}
