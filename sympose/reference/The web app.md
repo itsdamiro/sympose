@@ -6,6 +6,12 @@ The web app, also called the dashboard, is Sympose's browser app for your vault.
 
 Browse your notes and folders in a tree, edit notes in a markdown editor, create, rename, move and delete notes and folders, search the whole vault from the search bar, and switch or add vaults from the workspace switcher.
 
+## Do pictures in my notes show in the web app?
+
+Yes. A picture written `![[shot.png]]` or `![description](assets/shot.png)` is drawn in the editor when it stands alone on its line. A size can follow a bar: `![[shot.png|300]]` is 300 pixels wide and `![[shot.png|300x200]]` is 300 by 200. PNG, JPEG, WebP, GIF and SVG show, up to 20 MB each, from any folder of the vault, including Attachments.
+
+A name with no folder is looked for from the vault's root, then from the note's folder, then in every folder the persona may see, the shortest path first. A picture from a web address (http, https or data) is never loaded and stays as written, and so does a reference to a file that is not there. Pictures are not listed in the tree, the graph or the search, and a persona does not see them.
+
 ## What happens to links when I rename a note?
 
 The web app updates the wikilinks (the double-bracket kind) in every other note that points at it, and touches nothing else in those notes. Two limits: links written as Markdown links, like [text](Target.md), are not updated, and a wikilink you show as an example inside a code block or in inline code is changed too, which Obsidian would not do. Check such a note after a rename.

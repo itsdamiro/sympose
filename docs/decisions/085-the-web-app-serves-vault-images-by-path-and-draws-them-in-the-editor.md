@@ -11,7 +11,7 @@ tags: [type/decision, status/accepted, project/sympose, topic/web-app, topic/dat
 
 # 085 — The web app serves vault images by path and draws them in the editor
 
-> **Summary.** One new read-only route serves one image file of the vault (PNG, JPEG, WebP, GIF, SVG), found by its path, and the editor draws `![[shot.png]]` and `![alt](path)` through it, so a note with screenshots reads as it does in Obsidian. It is a route of its own: an image never enters the tree, the graph, search, the persona's context or the vault map. Not built yet (#129); this records the rules first.
+> **Summary.** One new read-only route serves one image file of the vault (PNG, JPEG, WebP, GIF, SVG), found by its path, and the editor draws `![[shot.png]]` and `![alt](path)` through it, so a note with screenshots reads as it does in Obsidian. It is a route of its own: an image never enters the tree, the graph, search, the persona's context or the vault map. Built (#129, 2026-10-16); the last section says where the build differs from the plan.
 
 ## Context
 
@@ -66,3 +66,16 @@ Raw inline HTML or `<svg>` in a note, `data:` and remote images, pasting or uplo
 - **Resolve a bare name through the web app's tree.** The tree holds notes only, and adding files to it touches the persona (ADR 037 and the tree's own readers). Rejected; revisit if the walk the route does for a bare name is slow on a very large vault (it walks once per unresolved bare name, cached by the browser after the first answer).
 - **Apply "hiding a folder hides its images".** ADR 037 hides from the tree, search and graph; an image is none of those and a hidden folder is often exactly where the pictures are. Rejected on the owner's word.
 - **Only an exact path, as ADR 047 does for notes.** Safer, but Obsidian users write `![[shot.png]]` and keep the file in `assets/`; their notes would stay unread. Rejected for a display-only route.
+
+## Built (2026-10-16)
+
+Same as decided, with these details the plan left open:
+
+- **Refusals.** Everything the route does not serve (a missing file, a path outside the persona's folders, a dot folder, an absolute path, a type not on the list) is a plain 404, so the web app's `HEAD` leaves the reference as text and a refusal does not tell a path that exists from one that does not. Only a file over the limit says why (413). `sympose/vault_image.py` finds the file, `sympose/server_image_handlers.py` serves it.
+- **Reading a reference.** A backslash is read as a slash, and `![alt](my%20shot.png)` and `![alt](<my shot.png>)` are asked for as `my shot.png`. An alt ending in `|300` or `|300x200` is read as a size and cut from the alt text; any other bar stays in the alt.
+- **Only an image on its own line draws.** That is Stylo's rule for `imageSource`; a picture inside a sentence, a list item or a table cell stays as source. An image inside an embedded note stays as source too: the nested preview has no sources of its own (the one-level depth cap of `resolve-embed.tsx`).
+- **Code:** `ui/src/lib/resolve-image.tsx` (one function for both hooks), `vault-image-api.ts`, `useLinkSources` returns `imageSource` and takes the open note's path.
+- **Checked** on a scratch vault in headless Chrome (a root path, `Attachments`, a bare name found in another folder, an SVG, `|100`, `|120x60`, `![sized|150](…)`; a missing file and an `https:` image stayed as source; no request went to the remote address). The backend tests (31) and the resolver tests cover the refusals the plan listed. Mutation check: 14 of 19 route mutants were caught at first; three survivors got tests (an absolute path, a folder-relative path, a backslash) and two give the same answer by design (a guard that only saves a walk, and skipping dot folders during the walk, which `_served` refuses anyway). Of 13 resolver mutants 12 were caught; the survivor was a style the browser applies by default, and it was removed.
+- **Known cost, not changed:** a bare name walks the folders the persona can read, and the web app asks `HEAD` and then `GET`, so each such image costs two walks (the browser reuses the `GET`, not the `HEAD`). The plan said the answer is cached; only the picture is. It is the revisit the "Alternatives rejected" section named: if a very large vault is slow, cache the name index by the folders' modification times, or drop the `HEAD`.
+- **The open note's path (`from`)** is the note or draft the editor shows; a persona's own file gets none, because it is not a vault path.
+
