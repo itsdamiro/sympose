@@ -205,3 +205,11 @@ Scratch data and invented notes only, local models, manual mode with the product
 **What `gemma4:e4b` gets wrong in a draft** is an empty reply (no text, no call) in most misses, and in some a reply that says it drafted the note without calling the tool, which the user sees as no draft; no run invented vault content. Nothing in the prompt fixed it here, and no wording was tried.
 
 **Conclusion.** The cost "a small model cannot comment or draft with a note open without costing its edits" was `gemma2:9b`'s marker shape, as ADR 072 found on 2026-10-06 (the setting `show_note_marker` stays off by default). A model that can call tools comments and drafts at no measured cost to its edits, so the lines stay and no change is made. Not measured: a long note (the cap is 12000 characters), more than the one invented note, a cloud model.
+
+## Measured (2026-10-16): the comment and draft lines on Gemini Flash
+
+**What.** The measurement of the section above on a cloud model: `gemini/gemini-flash-latest`, the tool shape (`EDIT_TOOL=1`), `manual` wording, 4 runs per case, with the comment and new-note lines and without them (`EDIT_LEAN=1`). Invented notes only and Samantha's shipped prompt, on damiro's go-ahead for this scratch cloud run.
+
+**Result.** Edits 36 of 36 correct with the lines and 36 of 36 without, none placed wrong; no unasked proposal in 12 of 12 both ways; comments 12 of 12 both ways; drafts 11 of 12 with the lines and 12 of 12 without, the one miss a connection timeout (the call returned no reply), not an answer.
+
+**What it says.** The lines cost Flash nothing measured on edits, quiet cases or comments, as on the local models with tools; the draft difference is one dropped connection. No change. Still not measured: a long note (the cap is 12000 characters), more than the one invented note, a cloud model other than Flash.
