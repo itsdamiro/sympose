@@ -2,12 +2,14 @@
 the call goes straight to Google, the persona is told what happened either way, and the record names it. The model
 is a fake; the persona and settings are temporary."""
 
+import json
+
 import pytest
 from helpers import write_persona
 
-from sympose import settings_store
-from sympose.engine import memory, session, sharing, tool_support, turn, web_access
-from sympose.engine.model import ModelReply
+from sympose import note_changes_store, settings_store
+from sympose.engine import memory, session, sharing, skills, tool_support, turn, web_access
+from sympose.engine.model import EngineModelError, ModelReply
 from sympose.engine.model_tools import ToolCall
 from sympose.engine.prompt_text import WATCHING, WITHHELD_WEB
 
@@ -126,3 +128,63 @@ def test_a_turn_that_watches_a_video_is_not_given_remember_so_the_video_cannot_s
     watched, plain = calls
     assert watched["via"] == "direct" and not watched.get("tools")
     assert plain["via"] == "call_model" and plain["tools"] and any(t["function"]["name"] == "remember" for t in plain["tools"])
+
+
+def with_the_capture_skill(tmp_path, monkeypatch):
+    """Samantha carries the capture skill and may propose a note (the web app's call: `edits`)."""
+    base = tmp_path / "profiles"
+    write_persona(base, "samantha", f"name: Samantha\nvault_folders: []\nsympose_reference: false\nskills: ['{skills.CAPTURE}']\n")
+    monkeypatch.setenv("SYMPOSE_PROFILES_DIR", str(base))
+
+
+def test_a_video_turn_is_given_the_capture_skill_and_the_videos_address_even_when_the_message_is_only_a_link(tmp_path, monkeypatch, calls):
+    with_the_capture_skill(tmp_path, monkeypatch)
+    sharing.set_approved(sharing.WEB, True)
+
+    first = turn.run_turn("samantha", LINK, model=CLOUD, edits=True)
+    turn.run_turn("samantha", "save that as a note", model=CLOUD, edits=True, session_id=first.session_id)  # the link is carried
+
+    for sent in calls:
+        content = sent["messages"][-1]["content"]
+        assert f"Skill: {skills.CAPTURE}" in content and f"The video: {ADDRESS}" in content and WATCHING in content
+
+
+def test_no_capture_skill_without_a_video_to_watch_or_a_way_to_show_a_proposal(tmp_path, monkeypatch, calls):
+    with_the_capture_skill(tmp_path, monkeypatch)
+    turn.run_turn("samantha", f"make a note from {LINK}", model=CLOUD, edits=True)  # `web` not allowed: nothing watched
+    sharing.set_approved(sharing.WEB, True)
+    turn.run_turn("samantha", f"make a note from {LINK}", model=LOCAL, edits=True)  # a model that cannot watch
+    turn.run_turn("samantha", f"make a note from {LINK}", model=CLOUD)  # the terminal: nowhere to show a proposal
+
+    assert all("Skill:" not in c["messages"][-1]["content"] for c in calls)
+
+
+def filed_texts():
+    return [p["text"] for e in note_changes_store.entries("samantha") for p in e["proposals"] if p.get("kind") == "create"]
+
+
+def test_a_note_proposed_on_a_video_turn_has_its_timestamps_linked_by_the_tool_and_by_the_marker(monkeypatch):
+    sharing.set_approved(sharing.WEB, True)
+    stamped = "- [2:30] The first part"
+    note = json.dumps({"title": "Talk", "text": f"# Talk\n\n{stamped}", "say": "Drafted."})
+    answers = [ModelReply("", 5, tool_calls=(ToolCall("call_0", "propose_note", note),)), ModelReply("Drafted it.", 5)]
+    monkeypatch.setattr(turn.gemini_direct, "call", lambda messages, model=None, **kwargs: answers.pop(0))
+
+    turn.run_turn("samantha", f"make a note from {LINK}", model=CLOUD, edits=True)
+
+    assert filed_texts() == [f"# Talk\n\n- [2:30]({ADDRESS}&t=150s) The first part"]  # one note so far, so its place does not matter
+
+    # The model refuses tools on the first call, so the turn is run again with the marker instead.
+    other = json.dumps({"title": "Talk two", "text": "# Talk two\n\n- [0:45] Another", "say": "Drafted."})
+    refused = [EngineModelError("no tools"), ModelReply(f"Done. <!-- propose_note: {other} -->", 5)]
+
+    def direct(messages, model=None, **kwargs):
+        step = refused.pop(0)
+        if isinstance(step, Exception):
+            raise step
+        return step
+
+    monkeypatch.setattr(turn.gemini_direct, "call", direct)
+    turn.run_turn("samantha", f"make another note from {LINK}", model=CLOUD, edits=True)
+
+    assert len(filed_texts()) == 2 and any(f"- [0:45]({ADDRESS}&t=45s) Another" in text for text in filed_texts())

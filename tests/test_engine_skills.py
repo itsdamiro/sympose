@@ -266,13 +266,27 @@ def test_the_skill_sits_right_before_the_message():
     assert prompt.build_user_turn("hi", []).count("Skill") == 0
 
 
-def test_the_bundled_skills_are_valid_and_samantha_carries_both():
+def test_the_bundled_skills_are_valid_and_samantha_carries_all_of_them():
     import yaml
 
     bundled_names = {s.name for s in skills._read(skills.BUNDLED_DIR, "bundled")}
     with open("profiles/samantha/persona.yaml", encoding="utf-8") as f:
         wanted = set(yaml.safe_load(f)["skills"])
 
-    # Both were measured on gemma4:e4b and Gemini Flash (docs/decisions/077, amendments).
-    assert bundled_names == {"deriving-a-persona-soul", "drafting-a-note-in-a-folders-style"}
+    # The first two were measured on gemma4:e4b and Gemini Flash (docs/decisions/077, amendments); the third is for Flash's video turn (089).
+    assert bundled_names == {"deriving-a-persona-soul", "drafting-a-note-in-a-folders-style", skills.CAPTURE}
     assert wanted == bundled_names
+
+
+def test_the_capture_skill_is_given_to_a_video_turn_and_never_matched_by_words(monkeypatch):
+    persona = {"handle": "samantha", "skills": [skills.CAPTURE]}
+    tools = skills.tools_of(False, True, True)
+
+    assert skills.for_video(persona, tools).name == skills.CAPTURE
+    # Its description matches this message well, but the match is for a turn that watches nothing.
+    assert skills.select(persona, "save study notes from this video link as a note", tools, False) is None
+    # Not carried, not carried out (no way to show a proposal), or skills off: nothing.
+    assert skills.for_video({"handle": "samantha", "skills": []}, tools) is None
+    assert skills.for_video(persona, skills.tools_of(False, False)) is None
+    monkeypatch.setattr(skills.settings_store, "get", lambda key, *a: skills.OFF if key == skills.LOOKUP_SETTING else None)
+    assert skills.for_video(persona, tools) is None

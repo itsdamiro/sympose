@@ -18,7 +18,7 @@ import re
 from typing import Any
 
 from sympose import note_changes
-from sympose.engine import lookup_scope
+from sympose.engine import lookup_scope, video_stamps
 from sympose.engine.lookup_result import Result
 
 EDIT, NOTE, COMMENT, SHOW = "propose_edit", "propose_note", "comment_on", "show_note"
@@ -112,8 +112,10 @@ def _arguments(name: str, raw: str | dict[str, Any] | None) -> dict[str, str] | 
 
 def _propose(
     handle: str, path: str | None, text: str | None, name: str, raw: str | dict[str, Any] | None, scope: tuple[tuple[int, int], ...] = (),
+    videos: tuple[str, ...] = (),
 ) -> tuple[bool, str]:
-    """`(saved, what happened)`: the one place a tool call and a marker both end."""
+    """`(saved, what happened)`: the one place a tool call and a marker both end. `videos` are the ones this turn watched:
+    a new note's bare timestamps become links to the moment (`video_stamps`)."""
     args = _arguments(name, raw)
     if args is None:
         return False, _BAD.format(name=name, fields=", ".join(_FIELDS[name]))
@@ -123,7 +125,7 @@ def _propose(
                 return False, _NO_NOTE
             note_changes.comment_on(handle, path, text, quote=args["find"], text=args["text"], author="persona", within=scope)
         elif name == NOTE:
-            note_changes.propose_create(handle, note_changes.new_note_path(), fenced(args["text"]), say=args["say"], title=args["title"] or None, folder=args["folder"] or None)
+            note_changes.propose_create(handle, note_changes.new_note_path(), video_stamps.link(fenced(args["text"]), videos), say=args["say"], title=args["title"] or None, folder=args["folder"] or None)
         elif path is None or text is None:
             return False, _NO_NOTE
         else:
@@ -146,7 +148,7 @@ def _show(profile: dict[str, Any] | None, raw: str | dict[str, Any] | None) -> t
 
 def run(
     handle: str, note_path: str | None, note_text: str | None, name: str, raw: str | dict[str, Any] | None,
-    profile: dict[str, Any] | None = None, scope: tuple[tuple[int, int], ...] = (),
+    profile: dict[str, Any] | None = None, scope: tuple[tuple[int, int], ...] = (), videos: tuple[str, ...] = (),
 ) -> Result | None:
     """The tool's result, or `None` for a name that is not ours so it composes in `persona_tools`."""
     if name not in _FIELDS:
@@ -154,12 +156,13 @@ def run(
     if name == SHOW:
         opened, said, path = _show(profile, raw)
         return Result(said if opened else said + _ASK_WHICH, lookup={"tool": name, "saved": opened, **({"path": path} if path else {})})
-    saved, said = _propose(handle, note_path, note_text, name, raw, scope)
+    saved, said = _propose(handle, note_path, note_text, name, raw, scope, videos)
     return Result(said, lookup={"tool": name, "saved": saved})
 
 
 def apply_marker(
     handle: str, note_path: str | None, note_text: str | None, reply: str, profile: dict[str, Any] | None = None,
+    videos: tuple[str, ...] = (),
 ) -> tuple[str, list[dict[str, Any]]]:
     """`reply` with every marker removed and filed as a proposal, and a record per marker (the same shape a tool
     call leaves). A marker that could not be placed adds one line saying so to what is shown. A reply with no marker
@@ -174,7 +177,7 @@ def apply_marker(
             saved, said, shown_path = _show(profile, found.group(2))
             record: dict[str, Any] = {"tool": name, "saved": saved, **({"path": shown_path} if shown_path else {})}
         else:
-            saved, said = _propose(handle, note_path, note_text, name, found.group(2))
+            saved, said = _propose(handle, note_path, note_text, name, found.group(2), videos=videos)
             record = {"tool": name, "saved": saved}
         if not saved:
             record["reason"] = said

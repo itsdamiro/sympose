@@ -54,11 +54,11 @@ _UNKNOWN_TOOL = "There is no tool called {name}."
 
 def for_turn(
     ask: bool, remember: bool, chats: bool = False, session_id: str | None = None, edit: edit_turn.Edit | None = None,
-    persona: dict[str, Any] | None = None, share_folders: bool = True,
+    persona: dict[str, Any] | None = None, share_folders: bool = True, videos: tuple[str, ...] = (),
 ) -> tuple[list[dict[str, Any]], Callable[..., Any]] | None:
     """`(tools, run)` for a turn that gets `ask`'s vault tools, `remember`'s memory tool, `chats`' tools for
     earlier conversations (`session_id` is the one in progress, never searched), or any mix; `None` when none applies, so the caller knows the tool-calling loop does not need
-    to run at all this turn. `run` only ever reaches `lookup_tools` when `ask` is true: a vault
+    to run at all this turn. `videos` are the ones the turn watched (a new note's timestamps link to them). `run` only ever reaches `lookup_tools` when `ask` is true: a vault
     tool must never run just because a model calls it by name -- a persona given only `remember`
     (`ask` off) must not be able to search or open notes by guessing `search_notes`/`open_note`."""
     giving_edit = edit is not None and edit.active and edit.tool
@@ -78,7 +78,7 @@ def for_turn(
                 return result
         if giving_edit:
             opened = edit.source
-            result = edit_tools.run(persona["handle"], opened.path if opened else None, opened.text if opened else None, name, raw_arguments, persona, edit.scope)
+            result = edit_tools.run(persona["handle"], opened.path if opened else None, opened.text if opened else None, name, raw_arguments, persona, edit.scope, videos)
             if result is not None:
                 return result
         if giving_persona:

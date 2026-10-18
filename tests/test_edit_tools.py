@@ -333,3 +333,32 @@ def test_a_proposed_note_is_filed_with_its_properties_fenced():
 
     (p,) = [p for e in store.entries(H) for p in e["proposals"] if p.get("kind") == "create"]
     assert p["text"] == "---\ntype: recipe\ntags:\n---\n# Pesto"
+
+
+VIDEO = "https://www.youtube.com/watch?v=8jPQjjsBbIc"
+OUTLINE = "---\nsource: " + VIDEO + "\n---\n## Outline\n\n- [0:00] Start\n- [1:02:15] Late\n- [3:75] Not a time\n- [2:05](https://x.test) Linked\n"
+
+
+def new_texts() -> list[str]:
+    return [p["text"] for entry in store.entries(H) for p in entry["proposals"] if p.get("kind") == "create"]
+
+
+def test_a_new_notes_bare_timestamps_link_to_the_one_video_watched_by_the_tool_and_the_marker():
+    raw = {"text": OUTLINE, "title": "Talk notes", "say": "A new note."}
+
+    et.run(H, None, None, "propose_note", raw, videos=(VIDEO,))
+    again = {**raw, "title": "Talk notes again", "text": OUTLINE + "- [9:00] More\n"}
+    et.apply_marker(H, None, None, f"<!-- propose_note: {json.dumps(again)} -->", videos=(VIDEO,))
+
+    assert len(new_texts()) == 2
+    for text in new_texts():
+        assert f"- [0:00]({VIDEO}&t=0s) Start" in text
+        assert f"- [1:02:15]({VIDEO}&t=3735s) Late" in text
+        assert "[3:75]" in text and "[3:75](" not in text and "[2:05](https://x.test)" in text
+
+
+def test_timestamps_are_left_alone_with_no_video_or_with_several():
+    et.run(H, None, None, "propose_note", {"text": "- [0:30] x", "title": "One", "say": "s"})
+    et.run(H, None, None, "propose_note", {"text": "- [0:30] y", "title": "Two", "say": "s"}, videos=(VIDEO, VIDEO + "2"))
+
+    assert sorted(new_texts()) == ["- [0:30] x", "- [0:30] y"]

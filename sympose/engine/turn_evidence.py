@@ -110,13 +110,16 @@ def gather(
         withheld[sharing.MEMORY] = 1
 
     editing = modes.edit is not None and modes.edit.active
-    chosen = skills.select(persona, user_message, skills.tools_of(modes.ask, editing, editing and modes.edit.tool), sharing.is_local(target_model))
+    watch = web_access.resolve(target_model, user_message, history)  # a link read by the model's maker is its own category (docs/decisions/089)
+    tools = skills.tools_of(modes.ask, editing, editing and modes.edit.tool)
+    chosen = (skills.for_video(persona, tools) if watch.links else None) or skills.select(persona, user_message, tools, sharing.is_local(target_model))
     skill_text = skills.text_for(chosen) if chosen else None
     if chosen and chosen.context == skills.FOLDER and sharing.NOTES in sharing.allowed(target_model):
         shape = skill_folder.shape_for(persona, user_message)  # the folder's own notes: a cloud model gets them only as it may
         skill_text = f"{skill_text}\n\n{shape}" if shape else skill_text
+    if chosen and chosen.name == skills.CAPTURE:
+        skill_text = f"{skill_text}\n\nThe video: {', '.join(watch.links)}"  # its address as the note's source, never the model's to retype
     reference_found = sum(1 for h in gated.grounding if h.get("source") == reference.SOURCE)
-    watch = web_access.resolve(target_model, user_message, history)  # a link read by the model's maker is its own category (docs/decisions/089)
     if watch.withheld:
         withheld[sharing.WEB] = 1
     return Evidence(

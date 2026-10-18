@@ -41,6 +41,7 @@ MAX_FILE = 20_000  # bytes; a larger file is not read (a copied-in skill is untr
 MAX_DESCRIPTION = 400
 TOOL_CALLS = "tool_calls"
 FOLDER = "folder"
+CAPTURE = "capturing-from-a-link"  # the skill a turn that watches a video is given (docs/decisions/089)
 CUT_NOTE = "[The rest of this skill was left out to fit.]"
 _NAME = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")  # ASCII only: the name is also the folder's
 _HEADER_END = re.compile(r"^---[ \t]*$", re.MULTILINE)  # a line of its own, not a longer run of dashes
@@ -173,11 +174,11 @@ def can_carry_out(skill: Skill, tools: frozenset[str]) -> bool:
 
 def select(persona: dict[str, Any], message: str, tools: frozenset[str], local: bool) -> Skill | None:
     """The skill that best matches `message`, or `None`: skills are off, none is carried, none can be carried out, or
-    none shares enough with the message. A skill of the persona's own is the user's private text, so a model that is
+    none shares enough with the message (the capture skill is never matched here: it is for a turn that watches a video, `for_video`). A skill of the persona's own is the user's private text, so a model that is
     not local (`local` false) is never given one: the bundled skills are public (docs/decisions/031)."""
     if mode() != AUTO:
         return None
-    usable = [s for s in carried(persona) if can_carry_out(s, tools) and (local or s.source == "bundled")]
+    usable = [s for s in carried(persona) if s.name != CAPTURE and can_carry_out(s, tools) and (local or s.source == "bundled")]
     if not usable:
         return None
     notes = [
@@ -186,6 +187,17 @@ def select(persona: dict[str, Any], message: str, tools: frozenset[str], local: 
     ]
     hits = retrieve(build_index(notes, paired=False), message, 1, strict=True)
     return next((s for s in usable if hits and s.name == hits[0]["rel_path"]), None)
+
+
+def for_video(persona: dict[str, Any], tools: frozenset[str]) -> Skill | None:
+    """The capture skill on a turn that watches a video, or `None` when the persona does not carry it or cannot carry it
+    out (no way to show a proposal). A message that is only a link, or a later one that says "save that", shares almost
+    no words with the skill's description, so retrieval would not find it; the watch is the signal, the same one that
+    attaches the video. The skill's own first line leaves a message that does not ask for a note alone. It is bundled, so
+    it may go to a cloud model."""
+    if mode() != AUTO:
+        return None
+    return next((s for s in carried(persona) if s.name == CAPTURE and s.source == "bundled" and can_carry_out(s, tools)), None)
 
 
 def text_for(skill: Skill) -> str:

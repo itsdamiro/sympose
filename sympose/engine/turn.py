@@ -154,7 +154,7 @@ def _run(
     lookups: list[dict[str, Any]] = []
     # A video linked in the message is watched by the model's maker, so the call goes straight to Google (docs/decisions/089).
     watch_call = functools.partial(gemini_direct.call, links=found.watch.links) if found.watch.links else None
-    tools = persona_tools.for_turn(ask, remember == memory.TOOL, modes.chats, sid, modes.edit, persona, found.map_allowed)
+    tools = persona_tools.for_turn(ask, remember == memory.TOOL, modes.chats, sid, modes.edit, persona, found.map_allowed, found.watch.links)
     if tools:
         tool_list, run_tool = tools
         done = lookup.converse(
@@ -195,7 +195,7 @@ def _run(
     if modes.edit and modes.edit.active and not modes.edit.tool:  # the same for a proposal (docs/decisions/072)
         opened = modes.edit.source
         reply_text, edit_lookups = edit_tools.apply_marker(
-            handle, opened.path if opened else None, opened.text if opened else None, reply_text, persona,
+            handle, opened.path if opened else None, opened.text if opened else None, reply_text, persona, found.watch.links,
         )
         lookups += edit_lookups
     if modes.edit and modes.edit.active and unfiled.said_but_not_filed(reply_text, lookups):  # a draft that was said and not filed (docs/decisions/082)

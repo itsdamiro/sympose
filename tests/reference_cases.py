@@ -466,6 +466,7 @@ REF_CASES: list[RefCase] = [
     RefCase("archive-a-conversation", "can I archive a conversation as a note?", find=("Archive to note",), first="The web app.md"),
     RefCase("archive-where-it-goes", "which folder does Archive to note put the note in?", find=("Sessions",)),
     RefCase("watch-a-youtube-video", "can Samantha watch a YouTube video if I paste the link?", find=("web_access",), first="Not built yet.md"),
+    RefCase("note-from-a-video", "can Samantha make a note from a YouTube video with timestamps?", find=("times that link to that moment",), first="Not built yet.md"),
     RefCase("video-link-allowed", "why did she say she could not open my video link?", find=("web_access",)),
     RefCase("parallel-replies-setting", "what does the parallel_replies setting do?", find=("different conversations of one persona",), first="Settings.md"),
     RefCase("sessions-bin-command", "how do I restore a deleted conversation in the terminal?", find=("/sessions restore",)),

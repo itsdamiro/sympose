@@ -14,7 +14,7 @@ Small models make more mistakes editing, so read each change before you accept i
 
 ## Can Samantha watch a YouTube video if I paste the link?
 
-Yes, with Gemini Flash, a cloud model, once you allow `"web"` with /share or in Settings under Cloud models. The link is sent to Google, who watch the video for her. She cannot follow other links or search the web. See `web_access`.
+Yes, with Gemini Flash, a cloud model, once you allow `"web"` with /share or in Settings under Cloud models. Google watches the video for the persona. Ask for a note and it proposes one: an outline with times that link to that moment of the video, and the video's address as its source. Your Accept files it. Other links and web search do not work. See `web_access`.
 
 ## Can Samantha do things for me?
 

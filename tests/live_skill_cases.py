@@ -6,7 +6,8 @@ Opt-in and not deterministic; every figure is a fact about the model it ran on. 
 
     [SKILLS=off] python tests/live_skill_cases.py [-v] [runs] [model ...]       (default model: ollama_chat/gemma2:9b)
 
-`SKILLS=off` is the baseline (the same code with `skill_lookup` off); without it the skills are on.
+`SKILLS=off` is the baseline (the same code with `skill_lookup` off); without it the skills are on. `ONLY=capture` runs the
+cases whose id contains that text.
 
 A case passes when the reply, together with the text of any new note she proposed, matches every `expect` pattern and
 none of the `forbid` ones (a drafting case also needs a note actually proposed, which matches every `draft_expect` and
@@ -36,8 +37,11 @@ class SkillCase:
     needs_draft: bool = False  # a note must have reached the proposals (`propose_note`), not only her reply
     draft_expect: tuple[str, ...] = ()  # patterns the proposed note's own text must match
     draft_forbid: tuple[str, ...] = ()  # patterns it must not (a property or an amount the user never gave)
+    no_draft: bool = False  # nothing may have reached the proposals (a summary asked for in chat files no note)
+    video: bool = False  # a public YouTube link is in the messages: the direct path to Gemini Flash only (docs/decisions/089), run for no other model
 
 
+TALK = "https://www.youtube.com/watch?v=8jPQjjsBbIc"  # a public 12-minute talk, the one the spike measured (docs/decisions/089)
 _ENGINE_WORDS = r"propose_note|propose_edit|tool call|zero[- ]hallucination|never (?:invent|make up|fabricate)|you (?:must|shall) (?:always )?cite"
 _USER_FACTS = r"\bOslo\b|\bnurse\b|\bSam\b"
 
@@ -92,6 +96,32 @@ CASES: list[SkillCase] = [
         draft_expect=(r"(?s)\A\s*---\n.*type: recipe.*\n---\n.*## Ingredients.*basil.*## Steps.*## Notes", r"pine nuts"),
         draft_forbid=(r"rating:[ \t]*\S", r"tags:[ \t]*\S", r"servings:[ \t]*\S", r"time:[ \t]*\S"),
     ),
+    # The capture skill (docs/decisions/089): a real video, so Gemini Flash and the user's go-ahead for a run that sends a link to Google.
+    SkillCase(
+        "capture-makes-a-note-with-timestamps-and-its-source", "capturing-from-a-link",
+        (f"Make study notes from {TALK} and save them as a note.",),
+        needs_draft=True,
+        draft_expect=(
+            r"(?s)\A\s*---\n.*source:.*8jPQjjsBbIc.*\n---\n",
+            r"## Summary", r"## Outline", r"## Key ideas", r"## Questions",
+            r"\[\d{1,2}:\d{2}\]\(https://www\.youtube\.com/watch\?v=8jPQjjsBbIc&t=\d+s\)",
+        ),
+        draft_forbid=(r"\]\(https://(?!www\.youtube\.com/watch\?v=8jPQjjsBbIc&t=\d+s\))",),  # no other address, no mistyped id
+        video=True,
+    ),
+    SkillCase(
+        "capture-summary-in-chat-files-nothing", "capturing-from-a-link",
+        (f"Summarize {TALK} in three sentences.",),
+        no_draft=True,
+        video=True,
+    ),
+    SkillCase(
+        "capture-the-note-after-the-summary", "capturing-from-a-link",
+        (f"Summarize {TALK} in three sentences.", "Good. Save that as a note."),
+        needs_draft=True,
+        draft_expect=(r"source:.*8jPQjjsBbIc", r"## Outline"),
+        video=True,
+    ),
     # A message that shares words with the soul skill's description but asks for something else (selection is by
     # words, so the skill is in the prompt; she must not follow it).
     SkillCase(
@@ -143,7 +173,7 @@ def run_case(case: SkillCase, model: str | None) -> tuple[bool, str]:
     settings_store.set("skill_lookup", os.environ.get("SKILLS", "auto"))
     from sympose.engine import sharing
 
-    settings_store.set(sharing.SETTING, [sharing.NOTES, sharing.PROPERTIES, sharing.VAULT_MAP, sharing.OPEN_NOTE])  # invented notes: a cloud model may read them
+    settings_store.set(sharing.SETTING, [sharing.NOTES, sharing.PROPERTIES, sharing.VAULT_MAP, sharing.OPEN_NOTE, sharing.WEB])  # invented notes: a cloud model may read them
     if model:
         settings_store.set("chat_model", model)  # the scratch settings file
     session_id, reply = None, ""
@@ -158,6 +188,7 @@ def run_case(case: SkillCase, model: str | None) -> tuple[bool, str]:
     made = "\n".join(str(d) for d in drafts)
     ok = (
         (bool(drafts) or not case.needs_draft)
+        and not (case.no_draft and drafts)
         and all(re.search(p, made, re.I) for p in case.draft_expect)
         and not any(re.search(p, made, re.I) for p in case.draft_forbid)
         and all(re.search(p, seen, re.I) for p in case.expect)
@@ -177,6 +208,10 @@ def main(runs: int, models: list[str], verbose: bool) -> None:
         for model in models or [None]:
             print(f"\n=== {model or 'the default model'} ===", flush=True)
             for case in CASES:
+                if os.environ.get("ONLY", "") not in case.id:
+                    continue
+                if case.video and not (model or "").startswith("gemini/"):
+                    continue  # only Gemini Flash watches a video
                 results = []
                 for _ in range(runs):
                     try:

@@ -224,6 +224,8 @@ To add a skill of your own, paste the full path of its folder in the same place.
 
 A skill that needs to propose a note is not used where the persona cannot propose notes: in the terminal, or when its `edit_mode` is `"plan"`. The skill that drafts a new note in a folder's style also needs a model that calls tools itself; a model that does not (the default local `gemma2:9b`) is not given it, and answers as it always did.
 
+The skill that makes a note from a video you linked (`capturing-from-a-link`) is not picked by your words: a message that watches a video is given it, and it applies only when you ask for a note.
+
 ## skill_cap
 
 The `skill_cap` setting is the most characters of a skill's steps that go with one message, 3000 by default (500 or more). Longer steps are cut at a line. A smaller number suits a small model.
@@ -234,7 +236,9 @@ The `web_access` setting decides whether a YouTube video you link to is watched.
 
 It works with Gemini Flash, and only if `"web"` is allowed in `cloud_share`, which it is not until you allow it with /share or in Settings under Cloud models. The link is then sent to Google, who watch the video for the persona. Without that permission she says she could not watch the link, and how to allow it.
 
-A video costs more than a message: each question that needs the video makes Google look at it again. What a persona says about a video comes from the video and not from your notes, and a note she makes from it is a proposal that waits for your Accept, like any other. In a message with a video link she does not add anything to her memory.
+A video costs more than a message: each question that needs the video makes Google look at it again. What a persona says about a video comes from the video and not from your notes. In a message with a video link it does not add anything to its memory.
+
+A note made from a video is a proposal that waits for your Accept, like any other. Ask for one: a link or a summary alone files nothing. The note has the video's address in its properties, and the times in its outline are links to that moment of the video.
 
 ## How do the true or false settings work?
 
