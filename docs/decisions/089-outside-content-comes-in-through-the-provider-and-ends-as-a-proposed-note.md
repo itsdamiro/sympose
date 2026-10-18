@@ -11,9 +11,9 @@ tags: [type/decision, status/proposed, project/sympose, topic/consent, topic/cos
 
 # 089 — Outside content comes in through the provider and ends as a proposed note
 
-> **Summary.** Web search, reading a page and watching a video are tools the cloud provider runs inside the same request, switched by one knob (`off`, `asked`, `auto`) and one approval per category, and the thing the user wants most from them is capture: a link, a video or a PDF becomes a note when he asks for one, proposed and waiting for Accept. Nothing is built; the numbers that decide the video route are not measured yet. It costs a new kind of untrusted text in the prompt and a new thing that leaves the machine.
+> **Summary.** Web search, reading a page and watching a video are tools the cloud provider runs inside the same request, switched by one knob (`off`, `asked`, `auto`) and one approval per category, and the thing the user wants most from them is capture: a link, a video or a PDF becomes a note when he asks for one, proposed and waiting for Accept. Nothing is built; the spike has run (see "Spike results") and its numbers make the provider's agentic video mode the default for Gemini, with captions for every other model. It costs a new kind of untrusted text in the prompt and a new thing that leaves the machine.
 
-> **Status: Proposed (2026-10-18).** Design talk with the user the same day; the open questions below are settled by the spike before any code. Builds on ADR 031 (what a cloud model may receive), ADR 040 and 072 (the persona's tools and the Accept gate), ADR 077 (skills) and ADR 033 (folder definitions).
+> **Status: Proposed (2026-10-18).** Design talk with the user the same day; the spike has run and the Decision below is written from its results (the user chose the agentic default, 2026-10-18); nothing is built. Builds on ADR 031 (what a cloud model may receive), ADR 040 and 072 (the persona's tools and the Accept gate), ADR 077 (skills) and ADR 033 (folder definitions).
 
 ## Context
 
@@ -36,7 +36,7 @@ What video costs, from Google's video-understanding page (read 2026-10-18; the s
 
 ## Decision
 
-**1. Outside content comes in through the provider, not through Sympose.** A model that has a built-in tool (Google Search, page reading and video for Gemini; the equivalents for the others) gets it attached to the request, and the provider runs it. Sympose does not browse, so it has no crawler, no page parser and no search key to look after. A per-model list says which tools a model has, the way `lookup.MEASURED` says which models take tools. A model without one says it cannot, and a local model has none.
+**1. Outside content comes in through the provider, not through Sympose.** A model that has a built-in tool (Google Search, page reading and video for Gemini; the equivalents for the others) gets it attached to the request, and the provider runs it. Sympose does not browse, so it has no crawler, no page parser and no search key to look after. A per-model list says which tools a model has, the way `lookup.MEASURED` says which models take tools. A model without one says it cannot, and a local model has none. For Gemini the request is made directly to Google's REST endpoint (`httpx` is installed), not through LiteLLM, which cannot send a YouTube link, `mediaProcessing`, or Google's own tools beside a function declaration (Spike results, 3); the request sets `toolConfig.includeServerSideToolInvocations`. Only that route is Gemini-specific code, behind the same seam as `model.call_model`, and the history it keeps is text only (see 5).
 
 **2. One knob, `web_access`: `off`, `asked` or `auto`.** The names avoid `ask`, which in `skill_lookup` and `vault_lookup` means "the model calls a tool". Default `asked`.
 
@@ -48,16 +48,17 @@ What video costs, from Google's video-understanding page (read 2026-10-18; the s
 
 **4. Capture is the product, and it ends in a proposed note when the user asks for one.** A link alone is not a request for a note, and a request for a summary is not one either: "summarize this video" gets the summary in chat and files nothing, as ADR 072 says of `manual`, the default ("when asked, she proposes"). "Make study notes from this video" or "save that as a note" is a request for a note, and she writes it through `propose_note`, into the folder whose definition (ADR 033) fits, and the file changes only when the user clicks Accept (ADR 072, never relaxed). In `plan` she describes the note in chat and proposes nothing; in `auto` she may propose one unasked, as ADR 072 allows. Asking for the summary and then for the note does not read the video twice: the summary is already in the conversation, so the second step costs only the output tokens of the note, but a chat summary is usually shorter than a study note, so a user who wants the full note says so in the first message. A skill, `capturing-from-a-link` or the like (ADR 077: text only, no script), carries the shape of the note: for a video, an outline with timestamps that link back to the moment, the key ideas and a few questions to test oneself on; for a page, the key points, the passages worth keeping and the link as its source. The skill does not add the ability to watch or to read a page; the engine does. A note made from a link records the link in its properties.
 
-**5. A video has two routes, chosen on cost and on what the video is.**
+**5. A video has two routes, and the model decides which.**
 
-- *The transcript route:* Sympose fetches the captions of a public video and the model summarizes text. It costs little, works on any model including a local one, and cannot see a slide or a line of code on screen. It depends on a captions source that is not an official interface and can break.
-- *The watch route:* Gemini reads the video, with a low media resolution as the default and a start and end offset for a long one, so the persona can take the first twenty minutes and then the next. It sees the screen and costs far more, and it is Gemini only.
+- *The watch route, the default for Gemini:* the link goes in as a file part with `mediaProcessing: AGENTIC` and `mimeType` `video/mp4`, and the model navigates the video itself. Measured: 4,700 to 7,800 tokens for a summary or full study notes on a 12 and a 19-minute video, 9,765 for a question about a 4.4-hour course that static mode refuses (nothing over about 2.8 hours fits there). It sees the screen. It is Gemini only and a preview, so the product treats a failed or changed request as "the watch route is unavailable" and falls back to the transcript route.
+- *The transcript route, for every other model and the fallback:* Sympose fetches the captions of a public video and the model summarizes text. It costs little and works on any model including a local one, but cannot see a slide or a line of code on screen, and the caption source is not an official interface: it returned 7 of 7 videos and then blocked the spike's address after 17 fetches, so it needs a cache, a rate limit, IPv4 first (or a short connect timeout) and an honest "I could not get the captions" when it fails.
+- *History keeps text only.* Replies from the watch route carry `toolCall` and `toolResponse` parts; sending them back is refused (400, "Tool type of tool_call part does not match with tool call context"), so history keeps the reply's text, the user's link and nothing else. A follow-up that needs the video re-reads it, about 5,000 to 6,000 tokens a turn. Spike results, 2, has the figures. A follow-up with the link left out gets an answer from the text alone and gives a different timestamp from the three that read the video, so the link stays in the history for as long as the conversation is about the video, and a reply that did not read it says so.
 
-Which one is the default waits on the spike (below). Whatever the route, a length cap applies to one turn, and the persona says which part of the video she covered.
+Whatever the route, the persona says which part of the video she covered. A static request (`fps`, start and end offset) is kept for a case the agentic mode cannot do, and not built first.
 
 **6. What comes in from outside is data, and it is marked as outside.** A fetched page or a transcript can contain instructions aimed at the model; the prompt treats it as untrusted text, as ADR 077 treats a copied-in skill. A claim from the web is stated as from the web, never blended into "your notes say"; vault grounding stays zero-hallucination and covers the vault part of an answer only. A note made from a link records the link it came from.
 
-## The spike that settles it, before any code
+## The spike (run 2026-10-18; results below)
 
 One scratch run on a short, public video with the user's own Gemini key, no vault content, with his go-ahead (a cloud run needs it each time):
 
@@ -65,6 +66,49 @@ One scratch run on a short, public video with the user's own Gemini key, no vaul
 2. Whether the agentic mode exists in the API and what it does to the count.
 3. Whether LiteLLM sends a YouTube link as a `file` part unchanged, and what a page read and a search return through Google's tools.
 4. Whether captions can be fetched reliably from the machine, and for how many of a handful of public videos.
+
+## Spike results (2026-10-18)
+
+Run with the user's go-ahead, invented data only (no vault content), on the Gemini key in `.env`. `gemini-flash-latest` resolved to `gemini-3.8-flash`. Public videos: "Me at the zoo" (19 s), a 12-minute TED talk, a 19-minute 3Blue1Brown video, a 4.4-hour freeCodeCamp course. Tokens are what Gemini reported, not dollars: no price was looked up and no bill was checked. Most figures are one run each, so they are direction, not a distribution.
+
+**1. Tokens, and whether it reads captions.**
+
+- A YouTube link is read as frames and audio, not captions: the usage shows video and audio tokens (the 12-minute talk is 67,378 prompt tokens in `generateContent`, 76,308 in `countTokens`; its captions are 12,360 characters, about 3,000 tokens). The word-level "a word only the captions would give" question was not run; the token counts settle it.
+- About 71 video and 32 audio tokens per second, so about 6,200 a minute and 370,000 an hour in `countTokens` (about 330,000 by `generateContent`). A video over about 2.8 hours does not fit: the 4.4-hour course counts 1,649,225 against a limit of 1,048,576, and a request is refused.
+- The media resolution does nothing to the cost: default, `LOW` and `MEDIA_RESOLUTION_MEDIUM` give the same count to the token, on `gemini-3.8-flash`, `3.5-flash`, `pro-latest` and `flash-lite-latest`, set on the request or on the part. Only `HIGH` changes it, to nearly three times. ADR text above that says "a low media resolution as the default" has nothing to stand on.
+- What does cut the cost in the static mode: `video_metadata.fps` (0.2 takes the talk from 76,308 to 34,276; the audio is a floor of 32 a second) and a start and end offset (a two-minute window is 12,363).
+
+**2. The agentic mode exists.** `Part.mediaProcessing = AGENTIC` ("model-driven dynamic navigation, recommended for most use cases" in Google's own API schema, revision 20261017), with `STATIC` for the fixed-rate mode. It needs `mimeType` set on the file part in `generateContent` (`video/mp4` works for a YouTube link); `countTokens` reports only the 3 text tokens, because the video is not loaded up front.
+
+- The same study-outline request on the 12-minute talk: static 68,533 tokens in all, agentic 5,395 (83 prompt, 154 tool use, 4,640 thinking, 518 reply). The video is never reported as input tokens, so what Google bills for it is not known from this run.
+- The 4.4-hour course, a question about the two-hour mark: static refused; agentic answered in 35 s for 9,765 tokens in all (1,584 of them video), naming "If Statements & Comparisons" at 1:54:07 and "Building a Better Calculator" at 2:00:37, which are exactly the chapters in the video's description.
+- Timestamps against the caption timings of the talk, five topics: static was off by 0 to 29 s, agentic by 0 to 15 s. Good enough for a link back to a moment if it points a little early.
+- It works beside a function declaration (a call to a vault tool in the same request chose the right tool). Two samples of agentic on a long video; the latency was 16 and 35 s against 12 to 21 s static on the talk.
+
+- **Full study notes, agentic mode (2026-10-18, one run each, user's go-ahead for these two calls).** The request asked for a title, a summary, a timestamped outline of the whole video, key ideas and five questions. The 12-minute talk: 6,062 tokens in all (105 prompt, 176 tool use, 4,348 thinking, 1,433 reply), 21 s, against 68,533 static for a shorter reply. The 19-minute 3Blue1Brown video: 7,815 tokens (153, 225, 6,188 thinking, 1,249), 24 s. Neither reports any video tokens (tool use is text only), so the cost stays near 5,000 to 8,000 and does not climb toward the static price; the thinking is most of it, and it grows with the length of the video. What Google bills for the frames it fetched is still not known. Both notes were complete (9 and 7 outline sections, timestamps in order, ending near the end of the video); their accuracy was not checked against the video or captions (the caption fetch is blocked on this address), so the content is unread by a human. The reply parts were `toolCall` and `toolResponse` with thought signatures, then the text.
+- **A second turn about the same video (2026-10-18, one run each, the 12-minute talk, user's go-ahead).** Turn 1, a three-sentence summary: 4,699 and 4,953 tokens. Turn 2, a question about a timestamp and a figure, with the link kept in history and the reply's text only: 5,141 (and 5,983 with the reply's signature kept, 5,247 with a function declared and the server-tool flag), each time with a new `toolCall`, so **it reads the video again on every turn that asks about it, at about 5,000 to 6,000 tokens, not the 68,000 of the static mode**. The same history sent back in full, with `toolCall`, `toolResponse` and signatures: **refused, 400** ("Tool type of tool_call part does not match with tool call context"), with and without a function declared. Turn 2 with the link left out (text-only history): 964 tokens, no tool call, and a timestamp (2:40) that none of the three runs that read the video gave (2:10 to 2:25, in three phrasings); the figure (300) agreed. So a follow-up without the video is fast and cheap and not grounded. Not measured: a vault function call after the video turns in the same conversation (one request chose the right function beside the video; no second turn).
+
+**3. LiteLLM 1.102 and the provider tools.**
+
+- A YouTube link does not pass through LiteLLM's `gemini/` route. `llms/gemini/chat/transformation.py` converts every `http(s)` file URL to base64 (it downloads the page and sends the HTML as inline data; Google refuses it, 400). The shared conversion function called directly leaves the link as `file_data`, so the fault is in the Google AI Studio route's step before it, and setting `format` does not help.
+- LiteLLM has no field for `mediaProcessing`. It does carry `video_metadata` (fps, offsets) and a per-part media resolution.
+- Google Search and page reading work through LiteLLM when they are the only tools: a search for the newest stable Python returned 3.15.0 with its source and counted one search request; a page read cost 7,850 tool-use tokens for one page (8,151 in all) and returned the right version. The same question without the tool got "I do not have live access" and a guessed 3.13.2, the failure the provenance rule is for.
+- LiteLLM drops the built-in tools whenever a function declaration is in the request: the body sent carried only `function_declarations`. The earlier mixed runs never searched. Over REST the combination works only with `toolConfig.includeServerSideToolInvocations: true` (the API refuses it otherwise); with it, three requests behaved right (a web question searched and read, a vault question called the vault function). The reply then carries `toolCall` and `toolResponse` parts and thought signatures; whether LiteLLM's message history keeps them across turns was not tested.
+- So the watch route and the web tools in the same request as the vault tools mean a direct request to the Gemini REST endpoint (`httpx` is already installed), a patch to LiteLLM, or a newer LiteLLM, not an option on the call that exists today. This is the cost of Decision 1 that the ADR did not know.
+
+**4. Captions from this machine.**
+
+- Seven of seven public videos returned captions (a 19-second clip, a talk, a lecture, a music video, a film with almost no speech, a 3.4-hour and a 4.4-hour course), 1 to 2 s each, creator captions in every case (none were auto-generated). A made-up ID fails cleanly (`VideoUnavailable`). The library was `youtube-transcript-api` 1.2.4, in a scratch venv.
+- Then YouTube blocked this machine's address for captions: after 17 fetches in a few minutes (the last 10 were the same video in a row), every fetch failed with `IpBlocked`, and it was still blocked when last checked, several minutes later. The watch page and the oEmbed endpoint still answered. Probably temporary, but not checked later. This is the fragility Decision 5 named, shown on a home connection with a modest burst, and a cloud address is blocked from the first request.
+- Python on this machine stalls 15 to 30 s on a first request to YouTube because IPv6 connects take 23 s and fail while IPv4 takes 0.02 s; LiteLLM's calls to Gemini are not affected (2.1 s). A caption fetch from Sympose would need IPv4 first or a short connect timeout.
+
+**What this changes (for the user to decide, nothing is edited above).**
+
+- Decision 5's premise that the watch route "costs far more" holds only for the static mode. With the agentic mode the watch route is cheaper than the transcript route for a long video and sees the screen, but it is Gemini only, a preview, and needs the direct request. The transcript route survives as the route for a local model and for the day Google changes the preview; its fetch needs rate limits and a cache, and it will fail on some addresses.
+- Decision 5's "low media resolution as the default" is replaced by the agentic mode as the default, and `fps` and offsets for the static fallback.
+- Decision 1 needs one more line: the provider's tools are reached by a direct request, because LiteLLM cannot send them (the link, `mediaProcessing`, the tools beside a function).
+- Open question "which route is the default": the numbers say agentic, for Gemini; the transcript route for everything else.
+- Not measured: the dollar cost of agentic mode and of a search, the free-tier limit, a video without captions in the watch route, a private or age-restricted video, Gemini Pro, other providers' equivalents.
 
 ## Consequences
 
@@ -74,12 +118,12 @@ One scratch run on a short, public video with the user's own Gemini key, no vaul
 - The persona's answers can now carry web claims, which makes provenance a rule in the prompt, not a habit. A model that blends the two is a bug to fix, the same as a vault claim with nothing behind it.
 - The watch route is tied to one provider's preview feature and its prices. If those change, the transcript route is the one that stays.
 - A local model gets the transcript route and nothing else.
+- A follow-up about a video costs about 5,000 to 6,000 tokens each time it needs the video, and the direct request to Google is the first piece of provider-specific code in the engine.
 
 ## Open questions
 
-- Skills are chosen by matching the message to a skill's description (ADR 077), and a message that is only a link gives that match almost nothing. Probably the engine loads the capture skill when a link triggers the tool, the same signal as `asked`, and no new surface; to be settled with the spike.
+- Skills are chosen by matching the message to a skill's description (ADR 077), and a message that is only a link gives that match almost nothing. Probably the engine loads the capture skill when a link triggers the tool, the same signal as `asked`, and no new surface; to be settled when it is built.
 - Whether a link in a message should make her offer a note in her reply (one line, no draft) or say nothing about it until asked.
-- Which route is the default for a video, once the spike has numbers.
 - The names `web` and `media`, and whether a link a provider reads belongs under `web` or its own category.
 - Whether fetching a transcript on the user's machine needs an approval of its own (the request goes from his machine to the video site).
 - Where the length cap lives (a setting beside `skill_cap`, or fixed).
