@@ -185,6 +185,7 @@ const CLOUD_WORDS: Record<string, string> = {
   memory: "the persona's memory",
   open_note: "the open note",
   annotations: "your comments",
+  web: "the links you sent",
 }
 
 /** The categories of the vault a cloud model was sent or refused, in plain words (ADR 031's names are the code's). */

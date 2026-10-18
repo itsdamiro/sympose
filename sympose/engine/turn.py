@@ -8,13 +8,14 @@ docstring used to point at (between the model call returning and the turn
 persisting) was never exercised — see ADR 008."""
 
 import contextlib
+import functools
 from dataclasses import replace
 from typing import Any
 
 from sympose import note_changes
 from sympose import profile as profile_mod
 from sympose.engine import (
-    budget, compaction, confirmations, edit_tools, edit_turn, history_cap, lookup, memory, memory_tools, past_chats, persona_tools, reference, session, session_compaction, sharing, tool_support, turn_cancel, turn_evidence, turn_status, unfiled,
+    budget, compaction, confirmations, edit_tools, edit_turn, gemini_direct, history_cap, lookup, memory, memory_tools, past_chats, persona_tools, reference, session, session_compaction, sharing, tool_support, turn_cancel, turn_evidence, turn_status, unfiled,
 )
 from sympose.engine import model as model_mod
 from sympose.engine.model import EngineModelError
@@ -116,12 +117,15 @@ def _run(
     modes: "persona_tools.Modes",
     capped: int = 0,
 ) -> TurnResult:
-    ask, chose_ask, remember = modes.ask, modes.chose_ask, modes.remember
     # The prompt is sized to this model's window, not left to the runtime's
     # silent cut (docs/decisions/015); the follow-up rewrite shares that window.
     limits = budget.budget_for(target_model, persona)
     found = turn_evidence.gather(persona, handle, sid, user_message, history, target_model, limits, modes, existing)
     grounding_results, recaps_found, chats_found, withheld = found.grounding, found.recaps, found.chats, found.withheld
+    if found.watch.links and modes.remember:
+        # A video is outside content: what is said or shown in it must not be able to make a write to the persona's memory.
+        modes = replace(modes, remember=None)
+    ask, chose_ask, remember = modes.ask, modes.chose_ask, modes.remember
     mem, notes = found.mem, found.notes
     # The note and the rules go with the message to the model; the conversation keeps only what the user said.
     asked = edit_turn.message(modes.edit, user_message) if modes.edit else user_message
@@ -148,12 +152,15 @@ def _run(
         decisions_sent = fitted.decisions
     dropped += capped  # the turns `history_tokens` left out count with the ones the window's own fitting dropped
     lookups: list[dict[str, Any]] = []
+    # A video linked in the message is watched by the model's maker, so the call goes straight to Google (docs/decisions/089).
+    watch_call = functools.partial(gemini_direct.call, links=found.watch.links) if found.watch.links else None
     tools = persona_tools.for_turn(ask, remember == memory.TOOL, modes.chats, sid, modes.edit, persona, found.map_allowed)
     if tools:
         tool_list, run_tool = tools
         done = lookup.converse(
             persona, messages, target_model, limits, used_tokens=prompt_tokens, tools=tool_list, run_tool=run_tool,
             recheck=unfiled.recheck(modes.edit) if modes.edit and modes.edit.active and modes.edit.tool else None,
+            call=watch_call,
         )
         reply, reply_ttft, lookups = done.reply, done.ttft_ms, done.lookups
         grounding_results = list(grounding_results)
@@ -163,7 +170,7 @@ def _run(
             withheld[category] = withheld.get(category, 0) + count
         prompt_tokens += done.tokens_added
     else:
-        reply = model_mod.call_model(
+        reply = (watch_call or model_mod.call_model)(
             messages,
             model=target_model,
             num_ctx=limits.num_ctx if limits else None,
@@ -206,6 +213,7 @@ def _run(
         sharing.categories_of(
             grounding_results, recaps_sent, vault_map=found.map_allowed and bool(found.map_text), memory=bool(memory_sent),
             chats=bool(chats_sent), open_note=bool(modes.edit and modes.edit.note), annotations=bool(modes.edit and modes.edit.comments),
+            web=bool(found.watch.links),
         ),
         [name for name in sharing.CATEGORIES if name in withheld],
     )

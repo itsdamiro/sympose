@@ -3,13 +3,13 @@ the message, the recaps and earlier conversations, the vault map, the persona's 
 long conversation, each already limited to what the model may receive (docs/decisions/031). `gather` finds it all;
 `prompt_builder` closes over it so the fitting loop (docs/decisions/015) can build the prompt again with less."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from sympose import profile as profile_mod, vault_map as vault_map_mod
 from sympose.engine import (
     budget, connections, followup, grounding, grounding_properties, memory, past_chats, persona_tools, prompt, recap,
-    recap_refresh, reference, related, session_compaction, sharing, skill_folder, skills, turn_status,
+    recap_refresh, reference, related, session_compaction, sharing, skill_folder, skills, turn_status, web_access,
 )
 
 
@@ -29,6 +29,7 @@ class Evidence:
     reference_found: int
     vault_found: int
     skill: str | None = None  # the skill chosen for this message (docs/decisions/077), as the prompt carries it
+    watch: web_access.Watch = field(default_factory=web_access.Watch)  # the videos this turn's model watches (docs/decisions/089)
 
 
 def interleave(first: list[dict[str, Any]], second: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -115,6 +116,9 @@ def gather(
         shape = skill_folder.shape_for(persona, user_message)  # the folder's own notes: a cloud model gets them only as it may
         skill_text = f"{skill_text}\n\n{shape}" if shape else skill_text
     reference_found = sum(1 for h in gated.grounding if h.get("source") == reference.SOURCE)
+    watch = web_access.resolve(target_model, user_message, history)  # a link read by the model's maker is its own category (docs/decisions/089)
+    if watch.withheld:
+        withheld[sharing.WEB] = 1
     return Evidence(
         grounding=gated.grounding,
         searched=searched,
@@ -132,6 +136,7 @@ def gather(
         reference_found=reference_found,
         vault_found=len(gated.grounding) - reference_found,
         skill=skill_text,
+        watch=watch,
     )
 
 
@@ -174,6 +179,7 @@ def prompt_builder(
             chat_tools=modes.chats,
             skill=found.skill,
             personas=bool(modes.edit and modes.edit.active and modes.edit.proposes),
+            watching=bool(found.watch.links),
         )
 
     return build

@@ -8,6 +8,7 @@ So model and embedding calls use IPv4 only. A network that has only IPv6 can tur
 
 import os
 
+import httpx
 import litellm
 
 ALLOW_IPV6 = "SYMPOSE_ALLOW_IPV6"
@@ -17,3 +18,11 @@ def prefer_ipv4() -> None:
     """Make every litellm call (chat and embeddings) connect over IPv4, unless the user allows IPv6."""
     litellm.force_ipv4 = os.environ.get(ALLOW_IPV6, "").strip().lower() not in ("1", "true", "yes", "on")
 
+
+
+def ipv4_transport() -> httpx.HTTPTransport | None:
+    """The same rule for a request Sympose makes itself (the direct Gemini path, ADR 089): a transport bound to an
+    IPv4 address, or `None` (the default one) when the user allows IPv6."""
+    if os.environ.get(ALLOW_IPV6, "").strip().lower() in ("1", "true", "yes", "on"):
+        return None
+    return httpx.HTTPTransport(local_address="0.0.0.0")  # noqa: S104 (a local source address, not a listener)

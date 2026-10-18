@@ -43,3 +43,10 @@ def test_the_modules_that_call_models_set_it_when_they_are_imported():
         litellm.force_ipv4 = False
         importlib.reload(module)
         assert litellm.force_ipv4 is True, module.__name__
+
+
+def test_a_request_sympose_makes_itself_is_bound_to_ipv4_unless_ipv6_is_allowed(monkeypatch):
+    monkeypatch.delenv(network.ALLOW_IPV6, raising=False)
+    assert network.ipv4_transport() is not None
+    monkeypatch.setenv(network.ALLOW_IPV6, "1")
+    assert network.ipv4_transport() is None

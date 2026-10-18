@@ -12,6 +12,10 @@ It sees the note only when it is open in the web app's editor, and a cloud model
 
 Small models make more mistakes editing, so read each change before you accept it.
 
+## Can Samantha watch a YouTube video if I paste the link?
+
+Yes, with Gemini Flash, a cloud model, once you allow `"web"` with /share or in Settings under Cloud models. The link is sent to Google, who watch the video for her. She cannot follow other links or search the web. See `web_access`.
+
 ## Can Samantha do things for me?
 
 Only a few things. She can look up your notes (`vault_lookup` `"ask"`, or by default on a tested model), add a line to her decisions file when you ask her to remember something, and in the web app propose changes, new notes and comments for you to accept or decline.

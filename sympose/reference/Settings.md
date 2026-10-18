@@ -66,7 +66,7 @@ The `cloud_share` setting lists what a cloud model may receive from your vault, 
 
 The kinds are `"notes"` (passages found for a message), `"properties"`, `"recaps"`, `"chats"` (earlier conversations word for word), `"vault_map"` (folder names, purposes and note counts) and `"connections"` (how a note links to others).
 
-Also `"memory"` (the persona's own memory of you), `"open_note"` (the text of the note open in the editor, which lets a persona propose changes to it) and `"annotations"` (your open comments on that note). When a kind is held back the persona is told it was not sent, and how to allow it.
+Also `"memory"` (the persona's own memory of you), `"open_note"` (the text of the note open in the editor, which lets a persona propose changes to it) `"annotations"` (your open comments on that note) and `"web"` (the links in your messages, which Google watches for the persona, see `web_access`). When a kind is held back the persona is told it was not sent, and how to allow it.
 
 ## show_grounding
 
@@ -227,6 +227,14 @@ A skill that needs to propose a note is not used where the persona cannot propos
 ## skill_cap
 
 The `skill_cap` setting is the most characters of a skill's steps that go with one message, 3000 by default (500 or more). Longer steps are cut at a line. A smaller number suits a small model.
+
+## web_access
+
+The `web_access` setting decides whether a YouTube video you link to is watched. `"asked"`, the default, watches it when your message has its link, and keeps it in front of the persona for your questions about it afterwards. `"off"` never does.
+
+It works with Gemini Flash, and only if `"web"` is allowed in `cloud_share`, which it is not until you allow it with /share or in Settings under Cloud models. The link is then sent to Google, who watch the video for the persona. Without that permission she says she could not watch the link, and how to allow it.
+
+A video costs more than a message: each question that needs the video makes Google look at it again. What a persona says about a video comes from the video and not from your notes, and a note she makes from it is a proposal that waits for your Accept, like any other. In a message with a video link she does not add anything to her memory.
 
 ## How do the true or false settings work?
 

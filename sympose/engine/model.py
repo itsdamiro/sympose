@@ -156,19 +156,27 @@ def call_model(
                 close()
             except Exception as e:  # a failed close must not replace the real outcome
                 log.debug("Closing the model stream failed: %s", e)
-    content = reply_text.tidy("".join(parts))
-    calls = model_tools.finish(slots)
+    return end_reply(
+        target_model, reply_text.tidy("".join(parts)), model_tools.finish(slots), finished, truncated, ttft_ms,
+    )
+
+
+def end_reply(
+    model: str, content: str, calls: tuple[ToolCall, ...], finished: bool, truncated: bool, ttft_ms: int | None,
+) -> ModelReply:
+    """What a model's reply comes to once it has been read, for every route to a model (`call_model` and the direct
+    Gemini request, docs/decisions/089): the reply, or the error that says why there is none."""
     if calls and finished:
         return ModelReply(text=content, ttft_ms=ttft_ms, truncated=truncated, tool_calls=calls)
     if not content and truncated:
         raise ReplyLimitError(
-            f"Model '{target_model}' reached its reply limit before writing an answer "
+            f"Model '{model}' reached its reply limit before writing an answer "
             "(a reasoning model can spend the whole limit thinking)."
         )
     if not content:
-        raise EmptyReplyError(f"Model '{target_model}' returned an empty reply.")
+        raise EmptyReplyError(f"Model '{model}' returned an empty reply.")
     if not finished:
         raise EngineModelError(
-            f"The reply from '{target_model}' was cut off before it finished."
+            f"The reply from '{model}' was cut off before it finished."
         )
     return ModelReply(text=content, ttft_ms=ttft_ms, truncated=truncated)
