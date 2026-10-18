@@ -282,3 +282,20 @@ def test_the_readers_source_marks_are_taken_out_of_an_answer_that_used_google_s_
 
     assert with_tools.text == "It is a joke, and a real RFC. Version 2.5 and a [link](x) stay. See [3:10] and [1]."
     assert without.text == text
+
+
+def test_the_pages_google_opened_are_handed_back_in_their_own_list(server):
+    seen = {"urlContextMetadata": {"urlMetadata": [
+        {"retrievedUrl": "https://example.com/", "urlRetrievalStatus": "URL_RETRIEVAL_STATUS_ERROR"},
+        {"retrievedUrl": "https://www.python.org/", "urlRetrievalStatus": "URL_RETRIEVAL_STATUS_SUCCESS"},
+        {"retrievedUrl": "https://no-status.test/"},
+    ]}}
+    server.answer = httpx.Response(200, content=sse(
+        {"candidates": [{"content": {"role": "model", "parts": [{"text": "It says."}]}, **seen, "finishReason": "STOP"}]},
+    ))
+    read: list[str] = []
+    lost: list[str] = []
+
+    gemini_direct.call([{"role": "user", "content": "hi"}], model="gemini/gemini-flash-latest", server_tools=("urlContext",), opened=read, unopened=lost)
+
+    assert read == ["https://www.python.org/"] and lost == ["https://example.com/"]

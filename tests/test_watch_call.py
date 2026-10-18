@@ -132,3 +132,64 @@ def test_a_page_google_could_not_open_is_said_under_the_answer_and_not_under_a_r
     # A page opened on every call leaves the answer alone.
     monkeypatch.setattr(gemini_direct, "call", lambda messages, **kwargs: ModelReply("Fine.", 1))
     assert watch_call.for_links((), ("urlContext",))(messages(), model="m").text == "Fine."
+
+
+PAGE = "https://docs.python.org/3/library/pathlib.html"
+
+
+def _call_that_reports(monkeypatch, opened=(), unopened=()):
+    def direct(messages, **kwargs):
+        kwargs["opened"].extend(opened)
+        kwargs["unopened"].extend(unopened)
+        return ModelReply("It says X.", 1)
+
+    monkeypatch.setattr(gemini_direct, "call", direct)
+
+
+def test_a_page_google_never_reported_is_said_not_to_have_been_read(monkeypatch):
+    _call_that_reports(monkeypatch)  # the model answered from memory: no opening, no failure
+
+    reply = watch_call.for_links((), ("urlContext",), (PAGE,))(messages(), model="m")
+
+    assert reply.text == "It says X.\n\n" + watch_call.PAGE_NOT_READ.format(pages=PAGE, that="that page")
+
+
+def test_a_page_google_opened_or_a_carried_one_is_left_alone(monkeypatch):
+    _call_that_reports(monkeypatch, opened=[PAGE])
+    assert watch_call.for_links((), ("urlContext",), (PAGE,))(messages(), model="m").text == "It says X."
+    # The same address as Google writes it back: another scheme, `www.`, a closing slash, a fragment.
+    _call_that_reports(monkeypatch, opened=["http://www.docs.python.org/3/library/pathlib.html/#x"])
+    assert watch_call.for_links((), ("urlContext",), (PAGE,))(messages(), model="m").text == "It says X."
+    # A follow-up carries the link from an earlier message and may answer from the conversation: not asked, not said.
+    _call_that_reports(monkeypatch)
+    assert watch_call.for_links((), ("urlContext",), ())(messages(), model="m").text == "It says X."
+
+
+def test_a_redirected_page_clears_one_missing_page_and_a_second_unread_page_is_still_said(monkeypatch):
+    other = "https://example.org/b"
+    _call_that_reports(monkeypatch, opened=["https://elsewhere.test/moved"])
+
+    one = watch_call.for_links((), ("urlContext",), (PAGE,))(messages(), model="m")
+    two = watch_call.for_links((), ("urlContext",), (PAGE, other))(messages(), model="m")
+
+    assert one.text == "It says X."
+    assert two.text == "It says X.\n\n" + watch_call.PAGE_NOT_READ.format(pages=other, that="that page")
+
+
+def test_a_page_that_could_not_open_is_not_also_said_not_to_have_been_read(monkeypatch):
+    _call_that_reports(monkeypatch, unopened=[PAGE])
+
+    reply = watch_call.for_links((), ("urlContext",), (PAGE,))(messages(), model="m")
+
+    assert reply.text == "It says X.\n\n" + watch_call.PAGE_NOT_OPENED.format(pages=PAGE, that="that page")
+
+
+def test_the_page_named_as_unread_is_the_one_google_did_not_report_even_when_it_writes_the_other_back_differently(monkeypatch):
+    other = "https://example.org/b"
+    _call_that_reports(monkeypatch, opened=["http://www.docs.python.org/3/library/pathlib.html/"])
+
+    reply = watch_call.for_links((), ("urlContext",), (other, PAGE))(messages(), model="m")
+
+    assert reply.text == "It says X.\n\n" + watch_call.PAGE_NOT_READ.format(pages=other, that="that page")
+    _call_that_reports(monkeypatch, opened=["https://example.org/b/"])  # a closing slash alone
+    assert watch_call.for_links((), ("urlContext",), (PAGE, other))(messages(), model="m").text == "It says X.\n\n" + watch_call.PAGE_NOT_READ.format(pages=PAGE, that="that page")

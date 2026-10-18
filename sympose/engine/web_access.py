@@ -48,6 +48,7 @@ class Watch:
     route: str = WATCH  # `WATCH`: the maker's model looks at the video; `CAPTIONS`: it is given the words
     pages: tuple[str, ...] = ()  # the pages the maker's model may read
     search: bool = False  # the maker's model may search the web (`auto`)
+    asked: tuple[str, ...] = ()  # the pages the message itself links to, not one carried from an earlier message
 
     @property
     def outside(self) -> bool:
@@ -123,5 +124,5 @@ def resolve(model: str, user_message: str, history: list[dict[str, Any]]) -> Wat
                 videos, pages = links_in(earlier["content"]), pages_in(earlier["content"]) if tooled else ()
                 if videos or pages:
                     break
-    found = Watch(videos, route=route, pages=pages, search=tooled and mode() == AUTO)
+    found = Watch(videos, route=route, pages=pages, search=tooled and mode() == AUTO, asked=pages_in(user_message) if tooled else ())
     return found if found.outside else Watch()

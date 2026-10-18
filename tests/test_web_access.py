@@ -133,7 +133,7 @@ def test_a_page_is_read_only_when_allowed_and_only_by_a_model_with_google_s_tool
     assert web_access.resolve(CLOUD, f"read {PAGE}", []) == web_access.Watch(withheld=True)
     sharing.set_approved(sharing.WEB, True)
     found = web_access.resolve(CLOUD, f"read {PAGE}", [])
-    assert found == web_access.Watch(pages=(PAGE,)) and found.server_tools == (web_access.PAGE_TOOL,) and found.direct
+    assert found == web_access.Watch(pages=(PAGE,), asked=(PAGE,)) and found.server_tools == (web_access.PAGE_TOOL,) and found.direct
     # A model without those tools has nothing to read it with, and a local one is not asked.
     assert web_access.resolve("openai/gpt-4o-mini", f"read {PAGE}", []) == web_access.Watch()
     assert web_access.resolve("ollama_chat/gemma2:9b", f"read {PAGE}", []) == web_access.Watch()
@@ -143,6 +143,7 @@ def test_a_video_and_a_page_in_one_message_are_both_attached():
     sharing.set_approved(sharing.WEB, True)
     found = web_access.resolve(CLOUD, f"{ADDRESS} and {PAGE}", [])
     assert found.links == (ADDRESS,) and found.pages == (PAGE,) and found.direct
+    assert found.asked == (PAGE,)  # the message's own page; a carried one is not asked
 
 
 def test_a_follow_up_keeps_the_latest_page_in_front_of_the_model_and_a_carried_page_never_nags():
@@ -150,6 +151,7 @@ def test_a_follow_up_keeps_the_latest_page_in_front_of_the_model_and_a_carried_p
     assert web_access.resolve(CLOUD, "what did it say about X?", history) == web_access.Watch()
     sharing.set_approved(sharing.WEB, True)
     assert web_access.resolve(CLOUD, "what did it say about X?", history) == web_access.Watch(pages=(PAGE,))
+    assert web_access.resolve(CLOUD, "what did it say about X?", history).asked == ()
 
 
 def test_auto_lets_the_model_search_on_every_turn_but_only_when_the_user_has_allowed_the_web():

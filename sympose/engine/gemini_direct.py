@@ -57,10 +57,13 @@ _REQUEST_REFUSED = (400, 404)
 _SOURCE_MARKS = re.compile(r"[ \t]*\[\d+\.\d+(?:,[ \t]*\d+\.\d+)*\]")
 
 
-def _unopened(candidate: dict[str, Any]) -> list[str]:
-    """The pages Google's reader was asked for and could not open, as the reply's metadata names them."""
+def _pages(candidate: dict[str, Any], opened: bool) -> list[str]:
+    """The pages Google's reader was asked for, as the reply's metadata names them: those it opened, or those it could not."""
     found = (candidate.get("urlContextMetadata") or {}).get("urlMetadata") or []
-    return [m.get("retrievedUrl") or "a page" for m in found if m.get("urlRetrievalStatus") not in (None, "URL_RETRIEVAL_STATUS_SUCCESS")]
+    return [
+        m.get("retrievedUrl") or "a page" for m in found
+        if (m.get("urlRetrievalStatus") == "URL_RETRIEVAL_STATUS_SUCCESS") == opened and m.get("urlRetrievalStatus") is not None
+    ]
 
 
 def _key() -> str:
@@ -160,6 +163,7 @@ def call(
     links: tuple[str, ...] = (),
     server_tools: tuple[str, ...] = (),
     unopened: list[str] | None = None,
+    opened: list[str] | None = None,
 ) -> ModelReply:
     """`model.call_model` for a turn that watches `links` or has Google's `server_tools`; `num_ctx` is only there so the two can be swapped (it is for
     a local model). Streamed, so a stop (docs/decisions/054) is heard while the video is being read, and the time to the
@@ -194,7 +198,9 @@ def call(
                         raise EngineModelError(f"Gemini stopped the reply ({error.get('code')}: {error.get('message') or error})")
                     candidate = (chunk.get("candidates") or [{}])[0]
                     if unopened is not None:
-                        unopened.extend(_unopened(candidate))
+                        unopened.extend(_pages(candidate, opened=False))
+                    if opened is not None:
+                        opened.extend(_pages(candidate, opened=True))
                     if block := (chunk.get("promptFeedback") or {}).get("blockReason"):
                         raise EngineModelError(f"Gemini would not read this message ({block}).")
                     for part in (candidate.get("content") or {}).get("parts") or []:

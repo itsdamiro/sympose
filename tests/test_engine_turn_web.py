@@ -8,7 +8,7 @@ import pytest
 from helpers import write_persona
 
 from sympose import note_changes_store, settings_store
-from sympose.engine import captions, gemini_direct, memory, session, sharing, skills, tool_support, turn, web_access
+from sympose.engine import captions, gemini_direct, memory, session, sharing, skills, tool_support, turn, watch_call, web_access
 from sympose.engine.model import EngineModelError, ModelReply
 from sympose.engine.model_tools import ToolCall
 from sympose.engine.prompt_text import CAPTIONS, READING_PAGES, READING_SEARCH, WATCHING, WITHHELD_WEB
@@ -411,3 +411,13 @@ def test_a_follow_up_about_a_page_reads_it_again_and_the_page_capture_skill_come
         content = sent["messages"][-1]["content"]
         assert sent["server_tools"] == (web_access.PAGE_TOOL,)
         assert f"Skill: {skills.CAPTURE_PAGE}" in content and f"The page: {PAGE}" in content and "The video:" not in content
+
+
+def test_a_page_in_the_message_that_google_did_not_read_is_said_and_a_follow_up_that_only_carries_it_is_not_told(calls):
+    sharing.set_approved(sharing.WEB, True)  # the fake reports no page as read, as when the model answers from memory
+
+    first = turn.run_turn("samantha", f"what does {PAGE} say?", model=CLOUD)
+    second = turn.run_turn("samantha", "and the second point?", model=CLOUD, session_id=first.session_id)
+
+    assert first.reply == "From the video.\n\n" + watch_call.PAGE_NOT_READ.format(pages=PAGE, that="that page")
+    assert second.reply == "From the video."

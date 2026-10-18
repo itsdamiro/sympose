@@ -152,7 +152,7 @@ def _run(
     dropped += capped  # the turns `history_tokens` left out count with the ones the window's own fitting dropped
     lookups: list[dict[str, Any]] = []
     # A video linked in the message is watched, and a page read or the web searched, by the model's maker, so the call goes straight to Google (docs/decisions/089).
-    watch_call = watch_call_mod.for_links(found.watch.links, found.watch.server_tools) if found.watch.direct else None
+    watch_call = watch_call_mod.for_links(found.watch.links, found.watch.server_tools, found.watch.asked) if found.watch.direct else None
     tools = persona_tools.for_turn(ask, remember == memory.TOOL, modes.chats, sid, modes.edit, persona, found.map_allowed, found.watch.links)
     if tools:
         tool_list, run_tool = tools
