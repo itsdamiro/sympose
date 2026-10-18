@@ -166,3 +166,23 @@ def test_auto_lets_the_model_search_on_every_turn_but_only_when_the_user_has_all
     assert web_access.resolve(CLOUD, "what is new in python?", []) == web_access.Watch()
     settings_store.set(web_access.SETTING, web_access.OFF)
     assert web_access.resolve(CLOUD, "what is new in python?", []) == web_access.Watch()
+
+
+def _conversation(link: str, follow_ups: int) -> list[dict[str, str]]:
+    history = [{"role": "user", "content": f"read {link}"}, {"role": "assistant", "content": "ok"}]
+    for n in range(follow_ups):
+        history += [{"role": "user", "content": f"and point {n}?"}, {"role": "assistant", "content": "it says"}]
+    return history
+
+
+def test_a_link_is_carried_into_five_follow_ups_and_not_the_sixth_whether_it_is_a_video_or_a_page():
+    sharing.set_approved(sharing.WEB, True)
+    for link, carried in ((ADDRESS, web_access.Watch((ADDRESS,))), (PAGE, web_access.Watch(pages=(PAGE,)))):
+        assert web_access.CARRY_TURNS == 5
+        assert web_access.resolve(CLOUD, "the fifth?", _conversation(link, 4)) == carried  # the fifth follow-up
+        assert web_access.resolve(CLOUD, "the sixth?", _conversation(link, 5)) == web_access.Watch()
+        assert web_access.resolve(CLOUD, "the tenth?", _conversation(link, 9)) == web_access.Watch()
+    # A new link ahead of the cap starts it again, and a message's own link needs no carrying.
+    later = [*_conversation(PAGE, 7), {"role": "user", "content": f"now {ADDRESS}"}, {"role": "assistant", "content": "ok"}]
+    assert web_access.resolve(CLOUD, "and?", later) == web_access.Watch((ADDRESS,))
+    assert web_access.resolve(CLOUD, f"{PAGE} again", _conversation(PAGE, 9)) == web_access.Watch(pages=(PAGE,), asked=(PAGE,))

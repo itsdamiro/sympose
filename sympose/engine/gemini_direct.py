@@ -164,6 +164,7 @@ def call(
     server_tools: tuple[str, ...] = (),
     unopened: list[str] | None = None,
     opened: list[str] | None = None,
+    searched: list[str] | None = None,
 ) -> ModelReply:
     """`model.call_model` for a turn that watches `links` or has Google's `server_tools`; `num_ctx` is only there so the two can be swapped (it is for
     a local model). Streamed, so a stop (docs/decisions/054) is heard while the video is being read, and the time to the
@@ -201,6 +202,8 @@ def call(
                         unopened.extend(_pages(candidate, opened=False))
                     if opened is not None:
                         opened.extend(_pages(candidate, opened=True))
+                    if searched is not None:
+                        searched.extend((candidate.get("groundingMetadata") or {}).get("webSearchQueries") or [])
                     if block := (chunk.get("promptFeedback") or {}).get("blockReason"):
                         raise EngineModelError(f"Gemini would not read this message ({block}).")
                     for part in (candidate.get("content") or {}).get("parts") or []:

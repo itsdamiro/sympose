@@ -193,3 +193,18 @@ def test_the_page_named_as_unread_is_the_one_google_did_not_report_even_when_it_
     assert reply.text == "It says X.\n\n" + watch_call.PAGE_NOT_READ.format(pages=other, that="that page")
     _call_that_reports(monkeypatch, opened=["https://example.org/b/"])  # a closing slash alone
     assert watch_call.for_links((), ("urlContext",), (PAGE, other))(messages(), model="m").text == "It says X.\n\n" + watch_call.PAGE_NOT_READ.format(pages=PAGE, that="that page")
+
+
+def test_after_the_web_only_remember_is_refused_and_every_other_tool_runs_as_before():
+    ran = []
+
+    def inner(persona, model, name, raw_arguments):
+        ran.append(name)
+        return "inner"
+
+    guarded = watch_call.without_memory_after_the_web(inner, [], ["a search"])
+    before = watch_call.without_memory_after_the_web(inner, [], [])
+
+    assert guarded({}, "m", "search_notes", "{}") == "inner" and ran == ["search_notes"]
+    assert guarded({}, "m", "remember", "{}").text == watch_call.WEB_NOT_REMEMBERED and ran == ["search_notes"]
+    assert before({}, "m", "remember", "{}") == "inner"

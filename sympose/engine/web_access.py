@@ -28,6 +28,7 @@ WATCH, CAPTIONS = "watch", "captions"
 # measurement, like `lookup.MEASURED`.
 WATCHERS = ("gemini/gemini-flash-latest",)
 MAX_LINKS = 3  # videos watched, and pages read, for one message
+CARRY_TURNS = 5  # the later messages of a conversation a link is carried into, so a question about it can be read from it
 SEARCH_TOOL, PAGE_TOOL = "googleSearch", "urlContext"  # Google's own tools, named as its request names them
 # watch, youtu.be, shorts, live and embed addresses; the video's id is always 11 characters.
 _LINK = re.compile(
@@ -54,6 +55,11 @@ class Watch:
     def outside(self) -> bool:
         """Whether anything from outside comes in on this turn: a video, a page or a search."""
         return bool(self.links or self.pages or self.search)
+
+    @property
+    def attached(self) -> bool:
+        """Whether the message brings outside content in with it, a video or a page, as against a search the model may or may not run."""
+        return bool(self.links or self.pages)
 
     @property
     def server_tools(self) -> tuple[str, ...]:
@@ -106,7 +112,8 @@ def pages_in(text: str) -> tuple[str, ...]:
 
 def resolve(model: str, user_message: str, history: list[dict[str, Any]]) -> Watch:
     """The turn's `Watch`. The message's own links win; with none, the latest earlier message of the user's that had
-    some is kept in front of the model (a question about the video or the page after the first). Carried links are
+    some is kept in front of the model (a question about the video or the page after the first), for `CARRY_TURNS` messages and
+    no further, so a conversation that has moved on does not keep sending a link to Google. Carried links are
     only ever opened when allowed, and never reported as withheld, so a conversation that began before the user
     allowed it does not nag on every later turn. Pages and search are Google's tools, so only a model in `WATCHERS`
     has them. `auto` without the user's approval searches nothing and says nothing: no link was withheld."""
@@ -119,8 +126,12 @@ def resolve(model: str, user_message: str, history: list[dict[str, Any]]) -> Wat
     if not allowed:
         return Watch(withheld=True) if videos or pages else Watch()
     if not (videos or pages):
+        quiet = 0
         for earlier in reversed(history):
             if earlier.get("role") == "user" and isinstance(earlier.get("content"), str):
+                quiet += 1
+                if quiet > CARRY_TURNS:
+                    break
                 videos, pages = links_in(earlier["content"]), pages_in(earlier["content"]) if tooled else ()
                 if videos or pages:
                     break

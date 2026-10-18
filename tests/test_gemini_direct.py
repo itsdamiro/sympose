@@ -299,3 +299,16 @@ def test_the_pages_google_opened_are_handed_back_in_their_own_list(server):
     gemini_direct.call([{"role": "user", "content": "hi"}], model="gemini/gemini-flash-latest", server_tools=("urlContext",), opened=read, unopened=lost)
 
     assert read == ["https://www.python.org/"] and lost == ["https://example.com/"]
+
+
+def test_the_searches_google_ran_are_handed_back_in_their_own_list(server):
+    ran = {"groundingMetadata": {"webSearchQueries": ["fern care", "ferns indoors"]}}
+    server.answer = httpx.Response(200, content=sse(
+        {"candidates": [{"content": {"role": "model", "parts": [{"text": "Ferns."}]}, **ran, "finishReason": "STOP"}]},
+    ))
+    searched: list[str] = []
+
+    gemini_direct.call([{"role": "user", "content": "hi"}], model="gemini/gemini-flash-latest", server_tools=("googleSearch",), searched=searched)
+    gemini_direct.call([{"role": "user", "content": "hi"}], model="gemini/gemini-flash-latest", server_tools=("googleSearch",))  # no list: nothing fails
+
+    assert searched == ["fern care", "ferns indoors"]

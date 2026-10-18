@@ -382,7 +382,7 @@ def test_auto_without_the_users_approval_or_on_another_model_is_an_ordinary_turn
     assert unapproved.withheld == [] and not local.cloud
 
 
-def test_a_turn_that_searches_or_reads_a_page_is_not_given_remember(calls):
+def test_a_turn_that_has_a_page_or_a_video_in_the_message_is_not_given_remember_and_one_with_only_a_search_is(calls):
     sharing.set_approved(sharing.WEB, True)
     settings_store.set(memory.REMEMBER_SETTING, True)
 
@@ -394,7 +394,8 @@ def test_a_turn_that_searches_or_reads_a_page_is_not_given_remember(calls):
 
     page, searching, plain = calls
     assert page["via"] == "direct" and not page.get("tools")
-    assert searching["via"] == "direct" and not searching.get("tools")
+    # With only the search on offer she keeps `remember`; it is refused once a search or a read happens (the next test).
+    assert searching["via"] == "direct" and any(t["function"]["name"] == "remember" for t in searching["tools"])
     assert plain["via"] == "call_model" and any(t["function"]["name"] == "remember" for t in plain["tools"])
 
 
@@ -421,3 +422,31 @@ def test_a_page_in_the_message_that_google_did_not_read_is_said_and_a_follow_up_
 
     assert first.reply == "From the video.\n\n" + watch_call.PAGE_NOT_READ.format(pages=PAGE, that="that page")
     assert second.reply == "From the video."
+
+
+def test_in_auto_remember_works_until_google_searches_or_reads_a_page_in_the_turn_and_is_then_refused(monkeypatch, calls):
+    sharing.set_approved(sharing.WEB, True)
+    settings_store.set(memory.REMEMBER_SETTING, True)
+    settings_store.set(web_access.SETTING, web_access.AUTO)
+
+    def going(report: dict[str, list[str]]):
+        answers = [ModelReply("", 5, tool_calls=(ToolCall("call_0", "remember", json.dumps({"text": f"likes {len(report)} ferns"})),)), ModelReply("Ok.", 5)]
+
+        def direct(messages, model=None, **kwargs):
+            for name, items in report.items():
+                kwargs[name].extend(items)
+            return answers.pop(0)
+
+        monkeypatch.setattr(gemini_direct, "call", direct)
+
+    going({})
+    quiet = turn.run_turn("samantha", "remember I like ferns", model=CLOUD)
+    going({"searched": ["fern care"]})
+    searched = turn.run_turn("samantha", "remember I like ferns", model=CLOUD)
+    going({"opened": [PAGE], "searched": []})
+    read = turn.run_turn("samantha", "remember I like ferns", model=CLOUD)
+
+    assert quiet.lookups == [{"tool": "remember", "saved": True}]
+    assert searched.lookups == [{"tool": "remember", "saved": False}] and read.lookups == [{"tool": "remember", "saved": False}]
+    kept = memory.decisions("samantha")
+    assert len(kept) == 1 and "likes 0 ferns" in kept[0]

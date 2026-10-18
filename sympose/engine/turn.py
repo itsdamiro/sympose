@@ -121,8 +121,9 @@ def _run(
     limits = budget.budget_for(target_model, persona)
     found = turn_evidence.gather(persona, handle, sid, user_message, history, target_model, limits, modes, existing)
     grounding_results, recaps_found, chats_found, withheld = found.grounding, found.recaps, found.chats, found.withheld
-    if found.watch.outside and modes.remember:
-        # A video, a page or a search result is outside content: what it says must not be able to make a write to the persona's memory.
+    if found.watch.outside and modes.remember and not (modes.remember == memory.TOOL and not found.watch.attached):
+        # A video or a page is outside content: what it says must not be able to make a write to the persona's memory.
+        # With only a search on offer (`auto`) she keeps `remember` until a search or a page read happens in the turn (below).
         modes = replace(modes, remember=None)
     ask, chose_ask, remember = modes.ask, modes.chose_ask, modes.remember
     mem, notes = found.mem, found.notes
@@ -152,10 +153,17 @@ def _run(
     dropped += capped  # the turns `history_tokens` left out count with the ones the window's own fitting dropped
     lookups: list[dict[str, Any]] = []
     # A video linked in the message is watched, and a page read or the web searched, by the model's maker, so the call goes straight to Google (docs/decisions/089).
-    watch_call = watch_call_mod.for_links(found.watch.links, found.watch.server_tools, found.watch.asked) if found.watch.direct else None
+    web_opened: list[str] = []
+    web_searched: list[str] = []
+    watch_call = (
+        watch_call_mod.for_links(found.watch.links, found.watch.server_tools, found.watch.asked, web_opened, web_searched)
+        if found.watch.direct else None
+    )
     tools = persona_tools.for_turn(ask, remember == memory.TOOL, modes.chats, sid, modes.edit, persona, found.map_allowed, found.watch.links)
     if tools:
         tool_list, run_tool = tools
+        if remember == memory.TOOL and found.watch.outside:
+            run_tool = watch_call_mod.without_memory_after_the_web(run_tool, web_opened, web_searched)
         done = lookup.converse(
             persona, messages, target_model, limits, used_tokens=prompt_tokens, tools=tool_list, run_tool=run_tool,
             recheck=unfiled.recheck(modes.edit) if modes.edit and modes.edit.active and modes.edit.tool else None,

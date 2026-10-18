@@ -7,7 +7,8 @@ from dataclasses import replace
 from typing import Any, Callable
 from urllib.parse import urlsplit
 
-from sympose.engine import captions, gemini_direct, model as model_mod
+from sympose.engine import captions, gemini_direct, memory_tools, model as model_mod
+from sympose.engine.lookup_result import Result
 from sympose.engine.model import EngineModelError, ModelReply
 from sympose.engine.prompt_text import READING_PAGES, READING_SEARCH, WATCHING
 
@@ -18,6 +19,11 @@ PAGE_NOT_OPENED = "Google could not open {pages}, so none of this comes from {th
 # The same, for a page the reader was never asked for: measured, a model asked to summarise a well-known page often
 # answers from memory and Google reports no read at all, neither an opening nor a failure.
 PAGE_NOT_READ = "Google did not read {pages}, so none of this comes from {that}."
+# What `remember` answers on a turn in which Google read a page or searched (the model reads this, not the user).
+WEB_NOT_REMEMBERED = (
+    "Not saved. This turn read a page or searched the web, and nothing in such a turn is written to memory. "
+    "Say so; the user can ask again in a message that needs no web."
+)
 
 
 def _swap(messages: list[dict[str, Any]], words: str) -> list[dict[str, Any]]:
@@ -52,18 +58,33 @@ def _said(text: str, unopened: list[str], not_read: list[str]) -> str:
     return text
 
 
-def for_links(links: tuple[str, ...], server_tools: tuple[str, ...] = (), asked: tuple[str, ...] = ()) -> Callable[..., ModelReply]:
+def without_memory_after_the_web(run_tool: Callable[..., Any], opened: list[str], searched: list[str]) -> Callable[..., Any]:
+    """`run_tool` that refuses `remember` once Google has opened a page or searched in this turn: what came from outside
+    must not be able to make a write to the persona's memory, and the lists are those `for_links` fills as the turn goes."""
+    def run(persona: dict[str, Any], model: str, name: str, raw_arguments: Any) -> Any:
+        if name == memory_tools.REMEMBER and (opened or searched):
+            return Result(WEB_NOT_REMEMBERED, lookup={"tool": name, "saved": False})
+        return run_tool(persona, model, name, raw_arguments)
+
+    return run
+
+
+def for_links(
+    links: tuple[str, ...], server_tools: tuple[str, ...] = (), asked: tuple[str, ...] = (),
+    opened: list[str] | None = None, searched: list[str] | None = None,
+) -> Callable[..., ModelReply]:
     """A function with `model.call_model`'s arguments that watches `links` and carries Google's `server_tools`, or reads
     the videos' captions when Google will not take them. `asked` are the pages the user's message links to: the reply says
-    so when Google did not read one."""
+    so when Google did not read one. `opened` and `searched` are lists the caller may keep, to know what the turn read."""
     fell_back: list[str] = []  # the captions text, once the watch has been refused
     unopened: list[str] = []  # the pages Google's reader could not open, over all of the turn's calls
-    opened: list[str] = []  # the pages it opened
+    opened = [] if opened is None else opened  # the pages it opened
+    searched = [] if searched is None else searched  # the searches it ran
 
     def call(messages: list[dict[str, Any]], **kwargs: Any) -> ModelReply:
         if not fell_back:
             try:
-                reply = gemini_direct.call(messages, links=links, server_tools=server_tools, unopened=unopened, opened=opened, **kwargs)
+                reply = gemini_direct.call(messages, links=links, server_tools=server_tools, unopened=unopened, opened=opened, searched=searched, **kwargs)
                 if reply.text and not reply.tool_calls:  # the answer, not a round of tool calls
                     reply = replace(reply, text=_said(reply.text, unopened, _not_read(asked, opened, unopened)))
                 return reply
