@@ -65,12 +65,19 @@ def test_a_message_with_no_link_watches_nothing_and_withholds_nothing():
     assert web_access.resolve(CLOUD, "hello", []) == web_access.Watch()
 
 
-def test_off_and_a_model_that_cannot_watch_do_nothing():
+def test_off_does_nothing_for_any_model():
     sharing.set_approved(sharing.WEB, True)
-    assert web_access.resolve("ollama_chat/gemma2:9b", ADDRESS, []) == web_access.Watch()
-    assert web_access.resolve("openai/gpt-4o-mini", ADDRESS, []) == web_access.Watch()
     settings_store.set(web_access.SETTING, web_access.OFF)
-    assert web_access.resolve(CLOUD, ADDRESS, []) == web_access.Watch()
+    for model in (CLOUD, "ollama_chat/gemma2:9b", "openai/gpt-4o-mini"):
+        assert web_access.resolve(model, ADDRESS, []) == web_access.Watch()
+
+
+def test_a_model_that_cannot_watch_is_given_the_captions_and_a_local_one_needs_no_approval():
+    assert web_access.resolve("ollama_chat/gemma2:9b", ADDRESS, []) == web_access.Watch((ADDRESS,), route=web_access.CAPTIONS)
+    assert web_access.resolve("openai/gpt-4o-mini", ADDRESS, []) == web_access.Watch(withheld=True)
+    sharing.set_approved(sharing.WEB, True)
+    assert web_access.resolve("openai/gpt-4o-mini", ADDRESS, []) == web_access.Watch((ADDRESS,), route=web_access.CAPTIONS)
+    assert web_access.resolve(CLOUD, ADDRESS, []) == web_access.Watch((ADDRESS,), route=web_access.WATCH)
 
 
 def test_a_follow_up_keeps_the_latest_video_of_the_conversation_in_front_of_the_model():

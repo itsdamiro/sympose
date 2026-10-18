@@ -232,11 +232,15 @@ The `skill_cap` setting is the most characters of a skill's steps that go with o
 
 ## web_access
 
-The `web_access` setting decides whether a YouTube video you link to is watched. `"asked"`, the default, watches it when your message has its link, and keeps it in front of the persona for your questions about it afterwards. `"off"` never does.
+The `web_access` setting decides whether a YouTube video you link to is read. `"asked"`, the default, reads it when your message has its link, and keeps it in front of the persona for your questions about it afterwards. `"off"` never does.
 
-It works with Gemini Flash, and only if `"web"` is allowed in `cloud_share`, which it is not until you allow it with /share or in Settings under Cloud models. The link is then sent to Google, who watch the video for the persona. Without that permission she says she could not watch the link, and how to allow it.
+Gemini Flash watches the video: the link is sent to Google, and the persona sees what is shown as well as what is said. Every other model, one on your computer included, is given the video's captions instead, fetched from YouTube by your computer. The same captions stand in when Google will not take a video.
 
-A video costs more than a message: each question that needs the video makes Google look at it again. What a persona says about a video comes from the video and not from your notes. In a message with a video link it does not add anything to its memory.
+With captions the persona cannot see what is shown and not said, and a very long video is cut, with the persona saying where it stops. A video with no captions, or one YouTube will not hand out, cannot be read this way, and the persona says so and why.
+
+With a cloud model, `"web"` must be allowed in `cloud_share`, which it is not until you allow it with /share or in Settings under Cloud models; the link goes to Google, or the captions go to the model's maker. Without that permission she says she could not open the link, and how to allow it. A model on your computer needs no permission.
+
+A video costs more than a message: with Gemini Flash each question that needs the video makes Google look at it again, and with captions they ride with every message while the conversation is about the video. What a persona says about a video comes from the video and not from your notes. In a message with a video link it does not add anything to its memory.
 
 A note made from a video is a proposal that waits for your Accept, like any other. Ask for one: a link or a summary alone files nothing. The note has the video's address in its properties, and the times in its outline are links to that moment of the video.
 

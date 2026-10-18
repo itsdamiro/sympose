@@ -127,8 +127,10 @@ def build_user_turn(
     chats_withheld: bool = False,
     skill: str | None = None,
     watching: bool = False,
+    captions: str | None = None,
 ) -> str:
-    """`watching`: a video linked in the message is attached for the model to watch (docs/decisions/089); a link the user has not
+    """`watching`: a video linked in the message is attached for the model to watch (docs/decisions/089); `captions` is
+    the text standing in for a video the model cannot watch (`captions.render`); a link the user has not
     allowed to be opened is `withheld[WEB]`, and each has its line beside the message. `chats_withheld`: earlier conversations matched but a cloud model may not have them; the line saying so
     sits with the message, where a small model weighs it most (the notes' own withheld lines do too).
     `lookup`: no notes were searched for the message, the persona looks them up itself
@@ -162,6 +164,8 @@ def build_user_turn(
         parts.append(f"{SKILL_LABEL}\n{skill}")
     if watching:
         parts.append(WATCHING)
+    if captions:
+        parts.append(captions)
     if withheld and withheld.get(WEB):
         parts.append(WITHHELD_WEB)
     parts.append(f"User's message: {user_message}")
@@ -193,6 +197,7 @@ def build_messages(
     skill: str | None = None,
     personas: bool = False,
     watching: bool = False,
+    captions: str | None = None,
 ) -> list[dict[str, str]]:
     """The system prompt (with the recaps of earlier conversations, docs/decisions/023 and 026, and the
     persona's own memory, docs/decisions/041), the history as it was said (the notes of earlier turns
@@ -219,7 +224,7 @@ def build_messages(
         "role": "user",
         "content": build_user_turn(
             user_message, grounding_results, omitted, has_library, reference_omitted, point_to, withheld,
-            vault_map, vault_map_withheld, lookup, bool(withheld.get(CHATS, 0)), skill, watching,
+            vault_map, vault_map_withheld, lookup, bool(withheld.get(CHATS, 0)), skill, watching, captions,
         ),
     }
     return [system, *history, user]

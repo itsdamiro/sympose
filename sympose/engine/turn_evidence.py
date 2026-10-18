@@ -3,15 +3,14 @@ the message, the recaps and earlier conversations, the vault map, the persona's 
 long conversation, each already limited to what the model may receive (docs/decisions/031). `gather` finds it all;
 `prompt_builder` closes over it so the fitting loop (docs/decisions/015) can build the prompt again with less."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Callable
 
 from sympose import profile as profile_mod, vault_map as vault_map_mod
 from sympose.engine import (
-    budget, connections, followup, grounding, grounding_properties, memory, past_chats, persona_tools, prompt, recap,
+    budget, captions, connections, followup, grounding, grounding_properties, memory, past_chats, persona_tools, prompt, recap,
     recap_refresh, reference, related, session_compaction, sharing, skill_folder, skills, turn_status, web_access,
 )
-
 
 @dataclass
 class Evidence:
@@ -30,6 +29,7 @@ class Evidence:
     vault_found: int
     skill: str | None = None  # the skill chosen for this message (docs/decisions/077), as the prompt carries it
     watch: web_access.Watch = field(default_factory=web_access.Watch)  # the videos this turn's model watches (docs/decisions/089)
+    captions: str | None = None  # the words of the videos it cannot watch, or why they could not be got (the transcript route)
 
 
 def interleave(first: list[dict[str, Any]], second: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -111,6 +111,11 @@ def gather(
 
     editing = modes.edit is not None and modes.edit.active
     watch = web_access.resolve(target_model, user_message, history)  # a link read by the model's maker is its own category (docs/decisions/089)
+    outside = None
+    if watch.links and watch.route == web_access.CAPTIONS:
+        got, missing = captions.fetch(watch.links, min(captions.MAX_TOKENS, limits.prompt_tokens // 2) if limits else captions.MAX_TOKENS)
+        outside = captions.render(got, missing)
+        watch = replace(watch, links=tuple(c.address for c in got))  # the skill, the times' links and the memory rule follow the videos in hand
     tools = skills.tools_of(modes.ask, editing, editing and modes.edit.tool)
     chosen = (skills.for_video(persona, tools) if watch.links else None) or skills.select(persona, user_message, tools, sharing.is_local(target_model))
     skill_text = skills.text_for(chosen) if chosen else None
@@ -140,6 +145,7 @@ def gather(
         vault_found=len(gated.grounding) - reference_found,
         skill=skill_text,
         watch=watch,
+        captions=outside,
     )
 
 
@@ -182,7 +188,8 @@ def prompt_builder(
             chat_tools=modes.chats,
             skill=found.skill,
             personas=bool(modes.edit and modes.edit.active and modes.edit.proposes),
-            watching=bool(found.watch.links),
+            watching=bool(found.watch.links) and found.watch.route == web_access.WATCH,
+            captions=found.captions,
         )
 
     return build

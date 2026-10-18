@@ -16,13 +16,18 @@ ALLOW_IPV6 = "SYMPOSE_ALLOW_IPV6"
 
 def prefer_ipv4() -> None:
     """Make every litellm call (chat and embeddings) connect over IPv4, unless the user allows IPv6."""
-    litellm.force_ipv4 = os.environ.get(ALLOW_IPV6, "").strip().lower() not in ("1", "true", "yes", "on")
+    litellm.force_ipv4 = ipv4_only()
 
+
+
+def ipv4_only() -> bool:
+    """Whether Sympose's own requests connect over IPv4 only: yes, unless the user allows IPv6."""
+    return os.environ.get(ALLOW_IPV6, "").strip().lower() not in ("1", "true", "yes", "on")
 
 
 def ipv4_transport() -> httpx.HTTPTransport | None:
     """The same rule for a request Sympose makes itself (the direct Gemini path, ADR 089): a transport bound to an
     IPv4 address, or `None` (the default one) when the user allows IPv6."""
-    if os.environ.get(ALLOW_IPV6, "").strip().lower() in ("1", "true", "yes", "on"):
+    if not ipv4_only():
         return None
     return httpx.HTTPTransport(local_address="0.0.0.0")  # noqa: S104 (a local source address, not a listener)

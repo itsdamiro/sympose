@@ -143,6 +143,33 @@ def test_a_refusal_says_what_google_said_and_nothing_leaks_the_key(server):
     assert "test-key" not in str(caught.value)
 
 
+@pytest.mark.parametrize("status", [400, 404])
+def test_a_refusal_of_the_request_that_carried_a_video_says_the_watch_is_unavailable(server, status):
+    server.answer = httpx.Response(status, json={"error": {"code": status, "message": "Unsupported"}})
+
+    with pytest.raises(gemini_direct.WatchUnavailable, match=str(status)):
+        gemini_direct.call([{"role": "user", "content": "hi"}], model="gemini/gemini-flash-latest", links=(LINK,))
+
+
+@pytest.mark.parametrize("status", [401, 403, 429, 500, 503])
+def test_trouble_with_the_key_the_quota_or_the_load_is_not_a_refusal_of_the_video(server, status):
+    server.answer = httpx.Response(status, json={"error": {"code": status, "message": "Trouble"}})
+
+    with pytest.raises(EngineModelError) as caught:
+        gemini_direct.call([{"role": "user", "content": "hi"}], model="gemini/gemini-flash-latest", links=(LINK,))
+
+    assert not isinstance(caught.value, gemini_direct.WatchUnavailable)
+
+
+def test_a_refusal_with_no_video_in_the_request_is_an_ordinary_error(server):
+    server.answer = httpx.Response(400, json={"error": {"code": 400, "message": "Bad"}})
+
+    with pytest.raises(EngineModelError) as caught:
+        gemini_direct.call([{"role": "user", "content": "hi"}], model="gemini/gemini-flash-latest")
+
+    assert not isinstance(caught.value, gemini_direct.WatchUnavailable)
+
+
 def test_a_missing_key_is_said_in_plain_words(server, monkeypatch):
     monkeypatch.delenv("GEMINI_API_KEY")
     monkeypatch.delenv("GOOGLE_API_KEY", raising=False)

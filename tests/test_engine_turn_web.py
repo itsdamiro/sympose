@@ -8,10 +8,10 @@ import pytest
 from helpers import write_persona
 
 from sympose import note_changes_store, settings_store
-from sympose.engine import memory, session, sharing, skills, tool_support, turn, web_access
+from sympose.engine import captions, gemini_direct, memory, session, sharing, skills, tool_support, turn, web_access
 from sympose.engine.model import EngineModelError, ModelReply
 from sympose.engine.model_tools import ToolCall
-from sympose.engine.prompt_text import WATCHING, WITHHELD_WEB
+from sympose.engine.prompt_text import CAPTIONS, WATCHING, WITHHELD_WEB
 
 LOCAL = "ollama_chat/gemma2:9b"
 CLOUD = "gemini/gemini-flash-latest"
@@ -30,6 +30,28 @@ def scratch(tmp_path, monkeypatch):
     monkeypatch.setattr(tool_support.litellm, "supports_function_calling", lambda model: model == CLOUD)
 
 
+@pytest.fixture(autouse=True)
+def words(monkeypatch):
+    """The captions of the video: `words.raw` is what the library would give, an exception to raise one; `words.asked` the fetches."""
+    class Fake:
+        raw: object = ([(0.0, "Stress clouds thinking."), (30.0, "Sleep fixes it.")], "en", False)
+        asked: list[str] = []
+
+    Fake.asked = []
+
+    def download(video, ipv6=False):
+        Fake.asked.append(video)
+        if isinstance(Fake.raw, Exception):
+            raise Fake.raw
+        return Fake.raw
+
+    captions.forget()
+    monkeypatch.setattr(captions, "_download", download)
+    monkeypatch.setattr(captions, "GAP_SECONDS", 0)
+    yield Fake
+    captions.forget()
+
+
 @pytest.fixture
 def calls(monkeypatch):
     """Both ways of calling a model, recording what each was given: `via` says which one a reply came by."""
@@ -44,7 +66,7 @@ def calls(monkeypatch):
         return ModelReply("From the video.", 5)
 
     monkeypatch.setattr(turn.model_mod, "call_model", litellm_way)
-    monkeypatch.setattr(turn.gemini_direct, "call", direct_way)
+    monkeypatch.setattr(gemini_direct, "call", direct_way)
     return seen
 
 
@@ -69,15 +91,57 @@ def test_a_link_the_user_has_not_allowed_is_not_opened_and_the_persona_says_how_
     assert result.cloud == [] and result.withheld == [sharing.WEB]
 
 
-def test_a_local_model_and_the_off_setting_do_nothing_about_a_link(calls):
-    sharing.set_approved(sharing.WEB, True)
-    turn.run_turn("samantha", f"make notes from {LINK}", model=LOCAL)
+def test_the_off_setting_does_nothing_about_a_link(calls, words):
     settings_store.set(web_access.SETTING, web_access.OFF)
-    result = turn.run_turn("samantha", f"make notes from {LINK}", model=CLOUD)
+    sharing.set_approved(sharing.WEB, True)
+    for model in (LOCAL, CLOUD):
+        result = turn.run_turn("samantha", f"make notes from {LINK}", model=model)
 
-    assert [c["via"] for c in calls] == ["call_model", "call_model"]
-    assert all(WATCHING not in c["messages"][-1]["content"] and WITHHELD_WEB not in c["messages"][-1]["content"] for c in calls)
+    assert [c["via"] for c in calls] == ["call_model", "call_model"] and words.asked == []
+    assert all(WATCHING not in c["messages"][-1]["content"] and CAPTIONS not in c["messages"][-1]["content"] for c in calls)
     assert result.withheld == []
+
+
+def test_a_local_model_is_given_the_captions_in_place_of_the_video_and_nothing_goes_to_google(calls, words):
+    result = turn.run_turn("samantha", f"make notes from {LINK}", model=LOCAL)
+
+    (sent,) = calls
+    content = sent["messages"][-1]["content"]
+    assert sent["via"] == "call_model" and "links" not in sent and WATCHING not in content
+    assert CAPTIONS in content and f"Video: {ADDRESS} (captions in en" in content and "[0:30] Sleep fixes it." in content
+    assert content.index(CAPTIONS) < content.index("User's message:") and result.cloud == [] and result.withheld == []
+
+
+def test_a_cloud_model_that_cannot_watch_is_given_the_captions_only_when_web_is_allowed(calls, words, monkeypatch):
+    other = "openai/gpt-4o-mini"
+    monkeypatch.setattr(tool_support.litellm, "supports_function_calling", lambda model: False)
+    turn.run_turn("samantha", f"summarize {LINK}", model=other)
+    assert WITHHELD_WEB in calls[0]["messages"][-1]["content"] and words.asked == []
+
+    sharing.set_approved(sharing.WEB, True)
+    result = turn.run_turn("samantha", f"summarize {LINK}", model=other)
+
+    assert CAPTIONS in calls[1]["messages"][-1]["content"] and result.cloud == [sharing.WEB]
+
+
+def test_a_video_whose_captions_cannot_be_got_is_said_and_nothing_is_guessed(calls, words):
+    words.raw = captions._Absent("the video has no captions")
+
+    turn.run_turn("samantha", f"make notes from {LINK}", model=LOCAL)
+
+    content = calls[0]["messages"][-1]["content"]
+    assert "you could not get its captions" in content and f"{ADDRESS}: the video has no captions" in content
+    assert CAPTIONS not in content and "Skill: capturing-from-a-link" not in content
+
+
+def test_a_follow_up_gets_the_captions_again_without_fetching_them_again(calls, words):
+    first = turn.run_turn("samantha", f"summarize {LINK}", model=LOCAL)
+
+    turn.run_turn("samantha", "what about sleep?", session_id=first.session_id, model=LOCAL)
+
+    assert all("[0:30] Sleep fixes it." in c["messages"][-1]["content"] for c in calls) and words.asked == ["8jPQjjsBbIc"]
+    saved = session.history_as_messages(session.load_session("samantha", first.session_id))
+    assert all("Sleep fixes it." not in m["content"] for m in saved)
 
 
 def test_a_message_without_a_link_is_an_ordinary_turn(calls):
@@ -109,7 +173,7 @@ def test_the_tool_loop_is_given_the_direct_call_so_the_persona_keeps_her_tools(m
         seen.append(kwargs)
         return answers.pop(0)
 
-    monkeypatch.setattr(turn.gemini_direct, "call", direct)
+    monkeypatch.setattr(gemini_direct, "call", direct)
 
     result = turn.run_turn("samantha", f"make a note from {LINK}", model=CLOUD, edits=True)
 
@@ -153,10 +217,55 @@ def test_no_capture_skill_without_a_video_to_watch_or_a_way_to_show_a_proposal(t
     with_the_capture_skill(tmp_path, monkeypatch)
     turn.run_turn("samantha", f"make a note from {LINK}", model=CLOUD, edits=True)  # `web` not allowed: nothing watched
     sharing.set_approved(sharing.WEB, True)
-    turn.run_turn("samantha", f"make a note from {LINK}", model=LOCAL, edits=True)  # a model that cannot watch
     turn.run_turn("samantha", f"make a note from {LINK}", model=CLOUD)  # the terminal: nowhere to show a proposal
 
     assert all("Skill:" not in c["messages"][-1]["content"] for c in calls)
+
+
+def test_a_turn_on_captions_is_given_the_capture_skill_and_the_videos_address_on_a_model_that_calls_tools(tmp_path, monkeypatch, calls):
+    with_the_capture_skill(tmp_path, monkeypatch)
+    sharing.set_approved(sharing.WEB, True)
+    monkeypatch.setattr(tool_support.litellm, "supports_function_calling", lambda model: True)
+
+    turn.run_turn("samantha", f"make a note from {LINK}", model="openai/gpt-4o-mini", edits=True)
+
+    content = calls[0]["messages"][-1]["content"]
+    assert f"Skill: {skills.CAPTURE}" in content and f"The video: {ADDRESS}" in content and CAPTIONS in content and WATCHING not in content
+
+
+def test_a_video_with_no_captions_gets_no_capture_skill_and_a_cut_video_is_told_where_it_stops(tmp_path, monkeypatch, calls, words):
+    with_the_capture_skill(tmp_path, monkeypatch)
+    sharing.set_approved(sharing.WEB, True)
+    monkeypatch.setattr(tool_support.litellm, "supports_function_calling", lambda model: True)
+    words.raw = captions._Absent("the video has no captions")
+
+    turn.run_turn("samantha", f"make a note from {LINK}", model="openai/gpt-4o-mini", edits=True)
+
+    assert f"Skill: {skills.CAPTURE}" not in calls[0]["messages"][-1]["content"]
+
+
+def test_a_long_video_is_cut_to_half_the_models_window_and_the_prompt_says_where_it_stops(calls, words):
+    words.raw = ([(float(t), "word " * 20) for t in range(0, 7200, 10)], "en", False)
+
+    turn.run_turn("samantha", f"summarize {LINK}", model=LOCAL)
+
+    content = calls[0]["messages"][-1]["content"]
+    assert "The captions stop at" in content and "of a video 1:59:50 long" in content
+    assert len(content) < 4096 * captions.TOKEN_CHARS  # the window of this model, in characters
+
+
+def test_a_turn_on_captions_is_not_given_remember_either(monkeypatch, calls):
+    other = "openai/gpt-4o-mini"
+    monkeypatch.setattr(tool_support.litellm, "supports_function_calling", lambda model: True)
+    sharing.set_approved(sharing.WEB, True)
+    settings_store.set(memory.REMEMBER_SETTING, True)
+
+    turn.run_turn("samantha", f"remember I like birds. {LINK}", model=other)
+    turn.run_turn("samantha", "remember I like trees.", model=other)
+
+    captioned, plain = calls
+    assert not any(t["function"]["name"] == "remember" for t in captioned.get("tools") or [])
+    assert any(t["function"]["name"] == "remember" for t in plain["tools"])
 
 
 def filed_texts():
@@ -168,7 +277,7 @@ def test_a_note_proposed_on_a_video_turn_has_its_timestamps_linked_by_the_tool_a
     stamped = "- [2:30] The first part"
     note = json.dumps({"title": "Talk", "text": f"# Talk\n\n{stamped}", "say": "Drafted."})
     answers = [ModelReply("", 5, tool_calls=(ToolCall("call_0", "propose_note", note),)), ModelReply("Drafted it.", 5)]
-    monkeypatch.setattr(turn.gemini_direct, "call", lambda messages, model=None, **kwargs: answers.pop(0))
+    monkeypatch.setattr(gemini_direct, "call", lambda messages, model=None, **kwargs: answers.pop(0))
 
     turn.run_turn("samantha", f"make a note from {LINK}", model=CLOUD, edits=True)
 
@@ -184,7 +293,43 @@ def test_a_note_proposed_on_a_video_turn_has_its_timestamps_linked_by_the_tool_a
             raise step
         return step
 
-    monkeypatch.setattr(turn.gemini_direct, "call", direct)
+    monkeypatch.setattr(gemini_direct, "call", direct)
     turn.run_turn("samantha", f"make another note from {LINK}", model=CLOUD, edits=True)
 
     assert len(filed_texts()) == 2 and any(f"- [0:45]({ADDRESS}&t=45s) Another" in text for text in filed_texts())
+
+
+def test_when_google_will_not_take_the_video_the_captions_stand_in_and_the_turn_goes_on_the_ordinary_way(monkeypatch, calls, words):
+    sharing.set_approved(sharing.WEB, True)
+
+    def refused(messages, model=None, **kwargs):
+        calls.append({"via": "direct", "messages": [dict(m) for m in messages], **kwargs})
+        raise gemini_direct.WatchUnavailable("Gemini refused the request (400: nope)")
+
+    monkeypatch.setattr(gemini_direct, "call", refused)
+
+    result = turn.run_turn("samantha", f"summarize {LINK}", model=CLOUD)
+
+    assert [c["via"] for c in calls] == ["direct", "call_model"]
+    content = calls[1]["messages"][-1]["content"]
+    assert WATCHING not in content and CAPTIONS in content and "[0:30] Sleep fixes it." in content
+    assert result.reply == "From the text."
+
+
+def test_when_google_will_not_take_the_video_and_there_are_no_captions_the_user_is_told_both(monkeypatch, calls, words):
+    sharing.set_approved(sharing.WEB, True)
+    words.raw = captions._Absent("the video has no captions")
+    monkeypatch.setattr(gemini_direct, "call", lambda *a, **k: (_ for _ in ()).throw(gemini_direct.WatchUnavailable("no")))
+
+    with pytest.raises(EngineModelError, match="would not take the video.*the video has no captions"):
+        turn.run_turn("samantha", f"summarize {LINK}", model=CLOUD)
+
+
+def test_any_other_trouble_with_google_is_not_met_with_the_captions(monkeypatch, calls, words):
+    sharing.set_approved(sharing.WEB, True)
+    monkeypatch.setattr(gemini_direct, "call", lambda *a, **k: (_ for _ in ()).throw(EngineModelError("Gemini refused the request (429: quota)")))
+
+    with pytest.raises(EngineModelError, match="429"):
+        turn.run_turn("samantha", f"summarize {LINK}", model=CLOUD)
+
+    assert words.asked == [] and calls == []

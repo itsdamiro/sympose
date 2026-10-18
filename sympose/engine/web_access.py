@@ -4,7 +4,10 @@ turn, whether that happens: the knob `web_access`, the model, the link, and the 
 
 `off` attaches nothing and `asked`, the default, attaches a video only when a link is in the message (or, for a
 follow-up, in the conversation's latest message that had one, so the model can read the video again). `auto`, which
-also lets the model search the web itself, comes with the search tools and is not offered yet."""
+also lets the model search the web itself, comes with the search tools and is not offered yet.
+
+A model in `WATCHERS` watches the video (`WATCH`); every other model, a local one included, is given its captions
+(`CAPTIONS`, `engine/captions.py`), which also stand in when the watch is refused (`watch_call`)."""
 
 import re
 from dataclasses import dataclass
@@ -16,6 +19,7 @@ from sympose.engine import sharing
 SETTING = "web_access"
 OFF, ASKED = "off", "asked"
 MODES = (ASKED, OFF)
+WATCH, CAPTIONS = "watch", "captions"
 # The models that can watch a video through the provider's own agentic mode (ADR 089, Spike results); a model joins by
 # measurement, like `lookup.MEASURED`.
 WATCHERS = ("gemini/gemini-flash-latest",)
@@ -34,6 +38,7 @@ class Watch:
 
     links: tuple[str, ...] = ()
     withheld: bool = False
+    route: str = WATCH  # `WATCH`: the maker's model looks at the video; `CAPTIONS`: it is given the words
 
 
 def mode() -> str:
@@ -52,15 +57,16 @@ def resolve(model: str, user_message: str, history: list[dict[str, Any]]) -> Wat
     some is kept in front of the model (a question about the video after the first). That carried link is only
     ever watched when allowed, and never reported as withheld, so a conversation that began before the user
     allowed it does not nag on every later turn."""
-    if mode() == OFF or model not in WATCHERS:
+    if mode() == OFF:
         return Watch()
+    route = WATCH if model in WATCHERS else CAPTIONS
     allowed = sharing.WEB in sharing.allowed(model)
     own = links_in(user_message)
     if own:
-        return Watch(own) if allowed else Watch(withheld=True)
+        return Watch(own, route=route) if allowed else Watch(withheld=True)
     if not allowed:
         return Watch()
     for earlier in reversed(history):
         if earlier.get("role") == "user" and isinstance(earlier.get("content"), str) and (found := links_in(earlier["content"])):
-            return Watch(found)
+            return Watch(found, route=route)
     return Watch()

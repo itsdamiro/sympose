@@ -8,14 +8,13 @@ docstring used to point at (between the model call returning and the turn
 persisting) was never exercised — see ADR 008."""
 
 import contextlib
-import functools
 from dataclasses import replace
 from typing import Any
 
 from sympose import note_changes
 from sympose import profile as profile_mod
 from sympose.engine import (
-    budget, compaction, confirmations, edit_tools, edit_turn, gemini_direct, history_cap, lookup, memory, memory_tools, past_chats, persona_tools, reference, session, session_compaction, sharing, tool_support, turn_cancel, turn_evidence, turn_status, unfiled,
+    budget, compaction, confirmations, edit_tools, edit_turn, history_cap, lookup, memory, memory_tools, past_chats, persona_tools, reference, session, session_compaction, sharing, tool_support, turn_cancel, turn_evidence, turn_status, unfiled, watch_call as watch_call_mod, web_access,
 )
 from sympose.engine import model as model_mod
 from sympose.engine.model import EngineModelError
@@ -153,7 +152,7 @@ def _run(
     dropped += capped  # the turns `history_tokens` left out count with the ones the window's own fitting dropped
     lookups: list[dict[str, Any]] = []
     # A video linked in the message is watched by the model's maker, so the call goes straight to Google (docs/decisions/089).
-    watch_call = functools.partial(gemini_direct.call, links=found.watch.links) if found.watch.links else None
+    watch_call = watch_call_mod.for_links(found.watch.links) if found.watch.links and found.watch.route == web_access.WATCH else None
     tools = persona_tools.for_turn(ask, remember == memory.TOOL, modes.chats, sid, modes.edit, persona, found.map_allowed, found.watch.links)
     if tools:
         tool_list, run_tool = tools

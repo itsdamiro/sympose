@@ -41,6 +41,16 @@ _STOPPED = {
 }
 
 
+class WatchUnavailable(EngineModelError):
+    """Google would not take the video itself: the preview changed, or this video cannot be read that way (a 400 or a
+    404 answering a request that carried one). The turn falls back to the video's captions (`watch_call`)."""
+
+
+# Statuses that mean the request, not the account or the load, was the trouble. A key, a quota or an overload is not
+# helped by asking Google the same question another way.
+_REQUEST_REFUSED = (400, 404)
+
+
 def _key() -> str:
     for name in _KEY_NAMES:
         if value := os.environ.get(name):
@@ -153,7 +163,8 @@ def call(
             ) as response:
                 if response.status_code >= 400:
                     response.read()
-                    raise EngineModelError(f"Gemini refused the request ({_explain(response.status_code, response.text)})")
+                    refused = WatchUnavailable if links and response.status_code in _REQUEST_REFUSED else EngineModelError
+                    raise refused(f"Gemini refused the request ({_explain(response.status_code, response.text)})")
                 for line in response.iter_lines():
                     turn_cancel.check()  # a stop ends the loop and, leaving the block, the request
                     if not line.startswith("data:"):

@@ -33,7 +33,7 @@ DESCRIPTIONS = {
     MEMORY: "the persona's own memory of you (its profile, active context and decisions files)",
     OPEN_NOTE: "the text of the note open in the editor, sent with your message so the persona can propose changes to it",
     ANNOTATIONS: "your open comments on the note open in the editor, with the passage each is about and the persona's answers",
-    WEB: "links in your messages, which the model's maker opens or watches for the persona (a video link is sent to Google)",
+    WEB: "links in your messages: a video link is sent to Google to watch, or its captions are fetched from YouTube and sent to the model",
 }
 _REFERENCE_SOURCE = "sympose"
 
