@@ -8,7 +8,9 @@ Not by default. With the default local model, run by Ollama, everything stays on
 
 Your messages and the conversation so far are always sent to that provider. What comes from your vault is sent only if you allow it, one kind at a time. None is allowed by default. The vault itself is never uploaded as a whole.
 
-The kinds are: passages of your notes, their properties, your recaps, your earlier conversations word for word, the shape of your vault, how notes connect, the persona's memory, the text of the note open in the editor, your open comments on it, and the links in your messages (today a YouTube video, see `web_access`).
+The kinds are: passages of your notes, their properties, your recaps, your earlier conversations word for word, the shape of your vault, how notes connect, the persona's memory, the text of the note open in the editor and your open comments on it.
+
+The links in your messages (a YouTube video or a web page) are one more kind, and so is what you ask when `web_access` is `"auto"` and the web is searched. See `web_access`.
 
 ## How do I let a cloud model use my notes?
 

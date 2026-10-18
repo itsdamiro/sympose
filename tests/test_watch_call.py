@@ -6,7 +6,7 @@ import pytest
 from sympose.engine import captions, gemini_direct, watch_call
 from sympose.engine import model as model_mod
 from sympose.engine.model import EngineModelError, ModelReply
-from sympose.engine.prompt_text import CAPTIONS, WATCHING
+from sympose.engine.prompt_text import CAPTIONS, READING_PAGES, READING_SEARCH, WATCHING
 
 ADDRESS = "https://www.youtube.com/watch?v=8jPQjjsBbIc"
 
@@ -91,3 +91,44 @@ def test_any_other_error_from_google_goes_up_untouched(ways):
     with pytest.raises(EngineModelError, match="429"):
         watch_call.for_links((ADDRESS,))(messages(), model="gemini/x")
     assert ways.plain == []
+
+
+def test_when_google_refuses_the_lines_about_pages_and_search_go_with_the_video(ways):
+    pages = f"Context.\n\n{WATCHING}\n\n{READING_PAGES}\n\n{READING_SEARCH}\n\nUser's message: hi"
+    watch_call.for_links((ADDRESS,), ("urlContext",))([{"role": "user", "content": pages}], model="m")
+
+    (sent,) = ways.plain
+    assert READING_PAGES not in sent[-1]["content"] and READING_SEARCH not in sent[-1]["content"] and WATCHING not in sent[-1]["content"]
+    assert sent[-1]["content"].endswith("User's message: hi") and "\n\n\n" not in sent[-1]["content"]
+
+
+def test_google_is_given_the_tools_with_the_links(ways, monkeypatch):
+    ways.refuse = False
+    seen = {}
+    monkeypatch.setattr(gemini_direct, "call", lambda messages, **kwargs: seen.update(kwargs) or ModelReply("ok", 1))
+
+    watch_call.for_links((), ("googleSearch", "urlContext"))(messages(), model="m")
+
+    assert seen["links"] == () and seen["server_tools"] == ("googleSearch", "urlContext")
+
+
+def test_a_page_google_could_not_open_is_said_under_the_answer_and_not_under_a_round_of_tool_calls(ways, monkeypatch):
+    from sympose.engine.model_tools import ToolCall
+
+    replies = iter([ModelReply("Let me look.", 1, tool_calls=(ToolCall("c", "search_notes", "{}"),)), ModelReply("It says X.", 1), ModelReply("Again.", 1)])
+
+    def direct(messages, unopened=None, **kwargs):
+        unopened.append("https://example.com/")  # Google reports it on each round
+        return next(replies)
+
+    monkeypatch.setattr(gemini_direct, "call", direct)
+    call = watch_call.for_links((), ("urlContext",))
+
+    first = call(messages(), model="m")
+    second = call(messages(), model="m")
+
+    assert first.text == "Let me look." and first.tool_calls
+    assert second.text == "It says X.\n\n" + watch_call.PAGE_NOT_OPENED.format(pages="https://example.com/", that="that page")
+    # A page opened on every call leaves the answer alone.
+    monkeypatch.setattr(gemini_direct, "call", lambda messages, **kwargs: ModelReply("Fine.", 1))
+    assert watch_call.for_links((), ("urlContext",))(messages(), model="m").text == "Fine."

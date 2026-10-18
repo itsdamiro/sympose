@@ -11,7 +11,7 @@ from sympose import note_changes_store, settings_store
 from sympose.engine import captions, gemini_direct, memory, session, sharing, skills, tool_support, turn, web_access
 from sympose.engine.model import EngineModelError, ModelReply
 from sympose.engine.model_tools import ToolCall
-from sympose.engine.prompt_text import CAPTIONS, WATCHING, WITHHELD_WEB
+from sympose.engine.prompt_text import CAPTIONS, READING_PAGES, READING_SEARCH, WATCHING, WITHHELD_WEB
 
 LOCAL = "ollama_chat/gemma2:9b"
 CLOUD = "gemini/gemini-flash-latest"
@@ -333,3 +333,81 @@ def test_any_other_trouble_with_google_is_not_met_with_the_captions(monkeypatch,
         turn.run_turn("samantha", f"summarize {LINK}", model=CLOUD)
 
     assert words.asked == [] and calls == []
+
+
+PAGE = "https://example.com/post"
+
+
+def test_an_allowed_page_link_goes_to_google_with_its_tool_and_the_persona_is_told_to_say_it_is_from_the_page(calls):
+    sharing.set_approved(sharing.WEB, True)
+
+    result = turn.run_turn("samantha", f"what does {PAGE} say?", model=CLOUD)
+
+    (sent,) = calls
+    assert sent["via"] == "direct" and sent["links"] == () and sent["server_tools"] == (web_access.PAGE_TOOL,)
+    content = sent["messages"][-1]["content"]
+    assert READING_PAGES in content and READING_SEARCH not in content and WATCHING not in content and WITHHELD_WEB not in content
+    assert result.cloud == [sharing.WEB] and result.withheld == []
+
+
+def test_a_page_link_the_user_has_not_allowed_is_not_read_and_the_persona_says_how_to_allow_it(calls):
+    result = turn.run_turn("samantha", f"what does {PAGE} say?", model=CLOUD)
+
+    (sent,) = calls
+    assert sent["via"] == "call_model" and WITHHELD_WEB in sent["messages"][-1]["content"] and READING_PAGES not in sent["messages"][-1]["content"]
+    assert result.withheld == [sharing.WEB]
+
+
+def test_auto_searches_on_a_turn_with_no_link_and_says_what_the_web_is_not(calls):
+    settings_store.set(web_access.SETTING, web_access.AUTO)
+    sharing.set_approved(sharing.WEB, True)
+
+    result = turn.run_turn("samantha", "what is new in python?", model=CLOUD)
+
+    (sent,) = calls
+    assert sent["via"] == "direct" and sent["server_tools"] == (web_access.SEARCH_TOOL, web_access.PAGE_TOOL)
+    assert READING_SEARCH in sent["messages"][-1]["content"] and READING_PAGES not in sent["messages"][-1]["content"]
+    assert result.cloud == [sharing.WEB]
+
+
+def test_auto_without_the_users_approval_or_on_another_model_is_an_ordinary_turn_and_says_nothing_of_it(calls):
+    settings_store.set(web_access.SETTING, web_access.AUTO)
+
+    unapproved = turn.run_turn("samantha", "what is new in python?", model=CLOUD)
+    local = turn.run_turn("samantha", "what is new in python?", model=LOCAL)
+
+    assert [c["via"] for c in calls] == ["call_model", "call_model"]
+    for sent in calls:
+        assert READING_SEARCH not in sent["messages"][-1]["content"] and WITHHELD_WEB not in sent["messages"][-1]["content"]
+    assert unapproved.withheld == [] and not local.cloud
+
+
+def test_a_turn_that_searches_or_reads_a_page_is_not_given_remember(calls):
+    sharing.set_approved(sharing.WEB, True)
+    settings_store.set(memory.REMEMBER_SETTING, True)
+
+    turn.run_turn("samantha", f"remember I like birds. {PAGE}", model=CLOUD)
+    settings_store.set(web_access.SETTING, web_access.AUTO)
+    turn.run_turn("samantha", "remember I like trees.", model=CLOUD)
+    settings_store.set(web_access.SETTING, web_access.ASKED)
+    turn.run_turn("samantha", "remember I like ferns.", model=CLOUD)
+
+    page, searching, plain = calls
+    assert page["via"] == "direct" and not page.get("tools")
+    assert searching["via"] == "direct" and not searching.get("tools")
+    assert plain["via"] == "call_model" and any(t["function"]["name"] == "remember" for t in plain["tools"])
+
+
+def test_a_follow_up_about_a_page_reads_it_again_and_the_page_capture_skill_comes_with_the_pages_address(tmp_path, monkeypatch, calls):
+    base = tmp_path / "profiles"
+    write_persona(base, "samantha", f"name: Samantha\nvault_folders: []\nsympose_reference: false\nskills: ['{skills.CAPTURE_PAGE}']\n")
+    monkeypatch.setenv("SYMPOSE_PROFILES_DIR", str(base))
+    sharing.set_approved(sharing.WEB, True)
+
+    first = turn.run_turn("samantha", PAGE, model=CLOUD, edits=True)
+    turn.run_turn("samantha", "save that as a note", model=CLOUD, edits=True, session_id=first.session_id)
+
+    for sent in calls:
+        content = sent["messages"][-1]["content"]
+        assert sent["server_tools"] == (web_access.PAGE_TOOL,)
+        assert f"Skill: {skills.CAPTURE_PAGE}" in content and f"The page: {PAGE}" in content and "The video:" not in content

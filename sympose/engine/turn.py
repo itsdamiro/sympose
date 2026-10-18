@@ -14,7 +14,7 @@ from typing import Any
 from sympose import note_changes
 from sympose import profile as profile_mod
 from sympose.engine import (
-    budget, compaction, confirmations, edit_tools, edit_turn, history_cap, lookup, memory, memory_tools, past_chats, persona_tools, reference, session, session_compaction, sharing, tool_support, turn_cancel, turn_evidence, turn_status, unfiled, watch_call as watch_call_mod, web_access,
+    budget, compaction, confirmations, edit_tools, edit_turn, history_cap, lookup, memory, memory_tools, past_chats, persona_tools, reference, session, session_compaction, sharing, tool_support, turn_cancel, turn_evidence, turn_status, unfiled, watch_call as watch_call_mod,
 )
 from sympose.engine import model as model_mod
 from sympose.engine.model import EngineModelError
@@ -121,8 +121,8 @@ def _run(
     limits = budget.budget_for(target_model, persona)
     found = turn_evidence.gather(persona, handle, sid, user_message, history, target_model, limits, modes, existing)
     grounding_results, recaps_found, chats_found, withheld = found.grounding, found.recaps, found.chats, found.withheld
-    if found.watch.links and modes.remember:
-        # A video is outside content: what is said or shown in it must not be able to make a write to the persona's memory.
+    if found.watch.outside and modes.remember:
+        # A video, a page or a search result is outside content: what it says must not be able to make a write to the persona's memory.
         modes = replace(modes, remember=None)
     ask, chose_ask, remember = modes.ask, modes.chose_ask, modes.remember
     mem, notes = found.mem, found.notes
@@ -151,8 +151,8 @@ def _run(
         decisions_sent = fitted.decisions
     dropped += capped  # the turns `history_tokens` left out count with the ones the window's own fitting dropped
     lookups: list[dict[str, Any]] = []
-    # A video linked in the message is watched by the model's maker, so the call goes straight to Google (docs/decisions/089).
-    watch_call = watch_call_mod.for_links(found.watch.links) if found.watch.links and found.watch.route == web_access.WATCH else None
+    # A video linked in the message is watched, and a page read or the web searched, by the model's maker, so the call goes straight to Google (docs/decisions/089).
+    watch_call = watch_call_mod.for_links(found.watch.links, found.watch.server_tools) if found.watch.direct else None
     tools = persona_tools.for_turn(ask, remember == memory.TOOL, modes.chats, sid, modes.edit, persona, found.map_allowed, found.watch.links)
     if tools:
         tool_list, run_tool = tools
@@ -212,7 +212,7 @@ def _run(
         sharing.categories_of(
             grounding_results, recaps_sent, vault_map=found.map_allowed and bool(found.map_text), memory=bool(memory_sent),
             chats=bool(chats_sent), open_note=bool(modes.edit and modes.edit.note), annotations=bool(modes.edit and modes.edit.comments),
-            web=bool(found.watch.links),
+            web=found.watch.outside,
         ),
         [name for name in sharing.CATEGORIES if name in withheld],
     )

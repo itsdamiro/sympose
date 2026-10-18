@@ -13,6 +13,7 @@ the history carries text and function calls only."""
 import json
 import logging
 import os
+import re
 import time
 from typing import Any
 
@@ -49,6 +50,17 @@ class WatchUnavailable(EngineModelError):
 # Statuses that mean the request, not the account or the load, was the trouble. A key, a quota or an overload is not
 # helped by asking Google the same question another way.
 _REQUEST_REFUSED = (400, 404)
+
+
+# Where the model read a page or a search result it sometimes leaves the reader's own source marks in the text, `[1.1]` or
+# `[1.1, 2.3]`; the user has no list they point into. Only a turn that carried Google's tools is cleaned.
+_SOURCE_MARKS = re.compile(r"[ \t]*\[\d+\.\d+(?:,[ \t]*\d+\.\d+)*\]")
+
+
+def _unopened(candidate: dict[str, Any]) -> list[str]:
+    """The pages Google's reader was asked for and could not open, as the reply's metadata names them."""
+    found = (candidate.get("urlContextMetadata") or {}).get("urlMetadata") or []
+    return [m.get("retrievedUrl") or "a page" for m in found if m.get("urlRetrievalStatus") not in (None, "URL_RETRIEVAL_STATUS_SUCCESS")]
 
 
 def _key() -> str:
@@ -90,10 +102,11 @@ def _turn_start(messages: list[dict[str, Any]]) -> int:
 
 def request_body(
     messages: list[dict[str, Any]], links: tuple[str, ...], tools: list[dict[str, Any]] | None, tool_choice: str | None,
-    max_tokens: int | None,
+    max_tokens: int | None, server_tools: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     """The `generateContent` request for `messages` (OpenAI-shaped, as the engine builds them) with each of `links`
-    attached to the turn's message as a video to watch."""
+    attached to the turn's message as a video to watch, and `server_tools` (Google's search and page reading, named as
+    its request names them) beside the vault's own functions."""
     system = "\n\n".join(str(m["content"]) for m in messages if m.get("role") == "system" and m.get("content"))
     start = _turn_start(messages)
     contents: list[dict[str, Any]] = []
@@ -120,10 +133,12 @@ def request_body(
         body["generationConfig"] = {"maxOutputTokens": max_tokens}
     if tools:
         body["tools"] = [{"functionDeclarations": _declarations(tools)}]
-        # Needed for a function beside a tool the provider runs (the video); without it Google refuses the request.
+        # Needed for a function beside a tool the provider runs (the video, search, page reading); without it Google refuses the request.
         body["toolConfig"] = {"includeServerSideToolInvocations": True}
         if tool_choice == "none":
             body["toolConfig"]["functionCallingConfig"] = {"mode": "NONE"}
+    if server_tools:
+        body["tools"] = [*body.get("tools", []), *({name: {}} for name in server_tools)]
     return body
 
 
@@ -143,13 +158,15 @@ def call(
     tools: list[dict] | None = None,
     tool_choice: str | None = None,
     links: tuple[str, ...] = (),
+    server_tools: tuple[str, ...] = (),
+    unopened: list[str] | None = None,
 ) -> ModelReply:
-    """`model.call_model` for a turn that watches `links`; `num_ctx` is only there so the two can be swapped (it is for
+    """`model.call_model` for a turn that watches `links` or has Google's `server_tools`; `num_ctx` is only there so the two can be swapped (it is for
     a local model). Streamed, so a stop (docs/decisions/054) is heard while the video is being read, and the time to the
     first text is measured."""
     name = (model or "").split("/", 1)[-1]
     waited = model_wait.seconds(messages)
-    body = request_body(messages, links, tools, tool_choice, max_tokens)
+    body = request_body(messages, links, tools, tool_choice, max_tokens, server_tools)
     started = time.perf_counter()
     ttft_ms: int | None = None
     texts: list[str] = []
@@ -176,6 +193,8 @@ def call(
                     if error := chunk.get("error"):  # an error can arrive after the reply has begun
                         raise EngineModelError(f"Gemini stopped the reply ({error.get('code')}: {error.get('message') or error})")
                     candidate = (chunk.get("candidates") or [{}])[0]
+                    if unopened is not None:
+                        unopened.extend(_unopened(candidate))
                     if block := (chunk.get("promptFeedback") or {}).get("blockReason"):
                         raise EngineModelError(f"Gemini would not read this message ({block}).")
                     for part in (candidate.get("content") or {}).get("parts") or []:
@@ -197,7 +216,7 @@ def call(
         if model_wait.is_timeout(e):
             raise EngineModelError(model_wait.message(model or name, waited)) from e
         raise EngineModelError(f"Couldn't reach model '{model}': {e}") from e
-    content = reply_text.tidy("".join(texts))
+    content = reply_text.tidy(_SOURCE_MARKS.sub("", "".join(texts)) if server_tools else "".join(texts))
     if reason in _STOPPED:
         raise EngineModelError(_STOPPED[reason])
     return end_reply(model or name, content, tuple(calls), reason is not None, reason == "MAX_TOKENS", ttft_ms)

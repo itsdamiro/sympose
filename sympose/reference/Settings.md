@@ -66,7 +66,9 @@ The `cloud_share` setting lists what a cloud model may receive from your vault, 
 
 The kinds are `"notes"` (passages found for a message), `"properties"`, `"recaps"`, `"chats"` (earlier conversations word for word), `"vault_map"` (folder names, purposes and note counts) and `"connections"` (how a note links to others).
 
-Also `"memory"` (the persona's own memory of you), `"open_note"` (the text of the note open in the editor, which lets a persona propose changes to it) `"annotations"` (your open comments on that note) and `"web"` (the links in your messages, which Google watches for the persona, see `web_access`). When a kind is held back the persona is told it was not sent, and how to allow it.
+Also `"memory"` (the persona's own memory of you), `"open_note"` (the text of the note open in the editor, which lets a persona propose changes to it) and `"annotations"` (your open comments on that note).
+
+Also `"web"`: the links in your messages, which Google opens for the persona, and what it searches for (see `web_access`). When a kind is held back the persona is told it was not sent, and how to allow it.
 
 ## show_grounding
 
@@ -224,7 +226,7 @@ To add a skill of your own, paste the full path of its folder in the same place.
 
 A skill that needs to propose a note is not used where the persona cannot propose notes: in the terminal, or when its `edit_mode` is `"plan"`. The skill that drafts a new note in a folder's style also needs a model that calls tools itself; a model that does not (the default local `gemma2:9b`) is not given it, and answers as it always did.
 
-The skill that makes a note from a video you linked (`capturing-from-a-link`) is not picked by your words: a message that watches a video is given it, and it applies only when you ask for a note.
+The skills that make a note from a video or a web page you linked (`capturing-from-a-link`, `capturing-from-a-page`) are not picked by your words: a message that watches a video or reads a page is given one, and it applies only when you ask for a note.
 
 ## skill_cap
 
@@ -232,9 +234,13 @@ The `skill_cap` setting is the most characters of a skill's steps that go with o
 
 ## web_access
 
-The `web_access` setting decides whether a YouTube video you link to is read. `"asked"`, the default, reads it when your message has its link, and keeps it in front of the persona for your questions about it afterwards. `"off"` never does.
+The `web_access` setting decides whether a link you share is opened. `"asked"`, the default, opens a YouTube video or a web page when your message has its link, and keeps it in front of the persona for your questions about it afterwards. `"auto"` also lets the persona search the web by herself on every turn. `"off"` never does.
 
-Gemini Flash watches the video: the link is sent to Google, and the persona sees what is shown as well as what is said. Every other model, one on your computer included, is given the video's captions instead, fetched from YouTube by your computer. The same captions stand in when Google will not take a video.
+Gemini Flash watches the video, reads the page and searches: the link is sent to Google, and the persona sees what is shown as well as what is said.
+
+Every other model, one on your computer included, is given a video's captions instead, fetched from YouTube by your computer, and cannot read a page or search. The same captions stand in when Google will not take a video.
+
+All of it needs `"web"` allowed under `cloud_share`. What comes from the web is marked as outside your notes, and a turn that uses it cannot save anything to the persona's memory. Addresses that only your own network knows are never sent.
 
 With captions the persona cannot see what is shown and not said, and a very long video is cut, with the persona saying where it stops. A video with no captions, or one YouTube will not hand out, cannot be read this way, and the persona says so and why.
 

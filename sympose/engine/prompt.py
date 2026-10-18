@@ -128,8 +128,9 @@ def build_user_turn(
     skill: str | None = None,
     watching: bool = False,
     captions: str | None = None,
+    reading: str | None = None,
 ) -> str:
-    """`watching`: a video linked in the message is attached for the model to watch (docs/decisions/089); `captions` is
+    """`reading`: the lines about the pages the model may read and the web it may search (docs/decisions/089). `watching`: a video linked in the message is attached for the model to watch (docs/decisions/089); `captions` is
     the text standing in for a video the model cannot watch (`captions.render`); a link the user has not
     allowed to be opened is `withheld[WEB]`, and each has its line beside the message. `chats_withheld`: earlier conversations matched but a cloud model may not have them; the line saying so
     sits with the message, where a small model weighs it most (the notes' own withheld lines do too).
@@ -166,6 +167,8 @@ def build_user_turn(
         parts.append(WATCHING)
     if captions:
         parts.append(captions)
+    if reading:
+        parts.append(reading)
     if withheld and withheld.get(WEB):
         parts.append(WITHHELD_WEB)
     parts.append(f"User's message: {user_message}")
@@ -198,6 +201,7 @@ def build_messages(
     personas: bool = False,
     watching: bool = False,
     captions: str | None = None,
+    reading: str | None = None,
 ) -> list[dict[str, str]]:
     """The system prompt (with the recaps of earlier conversations, docs/decisions/023 and 026, and the
     persona's own memory, docs/decisions/041), the history as it was said (the notes of earlier turns
@@ -224,7 +228,7 @@ def build_messages(
         "role": "user",
         "content": build_user_turn(
             user_message, grounding_results, omitted, has_library, reference_omitted, point_to, withheld,
-            vault_map, vault_map_withheld, lookup, bool(withheld.get(CHATS, 0)), skill, watching, captions,
+            vault_map, vault_map_withheld, lookup, bool(withheld.get(CHATS, 0)), skill, watching, captions, reading,
         ),
     }
     return [system, *history, user]

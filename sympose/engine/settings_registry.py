@@ -155,7 +155,7 @@ SETTINGS: list[Setting] = [
         lambda: skills.DEFAULT_CAP, hint=f"characters, {skills.MIN_CAP} or more", whole=True, group=SKILLS,
     ),
     Setting(
-        web_access.SETTING, CHOICE, "watching a video you link to",
+        web_access.SETTING, CHOICE, "reading links you share, and searching the web",
         web_access.mode, lambda: web_access.ASKED, choices=web_access.MODES, group=WEB,
     ),
 ]

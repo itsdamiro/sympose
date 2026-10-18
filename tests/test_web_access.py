@@ -95,3 +95,72 @@ def test_a_follow_up_keeps_the_latest_video_of_the_conversation_in_front_of_the_
 def test_a_carried_link_is_never_watched_unallowed_and_never_nags():
     history = [{"role": "user", "content": ADDRESS}, {"role": "assistant", "content": "ok"}]
     assert web_access.resolve(CLOUD, "what did he say?", history) == web_access.Watch()
+
+
+PAGE = "https://example.com/post"
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        (f"read {PAGE}.", (PAGE,)),
+        (f"({PAGE})", (PAGE,)),
+        (f"[the post]({PAGE}?a=1)", (f"{PAGE}?a=1",)),
+        ("https://en.wikipedia.org/wiki/Foo_(bar)", ("https://en.wikipedia.org/wiki/Foo_(bar)",)),
+        (f"{PAGE}, then https://b.org/y! and {PAGE}", (PAGE, "https://b.org/y")),
+        ("https://www.youtube.com/@channel https://youtu.be/8jPQjjsBbIc https://m.youtube.com/watch?v=8jPQjjsBbIc", ()),
+        ("http://localhost:3000/a https://127.0.0.1/a https://192.168.1.4/a https://nas.local/a https://intranet/a https://[::1]/a", ()),
+        ("no link, just example.com and obsidian://open?vault=x", ()),
+    ],
+)
+def test_a_page_link_is_the_address_without_the_sentence_around_it_and_a_video_or_a_private_address_is_not_one(text, expected):
+    assert web_access.pages_in(text) == expected
+
+
+def test_no_more_than_the_cap_of_pages_is_read_for_one_message():
+    text = " ".join(f"https://example.com/{n}" for n in range(web_access.MAX_LINKS + 2))
+    assert len(web_access.pages_in(text)) == web_access.MAX_LINKS
+
+
+def test_auto_is_a_choice_and_anything_else_is_asked():
+    settings_store.set(web_access.SETTING, web_access.AUTO)
+    assert web_access.mode() == web_access.AUTO
+    settings_store.set(web_access.SETTING, "always")
+    assert web_access.mode() == web_access.ASKED
+
+
+def test_a_page_is_read_only_when_allowed_and_only_by_a_model_with_google_s_tools():
+    assert web_access.resolve(CLOUD, f"read {PAGE}", []) == web_access.Watch(withheld=True)
+    sharing.set_approved(sharing.WEB, True)
+    found = web_access.resolve(CLOUD, f"read {PAGE}", [])
+    assert found == web_access.Watch(pages=(PAGE,)) and found.server_tools == (web_access.PAGE_TOOL,) and found.direct
+    # A model without those tools has nothing to read it with, and a local one is not asked.
+    assert web_access.resolve("openai/gpt-4o-mini", f"read {PAGE}", []) == web_access.Watch()
+    assert web_access.resolve("ollama_chat/gemma2:9b", f"read {PAGE}", []) == web_access.Watch()
+
+
+def test_a_video_and_a_page_in_one_message_are_both_attached():
+    sharing.set_approved(sharing.WEB, True)
+    found = web_access.resolve(CLOUD, f"{ADDRESS} and {PAGE}", [])
+    assert found.links == (ADDRESS,) and found.pages == (PAGE,) and found.direct
+
+
+def test_a_follow_up_keeps_the_latest_page_in_front_of_the_model_and_a_carried_page_never_nags():
+    history = [{"role": "user", "content": f"read {PAGE}"}, {"role": "assistant", "content": "ok"}]
+    assert web_access.resolve(CLOUD, "what did it say about X?", history) == web_access.Watch()
+    sharing.set_approved(sharing.WEB, True)
+    assert web_access.resolve(CLOUD, "what did it say about X?", history) == web_access.Watch(pages=(PAGE,))
+
+
+def test_auto_lets_the_model_search_on_every_turn_but_only_when_the_user_has_allowed_the_web():
+    settings_store.set(web_access.SETTING, web_access.AUTO)
+    assert web_access.resolve(CLOUD, "what is new in python?", []) == web_access.Watch()  # nothing withheld, nothing searched
+    sharing.set_approved(sharing.WEB, True)
+    found = web_access.resolve(CLOUD, "what is new in python?", [])
+    assert found.search and found.outside and found.direct
+    assert found.server_tools == (web_access.SEARCH_TOOL, web_access.PAGE_TOOL)
+    assert web_access.resolve("openai/gpt-4o-mini", "what is new in python?", []) == web_access.Watch()  # no tools of Google's
+    settings_store.set(web_access.SETTING, web_access.ASKED)
+    assert web_access.resolve(CLOUD, "what is new in python?", []) == web_access.Watch()
+    settings_store.set(web_access.SETTING, web_access.OFF)
+    assert web_access.resolve(CLOUD, "what is new in python?", []) == web_access.Watch()

@@ -11,6 +11,7 @@ from sympose.engine import (
     budget, captions, connections, followup, grounding, grounding_properties, memory, past_chats, persona_tools, prompt, recap,
     recap_refresh, reference, related, session_compaction, sharing, skill_folder, skills, turn_status, web_access,
 )
+from sympose.engine.prompt_text import READING_PAGES, READING_SEARCH
 
 @dataclass
 class Evidence:
@@ -30,6 +31,7 @@ class Evidence:
     skill: str | None = None  # the skill chosen for this message (docs/decisions/077), as the prompt carries it
     watch: web_access.Watch = field(default_factory=web_access.Watch)  # the videos this turn's model watches (docs/decisions/089)
     captions: str | None = None  # the words of the videos it cannot watch, or why they could not be got (the transcript route)
+    reading: str | None = None  # the lines about the pages it may read and the web it may search
 
 
 def interleave(first: list[dict[str, Any]], second: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -117,13 +119,20 @@ def gather(
         outside = captions.render(got, missing)
         watch = replace(watch, links=tuple(c.address for c in got))  # the skill, the times' links and the memory rule follow the videos in hand
     tools = skills.tools_of(modes.ask, editing, editing and modes.edit.tool)
-    chosen = (skills.for_video(persona, tools) if watch.links else None) or skills.select(persona, user_message, tools, sharing.is_local(target_model))
+    chosen = (
+        (skills.for_video(persona, tools) if watch.links else None)
+        or (skills.for_page(persona, tools) if watch.pages else None)
+        or skills.select(persona, user_message, tools, sharing.is_local(target_model))
+    )
     skill_text = skills.text_for(chosen) if chosen else None
     if chosen and chosen.context == skills.FOLDER and sharing.NOTES in sharing.allowed(target_model):
         shape = skill_folder.shape_for(persona, user_message)  # the folder's own notes: a cloud model gets them only as it may
         skill_text = f"{skill_text}\n\n{shape}" if shape else skill_text
     if chosen and chosen.name == skills.CAPTURE:
         skill_text = f"{skill_text}\n\nThe video: {', '.join(watch.links)}"  # its address as the note's source, never the model's to retype
+    if chosen and chosen.name == skills.CAPTURE_PAGE:
+        skill_text = f"{skill_text}\n\nThe page: {', '.join(watch.pages)}"
+    reading = "\n\n".join(text for text, on in ((READING_PAGES, watch.pages), (READING_SEARCH, watch.search)) if on) or None
     reference_found = sum(1 for h in gated.grounding if h.get("source") == reference.SOURCE)
     if watch.withheld:
         withheld[sharing.WEB] = 1
@@ -146,6 +155,7 @@ def gather(
         skill=skill_text,
         watch=watch,
         captions=outside,
+        reading=reading,
     )
 
 
@@ -190,6 +200,7 @@ def prompt_builder(
             personas=bool(modes.edit and modes.edit.active and modes.edit.proposes),
             watching=bool(found.watch.links) and found.watch.route == web_access.WATCH,
             captions=found.captions,
+            reading=found.reading,
         )
 
     return build

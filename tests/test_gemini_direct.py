@@ -234,3 +234,51 @@ def test_a_connection_that_runs_out_of_time_says_how_to_wait_longer(monkeypatch)
 
     with pytest.raises(EngineModelError, match="model_timeout"):
         gemini_direct.call([{"role": "user", "content": "hi"}], model="gemini/gemini-flash-latest", links=(LINK,))
+
+
+def test_google_s_tools_ride_in_the_request_beside_the_vault_functions_and_alone_when_there_are_none(server):
+    gemini_direct.call([{"role": "user", "content": "hi"}], model="gemini/gemini-flash-latest", tools=[SEARCH], server_tools=("googleSearch", "urlContext"))
+    gemini_direct.call([{"role": "user", "content": "hi"}], model="gemini/gemini-flash-latest", server_tools=("urlContext",))
+
+    with_functions, alone = (body_of(r) for r in server.requests)
+    assert [list(t) for t in with_functions["tools"]] == [["functionDeclarations"], ["googleSearch"], ["urlContext"]]
+    assert with_functions["toolConfig"] == {"includeServerSideToolInvocations": True}
+    assert alone["tools"] == [{"urlContext": {}}] and "toolConfig" not in alone
+    # A request with no video and no tools carries neither, and no video part rides along with only tools.
+    assert "fileData" not in json.dumps(with_functions)
+
+
+def test_a_refusal_of_a_request_with_only_google_s_tools_is_an_ordinary_error_not_a_lost_video(server):
+    server.answer = httpx.Response(400, json={"error": {"code": 400, "message": "Unsupported"}})
+
+    with pytest.raises(EngineModelError) as caught:
+        gemini_direct.call([{"role": "user", "content": "hi"}], model="gemini/gemini-flash-latest", server_tools=("googleSearch",))
+
+    assert not isinstance(caught.value, gemini_direct.WatchUnavailable) and "400" in str(caught.value)
+
+
+def test_the_pages_google_could_not_open_are_handed_back_in_the_list_the_caller_owns(server):
+    refused = {"urlContextMetadata": {"urlMetadata": [
+        {"retrievedUrl": "https://example.com/", "urlRetrievalStatus": "URL_RETRIEVAL_STATUS_ERROR"},
+        {"retrievedUrl": "https://www.python.org/", "urlRetrievalStatus": "URL_RETRIEVAL_STATUS_SUCCESS"},
+    ]}}
+    server.answer = httpx.Response(200, content=sse(
+        {"candidates": [{"content": {"role": "model", "parts": [{"text": "It says."}]}, **refused, "finishReason": "STOP"}]},
+    ))
+    lost: list[str] = []
+
+    reply = gemini_direct.call([{"role": "user", "content": "hi"}], model="gemini/gemini-flash-latest", server_tools=("urlContext",), unopened=lost)
+
+    assert lost == ["https://example.com/"] and reply.text == "It says."
+    gemini_direct.call([{"role": "user", "content": "hi"}], model="gemini/gemini-flash-latest", server_tools=("urlContext",))  # no list: nothing to hand back, nothing fails
+
+
+def test_the_readers_source_marks_are_taken_out_of_an_answer_that_used_google_s_tools_and_only_then(server):
+    text = "It is a joke [1.1], and a real RFC [1.1, 2.3]. Version 2.5 and a [link](x) stay. See [3:10] and [1]."
+    server.answer = httpx.Response(200, content=sse(parts({"text": text}, finish="STOP")))
+
+    with_tools = gemini_direct.call([{"role": "user", "content": "hi"}], model="gemini/gemini-flash-latest", server_tools=("urlContext",))
+    without = gemini_direct.call([{"role": "user", "content": "hi"}], model="gemini/gemini-flash-latest")
+
+    assert with_tools.text == "It is a joke, and a real RFC. Version 2.5 and a [link](x) stay. See [3:10] and [1]."
+    assert without.text == text

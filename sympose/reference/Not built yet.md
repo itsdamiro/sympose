@@ -16,13 +16,13 @@ Small models make more mistakes editing, so read each change before you accept i
 
 Yes. Gemini Flash, a cloud model, watches it once you allow `"web"` with /share or in Settings under Cloud models: the link goes to Google. Any other model, one on your computer included, is given the video's captions instead.
 
-Ask for a note and it proposes one: an outline with times that link to that moment of the video, and the video's address as its source. Your Accept files it. Other links and web search do not work. See `web_access`.
+Ask for a note and it proposes one: an outline with times that link to that moment of the video, and the video's address as its source. Your Accept files it. Gemini Flash also reads a web page you link to, and with `web_access` on `"auto"` searches the web.
 
 ## Can Samantha do things for me?
 
 Only a few things. She can look up your notes (`vault_lookup` `"ask"`, or by default on a tested model), add a line to her decisions file when you ask her to remember something, and in the web app propose changes, new notes and comments for you to accept or decline.
 
-In the web app Samantha can propose a new persona, and you accept or decline it. She can also propose changing one setting, her own model, or one thing a cloud model may receive; nothing is changed until you accept. She cannot run commands or browse the web, and a few rarely used settings are still edited by hand in `settings.json`.
+In the web app Samantha can propose a new persona, and you accept or decline it. She can also propose changing one setting, her own model, or one thing a cloud model may receive; nothing is changed until you accept. She cannot run commands, and she browses the web only through Gemini Flash (see `web_access`), and a few rarely used settings are still edited by hand in `settings.json`.
 
 ## Can Sympose fix the problems it finds in my notes?
 

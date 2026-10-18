@@ -39,9 +39,13 @@ class SkillCase:
     draft_forbid: tuple[str, ...] = ()  # patterns it must not (a property or an amount the user never gave)
     no_draft: bool = False  # nothing may have reached the proposals (a summary asked for in chat files no note)
     video: bool = False  # a public YouTube link is in the messages: the direct path to Gemini Flash only (docs/decisions/089), run for no other model
+    web: str = ""  # a public page is linked or the web is searched, with `web_access` set to this: the same direct path, Gemini Flash only
 
 
 TALK = "https://www.youtube.com/watch?v=8jPQjjsBbIc"  # a public 12-minute talk, the one the spike measured (docs/decisions/089)
+PAGE = "https://www.rfc-editor.org/rfc/rfc2324"  # a public page that does not change (the Hyper Text Coffee Pot Control Protocol)
+UNREADABLE = "https://example.com/"  # a public page Google's reader refuses (measured 2026-10-18)
+_CANNOT_BROWSE = r"(?:cannot|can't|can not|unable to|don't|do not) (?:access|browse|open|read|search|look up)|no (?:internet|web|browsing)"
 _ENGINE_WORDS = r"propose_note|propose_edit|tool call|zero[- ]hallucination|never (?:invent|make up|fabricate)|you (?:must|shall) (?:always )?cite"
 _USER_FACTS = r"\bOslo\b|\bnurse\b|\bSam\b"
 
@@ -122,6 +126,50 @@ CASES: list[SkillCase] = [
         draft_expect=(r"source:.*8jPQjjsBbIc", r"## Outline"),
         video=True,
     ),
+    # Pages and search (docs/decisions/089): Gemini Flash, the user's go-ahead for a run that sends a link and a question to Google.
+    SkillCase(
+        "page-capture-makes-a-note-with-its-source", "capturing-from-a-page",
+        (f"Make study notes from {PAGE} and save them as a note.",),
+        needs_draft=True,
+        draft_expect=(r"(?s)\A\s*---\n.*source:.*rfc2324.*\n---\n", r"## Summary", r"## Key points", r"## Questions"),
+        web="asked",
+    ),
+    SkillCase(
+        "page-summary-in-chat-files-nothing", "capturing-from-a-page",
+        (f"Summarize {PAGE} in two sentences.",),
+        expect=(r"coffee",),
+        forbid=(_CANNOT_BROWSE,),
+        no_draft=True,
+        web="asked",
+    ),
+    SkillCase(
+        "page-follow-up-is-answered-from-the-page", "capturing-from-a-page",
+        (f"Summarize {PAGE} in two sentences.", "Which error code does it give for a teapot asked to brew coffee?"),
+        expect=(r"\b418\b",),
+        forbid=(_CANNOT_BROWSE,),
+        no_draft=True,
+        web="asked",
+    ),
+    SkillCase(
+        "page-google-cannot-open-is-said", "none",
+        (f"Summarize {UNREADABLE} in two sentences.",),
+        expect=(r"could not open|couldn't open|unable to (?:open|read)|wasn't able|not able",),
+        web="asked",
+    ),
+    SkillCase(
+        "search-answers-from-the-web-and-says-so", "none",
+        ("What is the newest stable version of Python right now? Tell me which site said so.",),
+        expect=(r"\b3\.\d{1,2}\b", r"python\.org|according to|from the web|source|wikipedia"),
+        forbid=(_CANNOT_BROWSE,),
+        web="auto",
+    ),
+    SkillCase(
+        "search-leaves-a-question-about-my-notes-to-my-notes", "none",
+        ("How long does my lentil soup take to simmer?",),
+        expect=(r"25 minutes",),
+        forbid=(_CANNOT_BROWSE,),
+        web="auto",
+    ),
     # A message that shares words with the soul skill's description but asks for something else (selection is by
     # words, so the skill is in the prompt; she must not follow it).
     SkillCase(
@@ -171,6 +219,7 @@ def run_case(case: SkillCase, model: str | None) -> tuple[bool, str]:
     from sympose.engine import session, turn
 
     settings_store.set("skill_lookup", os.environ.get("SKILLS", "auto"))
+    settings_store.set("web_access", case.web or "asked")
     from sympose.engine import sharing
 
     settings_store.set(sharing.SETTING, [sharing.NOTES, sharing.PROPERTIES, sharing.VAULT_MAP, sharing.OPEN_NOTE, sharing.WEB])  # invented notes: a cloud model may read them
@@ -210,8 +259,8 @@ def main(runs: int, models: list[str], verbose: bool) -> None:
             for case in CASES:
                 if os.environ.get("ONLY", "") not in case.id:
                     continue
-                if case.video and not (model or "").startswith("gemini/"):
-                    continue  # only Gemini Flash watches a video
+                if (case.video or case.web) and not (model or "").startswith("gemini/"):
+                    continue  # only Gemini Flash watches a video, reads a page and searches
                 results = []
                 for _ in range(runs):
                     try:
