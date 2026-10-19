@@ -8,13 +8,14 @@ collision). Split out of `runtime.py` to hold the 200-LOC-per-file cap
 
 import asyncio
 import concurrent.futures
+import functools
 import logging
 
 from rich.style import Style
 from rich.text import Text
 
 from sympose import engine
-from sympose.cli import grounding_line, meter, off_thread, reveal, share, stop, trim_notice
+from sympose.cli import attach_command, grounding_line, meter, off_thread, reveal, share, stop, trim_notice
 from sympose.cli import transcript as transcript_mod
 from sympose.cli.options import active_model
 
@@ -48,7 +49,7 @@ def _show_failure(app, transcript, handle: str, message: str) -> None:
     transcript.scroll_end(animate=False)
 
 
-def _show_stopped(app, handle: str, generation: int, text: str) -> None:
+def _show_stopped(app, handle: str, generation: int, text: str, files: tuple = ()) -> None:
     """The reply was stopped (docs/decisions/054): nothing of it was saved, so the message that asked for
     it goes back into the input when that is empty and this is still the conversation it was sent in."""
     if off_thread.quitting(app):
@@ -58,6 +59,7 @@ def _show_stopped(app, handle: str, generation: int, text: str) -> None:
     if generation == app.session_generation and not app.composer.value:
         app.composer.value = text
         app.composer.cursor_position = len(text)
+        app.pending_files = [*files, *app.pending_files]  # the words name them, so they come back with the words
 
 
 def _record_session_result(app, generation: int, session_id: str, sent: dict | None) -> None:
@@ -83,6 +85,8 @@ async def send_message(app, value: str) -> None:
 
 async def _send_message(app, value: str) -> None:
     transcript = app.transcript
+    files, app.pending_files = app.pending_files, []  # what `/attach` took goes with this message (docs/decisions/089)
+    value = attach_command.with_markers(value, files)
     line = transcript_mod.styled_line("You  ", Style(bold=True, dim=True), value)
     transcript_mod.mount_line(app, line, "user")
     transcript.scroll_end(animate=False)
@@ -103,6 +107,8 @@ async def _send_message(app, value: str) -> None:
     # own: it joins the run, and everything that waited goes out as one turn when the reply lands
     # (docs/decisions/008, amendment of 2026-10-01). No marker, nothing to see but the message.
     key = (handle, generation)
+    if files:
+        app.turn_files.setdefault(key, []).extend(files)
     waiting = app.turn_runs.get(key)
     if waiting is not None:
         waiting.append(value)
@@ -157,11 +163,13 @@ async def _run_turn(app, handle: str, generation: int, text: str, captured: tupl
     # a fresh session instead of the one it should continue
     # (docs/decisions/008).
     session_id = app.session_by_generation.get(generation)
+    files = tuple(app.turn_files.pop((handle, generation), []))  # those of every message of this run
     app.generating.add(handle)
     try:
-        result = await off_thread.run(_ENGINE_EXECUTOR, engine.run_turn, handle, text, session_id, model_id)
+        call = functools.partial(engine.run_turn, handle, text, session_id, model_id, **({"files": files} if files else {}))
+        result = await off_thread.run(_ENGINE_EXECUTOR, call)
     except engine.TurnCancelled:
-        _show_stopped(app, handle, generation, text)
+        _show_stopped(app, handle, generation, text, files)
         return True
     except engine.EngineModelError as e:
         _show_failure(app, transcript, handle, str(e))

@@ -7,7 +7,7 @@ from dataclasses import replace
 from typing import Any, Callable
 from urllib.parse import urlsplit
 
-from sympose.engine import captions, gemini_direct, memory_tools, model as model_mod
+from sympose.engine import captions, gemini_direct, media, memory_tools, model as model_mod
 from sympose.engine.lookup_result import Result
 from sympose.engine.model import EngineModelError, ModelReply
 from sympose.engine.prompt_text import READING_PAGES, READING_SEARCH, WATCHING
@@ -71,10 +71,10 @@ def without_memory_after_the_web(run_tool: Callable[..., Any], opened: list[str]
 
 def for_links(
     links: tuple[str, ...], server_tools: tuple[str, ...] = (), asked: tuple[str, ...] = (),
-    opened: list[str] | None = None, searched: list[str] | None = None,
+    opened: list[str] | None = None, searched: list[str] | None = None, files: tuple[media.File, ...] = (),
 ) -> Callable[..., ModelReply]:
-    """A function with `model.call_model`'s arguments that watches `links` and carries Google's `server_tools`, or reads
-    the videos' captions when Google will not take them. `asked` are the pages the user's message links to: the reply says
+    """A function with `model.call_model`'s arguments that watches `links`, sends `files` and carries Google's `server_tools`, or reads
+    the videos' captions when Google will not take them (not when files are attached: the captions route has no way to carry them). `asked` are the pages the user's message links to: the reply says
     so when Google did not read one. `opened` and `searched` are lists the caller may keep, to know what the turn read."""
     fell_back: list[str] = []  # the captions text, once the watch has been refused
     unopened: list[str] = []  # the pages Google's reader could not open, over all of the turn's calls
@@ -84,11 +84,13 @@ def for_links(
     def call(messages: list[dict[str, Any]], **kwargs: Any) -> ModelReply:
         if not fell_back:
             try:
-                reply = gemini_direct.call(messages, links=links, server_tools=server_tools, unopened=unopened, opened=opened, searched=searched, **kwargs)
+                reply = gemini_direct.call(messages, links=links, server_tools=server_tools, files=files, unopened=unopened, opened=opened, searched=searched, **kwargs)
                 if reply.text and not reply.tool_calls:  # the answer, not a round of tool calls
                     reply = replace(reply, text=_said(reply.text, unopened, _not_read(asked, opened, unopened)))
                 return reply
             except gemini_direct.WatchUnavailable as refused:
+                if files:
+                    raise EngineModelError(f"Gemini would not take the video or the attached file ({refused}).") from refused
                 got, missing = captions.fetch(links, captions.MAX_TOKENS)
                 words = captions.render(got, missing)
                 if not got:

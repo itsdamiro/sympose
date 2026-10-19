@@ -10,6 +10,7 @@ the video it needs (about 5,000 to 8,000 tokens for notes on a 20-minute video, 
 What it looked at is not kept: the reply's `toolCall` and `toolResponse` parts are refused when sent back (400), so
 the history carries text and function calls only."""
 
+import base64
 import json
 import logging
 import os
@@ -19,7 +20,7 @@ from typing import Any
 
 import httpx
 
-from sympose.engine import model_wait, network, reply_text, turn_cancel
+from sympose.engine import media, model_wait, network, reply_text, turn_cancel
 from sympose.engine.model import EngineModelError, ModelReply, end_reply
 from sympose.engine.model_tools import ToolCall
 
@@ -103,13 +104,27 @@ def _turn_start(messages: list[dict[str, Any]]) -> int:
     return next((i for i in range(after + 1, len(messages)) if messages[i].get("role") == "user"), len(messages) - 1)
 
 
+def _file_parts(files: tuple[media.File, ...]) -> list[dict[str, Any]]:
+    """Each attached file as the bytes inside the request, with a line before it naming it (the message names it too). A
+    video is read in the agentic mode, as a linked one is: measured on a 3-minute video, 8,500 tokens against 17,500 for
+    the whole of it, and 1,800 against 3,000 on a 30-second one, for about three times the wait."""
+    parts: list[dict[str, Any]] = []
+    for f in files:
+        parts.append({"text": f"File: {f.name}"})
+        part: dict[str, Any] = {"inlineData": {"mimeType": f.mime, "data": base64.b64encode(f.data).decode("ascii")}}
+        if f.kind == media.VIDEO:
+            part["mediaProcessing"] = "AGENTIC"
+        parts.append(part)
+    return parts
+
+
 def request_body(
     messages: list[dict[str, Any]], links: tuple[str, ...], tools: list[dict[str, Any]] | None, tool_choice: str | None,
-    max_tokens: int | None, server_tools: tuple[str, ...] = (),
+    max_tokens: int | None, server_tools: tuple[str, ...] = (), files: tuple[media.File, ...] = (),
 ) -> dict[str, Any]:
     """The `generateContent` request for `messages` (OpenAI-shaped, as the engine builds them) with each of `links`
-    attached to the turn's message as a video to watch, and `server_tools` (Google's search and page reading, named as
-    its request names them) beside the vault's own functions."""
+    attached to the turn's message as a video to watch, each of `files` attached as the bytes themselves, and
+    `server_tools` (Google's search and page reading, named as its request names them) beside the vault's own functions."""
     system = "\n\n".join(str(m["content"]) for m in messages if m.get("role") == "system" and m.get("content"))
     start = _turn_start(messages)
     contents: list[dict[str, Any]] = []
@@ -119,7 +134,8 @@ def request_body(
             watched = [
                 {"fileData": {"fileUri": link, "mimeType": "video/mp4"}, "mediaProcessing": "AGENTIC"} for link in links
             ] if index == start else []
-            _add(contents, "user", [*watched, {"text": str(m.get("content") or "")}])
+            given = _file_parts(files) if index == start else []
+            _add(contents, "user", [*given, *watched, {"text": str(m.get("content") or "")}])
         elif role == "assistant":
             parts: list[dict[str, Any]] = [{"text": m["content"]}] if m.get("content") else []
             for call in m.get("tool_calls") or []:
@@ -162,16 +178,17 @@ def call(
     tool_choice: str | None = None,
     links: tuple[str, ...] = (),
     server_tools: tuple[str, ...] = (),
+    files: tuple[media.File, ...] = (),
     unopened: list[str] | None = None,
     opened: list[str] | None = None,
     searched: list[str] | None = None,
 ) -> ModelReply:
-    """`model.call_model` for a turn that watches `links` or has Google's `server_tools`; `num_ctx` is only there so the two can be swapped (it is for
+    """`model.call_model` for a turn that watches `links`, sends `files` or has Google's `server_tools`; `num_ctx` is only there so the two can be swapped (it is for
     a local model). Streamed, so a stop (docs/decisions/054) is heard while the video is being read, and the time to the
     first text is measured."""
     name = (model or "").split("/", 1)[-1]
     waited = model_wait.seconds(messages)
-    body = request_body(messages, links, tools, tool_choice, max_tokens, server_tools)
+    body = request_body(messages, links, tools, tool_choice, max_tokens, server_tools, files)
     started = time.perf_counter()
     ttft_ms: int | None = None
     texts: list[str] = []
@@ -186,7 +203,8 @@ def call(
                 if response.status_code >= 400:
                     response.read()
                     refused = WatchUnavailable if links and response.status_code in _REQUEST_REFUSED else EngineModelError
-                    raise refused(f"Gemini refused the request ({_explain(response.status_code, response.text)})")
+                    what = "the attached file" if files and response.status_code in _REQUEST_REFUSED and not links else "the request"
+                    raise refused(f"Gemini refused {what} ({_explain(response.status_code, response.text)})")
                 for line in response.iter_lines():
                     turn_cancel.check()  # a stop ends the loop and, leaving the block, the request
                     if not line.startswith("data:"):

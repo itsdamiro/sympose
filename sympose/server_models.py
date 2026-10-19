@@ -169,6 +169,14 @@ class AttachedPassage(BaseModel):
     after: str = ""
 
 
+class ChatFile(BaseModel):
+    """A file attached to a message (docs/decisions/089): its name and its bytes as base64. What kind it is comes
+    from the name's ending, checked by the route, not from anything the browser says."""
+
+    name: str = Field(..., min_length=1, max_length=255)
+    data: str = Field(..., min_length=1)
+
+
 class ChatTurn(BaseModel):
     """Body of `POST /api/chat/turn` — one message to a persona. `session_id` continues a conversation;
     omitted, a new one starts and its id comes back in the reply. `edits` says the screen can show a proposal
@@ -181,6 +189,8 @@ class ChatTurn(BaseModel):
     open_note: OpenNoteBody | None = None
     # Passages of the open note the user attached to this message (docs/decisions/076).
     attached: list[AttachedPassage] = Field(default_factory=list, max_length=8)
+    # PDFs, images, sounds and videos attached to this message (docs/decisions/089); at most `media.MAX_FILES`, checked by the route.
+    files: list[ChatFile] = Field(default_factory=list, max_length=8)
 
 
 class ChatCompact(BaseModel):

@@ -14,7 +14,7 @@ from typing import Any
 from sympose import note_changes
 from sympose import profile as profile_mod
 from sympose.engine import (
-    budget, compaction, confirmations, edit_tools, edit_turn, history_cap, lookup, memory, memory_tools, past_chats, persona_tools, reference, session, session_compaction, sharing, tool_support, turn_cancel, turn_evidence, turn_status, unfiled, watch_call as watch_call_mod,
+    budget, compaction, confirmations, edit_tools, edit_turn, history_cap, lookup, media, memory, memory_tools, past_chats, persona_tools, reference, session, session_compaction, sharing, tool_support, turn_cancel, turn_evidence, turn_status, unfiled, watch_call as watch_call_mod,
 )
 from sympose.engine import model as model_mod
 from sympose.engine.model import EngineModelError
@@ -44,10 +44,12 @@ def run_turn(
     open_note: edit_turn.OpenNote | None = None,
     edits: bool = False,
     attached: list[edit_turn.Attached] | None = None,
+    files: tuple[media.File, ...] = (),
 ) -> TurnResult:
     """`open_note` is the note open in the editor, and `edits` says the caller can show a proposal at all (the web
     app); the terminal passes neither, so a persona there is never given the edit tool (docs/decisions/072).
-    `attached` are the passages of the open note the user pointed at (docs/decisions/076)."""
+    `attached` are the passages of the open note the user pointed at (docs/decisions/076). `files` are the PDFs, images,
+    sounds and videos attached to the message, already checked by `media.check` (docs/decisions/089)."""
     persona = profile_mod.resolve_profile(handle)
     if persona is None:
         raise PersonaNotFoundError(f"No persona named '{handle}' was found.")
@@ -79,7 +81,7 @@ def run_turn(
     turn_cancel.begin(handle, sid, named=session_id is not None)  # from here a stop request is heard (docs/decisions/054); cleared in `finally`
     try:
         try:
-            result = _run(persona, handle, user_message, sid, existing, history, target_model, modes, capped)
+            result = _run(persona, handle, user_message, sid, existing, history, target_model, modes, capped, files)
         except lookup.ToolsRefused:
             # The model failed with the tools: the turn is run with none, and a model that does that twice in a
             # row while working without them is not given tools again (docs/decisions/040). `remember` falls
@@ -93,6 +95,7 @@ def run_turn(
                     replace(modes.edit, tool=False) if modes.edit else None,
                 ),
                 capped,
+                files,
             )
             tool_support.note_refusal(target_model)
             return result
@@ -115,14 +118,16 @@ def _run(
     target_model: str,
     modes: "persona_tools.Modes",
     capped: int = 0,
+    files: tuple[media.File, ...] = (),
 ) -> TurnResult:
     # The prompt is sized to this model's window, not left to the runtime's
     # silent cut (docs/decisions/015); the follow-up rewrite shares that window.
     limits = budget.budget_for(target_model, persona)
-    found = turn_evidence.gather(persona, handle, sid, user_message, history, target_model, limits, modes, existing)
+    found = turn_evidence.gather(persona, handle, sid, user_message, history, target_model, limits, modes, existing, files)
     grounding_results, recaps_found, chats_found, withheld = found.grounding, found.recaps, found.chats, found.withheld
-    if found.watch.outside and modes.remember and not (modes.remember == memory.TOOL and not found.watch.attached):
-        # A video or a page is outside content: what it says must not be able to make a write to the persona's memory.
+    outside = found.watch.outside or bool(found.files.files)
+    if outside and modes.remember and not (modes.remember == memory.TOOL and not (found.watch.attached or found.files.files)):
+        # A video, a page or a file is outside content: what it says must not be able to make a write to the persona's memory.
         # With only a search on offer (`auto`) she keeps `remember` until a search or a page read happens in the turn (below).
         modes = replace(modes, remember=None)
     ask, chose_ask, remember = modes.ask, modes.chose_ask, modes.remember
@@ -156,13 +161,13 @@ def _run(
     web_opened: list[str] = []
     web_searched: list[str] = []
     watch_call = (
-        watch_call_mod.for_links(found.watch.links, found.watch.server_tools, found.watch.asked, web_opened, web_searched)
-        if found.watch.direct else None
+        watch_call_mod.for_links(found.watch.links, found.watch.server_tools, found.watch.asked, web_opened, web_searched, found.files.files)
+        if found.watch.direct or found.files.files else None
     )
     tools = persona_tools.for_turn(ask, remember == memory.TOOL, modes.chats, sid, modes.edit, persona, found.map_allowed, found.watch.links)
     if tools:
         tool_list, run_tool = tools
-        if remember == memory.TOOL and found.watch.outside:
+        if remember == memory.TOOL and outside:
             run_tool = watch_call_mod.without_memory_after_the_web(run_tool, web_opened, web_searched)
         done = lookup.converse(
             persona, messages, target_model, limits, used_tokens=prompt_tokens, tools=tool_list, run_tool=run_tool,
@@ -186,6 +191,7 @@ def _run(
         reply_ttft = reply.ttft_ms
 
     turn_cancel.commit()  # a stop after this is refused; before it, nothing below (marker, record, session) happens
+    media.settle(handle, sid, found.files)  # the files stay in memory for the next few messages, and nowhere else (docs/decisions/089)
 
     # What the user decided on her comments was told to her in this prompt, so those comments are not kept (docs/decisions/069).
     if modes.edit and modes.edit.settle and modes.edit.source:
@@ -220,7 +226,7 @@ def _run(
         sharing.categories_of(
             grounding_results, recaps_sent, vault_map=found.map_allowed and bool(found.map_text), memory=bool(memory_sent),
             chats=bool(chats_sent), open_note=bool(modes.edit and modes.edit.note), annotations=bool(modes.edit and modes.edit.comments),
-            web=found.watch.outside,
+            web=found.watch.outside, media=bool(found.files.files),
         ),
         [name for name in sharing.CATEGORIES if name in withheld],
     )

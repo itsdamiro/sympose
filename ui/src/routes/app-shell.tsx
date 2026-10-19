@@ -873,6 +873,7 @@ export function AppShell() {
               chips={<AttachedChips />}
               draft={chat.draft}
               onDraftChange={chat.setDraft}
+              onAttachFiles={chat.attachFiles}
               onSubmit={chat.send}
               onStop={chat.stop}
               model={activePersonaModel}

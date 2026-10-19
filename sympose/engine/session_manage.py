@@ -10,7 +10,7 @@ import os
 from datetime import datetime, timezone
 from typing import Any
 
-from sympose.engine import recap, session, turn_cancel, turn_status
+from sympose.engine import media, recap, session, turn_cancel, turn_status
 from sympose.engine.session_records import append_text
 
 log = logging.getLogger(__name__)
@@ -101,6 +101,7 @@ def delete(handle: str, session_id: str) -> str:
     except (OSError, ValueError) as e:
         log.warning("Could not delete session %s: %s", session_id, e)
         return FAILED
+    media.forget(handle, session_id)
     return OK
 
 

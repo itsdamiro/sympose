@@ -43,6 +43,7 @@ TOOL_CALLS = "tool_calls"
 FOLDER = "folder"
 CAPTURE = "capturing-from-a-link"  # the skill a turn that watches a video is given (docs/decisions/089)
 CAPTURE_PAGE = "capturing-from-a-page"  # the same for a turn that reads a page
+CAPTURE_FILE = "capturing-from-a-file"  # and for a turn that has a file attached
 CUT_NOTE = "[The rest of this skill was left out to fit.]"
 _NAME = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")  # ASCII only: the name is also the folder's
 _HEADER_END = re.compile(r"^---[ \t]*$", re.MULTILINE)  # a line of its own, not a longer run of dashes
@@ -175,11 +176,11 @@ def can_carry_out(skill: Skill, tools: frozenset[str]) -> bool:
 
 def select(persona: dict[str, Any], message: str, tools: frozenset[str], local: bool) -> Skill | None:
     """The skill that best matches `message`, or `None`: skills are off, none is carried, none can be carried out, or
-    none shares enough with the message (the capture skills are never matched here: they are for a turn that watches a video or reads a page, `for_video` and `for_page`). A skill of the persona's own is the user's private text, so a model that is
+    none shares enough with the message (the capture skills are never matched here: they are for a turn that watches a video, reads a page or has a file attached, `for_video`, `for_page` and `for_file`). A skill of the persona's own is the user's private text, so a model that is
     not local (`local` false) is never given one: the bundled skills are public (docs/decisions/031)."""
     if mode() != AUTO:
         return None
-    usable = [s for s in carried(persona) if s.name not in (CAPTURE, CAPTURE_PAGE) and can_carry_out(s, tools) and (local or s.source == "bundled")]
+    usable = [s for s in carried(persona) if s.name not in (CAPTURE, CAPTURE_PAGE, CAPTURE_FILE) and can_carry_out(s, tools) and (local or s.source == "bundled")]
     if not usable:
         return None
     notes = [
@@ -206,6 +207,13 @@ def for_page(persona: dict[str, Any], tools: frozenset[str]) -> Skill | None:
     if mode() != AUTO:
         return None
     return next((s for s in carried(persona) if s.name == CAPTURE_PAGE and s.source == "bundled" and can_carry_out(s, tools)), None)
+
+
+def for_file(persona: dict[str, Any], tools: frozenset[str]) -> Skill | None:
+    """The file capture skill on a turn that has a file attached, on the same terms as `for_video`."""
+    if mode() != AUTO:
+        return None
+    return next((s for s in carried(persona) if s.name == CAPTURE_FILE and s.source == "bundled" and can_carry_out(s, tools)), None)
 
 
 def text_for(skill: Skill) -> str:

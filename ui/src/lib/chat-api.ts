@@ -1,5 +1,6 @@
 import type { SentRecord } from "@/lib/chat-types"
 import { detailOf } from "@/lib/vault-note-api"
+import { toBase64, type PendingFile } from "@/lib/file-attachments"
 
 /** What a reply in flight is doing right now (the engine's own phases, ADR 043), or `queued`: its message waits for
  *  another conversation's reply to finish (ADR 057). */
@@ -47,14 +48,17 @@ export async function sendChatTurn(
   sessionId?: string,
   signal?: AbortSignal,
   openNote?: { path: string; text: string } | null,
-  attached: { quote: string; before: string; after: string }[] = []
+  attached: { quote: string; before: string; after: string }[] = [],
+  files: PendingFile[] = []
 ): Promise<SendChatTurnResult> {
   try {
+    // The bytes are read now, for this request only (ADR 089); a file that cannot be read is said, not skipped.
+    const sent = await Promise.all(files.map(async (f) => ({ name: f.name, data: await toBase64(f.file) })))
     const res = await fetch("/api/chat/turn", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       // `edits`: this screen can show a proposal, so the persona may make one (ADR 072); `open_note` is the note in the editor.
-      body: JSON.stringify({ message, persona, session_id: sessionId, edits: true, open_note: openNote ?? undefined, attached: attached.length > 0 ? attached : undefined }),
+      body: JSON.stringify({ message, persona, session_id: sessionId, edits: true, open_note: openNote ?? undefined, attached: attached.length > 0 ? attached : undefined, files: sent.length > 0 ? sent : undefined }),
       signal,
     })
     if (res.ok) {
@@ -68,6 +72,7 @@ export async function sendChatTurn(
     return { ok: false, error: `Something failed on Sympose's side (code ${res.status}). Try again.` }
   } catch {
     if (signal?.aborted) return { ok: false, cancelled: true }
+    if (files.length > 0) return { ok: false, error: `${BACKEND_DOWN} If a file was moved or deleted since it was attached, attach it again.` }
     return { ok: false, error: `${BACKEND_DOWN}` }
   }
 }

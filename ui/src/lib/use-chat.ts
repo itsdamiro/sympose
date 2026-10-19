@@ -11,6 +11,7 @@ import {
   type SessionPage,
 } from "@/lib/chat-api"
 import { takeAttached, type Passage } from "@/lib/attachments"
+import { named, take, withMarkers, type PendingFile } from "@/lib/file-attachments"
 import { getOpenNote } from "@/lib/open-note-source"
 import { announcePersonaActed } from "@/lib/use-persona-changes"
 import type { ChatTurn, SystemKind } from "@/lib/chat-types"
@@ -30,6 +31,8 @@ interface Conversation {
   persona: string
   turns: ChatTurn[]
   draft: string
+  /** The files dropped or pasted into the box for the next message (ADR 089): the ones the text still names go with it. */
+  files: PendingFile[]
   sending: boolean
   phase: ChatPhase | null
   /** The search index build in progress while a reply waits (whole percent), else `null`. */
@@ -54,6 +57,7 @@ const blank = (persona: string): Conversation => ({
   persona,
   turns: [],
   draft: "",
+  files: [],
   sending: false,
   phase: null,
   indexing: null,
@@ -128,7 +132,7 @@ export function useChat(persona: string) {
   const [shownNote, setShownNote] = React.useState<{ path: string; n: number } | null>(null)
   const inFlight = React.useRef(new Set<string>())
   /** Messages sent while a conversation's reply is in flight; they go out together as one turn when it lands. */
-  const waiting = React.useRef(new Map<string, { id: string; text: string; passages: Passage[] }[]>())
+  const waiting = React.useRef(new Map<string, { id: string; text: string; passages: Passage[]; files: PendingFile[] }[]>())
   /** The wait of each conversation's reply in flight, which `stop` aborts once the backend accepted the stop. */
   const aborts = React.useRef(new Map<string, AbortController>())
   const resuming = React.useRef(new Set<string>())
@@ -166,6 +170,19 @@ export function useChat(persona: string) {
   const setDraft = React.useCallback(
     (draft: string) => update(activeKey, (c) => ({ ...c, draft })),
     [activeKey, update]
+  )
+
+  /** Files dropped or pasted into the message box: each leaves its marker in the text, at `caret`; a kind that is not
+   *  read, too many or too large is said as a line of the conversation and nothing is added (ADR 089). */
+  const attachFiles = React.useCallback(
+    (offered: File[], caret: number | null) =>
+      update(activeKey, (c) => {
+        const live = named(c.draft, c.files) // a file whose marker was deleted is taken back: it no longer counts, nor keeps its name
+        const taken = take(offered, live)
+        if (!taken.ok) return addTo({ ...c, files: live }, { role: "system", kind: "error", body: taken.error })
+        return { ...c, files: [...live, ...taken.added], draft: withMarkers(c.draft, taken.added, caret) }
+      }),
+    [activeKey, update, addTo]
   )
 
   // Pick up the persona's latest saved conversation, once. If the user has already said something by the
@@ -208,24 +225,26 @@ export function useChat(persona: string) {
     if (!message) return
     const key = activeKey
     const passages = takeAttached() // what the user attached goes with this message and is shown on it
+    const files = named(message, convo.files) // only a file whose marker is still in the words goes
     const shown = { role: "user" as const, body: message, timestamp: time(new Date()), ...(passages.length > 0 ? { attached: passages.length } : {}) }
     const shownId = newId()
     // A message sent while this conversation's reply is in flight shows at once and waits; everything that waited
     // goes out as one turn when the reply lands (ADR 008, 044: amendments of 2026-10-01).
     if (inFlight.current.has(key)) {
-      waiting.current.set(key, [...(waiting.current.get(key) ?? []), { id: shownId, text: message, passages }])
-      update(key, (c) => ({ ...addTo(c, shown, shownId), draft: "" }))
+      waiting.current.set(key, [...(waiting.current.get(key) ?? []), { id: shownId, text: message, passages, files }])
+      update(key, (c) => ({ ...addTo(c, shown, shownId), draft: "", files: [] }))
       return
     }
     inFlight.current.add(key)
-    update(key, (c) => ({ ...addTo(c, shown, shownId), draft: "", sending: true, phase: null, indexing: null }))
-    let batch = [{ id: shownId, text: message, passages }]
+    update(key, (c) => ({ ...addTo(c, shown, shownId), draft: "", files: [], sending: true, phase: null, indexing: null }))
+    let batch = [{ id: shownId, text: message, passages, files }]
     let sessionId = convo.sessionId
     for (;;) {
       const text = batch.map((b) => b.text).join("\n\n")
+      const batchFiles = batch.flatMap((b) => b.files) // read now, like `asked` below: `batch` moves on before React runs the update
       const controller = new AbortController()
       aborts.current.set(key, controller)
-      const result = await sendChatTurn(text, persona, sessionId, controller.signal, getOpenNote(), batch.flatMap((b) => b.passages))
+      const result = await sendChatTurn(text, persona, sessionId, controller.signal, getOpenNote(), batch.flatMap((b) => b.passages), batchFiles)
       aborts.current.delete(key)
       const next = waiting.current.get(key) ?? []
       waiting.current.delete(key)
@@ -251,6 +270,7 @@ export function useChat(persona: string) {
               ...done,
               turns: done.turns.filter((t) => !asked.has(t.id)),
               draft: done.draft ? `${text}\n\n${done.draft}` : text,
+              files: [...batchFiles, ...done.files], // the files come back with the words that name them
             },
             { role: "system", kind: "notice", body: "Stopped. No reply was sent." }
           )
@@ -274,7 +294,7 @@ export function useChat(persona: string) {
       if (!more) return
       batch = next
     }
-  }, [convo.draft, convo.sessionId, activeKey, persona, update, addTo, newId])
+  }, [convo.draft, convo.files, convo.sessionId, activeKey, persona, update, addTo, newId])
 
   /** Stop the active conversation's reply in flight. The wait is freed only once the backend accepted the stop: a
    *  reply that is already complete is not thrown away, it arrives. */
@@ -432,6 +452,7 @@ export function useChat(persona: string) {
     shownNote,
     draft: convo.draft,
     setDraft,
+    attachFiles,
     send,
     stop,
     sending: convo.sending,

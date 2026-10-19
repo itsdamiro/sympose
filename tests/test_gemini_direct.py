@@ -1,12 +1,13 @@
 """The direct Gemini request (docs/decisions/089): what it sends for a turn with a video in it, and how it reads the
 answer. The server is a fake (`httpx.MockTransport`); nothing here reaches Google."""
 
+import base64
 import json
 
 import httpx
 import pytest
 
-from sympose.engine import gemini_direct, network, turn_cancel
+from sympose.engine import gemini_direct, media, network, turn_cancel
 from sympose.engine.model import EmptyReplyError, EngineModelError, ReplyLimitError
 
 LINK = "https://www.youtube.com/watch?v=8jPQjjsBbIc"
@@ -312,3 +313,57 @@ def test_the_searches_google_ran_are_handed_back_in_their_own_list(server):
     gemini_direct.call([{"role": "user", "content": "hi"}], model="gemini/gemini-flash-latest", server_tools=("googleSearch",))  # no list: nothing fails
 
     assert searched == ["fern care", "ferns indoors"]
+
+
+def test_an_attached_file_rides_inside_the_request_on_the_turns_message_after_a_line_naming_it(server):
+    files = (media.make("paper.pdf", b"%PDF-1"), media.make("chart.png", b"\x89PNG"))  # no video: its part is in the next test
+    messages = [{"role": "user", "content": "earlier"}, {"role": "assistant", "content": "answer"}, {"role": "user", "content": "read these"}]
+
+    gemini_direct.call(messages, model="gemini/gemini-flash-latest", files=files)
+
+    body = body_of(server.requests[0])
+    assert body["contents"][0]["parts"] == [{"text": "earlier"}]
+    assert body["contents"][2]["parts"] == [
+        {"text": "File: paper.pdf"}, {"inlineData": {"mimeType": "application/pdf", "data": base64.b64encode(b"%PDF-1").decode()}},
+        {"text": "File: chart.png"}, {"inlineData": {"mimeType": "image/png", "data": base64.b64encode(b"\x89PNG").decode()}},
+        {"text": "read these"},
+    ]
+
+
+def test_a_tool_round_keeps_the_file_on_the_first_message_of_the_turn_only(server):
+    messages = [
+        {"role": "user", "content": "make a note"},
+        {"role": "assistant", "content": "", "tool_calls": [{"id": "c0", "type": "function", "function": {"name": "search_notes", "arguments": "{}"}}]},
+        {"role": "tool", "tool_call_id": "c0", "name": "search_notes", "content": "found"},
+    ]
+
+    gemini_direct.call(messages, model="gemini/gemini-flash-latest", files=(media.make("a.pdf", b"%PDF"),), tools=[SEARCH])
+
+    contents = body_of(server.requests[0])["contents"]
+    assert sum(1 for c in contents for p in c["parts"] if "inlineData" in p) == 1 and "inlineData" in contents[0]["parts"][1]
+
+
+def test_a_request_with_no_files_is_as_it_was(server):
+    gemini_direct.call([{"role": "user", "content": "hi"}], model="gemini/gemini-flash-latest")
+
+    assert body_of(server.requests[0])["contents"] == [{"role": "user", "parts": [{"text": "hi"}]}]
+
+
+def test_a_refusal_of_a_request_that_carried_only_a_file_names_the_file_and_is_not_a_lost_video(server):
+    server.answer = httpx.Response(400, json={"error": {"code": 400, "message": "The document has no pages."}})
+
+    with pytest.raises(EngineModelError, match="refused the attached file .400: The document has no pages") as caught:
+        gemini_direct.call([{"role": "user", "content": "hi"}], model="gemini/gemini-flash-latest", files=(media.make("a.pdf", b"%PDF"),))
+
+    assert not isinstance(caught.value, gemini_direct.WatchUnavailable)
+
+
+def test_a_video_file_is_read_in_the_agentic_mode_and_a_sound_or_a_picture_is_not(server):
+    files = (media.make("talk.mp4", b"vid"), media.make("talk.m4a", b"snd"), media.make("page.png", b"img"))
+
+    gemini_direct.call([{"role": "user", "content": "read these"}], model="gemini/gemini-flash-latest", files=files)
+
+    parts = body_of(server.requests[0])["contents"][0]["parts"]
+    inline = [p for p in parts if "inlineData" in p]
+    assert [p.get("mediaProcessing") for p in inline] == ["AGENTIC", None, None]
+    assert [p["inlineData"]["mimeType"] for p in inline] == ["video/mp4", "audio/aac", "image/png"]

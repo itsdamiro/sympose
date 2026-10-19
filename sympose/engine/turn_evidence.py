@@ -8,7 +8,7 @@ from typing import Any, Callable
 
 from sympose import profile as profile_mod, vault_map as vault_map_mod
 from sympose.engine import (
-    budget, captions, connections, followup, grounding, grounding_properties, memory, past_chats, persona_tools, prompt, recap,
+    budget, captions, connections, followup, grounding, grounding_properties, media, memory, past_chats, persona_tools, prompt, recap,
     recap_refresh, reference, related, session_compaction, sharing, skill_folder, skills, turn_status, web_access,
 )
 from sympose.engine.prompt_text import READING_PAGES, READING_SEARCH
@@ -32,6 +32,8 @@ class Evidence:
     watch: web_access.Watch = field(default_factory=web_access.Watch)  # the videos this turn's model watches (docs/decisions/089)
     captions: str | None = None  # the words of the videos it cannot watch, or why they could not be got (the transcript route)
     reading: str | None = None  # the lines about the pages it may read and the web it may search
+    files: media.Plan = field(default_factory=media.Plan)  # the files attached to the message, and any that were not sent (docs/decisions/089)
+    files_note: str | None = None  # the line the prompt carries about them
 
 
 def interleave(first: list[dict[str, Any]], second: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -57,6 +59,7 @@ def gather(
     limits: "budget.Budget | None",
     modes: "persona_tools.Modes",
     existing: Any,
+    attachments: tuple[media.File, ...] = (),
 ) -> Evidence:
     # In `ask` Sympose does not search the vault for the message: the persona decides (docs/decisions/040).
     if modes.ask:
@@ -118,10 +121,12 @@ def gather(
         got, missing = captions.fetch(watch.links, min(captions.MAX_TOKENS, limits.prompt_tokens // 2) if limits else captions.MAX_TOKENS)
         outside = captions.render(got, missing)
         watch = replace(watch, links=tuple(c.address for c in got))  # the skill, the times' links and the memory rule follow the videos in hand
+    files = media.plan(target_model, handle, sid, attachments)  # files read by the model's maker are the `media` category (docs/decisions/089)
     tools = skills.tools_of(modes.ask, editing, editing and modes.edit.tool)
     chosen = (
         (skills.for_video(persona, tools) if watch.links else None)
         or (skills.for_page(persona, tools) if watch.pages else None)
+        or (skills.for_file(persona, tools) if files.files else None)
         or skills.select(persona, user_message, tools, sharing.is_local(target_model))
     )
     skill_text = skills.text_for(chosen) if chosen else None
@@ -132,10 +137,14 @@ def gather(
         skill_text = f"{skill_text}\n\nThe video: {', '.join(watch.links)}"  # its address as the note's source, never the model's to retype
     if chosen and chosen.name == skills.CAPTURE_PAGE:
         skill_text = f"{skill_text}\n\nThe page: {', '.join(watch.pages)}"
+    if chosen and chosen.name == skills.CAPTURE_FILE:
+        skill_text = f"{skill_text}\n\nThe file: {media.note_kinds(files)}"
     reading = "\n\n".join(text for text, on in ((READING_PAGES, watch.pages), (READING_SEARCH, watch.search)) if on) or None
     reference_found = sum(1 for h in gated.grounding if h.get("source") == reference.SOURCE)
     if watch.withheld:
         withheld[sharing.WEB] = 1
+    if files.withheld:
+        withheld[sharing.MEDIA] = 1
     return Evidence(
         grounding=gated.grounding,
         searched=searched,
@@ -156,6 +165,8 @@ def gather(
         watch=watch,
         captions=outside,
         reading=reading,
+        files=files,
+        files_note=media.note(files, history),
     )
 
 
@@ -201,6 +212,7 @@ def prompt_builder(
             watching=bool(found.watch.links) and found.watch.route == web_access.WATCH,
             captions=found.captions,
             reading=found.reading,
+            files=found.files_note,
         )
 
     return build

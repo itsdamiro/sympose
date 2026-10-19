@@ -20,6 +20,73 @@ function withScroller(props: Partial<Parameters<typeof ChatPanel>[0]>) {
 
 const enter = () => fireEvent.keyDown(screen.getByLabelText("Message"), { key: "Enter" })
 
+describe("ChatPanel files", () => {
+  const dropped = (name = "a.pdf") => new File(["x"], name)
+
+  it("attaches a file pasted into the box at the caret and keeps the paste from being typed", () => {
+    const onAttachFiles = vi.fn()
+    setup({ onAttachFiles })
+    const box = screen.getByLabelText("Message") as HTMLTextAreaElement
+    box.setSelectionRange(2, 2)
+    const event = fireEvent.paste(box, { clipboardData: { files: [dropped()], getData: () => "" } })
+    expect(onAttachFiles).toHaveBeenCalledWith([expect.any(File)], 2)
+    expect(event).toBe(false) // default prevented
+  })
+
+  it("lets a paste of words through", () => {
+    const onAttachFiles = vi.fn()
+    setup({ onAttachFiles })
+    expect(fireEvent.paste(screen.getByLabelText("Message"), { clipboardData: { files: [], getData: () => "words" } })).toBe(true)
+    expect(onAttachFiles).not.toHaveBeenCalled()
+  })
+
+  it("lets a paste through as words when the clipboard carries a picture of them beside the text", () => {
+    const onAttachFiles = vi.fn()
+    setup({ onAttachFiles })
+    const pasted = fireEvent.paste(screen.getByLabelText("Message"), { clipboardData: { files: [dropped("image.png")], getData: () => "cells copied" } })
+    expect(pasted).toBe(true)
+    expect(onAttachFiles).not.toHaveBeenCalled()
+  })
+
+  it("attaches a file dropped anywhere on the panel and takes the focus look while one is over it", () => {
+    const onAttachFiles = vi.fn()
+    const view = render(<ChatPanel turns={[]} draft="" onDraftChange={() => {}} onSubmit={() => {}} onAttachFiles={onAttachFiles} />)
+    const panel = view.container.querySelector<HTMLElement>("[data-slot=chat-panel]")!
+    const box = () => screen.getByLabelText("Message").parentElement!.parentElement!
+    expect(box().classList.contains("border-brand")).toBe(false)
+    fireEvent.dragOver(panel, { dataTransfer: { types: ["Files"] } })
+    expect(box().classList.contains("border-brand")).toBe(true)
+    fireEvent.drop(panel, { dataTransfer: { types: ["Files"], files: [dropped("b.png")] } })
+    expect(onAttachFiles).toHaveBeenCalledWith([expect.objectContaining({ name: "b.png" })], 0)
+    expect(box().classList.contains("border-brand")).toBe(false)
+  })
+
+  it("keeps the look while the pointer moves between parts of the panel and drops it on leaving the panel", () => {
+    const view = render(<ChatPanel turns={[]} draft="" onDraftChange={() => {}} onSubmit={() => {}} onAttachFiles={vi.fn()} />)
+    const panel = view.container.querySelector<HTMLElement>("[data-slot=chat-panel]")!
+    const box = screen.getByLabelText("Message").parentElement!.parentElement!
+    fireEvent.dragOver(panel, { dataTransfer: { types: ["Files"] } })
+    const leaveTo = (target: Element) => {
+      const event = new Event("dragleave", { bubbles: true, cancelable: true })
+      Object.defineProperty(event, "relatedTarget", { value: target }) // jsdom's drag events do not carry it
+      fireEvent(panel, event)
+    }
+    leaveTo(screen.getByLabelText("Message"))
+    expect(box.classList.contains("border-brand")).toBe(true)
+    leaveTo(document.body)
+    expect(box.classList.contains("border-brand")).toBe(false)
+  })
+
+  it("ignores a drag that carries no file, and everything when it was given no way to attach", () => {
+    const view = render(<ChatPanel turns={[]} draft="" onDraftChange={() => {}} onSubmit={() => {}} onAttachFiles={vi.fn()} />)
+    const panel = view.container.querySelector<HTMLElement>("[data-slot=chat-panel]")!
+    expect(fireEvent.dragOver(panel, { dataTransfer: { types: ["text/plain"] } })).toBe(true)
+    cleanup()
+    const bare = render(<ChatPanel turns={[]} draft="" onDraftChange={() => {}} onSubmit={() => {}} />)
+    expect(fireEvent.dragOver(bare.container.querySelector<HTMLElement>("[data-slot=chat-panel]")!, { dataTransfer: { types: ["Files"] } })).toBe(true)
+  })
+})
+
 describe("ChatPanel", () => {
   it("draws what renderAfter gives under a persona's reply and under no other turn", () => {
     const turns: ChatTurn[] = [

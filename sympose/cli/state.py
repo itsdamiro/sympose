@@ -42,6 +42,9 @@ def init(app) -> None:
     # its turn; they go out together as one turn when it lands (docs/decisions/008, amendment of
     # 2026-10-01). A key is present exactly while that conversation has a run going.
     app.turn_runs: dict[tuple[str, int], list[str]] = {}
+    # Files `/attach` has taken for the next message (docs/decisions/089), and those a conversation's waiting run will send.
+    app.pending_files: list = []
+    app.turn_files: dict[tuple[str, int], list] = {}
     # Every currently-streaming reply's own timer — not a single slot,
     # since turns for different personas (or two queued same-persona
     # turns) can now genuinely stream concurrently post-lock.

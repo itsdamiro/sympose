@@ -6,13 +6,15 @@ run side by side (docs/decisions/057). A message that is waiting for its turn ca
 span processes, so a terminal chat and a web chat writing the same session at the same moment are not
 ordered against each other."""
 
+import base64
+import binascii
 from typing import Any
 
 from fastapi import HTTPException
 
 from sympose import server_chat_locks as locks
 from sympose.engine import (
-    compaction, context_estimate, model as model_mod, recap_refresh, semantic_refresh, session,
+    compaction, context_estimate, media, model as model_mod, recap_refresh, semantic_refresh, session,
     session_compaction, status_phrases, turn, turn_status,
 )
 from sympose.engine.edit_turn import Attached, OpenNote
@@ -20,9 +22,27 @@ from sympose.engine.turn_cancel import request as cancel_requested
 from sympose.server_handlers import require_profile
 from sympose.server_models import ChatCancel, ChatCompact, ChatSessionStart, ChatTurn
 
+def _files(body: ChatTurn) -> tuple[media.File, ...]:
+    """The message's attached files, checked: a 400 that says what to change when they cannot be sent."""
+    try:
+        made = []
+        for sent in body.files:
+            if len(sent.data) > media.MAX_BYTES * 4 // 3 + 4:  # refused before it is decoded
+                raise media.MediaRefused(f"{media.file_name(sent.name)} is too large to send (the limit is {media.MAX_BYTES // (1024 * 1024)} MB for one message).")
+            try:
+                data = base64.b64decode(sent.data, validate=True)
+            except (binascii.Error, ValueError):
+                raise media.MediaRefused(f"{media.file_name(sent.name)} did not arrive intact. Attach it again.")
+            made.append(media.make(sent.name, data))
+        return media.check(made)
+    except media.MediaRefused as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 def send_turn(body: ChatTurn) -> dict[str, Any]:
     profile = require_profile(body.persona)
     handle = profile["handle"]
+    files = _files(body)
     lock = locks.lock_for(handle, body.session_id, model_mod.resolve_model(profile.get("model")))
     if not locks.acquire(lock, handle, body.session_id):
         return {"cancelled": True}  # stopped while it waited for the other conversation's reply
@@ -30,7 +50,7 @@ def send_turn(body: ChatTurn) -> dict[str, Any]:
         try:
             opened = OpenNote(body.open_note.path, body.open_note.text) if body.open_note else None
             attached = [Attached(a.quote, a.before, a.after) for a in body.attached]
-            result = turn.run_turn(handle, body.message, body.session_id, open_note=opened, edits=body.edits, attached=attached)
+            result = turn.run_turn(handle, body.message, body.session_id, open_note=opened, edits=body.edits, attached=attached, files=files)
         except turn.PersonaNotFoundError as e:
             raise HTTPException(status_code=404, detail=f"{e} Run `sympose doctor` in a terminal to see why.")
         except turn.EngineModelError as e:

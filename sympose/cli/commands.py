@@ -29,6 +29,7 @@ COMMANDS: list[SlashCommand] = [
     SlashCommand("/compact", "Condense the earlier part of this conversation"),
     SlashCommand("/sessions", "List, open, rename, pin or delete past conversations", takes_args=True),
     SlashCommand("/history", "The same as /sessions", takes_args=True),
+    SlashCommand("/attach", "Attach a PDF, image, sound or video to your next message", takes_args=True),
     SlashCommand("/remember", "Save something to decisions.md, in your own words", takes_args=True),
     SlashCommand("/memory", "Update or review what the persona remembers about you"),
     SlashCommand("/share", "Choose what cloud models may receive"),

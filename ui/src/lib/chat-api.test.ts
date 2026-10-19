@@ -38,6 +38,16 @@ describe("sendChatTurn", () => {
     expect(JSON.parse(init.body as string).attached).toEqual([{ quote: "three times", before: "I run ", after: "." }])
   })
 
+  it("sends each attached file by its name and its bytes as base64, and nothing when there are none", async () => {
+    const fetchMock = stub({ ok: true, status: 200, json: () => Promise.resolve(reply) })
+    await sendChatTurn("read [attached: a.pdf]", "samantha", "s0", undefined, null, [], [{ name: "a.pdf", file: new File(["%PDF"], "a.pdf") }])
+    await sendChatTurn("hi", "samantha", "s0")
+    const [, first] = fetchMock.mock.calls[0] as [string, RequestInit]
+    const [, second] = fetchMock.mock.calls[1] as [string, RequestInit]
+    expect(JSON.parse(first.body as string).files).toEqual([{ name: "a.pdf", data: btoa("%PDF") }])
+    expect(JSON.parse(second.body as string)).not.toHaveProperty("files")
+  })
+
   it("returns the backend's own reason when it refuses", async () => {
     stub({ ok: false, status: 409, json: () => Promise.resolve({ detail: "local models only" }) })
     expect(await sendChatTurn("hello", "samantha")).toEqual({ ok: false, error: "local models only" })

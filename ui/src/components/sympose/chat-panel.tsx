@@ -64,6 +64,9 @@ interface ChatPanelProps extends React.ComponentProps<"div"> {
   condensed?: number
   draft: string
   onDraftChange: (value: string) => void
+  /** Files dropped onto the panel or pasted into the box (ADR 089): they are named in the text at `caret`, and go with
+   *  the message. Without it the panel takes no files. */
+  onAttachFiles?: (files: File[], caret: number | null) => void
   onSubmit: () => void
   /** Stop the reply in flight (ADR 054); the Stop button shows only while `sending`, and only when this is given. */
   onStop?: () => void
@@ -127,6 +130,7 @@ function ChatPanel({
   chips,
   draft,
   onDraftChange,
+  onAttachFiles,
   onSubmit,
   onStop,
   model,
@@ -151,6 +155,17 @@ function ChatPanel({
   const submit = () => {
     if (!draft.trim()) return
     onSubmit()
+  }
+
+  // A file dropped anywhere on the panel (not only on the box, which is easy to miss, and a miss would open the file in
+  // the browser instead) or pasted into the box is attached; the box takes the composer's focus look while one is over it.
+  const [over, setOver] = React.useState(false)
+  const carriesFiles = (e: React.DragEvent) => !!onAttachFiles && Array.from(e.dataTransfer?.types ?? []).includes("Files")
+  const attachFrom = (data: DataTransfer | null, caret: number | null) => {
+    const files = Array.from(data?.files ?? [])
+    if (files.length === 0 || !onAttachFiles) return false
+    onAttachFiles(files, caret)
+    return true
   }
 
   // The message box grows with what is typed, up to `MAX_INPUT_PX`, and goes back to one line once it is
@@ -268,6 +283,20 @@ function ChatPanel({
       onTransitionEnd={(e) => {
         if (e.target === e.currentTarget && !open) setReserveSpace(false)
       }}
+      onDragOver={(e) => {
+        if (!carriesFiles(e)) return
+        e.preventDefault()
+        setOver(true)
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOver(false)
+      }}
+      onDrop={(e) => {
+        if (!carriesFiles(e)) return
+        e.preventDefault()
+        setOver(false)
+        attachFrom(e.dataTransfer, inputRef.current?.selectionStart ?? null)
+      }}
       {...props}
     >
       <div ref={scrollRef} onScroll={nearTop} className="min-h-0 flex-1 overflow-y-auto [overflow-anchor:none]">
@@ -339,13 +368,18 @@ function ChatPanel({
       <div className="shrink-0">
         <div className="mx-auto w-full max-w-[42rem] px-6 pb-6 sm:px-8">
           {notice}
-          <div className="rounded-lg border border-border bg-background transition-colors focus-within:border-brand">
+          <div className={cn("rounded-lg border border-border bg-background transition-colors focus-within:border-brand", over && "border-brand")}>
             <div className="relative">
               <textarea
                 ref={inputRef}
                 rows={1}
                 value={draft}
                 onChange={(e) => onDraftChange(e.target.value)}
+                onPaste={(e) => {
+                  // Words win: many apps put a picture of what was copied beside its text, and the text is what was meant.
+                  if (e.clipboardData.getData("text/plain")) return
+                  if (attachFrom(e.clipboardData, e.currentTarget.selectionStart)) e.preventDefault()
+                }}
                 onKeyDown={(e) => {
                   if (
                     e.key === "Enter" &&

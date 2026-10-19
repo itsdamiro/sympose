@@ -503,3 +503,61 @@ def test_a_message_that_sends_no_note_and_no_edits_flag_is_sent_as_it_was(client
     client.post("/api/chat/turn", json={"message": "hi", "persona": "samantha"})
 
     assert "propose_" not in seen[0]
+
+
+def a_file(name="paper.pdf", content=b"%PDF-1.4 hello"):
+    import base64
+
+    return {"name": name, "data": base64.b64encode(content).decode("ascii")}
+
+
+def test_attached_files_reach_the_turn_decoded_and_named_by_their_ending(client, monkeypatch):
+    from sympose.engine import gemini_direct, media, sharing
+
+    sharing.set_approved(sharing.MEDIA, True)
+    monkeypatch.setattr(media, "_held", {})
+    given = []
+
+    def direct(messages, model=None, **kwargs):
+        given.append(kwargs["files"])
+        return ModelReply("Read it.", 5)
+
+    monkeypatch.setattr(gemini_direct, "call", direct)
+
+    body = client.post("/api/chat/turn", json={"message": "read it", "persona": "cloudy", "files": [a_file()]}).json()
+
+    (files,) = given
+    assert body["reply"] == "Read it." and body["cloud"] == ["media"]
+    assert [(f.name, f.mime, f.data) for f in files] == [("paper.pdf", "application/pdf", b"%PDF-1.4 hello")]
+
+
+@pytest.mark.parametrize(
+    ("files", "words"),
+    [
+        ([a_file("notes.txt", b"x")], "PDFs, images, sounds and videos"),
+        ([{"name": "a.pdf", "data": "not base64!"}], "did not arrive intact"),
+        ([{"name": "a.pdf", "data": "QUJD!!!!"}], "did not arrive intact"),  # decodes if the stray marks are skipped: it must not be
+        ([a_file(f"{n}.pdf") for n in range(4)], "At most 3"),
+        ([a_file("big.pdf", b"x" * 3000)], "too large"),
+    ],
+)
+def test_files_that_cannot_be_sent_are_a_400_that_says_what_to_change_and_no_turn_runs(client, monkeypatch, files, words):
+    from sympose.engine import media
+
+    monkeypatch.setattr(media, "MAX_BYTES", 2048)
+    calls = model_says(monkeypatch)
+
+    response = client.post("/api/chat/turn", json={"message": "read it", "persona": "cloudy", "files": files})
+
+    assert response.status_code == 400 and words in response.json()["detail"] and calls == []
+
+
+def test_a_file_far_over_the_limit_is_refused_before_it_is_decoded(client, monkeypatch):
+    from sympose.engine import media
+
+    monkeypatch.setattr(media, "MAX_BYTES", 2048)
+    monkeypatch.setattr(ch.base64, "b64decode", lambda *a, **k: pytest.fail("decoded a file that is over the limit"))
+
+    response = client.post("/api/chat/turn", json={"message": "read it", "persona": "cloudy", "files": [{"name": "a.pdf", "data": "A" * 4000}]})
+
+    assert response.status_code == 400 and "too large" in response.json()["detail"]
