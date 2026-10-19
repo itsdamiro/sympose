@@ -88,6 +88,8 @@ Setting `show_context_meter` to `false` hides the meter under the chat box.
 
 Setting `session_recaps` to `false` stops Samantha writing and reading recaps of your earlier conversations. Each recap is written by the model from your own messages, so with a cloud model those messages are sent to the provider, and only when `cloud_share` allows `"recaps"`.
 
+The call that writes a recap also gives a conversation a short title, unless you have already renamed it yourself: a title you chose is never replaced. Conversations that were opened and never used are deleted at the next launch after a day.
+
 ## recap_count and recap_chars
 
 The `recap_count` setting is how many recaps of earlier conversations she reads, 1 to 10, 2 by default. The `recap_chars` setting is how much of each she reads, 200 to 2000 characters, 800 by default. More of either gives her a longer memory of past chats and takes room in every prompt, so a small local model may need less.
@@ -225,6 +227,8 @@ The `skill_lookup` setting decides whether a persona follows a skill: `"auto"` (
 A skill is a folder with a `SKILL.md` that says what it does and the steps to follow. It is only text: nothing in it is ever run. In Settings, under Skills, every skill a persona could carry has a switch, and a persona follows only the skills that are on; Samantha starts with the bundled ones on.
 
 To add a skill of your own, paste the full path of its folder in the same place. Sympose copies its `SKILL.md` (nothing else in the folder) into the persona's profile, turned off, and opens it so you can read it before you turn it on. A skill of your own goes only to a model on your computer, never to a cloud model.
+
+To delete a skill you added, use the bin beside it in Settings, or /skills remove in the terminal; both ask first, and it cannot be undone. A skill that ships with Sympose can only be turned off. In the terminal, /skills also switches skills and adds them.
 
 A skill that needs to propose a note is not used where the persona cannot propose notes: in the terminal, or when its `edit_mode` is `"plan"`. The skill that drafts a new note in a folder's style also needs a model that calls tools itself; a model that does not (the default local `gemma2:9b`) is not given it, and answers as it always did.
 

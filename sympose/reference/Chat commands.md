@@ -1,6 +1,6 @@
 # Chat commands
 
-The chat commands are /help, /model, /persona, /default, /grounding, /grounded, /context, /remember, /memory, /compact, /attach, /sessions, /history, /share, /settings, /clear and /quit. Type / in the chat to see them; Tab, or the Down and Up arrows, cycle through them.
+The chat commands are /help, /model, /persona, /default, /grounding, /grounded, /context, /remember, /memory, /compact, /attach, /sessions, /history, /skills, /share, /settings, /clear and /quit. Type / in the chat to see them; Tab, or the Down and Up arrows, cycle through them.
 
 ## /help
 
@@ -44,6 +44,10 @@ The chat commands are /help, /model, /persona, /default, /grounding, /grounded, 
 
 /sessions bin lists the deleted conversations, the Bin of the web app. /sessions restore 2 puts number 2 of that list back, and /sessions purge 2 deletes it for good.
 
+## /skills
+
+/skills lists the persona's skills, each on or off; choose one to switch it. /skills add followed by the full path of a skill's folder copies it in, turned off, and shows what it says. /skills read followed by a name shows a skill's text, and /skills remove followed by a name takes away one of your own, after a yes.
+
 ## /remember
 
 /remember, followed by whatever you type, saves it as a dated line in your persona's decisions.md, in your own words. No model is involved and no setting gates it — typing it always works, even with `memory_remember` off.
@@ -73,3 +77,7 @@ If a proposal is staged for review, "Review pending change" also appears: it sho
 ## Can I send messages while she is writing?
 
 Yes. You can keep typing and sending while a reply is being written. Messages you send while a reply is being written appear at once and wait. When that reply is done, everything that waited is sent together as one message and answered together.
+
+## Can I stop or cancel a reply that is taking too long?
+
+Yes. While a reply is being written, the web app shows a Stop button at the right of the message box, and the terminal shows a ■ Stop line under it. A reply stopped before it is finished is thrown away: nothing is saved, and your message comes back into the box. In the terminal, a reply already written whose words are still appearing is shown whole at once.

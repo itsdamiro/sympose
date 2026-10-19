@@ -69,6 +69,9 @@ _RAW = [
     ("sympose", "how do I open a comment you left on my note?", True, "The web app.md"),
     ("sympose", "can you delete a table from my note?", True, "The web app.md"),
     ("sympose", "can I attach a PDF for you to read?", True, "Not built yet.md"),
+    ("sympose", "can I cancel a reply that is taking too long?", True, "Chat commands.md"),
+    ("sympose", "how do I delete a skill I added?", True, "Settings.md"),
+    ("sympose", "does she give my conversations a title of her own?", True, "Settings.md"),
     ("sympose", "how do I give you a picture or a recording to look at?", True, "Not built yet.md"),
 ]
 
