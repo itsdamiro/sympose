@@ -488,7 +488,7 @@ def test_the_recap_instructions_ask_for_a_short_recap_from_the_users_words_or_no
     assert "at most 80 words" in text
     assert "what the user was working on" in text and "what was left open" in text
     assert "only the user's own messages" in text and "Use only what the user wrote" in text
-    assert "output exactly: NONE" in text
+    assert "output exactly: NONE" in text and "with no title" in text
 
 
 def test_only_the_recap_of_the_real_last_conversation_is_called_that():

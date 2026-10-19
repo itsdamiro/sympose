@@ -2,12 +2,14 @@
 asked, and the background run at launch. Reading them back is `recap`."""
 
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from sympose import profile as profile_mod
-from sympose.engine import background_job, budget, helper_limit, prompt, recap, session, sharing
+from sympose.engine import background_job, budget, helper_limit, prompt, recap, session, session_manage, session_prune, sharing
 from sympose.engine import model as model_mod
+from sympose.engine.session_records import make_title
 
 log = logging.getLogger(__name__)
 
@@ -21,6 +23,10 @@ _MAX_TURNS = 40
 # A session touched this recently may still be running in another window.
 _QUIET = timedelta(minutes=30)
 _MAX_RECAP_TOKENS = 200
+# A model's title for a conversation (ADR 023, amendment of 2026-10-20): short, or none at all.
+_MAX_TITLE_WORDS = 8
+_MAX_TITLE_CHARS = 80
+_TITLE_LINE = re.compile(r"^\W*title\s*:\s*(?P<title>.*)$", re.IGNORECASE)
 
 # A model that spent its whole small reply limit thinking cannot write a recap
 # (as with the follow-up rewrite, ADR 017): not asked again until the process restarts.
@@ -30,6 +36,27 @@ _CANNOT_RECAP: set[str] = set()
 def _request(turns: list[dict[str, Any]]) -> list[dict[str, str]]:
     body = f"Conversation:\n{session.user_lines(turns)}\n\nRecap:"
     return [{"role": "system", "content": prompt.RECAP_INSTRUCTIONS}, {"role": "user", "content": body}]
+
+
+def _split_title(text: str) -> tuple[str | None, str]:
+    """The title line the model was asked to start with, cleaned, and the recap after it. A reply with no such line is
+    all recap; a title that is empty or too long to be one is dropped (`None`) and the recap kept."""
+    first, _, rest = text.strip().partition("\n")
+    found = _TITLE_LINE.match(first)
+    if not found:
+        return None, text
+    title = " ".join(re.sub(r"[*_`#]", "", found["title"]).split()).strip("\"'“”‘’ ").rstrip(".").strip()
+    if not title or len(title.split()) > _MAX_TITLE_WORDS or len(title) > _MAX_TITLE_CHARS:
+        return None, rest
+    return title, rest
+
+
+def _retitle(handle: str, session_id: str, session_turns: list[dict[str, Any]], title: str) -> None:
+    """Give the conversation the model's `title` only while it still has the name made from its first message: one the
+    user chose is never replaced, and neither is a model title on a later recap."""
+    loaded = session.load_session(handle, session_id)
+    if loaded and loaded["meta"].get("title") == make_title(session_turns[0]["user"]):
+        session_manage.rename(handle, session_id, title)
 
 
 def _clean(text: str) -> str | None:
@@ -65,7 +92,8 @@ def _write_one(
     except model_mod.EngineModelError as e:
         log.warning("Recap of session %s failed: %s", session_id, e)
         return False
-    text = _clean(reply.text)
+    title, body = _split_title(reply.text)
+    text = _clean(body)
     if reply.truncated and text:  # cut mid-sentence: stop at the last whole one
         cut = max(text.rfind(mark) for mark in ".!?")
         text = text[: cut + 1] if cut > 0 else None
@@ -76,6 +104,8 @@ def _write_one(
     except OSError as e:
         log.warning("Could not save the recap of session %s: %s", session_id, e)
         return False
+    if title and text:  # a recap of "nothing to carry over" has no title either
+        _retitle(handle, session_id, session_turns, title)
     return True
 
 
@@ -85,7 +115,10 @@ def refresh(handle: str, model: str | None = None, now: datetime | None = None) 
     argument, else the persona's own). Never raises for a model or file problem: the
     session simply has no recap yet and is looked at again the next time."""
     persona = profile_mod.resolve_profile(handle)
-    if persona is None or not recap.enabled():
+    if persona is None:
+        return
+    session_prune.prune_empty(handle)  # whether or not recaps are on: blank conversations are not a recap's business
+    if not recap.enabled():
         return
     model = model or model_mod.resolve_model(persona.get("model"))
     if model in _CANNOT_RECAP:

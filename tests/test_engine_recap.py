@@ -10,7 +10,7 @@ import pytest
 from helpers import write_persona
 
 from sympose import settings_store
-from sympose.engine import background_job, budget, prompt, recap, recap_refresh, session
+from sympose.engine import background_job, budget, prompt, recap, recap_refresh, session, session_manage
 from sympose.engine.model import EngineModelError, ModelReply, ReplyLimitError
 
 NEW = "20260924T090000-aaaaaaaa"
@@ -806,3 +806,81 @@ def test_a_local_model_writes_recaps_with_nothing_approved(asked):
     recap_refresh.refresh("samantha", model="ollama_chat/gemma2:9b", now=LATER)
 
     assert len(asked) == 1 and has_recap(NEW)
+
+
+# -- a title from the model (ADR 023, amendment of 2026-10-20) --
+
+
+def title_of(session_id: str, handle: str = "samantha") -> str:
+    return session.load_session(handle, session_id)["meta"]["title"]
+
+
+def test_the_title_line_names_the_conversation_and_stays_out_of_the_recap(asked):
+    talk(NEW)
+    asked.replies[:] = [ModelReply("Title: Planning the Atlas database\nThey planned the Atlas database.", 5)]
+
+    recap_refresh.refresh("samantha", now=LATER)
+
+    assert title_of(NEW) == "Planning the Atlas database"
+    assert recap_file(NEW) == "<!-- turns: 2 -->\nThey planned the Atlas database.\n"
+
+
+@pytest.mark.parametrize(
+    "line", ['Title: "Atlas plan."', "**Title:** Atlas plan", "title: Atlas plan.", "# Title: `Atlas plan`"]
+)
+def test_a_title_is_cleaned_of_quotes_markdown_and_a_full_stop(asked, line):
+    talk(NEW)
+    asked.replies[:] = [ModelReply(f"{line}\nThey planned it.", 5)]
+
+    recap_refresh.refresh("samantha", now=LATER)
+
+    assert title_of(NEW) == "Atlas plan"
+
+
+def test_a_title_the_user_gave_is_never_replaced(asked):
+    talk(NEW)
+    assert session_manage.rename("samantha", NEW, "My own name") == session_manage.OK
+    asked.replies[:] = [ModelReply("Title: Atlas plan\nThey planned it.", 5)]
+
+    recap_refresh.refresh("samantha", now=LATER)
+
+    assert title_of(NEW) == "My own name"
+    assert "Title" not in recap_file(NEW)
+
+
+def test_a_title_the_model_gave_is_not_changed_by_a_later_recap(asked):
+    talk(NEW)
+    asked.replies[:] = [ModelReply("Title: First name\nThey planned it.", 5), ModelReply("Title: Second name\nMore.", 5)]
+    recap_refresh.refresh("samantha", now=LATER)
+    talk(NEW, turns=2)  # resumed: the recap is out of date and written again
+
+    recap_refresh.refresh("samantha", now=LATER)
+
+    assert len(asked) == 2 and title_of(NEW) == "First name"
+
+
+@pytest.mark.parametrize("reply", ["They planned the Atlas database.", "Title:\nThey planned it.", "Title: " + "word " * 9 + "\nThey planned it."])
+def test_no_title_or_an_unusable_one_leaves_the_name_and_keeps_the_recap(asked, reply):
+    talk(NEW)
+    before = title_of(NEW)
+    asked.replies[:] = [ModelReply(reply, 5)]
+
+    recap_refresh.refresh("samantha", now=LATER)
+
+    assert title_of(NEW) == before
+    assert recap_file(NEW).startswith("<!-- turns: 2 -->\n") and "Title" not in recap_file(NEW)
+    assert recap_file(NEW) != "<!-- turns: 2 -->\n"
+
+
+def test_a_conversation_with_nothing_to_carry_over_gets_no_title(asked):
+    talk(NEW)
+    before = title_of(NEW)
+    asked.replies[:] = [ModelReply("Title: Small talk\nNONE", 5)]
+
+    recap_refresh.refresh("samantha", now=LATER)
+
+    assert title_of(NEW) == before and recap_file(NEW) == "<!-- turns: 2 -->\n"
+
+
+def test_the_instructions_ask_for_a_title_line_first():
+    assert "Title: " in prompt.RECAP_INSTRUCTIONS and "at most six words" in prompt.RECAP_INSTRUCTIONS

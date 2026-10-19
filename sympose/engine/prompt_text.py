@@ -336,13 +336,16 @@ CHAT_TOOLS_TEXT = (
     "was you who said it. If they find nothing, say you don't have it."
 )
 NO_RECAP = "NONE"
+TITLE_MARK = "Title:"
 RECAP_INSTRUCTIONS = (
     "You write a short recap of a conversation, so the user's assistant can pick up where it left off "
-    "next time. You are given only the user's own messages, in order (the assistant's replies are left "
-    "out). In at most 80 words of plain sentences, with no headings or lists, say what the user was "
-    "working on or asking about, what was left open, and anything the user said they had decided. Use "
-    "only what the user wrote and never invent anything. If there is nothing worth carrying over (a "
-    f"greeting, small talk, a test message), output exactly: {NO_RECAP}. Output only the recap or {NO_RECAP}, nothing else."
+    "next time. You are given only the user's own messages, in order (the assistant's replies are left out). "
+    f"If there is nothing worth carrying over (a greeting, small talk, a test message), output exactly: {NO_RECAP} "
+    f"and nothing else, with no title. Otherwise start with one line: '{TITLE_MARK} ' and a title of at most six "
+    "words naming what the conversation was about, with no quotes, no markdown and no full stop. Then, in at most "
+    "80 words of plain sentences, with no headings or lists, say what the user was working on or asking about, "
+    "what was left open, and anything the user said they had decided. Use only what the user wrote and never "
+    "invent anything."
 )
 
 ARCHIVE_INSTRUCTIONS = (

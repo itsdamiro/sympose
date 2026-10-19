@@ -84,9 +84,16 @@ Two more from the same review. The Bin of a persona no longer shows the rows of 
 
 ## Not built
 
-- A model-written title (the first message stays the default title).
 - Searching across conversations (ADR 056) and archiving one to a note (#20); both would fit on this list.
 - The list in the terminal showing which conversation has a reply in flight beyond a marker.
+
+## Amendment (2026-10-20): blank conversations are cleaned up
+
+"New conversation" writes a file with only its meta line (`session.start_session`) so a refresh keeps it. Such a file is never listed but stayed on disk for good, and every abandoned click left one. `session_prune.prune_empty` runs at the top of the recap refresh at each launch (terminal and web, and also with recaps turned off) and deletes a persona's sessions that hold only meta lines, are at least a day old, are not the newest, and have no reply being written. A file with a turn in it, or with a line that cannot be read, is never touched.
+
+**Deleted outright, not moved to the Bin.** A Bin row for a conversation with no turn would be a new thing to look at and clear, and the file holds nothing the user wrote. Silent on purpose: there is nothing for the user to act on. This differs from a delete the user chooses, which still goes to the trash (above).
+
+**Tests.** `tests/test_session_prune.py`: age, the newest kept, a file with a turn kept, a damaged line kept, a reply being written kept, and the run with recaps off.
 
 ## Alternatives rejected
 
