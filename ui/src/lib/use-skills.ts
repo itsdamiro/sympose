@@ -1,7 +1,7 @@
 import * as React from "react"
 
 import { notify } from "@/lib/notify"
-import { addSkill, fetchSkills, switchSkill, type Skill } from "@/lib/skills-api"
+import { addSkill, fetchSkills, removeSkill, switchSkill, type Skill } from "@/lib/skills-api"
 
 export type SkillsState =
   | { status: "loading" }
@@ -11,7 +11,7 @@ export type SkillsState =
 const byName = (a: Skill, b: Skill) => a.name.localeCompare(b.name)
 
 /**
- * The persona's skills (docs/decisions/077), read when the persona changes, a folder added and each switched on or off.
+ * The persona's skills (docs/decisions/077), read when the persona changes, a folder added, each switched on or off and one of the user's own removed.
  * A refusal is an error toast and the list keeps what the backend last said, so the screen never guesses; what a
  * save answers replaces that skill's row.
  */
@@ -70,7 +70,26 @@ export function useSkills(persona: string | null | undefined) {
     [persona, replace]
   )
 
+  /** Delete one of the user's own skills; its row goes only once the backend has done it. */
+  const remove = React.useCallback(
+    async (name: string) => {
+      if (!persona) return false
+      const result = await removeSkill(persona, name)
+      if (!result.ok) {
+        notify.error(result.error)
+        return false
+      }
+      setLoaded((prev) =>
+        prev && prev.persona === persona && prev.state.status === "ready"
+          ? { persona, state: { status: "ready", skills: prev.state.skills.filter((s) => s.name !== name) } }
+          : prev
+      )
+      return true
+    },
+    [persona]
+  )
+
   // A state read for another persona is not this persona's until its own read arrives.
   const state: SkillsState = loaded && loaded.persona === persona ? loaded.state : { status: "loading" }
-  return { state, add, setEnabled }
+  return { state, add, setEnabled, remove }
 }

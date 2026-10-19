@@ -1,5 +1,5 @@
 """The skill routes' handlers (docs/decisions/077, the amendment of 2026-10-14): a persona's skills listed, one read before
-it is switched on, a folder added (copied in, off) and a skill switched on or off. The rules are `persona_skills`'; a
+it is switched on, a folder added (copied in, off), a skill switched on or off and one of the user's own removed. The rules are `persona_skills`'; a
 request it refuses is a 422 with the reason, and an unknown persona or skill a 404."""
 
 from typing import Any
@@ -40,3 +40,11 @@ def put_skill(handle: str, name: str, body: SkillSwitch) -> dict[str, Any]:
         return {"skill": persona_skills.set_enabled(handle, name, body.enabled)}
     except persona_skills.SkillRefused as e:
         raise _refused(e) from None
+
+
+def delete_skill(handle: str, name: str) -> dict[str, Any]:
+    try:
+        persona_skills.remove(handle, name)
+    except persona_skills.SkillRefused as e:
+        raise _refused(e) from None
+    return {"removed": name}

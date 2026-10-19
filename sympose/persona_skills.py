@@ -1,9 +1,11 @@
-"""Adding, reading and switching a persona's skills from Settings (docs/decisions/077, the amendment of 2026-10-14).
+"""Adding, reading, switching and removing a persona's skills from Settings (docs/decisions/077, the amendments of 2026-10-14 and 2026-10-20).
 
 A skill is text, never run. The user points at a skill's folder; the server (on the user's own computer) checks its
 `SKILL.md` by the rules `skills.check` has, copies that one file into the persona's `skills/` folder and leaves it
 **off**: nothing in a folder the user did not write reaches a prompt until it has been read and switched on. Switching
 writes what differs from the persona's shipped `skills:` list into `persona.local.yaml` (`persona_model.set_skills`).
+Removing deletes a skill of the user's own (its `SKILL.md`, and the folder if nothing else is in it); one that ships with
+Sympose is only switched off.
 A refusal is a `SkillRefused` whose message is for the user."""
 
 import os
@@ -128,3 +130,29 @@ def set_enabled(handle: str, name: str, enabled: bool) -> dict[str, Any]:
         if not persona_model.set_skills(persona["handle"], names):
             raise SkillRefused(f"Couldn't save the change for {persona['name']}.")
         return _row(skill, _persona(handle))
+
+
+def remove(handle: str, name: str) -> None:
+    """Delete one of the persona's own skills: it is switched off first (so a failure part way leaves it off, never on
+    and half gone), then its `SKILL.md` is deleted, and its folder with it if nothing else is in it. A skill that ships
+    with Sympose is refused. There is no undo; the folder the user added it from is untouched."""
+    with _LOCK:
+        persona = _persona(handle)
+        skill = next((s for s in skills.available(persona) if s.name == name), None)
+        if skill is None:
+            raise SkillRefused(f"There is no skill called {name}.")
+        if skill.source != "persona":
+            raise SkillRefused(f"{name} ships with Sympose, so it can't be removed. Turn it off instead.")
+        target = os.path.join(skills.own_dir(persona["handle"]), name)
+        if not is_safe_path(target, profiles_dir()):
+            raise SkillRefused("That skill can't be removed from here.")
+        if name in _names(persona) and not persona_model.set_skills(persona["handle"], [n for n in _names(persona) if n != name]):
+            raise SkillRefused(f"Couldn't save the change for {persona['name']}.")
+        try:
+            os.remove(os.path.join(target, skills.FILENAME))
+        except OSError:
+            raise SkillRefused(f"Couldn't remove {name}. Check that the persona's folder can be written.") from None
+        try:
+            os.rmdir(target)  # only if nothing else is in it: a file the user put there is theirs
+        except OSError:
+            pass

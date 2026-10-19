@@ -226,6 +226,10 @@ def create_app() -> FastAPI:
     def put_persona_skill(handle: str, name: str, body: SkillSwitch) -> dict[str, Any]:
         return skh.put_skill(handle, name, body)
 
+    @app.delete("/api/personas/{handle}/skills/{name}")
+    def delete_persona_skill(handle: str, name: str) -> dict[str, Any]:
+        return skh.delete_skill(handle, name)
+
     @app.get("/api/personas/{handle}/files")
     def list_persona_files(handle: str) -> dict[str, Any]:
         return pfh.list_files(handle)

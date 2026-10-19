@@ -213,3 +213,56 @@ def test_hidden_files_in_the_folder_are_not_counted_as_left_out(home, tmp_path):
     result = persona_skills.add("ada", str(skill_folder(tmp_path, extra=(".DS_Store", "notes.txt"))))
 
     assert result["left_out"] == 1
+
+
+def test_removing_an_own_skill_deletes_it_and_takes_its_name_out_of_her_list(home, tmp_path):
+    persona_skills.add("ada", str(skill_folder(tmp_path)))
+    persona_skills.set_enabled("ada", "trip-planning", True)
+
+    persona_skills.remove("ada", "trip-planning")
+
+    assert not (home / "skills" / "trip-planning").exists()
+    assert [r["name"] for r in persona_skills.listing("ada")] == ["poem-writing"]
+    assert profile.get_profile("ada")["skills"] == ["poem-writing"]
+
+
+def test_removing_a_skill_that_ships_with_sympose_is_refused_and_it_stays(home):
+    with pytest.raises(persona_skills.SkillRefused, match="ships with Sympose"):
+        persona_skills.remove("ada", "poem-writing")
+
+    assert [r["name"] for r in persona_skills.listing("ada")] == ["poem-writing"]
+
+
+def test_removing_a_skill_that_is_not_there_is_refused(home):
+    with pytest.raises(persona_skills.SkillRefused, match="no skill called"):
+        persona_skills.remove("ada", "nothing-here")
+
+
+def test_a_file_the_user_put_beside_skill_md_is_left_and_so_is_its_folder(home, tmp_path):
+    persona_skills.add("ada", str(skill_folder(tmp_path)))
+    (home / "skills" / "trip-planning" / "mine.txt").write_text("keep", encoding="utf-8")
+
+    persona_skills.remove("ada", "trip-planning")
+
+    assert [p.name for p in (home / "skills" / "trip-planning").iterdir()] == ["mine.txt"]
+    assert [r["name"] for r in persona_skills.listing("ada")] == ["poem-writing"]
+
+
+def test_a_skill_added_again_after_removal_arrives_off(home, tmp_path):
+    folder = skill_folder(tmp_path)
+    persona_skills.add("ada", str(folder))
+    persona_skills.set_enabled("ada", "trip-planning", True)
+    persona_skills.remove("ada", "trip-planning")
+
+    assert persona_skills.add("ada", str(folder))["skill"]["enabled"] is False
+
+
+def test_a_removal_that_cannot_save_her_list_leaves_the_skill_where_it_is(home, tmp_path, monkeypatch):
+    persona_skills.add("ada", str(skill_folder(tmp_path)))
+    persona_skills.set_enabled("ada", "trip-planning", True)
+    monkeypatch.setattr(persona_skills.persona_model, "set_skills", lambda handle, names: False)
+
+    with pytest.raises(persona_skills.SkillRefused, match="Couldn't save"):
+        persona_skills.remove("ada", "trip-planning")
+
+    assert (home / "skills" / "trip-planning" / "SKILL.md").is_file()

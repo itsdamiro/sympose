@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { addSkill, fetchSkills, readSkill, switchSkill } from "./skills-api"
+import { addSkill, fetchSkills, readSkill, removeSkill, switchSkill } from "./skills-api"
 
 const skill = { name: "trip-planning", description: "Plans a trip.", own: true, enabled: false, length: 17, cap: 3000, tools: [] }
 const json = (body: unknown, ok = true, status = ok ? 200 : 422) =>
@@ -70,5 +70,24 @@ describe("switchSkill", () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")))
     const result = await switchSkill("ada", "x", false)
     expect(!result.ok && result.error).toContain("isn't responding")
+  })
+})
+
+describe("removeSkill", () => {
+  it("deletes the skill by name, the name encoded", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(json({ removed: "a b" }))
+    vi.stubGlobal("fetch", fetchMock)
+    expect(await removeSkill("ada", "a b")).toEqual({ ok: true })
+    expect(fetchMock).toHaveBeenCalledWith("/api/personas/ada/skills/a%20b", { method: "DELETE" })
+  })
+
+  it("gives the reason it was refused, or says the backend is unreachable", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json({ detail: "poem-writing ships with Sympose, so it can't be removed. Turn it off instead." }, false)))
+    expect(await removeSkill("ada", "poem-writing")).toEqual({
+      ok: false,
+      error: "poem-writing ships with Sympose, so it can't be removed. Turn it off instead.",
+    })
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")))
+    expect(await removeSkill("ada", "x")).toEqual({ ok: false, error: `Couldn't remove x: ${DOWN}` })
   })
 })

@@ -5,6 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 const { notifyError, notifyInfo } = vi.hoisted(() => ({ notifyError: vi.fn(), notifyInfo: vi.fn() }))
 vi.mock("@/lib/notify", () => ({ notify: { error: notifyError, info: notifyInfo } }))
 
+const { confirmMock } = vi.hoisted(() => ({ confirmMock: vi.fn() }))
+vi.mock("@/lib/confirm-store", () => ({ confirm: confirmMock }))
+
 import { SkillsRows } from "./skills-rows"
 
 const skill = (over: Record<string, unknown> = {}) => ({
@@ -15,18 +18,20 @@ const res = (body: unknown, ok = true, status = ok ? 200 : 422) => ({ ok, status
 
 let calls: { url: string; init?: RequestInit }[]
 
-function stub(routes: { add?: Response; put?: (enabled: boolean) => Response } = {}) {
+function stub(routes: { add?: Response; put?: (enabled: boolean) => Response; del?: Response; list?: unknown[] } = {}) {
   calls = []
   vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
     calls.push({ url, init })
     if (init?.method === "POST") return routes.add ?? res({ skill: TRIP, left_out: 0 })
     if (init?.method === "PUT") return routes.put?.(JSON.parse(init.body as string).enabled) ?? res({})
-    if (url.endsWith("/skills")) return res({ skills: [skill()] })
+    if (init?.method === "DELETE") return routes.del ?? res({ removed: "trip-planning" })
+    if (url.endsWith("/skills")) return res({ skills: routes.list ?? [skill()] })
     return res({ ...TRIP, text: "---\nname: trip-planning\n---\n1. Ask the dates.\n" })
   }))
 }
 
 beforeEach(() => {
+  confirmMock.mockClear()
   notifyError.mockClear()
   notifyInfo.mockClear()
 })
@@ -195,5 +200,43 @@ describe("SkillsRows", () => {
     expect(await screen.findByText("Ships with Sympose")).toBeTruthy()
     expect(screen.getByText("Writes a poem.")).toBeTruthy()
     expect(screen.getByText("120 characters")).toBeTruthy()
+  })
+
+  it("offers to remove only the user's own skills, and asks for a permanent yes first", async () => {
+    stub({ list: [skill(), TRIP] })
+    render(<SkillsRows persona="ada" personaName="Ada" />)
+    await screen.findByText("trip-planning")
+    expect(screen.queryByRole("button", { name: "Remove poem-writing" })).toBeNull()
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove trip-planning" }))
+
+    expect(confirmMock).toHaveBeenCalledTimes(1)
+    expect(confirmMock.mock.calls[0][0]).toMatchObject({ permanent: true, confirmLabel: "Remove" })
+    expect(calls.some((c) => c.init?.method === "DELETE")).toBe(false) // asked, not done
+  })
+
+  it("removes the skill once confirmed and the row goes", async () => {
+    stub({ list: [skill(), TRIP] })
+    render(<SkillsRows persona="ada" personaName="Ada" />)
+    await screen.findByText("trip-planning")
+    fireEvent.click(screen.getByRole("button", { name: "Remove trip-planning" }))
+
+    await confirmMock.mock.calls[0][0].onConfirm()
+
+    await waitFor(() => expect(screen.queryByText("trip-planning")).toBeNull())
+    expect(calls.at(-1)).toMatchObject({ url: "/api/personas/ada/skills/trip-planning", init: { method: "DELETE" } })
+    expect(screen.getByText("poem-writing")).toBeTruthy()
+  })
+
+  it("keeps the row and shows the reason when a removal is refused", async () => {
+    stub({ list: [skill(), TRIP], del: res({ detail: "Couldn't remove trip-planning." }, false) })
+    render(<SkillsRows persona="ada" personaName="Ada" />)
+    await screen.findByText("trip-planning")
+    fireEvent.click(screen.getByRole("button", { name: "Remove trip-planning" }))
+
+    await confirmMock.mock.calls[0][0].onConfirm()
+
+    await waitFor(() => expect(notifyError).toHaveBeenCalledWith("Couldn't remove trip-planning."))
+    expect(screen.getByText("trip-planning")).toBeTruthy()
   })
 })

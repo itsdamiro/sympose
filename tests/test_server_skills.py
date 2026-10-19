@@ -65,3 +65,14 @@ def test_an_unknown_persona_or_skill_is_a_404_on_a_read_and_a_422_on_a_change(cl
     assert client.get("/api/personas/ada/skills/ghost").status_code == 404
     put = client.put("/api/personas/ada/skills/ghost", json={"enabled": True})
     assert put.status_code == 422 and "no skill called ghost" in put.json()["detail"]
+
+
+def test_an_own_skill_is_removed_and_one_that_ships_with_sympose_is_a_422(client, scratch):
+    client.post("/api/personas/ada/skills", json={"folder": str(scratch)})
+
+    assert client.delete("/api/personas/ada/skills/trip-planning").json() == {"removed": "trip-planning"}
+    assert [r["name"] for r in client.get("/api/personas/ada/skills").json()["skills"]] == ["poem-writing"]
+
+    refused = client.delete("/api/personas/ada/skills/poem-writing")
+    assert refused.status_code == 422 and "ships with Sympose" in refused.json()["detail"]
+    assert client.delete("/api/personas/ada/skills/trip-planning").status_code == 422

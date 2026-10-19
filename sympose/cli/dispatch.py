@@ -7,7 +7,7 @@ from rich.style import Style
 from rich.text import Text
 from textual.widgets import OptionList
 
-from sympose.cli import memory_command, picker, runtime, settings_list, share, turns
+from sympose.cli import memory_command, picker, runtime, settings_list, share, skills_command, turns
 from sympose.cli import transcript as transcript_mod
 from sympose.cli.commands import find_command
 from sympose.cli.selection import SelectionOption
@@ -100,6 +100,14 @@ async def on_option_selected(app, event: OptionList.OptionSelected) -> None:
     if kind == settings_list.PICKER_KIND:
         if value is not None and settings_list.choose(app, value):
             await settings_list.open_picker(app, value)  # on the row just changed
+        return
+    if kind == skills_command.PICKER_KIND:
+        if value is not None:
+            skills_command.toggle(app, value)
+            await skills_command.open_picker(app, value)  # the list stays open on the row just changed, as /share does
+        return
+    if kind == skills_command.CONFIRM_KIND:
+        skills_command.apply_removal(app, value)
         return
     if kind == memory_command.PICKER_KIND:
         await memory_command.choose(app, value)

@@ -12,7 +12,7 @@ from rich.style import Style
 from sympose import engine
 from sympose.cli import (
     attach_command, compact_command, context_explain, grounded_list, grounding_line, help_notes, memory_command, meter, meter_estimate, picker,
-    sessions_command, settings_list, share, stop, transcript as transcript_mod,
+    sessions_command, settings_list, share, skills_command, stop, transcript as transcript_mod,
 )
 from sympose.cli.commands import COMMANDS
 from sympose import persona_model
@@ -72,6 +72,8 @@ async def run_command(app, command, args: str = "") -> None:
         await sessions_command.run(app, args)
     elif command.name == "/attach":
         attach_command.run(app, args)
+    elif command.name == "/skills":
+        await skills_command.run(app, args)
     elif command.name == "/remember":
         # No `memory_remember` gate here: that setting is about a *model* being trusted to write
         # on its own; this is the user's own words, typed directly, no model call (docs/decisions/041).

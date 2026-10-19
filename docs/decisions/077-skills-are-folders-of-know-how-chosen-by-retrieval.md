@@ -159,6 +159,15 @@ What it showed: on Gemini Flash `ask` matched `auto` on every soul and near-miss
 
 **Merge rule (2026-10-14, replaces the first build, where the local `skills:` list replaced the shipped one whole).** A skill a later release adds to a persona's shipped list is on for a persona whose choices were saved from Settings, unless the user switched it off: a shipped skill is on until said otherwise, as it is for a persona never edited. Switching every skill off is still a choice (`skills_off` names them all), and switching back to exactly the shipped list leaves nothing in the local file. The first build's full `skills:` list in the local file (kept for one day, 2026-10-14, on one machine) is no longer read (2026-10-15): it is ignored, and the next save of any of the persona's settings (model, edit mode or skills) drops it. Measured by tests: a later release's skill is on after a save, off if it was switched off, and a list of the wrong kind in either key is ignored.
 
-**Not built.** Removing a skill from the page (a deletion with no undo; the folder can be deleted by hand), a zip or an upload (a dropped folder gives a browser no path), a check of whether the persona's model can carry out the `tools:` line (the review names the tools; the engine still withholds a skill that cannot be carried out, as above).
+**Not built.** (Removing a skill was built on 2026-10-20, see the last amendment.) A zip or an upload (a dropped folder gives a browser no path), a check of whether the persona's model can carry out the `tools:` line (the review names the tools; the engine still withholds a skill that cannot be carried out, as above).
 
 **Alternatives rejected.** A separate Skills page (a new surface for four rows). Copying the whole folder (it would bring files nothing reads). Keeping own skills on by default and adding an off list (a skill someone else wrote would be live before the user had read it).
+
+## Amendment (2026-10-20): `/skills` in the terminal and removing a skill you added
+
+**Remove.** `persona_skills.remove` deletes a skill the user added (never a bundled one, which is refused): it switches the skill off first, deletes its `SKILL.md`, and removes the folder only when nothing else is in it, so a file the user kept beside it survives. `DELETE /api/personas/{handle}/skills/{name}` calls it. In Settings an own skill's row has a bin icon behind a confirmation that says the deletion is permanent. The reason it asks: there is no undo, and the folder is the user's own writing.
+
+**Terminal.** `/skills` lists the persona's skills as a picker where a row flips on or off and the list stays open; `/skills add <path>` copies a skill as Settings does and prints the text that was copied (the same review, in the terminal), `/skills read <name>` prints a skill, `/skills remove <name>` asks first. Both surfaces use the same functions, so a refusal reads the same.
+
+**Checked.** 14 new tests for the command, more for `remove` and the route, 3 for the page; the reference library says how to cancel a slow reply and how to delete a skill (retrieval eval `auto` 64 of 70 before, 66 of 72 after; both new messages pass, and the wording had to use the user's words "cancel", "taking too long", "delete" to be found).
+

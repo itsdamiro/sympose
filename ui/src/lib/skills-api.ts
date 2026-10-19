@@ -2,8 +2,8 @@ import { detailOf } from "@/lib/vault-note-api"
 
 /**
  * Client for `/api/personas/{handle}/skills` — the skills a persona could carry, one read before it is switched
- * on, a folder added by its path (copied in, off) and a skill switched on or off (docs/decisions/077, the amendment of
- * 2026-10-14). The backend holds every rule (what a skill may be, where it is kept), so this only asks and reports.
+ * on, a folder added by its path (copied in, off), a skill switched on or off and one of the user's own removed
+ * (docs/decisions/077, the amendments of 2026-10-14 and 2026-10-20). The backend holds every rule (what a skill may be, where it is kept), so this only asks and reports.
  */
 export interface Skill {
   name: string
@@ -83,5 +83,18 @@ export async function switchSkill(persona: string, name: string, enabled: boolea
     return { ok: true, skill: ((await res.json()) as { skill: Skill }).skill }
   } catch {
     return { ok: false, error: `Couldn't change ${name}: ${BACKEND_DOWN}` }
+  }
+}
+
+export type RemoveResult = { ok: true } | { ok: false; error: string }
+
+/** `DELETE /api/personas/{handle}/skills/{name}`: delete one of the user's own skills (there is no undo). */
+export async function removeSkill(persona: string, name: string): Promise<RemoveResult> {
+  try {
+    const res = await fetch(`${base(persona)}/${encodeURIComponent(name)}`, { method: "DELETE" })
+    if (!res.ok) return { ok: false, error: await failed(res, `remove ${name}`) }
+    return { ok: true }
+  } catch {
+    return { ok: false, error: `Couldn't remove ${name}: ${BACKEND_DOWN}` }
   }
 }

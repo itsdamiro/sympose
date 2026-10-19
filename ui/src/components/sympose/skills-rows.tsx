@@ -1,6 +1,6 @@
 import * as React from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Add01Icon, ViewIcon } from "@hugeicons/core-free-icons"
+import { Add01Icon, Delete02Icon, ViewIcon } from "@hugeicons/core-free-icons"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog"
 import { ControlRow } from "@/components/sympose/control-section"
 import { SegmentedControl } from "@/components/sympose/segmented-control"
+import { confirm } from "@/lib/confirm-store"
 import { notify } from "@/lib/notify"
 import { readSkill, type Skill, type SkillText } from "@/lib/skills-api"
 import { useSkills } from "@/lib/use-skills"
@@ -105,11 +106,12 @@ function Review({
 /**
  * Settings → Skills, under the two settings of that group (docs/decisions/077, the amendment of 2026-10-14): one field
  * to add a skill by the path of its folder, then a row for each skill the persona could carry, with a switch and a
- * button that opens what it says. A skill that is added arrives off and opens for reading at once. The backend holds
+ * button that opens what it says, and for the user's own a button that deletes it after a yes. A skill that is added
+ * arrives off and opens for reading at once. The backend holds
  * every rule: this only asks, and shows the reason when it refuses.
  */
 function SkillsRows({ persona, personaName }: { persona: string | null; personaName: string }) {
-  const { state, add, setEnabled } = useSkills(persona)
+  const { state, add, setEnabled, remove } = useSkills(persona)
   const [folder, setFolder] = React.useState("")
   const [adding, setAdding] = React.useState(false)
   const [reviewing, setReviewing] = React.useState<string | null>(null)
@@ -126,6 +128,17 @@ function SkillsRows({ persona, personaName }: { persona: string | null; personaN
     setReviewing(added.skill.name)
     if (added.leftOut > 0) notify.info("Only SKILL.md was copied. Nothing else in that folder is used.")
   }
+
+  const askToRemove = (name: string) =>
+    confirm({
+      message: `Remove “${name}” for good?`,
+      description: "This deletes the copy Sympose holds. It cannot be undone; a folder you added it from is not touched.",
+      confirmLabel: "Remove",
+      permanent: true,
+      onConfirm: async () => {
+        await remove(name)
+      },
+    })
 
   const skills = state.status === "ready" ? state.skills : []
   const open = skills.find((s) => s.name === reviewing)
@@ -178,6 +191,17 @@ function SkillsRows({ persona, personaName }: { persona: string | null; personaN
             >
               <HugeiconsIcon icon={ViewIcon} />
             </Button>
+            {s.own && (
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                aria-label={`Remove ${s.name}`}
+                title="Remove it"
+                onClick={() => askToRemove(s.name)}
+              >
+                <HugeiconsIcon icon={Delete02Icon} />
+              </Button>
+            )}
             <SegmentedControl
               size="sm"
               aria-label={`Use ${s.name}`}
