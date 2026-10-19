@@ -68,7 +68,9 @@ The kinds are `"notes"` (passages found for a message), `"properties"`, `"recaps
 
 Also `"memory"` (the persona's own memory of you), `"open_note"` (the text of the note open in the editor, which lets a persona propose changes to it) and `"annotations"` (your open comments on that note).
 
-Also `"web"`: the links in your messages, which Google opens for the persona, and what it searches for (see `web_access`). When a kind is held back the persona is told it was not sent, and how to allow it.
+Also `"web"`: the links in your messages, which Google opens for the persona, and what it searches for (see `web_access`).
+
+Also `"media"`: the PDFs, images, sounds and videos you attach to a message, which Google reads for the persona. When a kind is held back the persona is told it was not sent, and how to allow it.
 
 ## show_grounding
 
@@ -226,7 +228,7 @@ To add a skill of your own, paste the full path of its folder in the same place.
 
 A skill that needs to propose a note is not used where the persona cannot propose notes: in the terminal, or when its `edit_mode` is `"plan"`. The skill that drafts a new note in a folder's style also needs a model that calls tools itself; a model that does not (the default local `gemma2:9b`) is not given it, and answers as it always did.
 
-The skills that make a note from a video or a web page you linked (`capturing-from-a-link`, `capturing-from-a-page`) are not picked by your words: a message that watches a video or reads a page is given one, and it applies only when you ask for a note.
+The skills that make a note from a video or a web page you linked (`capturing-from-a-link`, `capturing-from-a-page`) are not picked by your words: a message that watches a video or reads a page is given one, and it applies only when you ask for a note. So is `capturing-from-a-file`, for a file you attached.
 
 ## skill_cap
 

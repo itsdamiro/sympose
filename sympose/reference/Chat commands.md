@@ -1,6 +1,6 @@
 # Chat commands
 
-The chat commands are /help, /model, /persona, /default, /grounding, /grounded, /context, /remember, /memory, /compact, /sessions, /history, /share, /settings, /clear and /quit. Type / in the chat to see them; Tab, or the Down and Up arrows, cycle through them.
+The chat commands are /help, /model, /persona, /default, /grounding, /grounded, /context, /remember, /memory, /compact, /attach, /sessions, /history, /share, /settings, /clear and /quit. Type / in the chat to see them; Tab, or the Down and Up arrows, cycle through them.
 
 ## /help
 
@@ -25,6 +25,10 @@ The chat commands are /help, /model, /persona, /default, /grounding, /grounded, 
 ## /grounded
 
 /grounded lists every note that grounded the last reply, with a similarity score where it was found by meaning, plus anything else that turn sent: a recap, a rewritten search, what she looked up herself when `vault_lookup` is `"ask"`, dropped turns, a cloud model's categories. It says so plainly when there is nothing to show.
+
+## /attach
+
+/attach followed by a file's path (a PDF, an image, a sound or a video) sends that file with your next message. Dragging the file from the file manager into the terminal types its path. It needs a model that reads files, Gemini Flash, and `"media"` allowed with /share.
 
 ## /context
 

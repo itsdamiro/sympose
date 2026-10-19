@@ -10,7 +10,7 @@ Your messages and the conversation so far are always sent to that provider. What
 
 The kinds are: passages of your notes, their properties, your recaps, your earlier conversations word for word, the shape of your vault, how notes connect, the persona's memory, the text of the note open in the editor and your open comments on it.
 
-The links in your messages (a YouTube video or a web page) are one more kind, and so is what you ask when `web_access` is `"auto"` and the web is searched. See `web_access`.
+The links in your messages (a YouTube video or a web page) are one more kind, and so is what you ask when `web_access` is `"auto"` and the web is searched. See `web_access`. Files you attach to a message (a PDF, an image, a sound or a video) are another: Google reads them, Sympose keeps none, and `"media"` must be allowed.
 
 ## How do I let a cloud model use my notes?
 

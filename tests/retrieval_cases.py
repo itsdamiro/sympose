@@ -68,6 +68,8 @@ _RAW = [
     ("sympose", "can you create the new note in a folder I pick?", True, "Creating notes.md"),
     ("sympose", "how do I open a comment you left on my note?", True, "The web app.md"),
     ("sympose", "can you delete a table from my note?", True, "The web app.md"),
+    ("sympose", "can I attach a PDF for you to read?", True, "Not built yet.md"),
+    ("sympose", "how do I give you a picture or a recording to look at?", True, "Not built yet.md"),
 ]
 
 _VAULT = [
