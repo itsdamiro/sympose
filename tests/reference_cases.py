@@ -258,6 +258,12 @@ REF_CASES: list[RefCase] = [
         first="The context meter.md",
     ),
     RefCase(
+        "meter-counts-a-file",
+        "does a PDF I attach count in the context meter?",
+        find=("five messages",),
+        first="The context meter.md",
+    ),
+    RefCase(
         "older-turns-out",
         "what does 'older turns out of context' mean?",
         find=("older turns",),

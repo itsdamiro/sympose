@@ -103,6 +103,19 @@ def test_a_follow_up_is_sent_the_file_again_for_five_messages_and_then_not(calls
     assert ATTACHED_FILES.format(names="paper.pdf") in content_of(calls[1])
 
 
+def test_a_follow_up_as_the_turn_builds_it_puts_the_file_on_the_message_that_named_it(calls):
+    sharing.set_approved(sharing.MEDIA, True)
+    first = turn.run_turn("samantha", "read [attached: paper.pdf]", model=CLOUD, files=(PDF,))
+    turn.run_turn("samantha", "question one", session_id=first.session_id, model=CLOUD)
+    turn.run_turn("samantha", "question two", session_id=first.session_id, model=CLOUD)
+
+    sent = calls[-1]
+    contents = gemini_direct.request_body(sent["messages"], (), None, None, None, (), sent["files"])["contents"]
+
+    assert [i for i, c in enumerate(contents) if any("inlineData" in p for p in c["parts"])] == [0]
+    assert any("[attached: paper.pdf]" in p.get("text", "") for p in contents[0]["parts"])
+
+
 def test_a_new_conversation_does_not_get_the_file_of_another(calls):
     sharing.set_approved(sharing.MEDIA, True)
     turn.run_turn("samantha", "read [attached: paper.pdf]", model=CLOUD, files=(PDF,))
@@ -207,3 +220,73 @@ def test_deleting_a_conversation_lets_go_of_its_files(calls):
     assert session_manage.delete("samantha", first.session_id) == session_manage.OK
 
     assert media.plan(CLOUD, "samantha", first.session_id, ()) == media.Plan()
+
+
+@pytest.fixture
+def window(monkeypatch):
+    """A cloud model with a window the meter can measure against: 100,000 tokens, 95,904 of them for the prompt."""
+    monkeypatch.setattr(turn.budget, "budget_for", lambda model, persona: turn.budget.Budget(95_904, None, None))
+
+
+def counting(monkeypatch, tokens):
+    """Google's own figure for the request, which a file turn is measured by."""
+    def direct_way(messages, model=None, **kwargs):
+        return ModelReply("From the file.", 5, prompt_tokens=tokens)
+
+    monkeypatch.setattr(gemini_direct, "call", direct_way)
+
+
+def test_the_meter_counts_a_file_by_what_google_said_the_request_came_to(monkeypatch, calls, window):
+    sharing.set_approved(sharing.MEDIA, True)
+    plain = turn.run_turn("samantha", "what does it say?", model=CLOUD).context_used
+    counting(monkeypatch, 52_000)
+
+    result = turn.run_turn("samantha", "what does [attached: paper.pdf] say?", model=CLOUD, files=(PDF,))
+
+    assert 51_000 < result.context_used < 53_000 and plain < 3_000
+
+
+def test_a_figure_google_does_not_give_changes_nothing(calls, window):
+    sharing.set_approved(sharing.MEDIA, True)
+
+    result = turn.run_turn("samantha", "what does [attached: paper.pdf] say?", model=CLOUD, files=(PDF,))
+
+    assert result.context_used < 3_000 and media.plan(CLOUD, "samantha", result.session_id, ()).reserved == 0
+
+
+def test_a_carried_file_keeps_its_room_in_the_next_message_and_its_count_in_the_meter(monkeypatch, calls, window):
+    sharing.set_approved(sharing.MEDIA, True)
+    counting(monkeypatch, 30_000)
+    first = turn.run_turn("samantha", "what does [attached: paper.pdf] say?", model=CLOUD, files=(PDF,))
+    fitted = []
+    real_fit = turn.budget.fit
+    monkeypatch.setattr(turn.budget, "fit", lambda build, history, grounding, model, room, *rest: fitted.append(room) or real_fit(build, history, grounding, model, room, *rest))
+    counting(monkeypatch, 30_200)
+
+    second = turn.run_turn("samantha", "and the second page?", model=CLOUD, session_id=first.session_id)
+
+    assert 27_000 < 95_904 - fitted[0] < 30_000 and second.context_used > 29_000
+
+
+def test_room_for_a_file_never_takes_more_than_half_the_budget(monkeypatch, calls, window):
+    sharing.set_approved(sharing.MEDIA, True)
+    counting(monkeypatch, 5_000_000)
+    first = turn.run_turn("samantha", "what does [attached: paper.pdf] say?", model=CLOUD, files=(PDF,))
+    fitted = []
+    real_fit = turn.budget.fit
+    monkeypatch.setattr(turn.budget, "fit", lambda build, history, grounding, model, room, *rest: fitted.append(room) or real_fit(build, history, grounding, model, room, *rest))
+
+    second = turn.run_turn("samantha", "and now?", model=CLOUD, session_id=first.session_id)
+
+    assert fitted[0] == second.context_limit - second.context_limit // 2
+
+
+def test_a_carried_turn_that_gets_no_figure_from_google_keeps_the_count_it_had(monkeypatch, calls, window):
+    sharing.set_approved(sharing.MEDIA, True)
+    counting(monkeypatch, 30_000)
+    first = turn.run_turn("samantha", "what does [attached: paper.pdf] say?", model=CLOUD, files=(PDF,))
+    monkeypatch.setattr(gemini_direct, "call", lambda messages, model=None, **kwargs: ModelReply("Again.", 5))
+
+    turn.run_turn("samantha", "and the second page?", model=CLOUD, session_id=first.session_id)
+
+    assert 29_000 < media.plan(CLOUD, "samantha", first.session_id, ()).reserved <= 30_000

@@ -55,6 +55,10 @@ class ModelReply:
     # The tools the model asked for instead of, or before, writing text (docs/decisions/040); empty
     # for every call that was given no tools.
     tool_calls: tuple[ToolCall, ...] = ()
+    # What the provider counted for the request and how much of it came from its cache, when it says (the direct
+    # Gemini request does, docs/decisions/089): the only way to know what an attached file cost.
+    prompt_tokens: int | None = None
+    cached_tokens: int | None = None
 
 
 class EngineModelError(Exception):
@@ -163,11 +167,12 @@ def call_model(
 
 def end_reply(
     model: str, content: str, calls: tuple[ToolCall, ...], finished: bool, truncated: bool, ttft_ms: int | None,
+    prompt_tokens: int | None = None, cached_tokens: int | None = None,
 ) -> ModelReply:
     """What a model's reply comes to once it has been read, for every route to a model (`call_model` and the direct
     Gemini request, docs/decisions/089): the reply, or the error that says why there is none."""
     if calls and finished:
-        return ModelReply(text=content, ttft_ms=ttft_ms, truncated=truncated, tool_calls=calls)
+        return ModelReply(content, ttft_ms, truncated, calls, prompt_tokens, cached_tokens)
     if not content and truncated:
         raise ReplyLimitError(
             f"Model '{model}' reached its reply limit before writing an answer "
@@ -179,4 +184,4 @@ def end_reply(
         raise EngineModelError(
             f"The reply from '{model}' was cut off before it finished."
         )
-    return ModelReply(text=content, ttft_ms=ttft_ms, truncated=truncated)
+    return ModelReply(content, ttft_ms, truncated, (), prompt_tokens, cached_tokens)

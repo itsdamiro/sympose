@@ -147,8 +147,10 @@ def _run(
     if limits is None:
         messages, dropped = build(history, grounding_results, recaps_found + chats_found, mem.decisions), 0
     else:
+        # Files carried from an earlier message take the room they counted as then, but never more than half the budget.
+        room = limits.prompt_tokens - min(found.files.reserved, limits.prompt_tokens // 2)
         fitted = budget.fit(
-            build, history, grounding_results, target_model, limits.prompt_tokens,
+            build, history, grounding_results, target_model, room,
             recaps_found + chats_found, mem.decisions,
         )
         messages, grounding_results, dropped = fitted.messages, fitted.grounding, fitted.history_dropped
@@ -191,7 +193,10 @@ def _run(
         reply_ttft = reply.ttft_ms
 
     turn_cancel.commit()  # a stop after this is refused; before it, nothing below (marker, record, session) happens
-    media.settle(handle, sid, found.files)  # the files stay in memory for the next few messages, and nowhere else (docs/decisions/089)
+    # The files were counted by the provider, not by us: what it said beyond our own count is what they came to.
+    file_tokens = max(0, reply.prompt_tokens - prompt_tokens) if found.files.files and limits and reply.prompt_tokens else 0
+    prompt_tokens += file_tokens
+    media.settle(handle, sid, found.files, file_tokens)  # the files stay in memory for the next few messages, and nowhere else (docs/decisions/089)
 
     # What the user decided on her comments was told to her in this prompt, so those comments are not kept (docs/decisions/069).
     if modes.edit and modes.edit.settle and modes.edit.source:

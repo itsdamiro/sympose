@@ -104,6 +104,17 @@ def _turn_start(messages: list[dict[str, Any]]) -> int:
     return next((i for i in range(after + 1, len(messages)) if messages[i].get("role") == "user"), len(messages) - 1)
 
 
+def _homes(messages: list[dict[str, Any]], start: int, files: tuple[media.File, ...]) -> dict[int, tuple[media.File, ...]]:
+    """Which message carries each file: the latest user message, from the turn's own message back, that names it with
+    its marker (`media.named_in`), else the turn's own. Kept where it was first attached, a carried file leaves the start
+    of every later request as it was, which is what Google's automatic cache matches (docs/decisions/089)."""
+    homes: dict[int, list[media.File]] = {}
+    for f in files:
+        at = next((i for i in range(start, -1, -1) if messages[i].get("role") == "user" and f.name in media.named_in(messages[i])), start)
+        homes.setdefault(at, []).append(f)
+    return {i: tuple(group) for i, group in homes.items()}
+
+
 def _file_parts(files: tuple[media.File, ...]) -> list[dict[str, Any]]:
     """Each attached file as the bytes inside the request, with a line before it naming it (the message names it too). A
     video is read in the agentic mode, as a linked one is: measured on a 3-minute video, 8,500 tokens against 17,500 for
@@ -123,10 +134,12 @@ def request_body(
     max_tokens: int | None, server_tools: tuple[str, ...] = (), files: tuple[media.File, ...] = (),
 ) -> dict[str, Any]:
     """The `generateContent` request for `messages` (OpenAI-shaped, as the engine builds them) with each of `links`
-    attached to the turn's message as a video to watch, each of `files` attached as the bytes themselves, and
+    attached to the turn's message as a video to watch, each of `files` attached as the bytes themselves to the message
+    that named it (`_homes`), and
     `server_tools` (Google's search and page reading, named as its request names them) beside the vault's own functions."""
     system = "\n\n".join(str(m["content"]) for m in messages if m.get("role") == "system" and m.get("content"))
     start = _turn_start(messages)
+    homes = _homes(messages, start, files)
     contents: list[dict[str, Any]] = []
     for index, m in enumerate(messages):
         role = m.get("role")
@@ -134,7 +147,7 @@ def request_body(
             watched = [
                 {"fileData": {"fileUri": link, "mimeType": "video/mp4"}, "mediaProcessing": "AGENTIC"} for link in links
             ] if index == start else []
-            given = _file_parts(files) if index == start else []
+            given = _file_parts(homes.get(index, ()))
             _add(contents, "user", [*given, *watched, {"text": str(m.get("content") or "")}])
         elif role == "assistant":
             parts: list[dict[str, Any]] = [{"text": m["content"]}] if m.get("content") else []
@@ -194,6 +207,7 @@ def call(
     texts: list[str] = []
     calls: list[ToolCall] = []
     reason: str | None = None
+    usage: dict[str, Any] = {}
     try:
         with httpx.Client(transport=network.ipv4_transport(), timeout=httpx.Timeout(waited, connect=_CONNECT_TIMEOUT_SECONDS)) as client:
             with client.stream(
@@ -215,6 +229,7 @@ def call(
                         raise EngineModelError("Gemini sent a reply Sympose could not read.") from e
                     if error := chunk.get("error"):  # an error can arrive after the reply has begun
                         raise EngineModelError(f"Gemini stopped the reply ({error.get('code')}: {error.get('message') or error})")
+                    usage = chunk.get("usageMetadata") or usage
                     candidate = (chunk.get("candidates") or [{}])[0]
                     if unopened is not None:
                         unopened.extend(_pages(candidate, opened=False))
@@ -246,4 +261,5 @@ def call(
     content = reply_text.tidy(_SOURCE_MARKS.sub("", "".join(texts)) if server_tools else "".join(texts))
     if reason in _STOPPED:
         raise EngineModelError(_STOPPED[reason])
-    return end_reply(model or name, content, tuple(calls), reason is not None, reason == "MAX_TOKENS", ttft_ms)
+    return end_reply(model or name, content, tuple(calls), reason is not None, reason == "MAX_TOKENS", ttft_ms,
+                     usage.get("promptTokenCount"), usage.get("cachedContentTokenCount"))

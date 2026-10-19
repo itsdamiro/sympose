@@ -343,6 +343,134 @@ def test_a_tool_round_keeps_the_file_on_the_first_message_of_the_turn_only(serve
     assert sum(1 for c in contents for p in c["parts"] if "inlineData" in p) == 1 and "inlineData" in contents[0]["parts"][1]
 
 
+def _inline_at(contents):
+    """The indexes of the messages that carry a file, and how many files each carries."""
+    return {i: sum(1 for p in c["parts"] if "inlineData" in p) for i, c in enumerate(contents) if any("inlineData" in p for p in c["parts"])}
+
+
+def test_a_carried_file_stays_on_the_earlier_message_that_named_it_not_on_the_turns_message(server):
+    messages = [
+        {"role": "user", "content": "read this [attached: paper.pdf]"}, {"role": "assistant", "content": "ok"},
+        {"role": "user", "content": "and the second page?"}, {"role": "assistant", "content": "this"},
+        {"role": "user", "content": "and the third?"},
+    ]
+
+    gemini_direct.call(messages, model="gemini/gemini-flash-latest", files=(media.make("paper.pdf", b"%PDF"),))
+
+    contents = body_of(server.requests[0])["contents"]
+    assert _inline_at(contents) == {0: 1}
+    assert [p["text"] for p in contents[0]["parts"] if "text" in p] == ["File: paper.pdf", "read this [attached: paper.pdf]"]
+    assert contents[4]["parts"] == [{"text": "and the third?"}]
+
+
+def test_the_request_start_does_not_change_between_two_follow_ups_of_a_carried_file(server):
+    file = media.make("paper.pdf", b"%PDF")
+    first = [{"role": "user", "content": "read [attached: paper.pdf]"}, {"role": "assistant", "content": "ok"}, {"role": "user", "content": "page 2?"}]
+    second = [*first[:2], {"role": "user", "content": "page 2?"}, {"role": "assistant", "content": "two"}, {"role": "user", "content": "page 3?"}]
+
+    gemini_direct.call(first, model="gemini/gemini-flash-latest", files=(file,))
+    gemini_direct.call(second, model="gemini/gemini-flash-latest", files=(file,))
+
+    one, two = (body_of(r)["contents"] for r in server.requests)
+    assert one[:2] == two[:2] and one[0]["parts"][1]["inlineData"]["data"] == two[0]["parts"][1]["inlineData"]["data"]
+
+
+def test_a_file_the_turns_own_message_brings_goes_on_the_turns_message_even_when_an_earlier_one_has_the_same_name(server):
+    messages = [
+        {"role": "user", "content": "first [attached: a.pdf]"}, {"role": "assistant", "content": "ok"},
+        {"role": "user", "content": "this one instead [attached: a.pdf]"},
+    ]
+
+    gemini_direct.call(messages, model="gemini/gemini-flash-latest", files=(media.make("a.pdf", b"%PDF-new"),))
+
+    assert _inline_at(body_of(server.requests[0])["contents"]) == {2: 1}
+
+
+def test_when_two_earlier_messages_name_the_file_the_latest_one_holds_it(server):
+    messages = [
+        {"role": "user", "content": "first [attached: a.pdf]"}, {"role": "assistant", "content": "ok"},
+        {"role": "user", "content": "again [attached: a.pdf]"}, {"role": "assistant", "content": "ok"},
+        {"role": "user", "content": "page 2?"},
+    ]
+
+    gemini_direct.call(messages, model="gemini/gemini-flash-latest", files=(media.make("a.pdf", b"%PDF"),))
+
+    assert _inline_at(body_of(server.requests[0])["contents"]) == {2: 1}
+
+
+def test_a_file_whose_message_is_not_in_the_history_any_more_goes_on_the_turns_message(server):
+    messages = [{"role": "user", "content": "page 2?"}, {"role": "assistant", "content": "two"}, {"role": "user", "content": "page 3?"}]
+
+    gemini_direct.call(messages, model="gemini/gemini-flash-latest", files=(media.make("a.pdf", b"%PDF"),))
+
+    assert _inline_at(body_of(server.requests[0])["contents"]) == {2: 1}
+
+
+def test_a_file_named_in_a_message_that_is_not_the_users_does_not_move_there(server):
+    messages = [
+        {"role": "user", "content": "hello"}, {"role": "assistant", "content": "I do not see [attached: a.pdf]"},
+        {"role": "user", "content": "page 2?"},
+    ]
+
+    gemini_direct.call(messages, model="gemini/gemini-flash-latest", files=(media.make("a.pdf", b"%PDF"),))
+
+    assert _inline_at(body_of(server.requests[0])["contents"]) == {2: 1}
+
+
+def test_a_file_attached_in_the_third_message_sits_on_the_third_message_after_the_earlier_ones(server):
+    messages = [
+        {"role": "user", "content": "one"}, {"role": "assistant", "content": "a"},
+        {"role": "user", "content": "two"}, {"role": "assistant", "content": "b"},
+        {"role": "user", "content": "three [attached: a.pdf]"}, {"role": "assistant", "content": "c"},
+        {"role": "user", "content": "four"},
+    ]
+
+    gemini_direct.call(messages, model="gemini/gemini-flash-latest", files=(media.make("a.pdf", b"%PDF"),))
+
+    contents = body_of(server.requests[0])["contents"]
+    assert _inline_at(contents) == {4: 1}
+    assert contents[0]["parts"] == [{"text": "one"}] and contents[2]["parts"] == [{"text": "two"}]
+
+
+def test_files_from_different_messages_each_sit_on_their_own_message_and_those_from_one_message_together_in_order(server):
+    messages = [
+        {"role": "user", "content": "[attached: b.png] [attached: a.pdf]"}, {"role": "assistant", "content": "ok"},
+        {"role": "user", "content": "and this [attached: c.mp3]"}, {"role": "assistant", "content": "ok"},
+        {"role": "user", "content": "compare"},
+    ]
+    files = tuple(media.make(n, b"x") for n in ("a.pdf", "b.png", "c.mp3"))
+
+    gemini_direct.call(messages, model="gemini/gemini-flash-latest", files=files)
+
+    contents = body_of(server.requests[0])["contents"]
+    assert _inline_at(contents) == {0: 2, 2: 1}
+    assert [p["text"] for p in contents[0]["parts"] if p.get("text", "").startswith("File:")] == ["File: a.pdf", "File: b.png"]
+    assert [p["text"] for p in contents[2]["parts"] if p.get("text", "").startswith("File:")] == ["File: c.mp3"]
+
+
+def test_tool_rounds_send_the_file_once_on_the_message_that_named_it(server):
+    messages = [
+        {"role": "user", "content": "read [attached: a.pdf]"}, {"role": "assistant", "content": "ok"},
+        {"role": "user", "content": "make a note"},
+        {"role": "assistant", "content": "", "tool_calls": [{"id": "c0", "type": "function", "function": {"name": "search_notes", "arguments": "{}"}}]},
+        {"role": "tool", "tool_call_id": "c0", "name": "search_notes", "content": "found"},
+    ]
+
+    gemini_direct.call(messages, model="gemini/gemini-flash-latest", files=(media.make("a.pdf", b"%PDF"),), tools=[SEARCH])
+
+    assert _inline_at(body_of(server.requests[0])["contents"]) == {0: 1}
+
+
+def test_a_video_link_stays_on_the_turns_message_while_a_file_stays_where_it_was_named(server):
+    messages = [{"role": "user", "content": "read [attached: a.pdf]"}, {"role": "assistant", "content": "ok"}, {"role": "user", "content": f"watch {LINK}"}]
+
+    gemini_direct.call(messages, model="gemini/gemini-flash-latest", links=(LINK,), files=(media.make("a.pdf", b"%PDF"),))
+
+    contents = body_of(server.requests[0])["contents"]
+    assert _inline_at(contents) == {0: 1}
+    assert any("fileData" in p for p in contents[2]["parts"]) and not any("fileData" in p for p in contents[0]["parts"])
+
+
 def test_a_request_with_no_files_is_as_it_was(server):
     gemini_direct.call([{"role": "user", "content": "hi"}], model="gemini/gemini-flash-latest")
 
@@ -367,3 +495,18 @@ def test_a_video_file_is_read_in_the_agentic_mode_and_a_sound_or_a_picture_is_no
     inline = [p for p in parts if "inlineData" in p]
     assert [p.get("mediaProcessing") for p in inline] == ["AGENTIC", None, None]
     assert [p["inlineData"]["mimeType"] for p in inline] == ["video/mp4", "audio/aac", "image/png"]
+
+
+def test_what_the_provider_counted_for_the_request_and_took_from_its_cache_is_kept_with_the_reply(server):
+    server.answer = httpx.Response(200, content=sse(
+        {**parts({"text": "hi"}), "usageMetadata": {"promptTokenCount": 1200}},
+        {**parts({"text": "!"}, finish="STOP"), "usageMetadata": {"promptTokenCount": 1500, "cachedContentTokenCount": 900}},
+    ))
+
+    reply = gemini_direct.call([{"role": "user", "content": "hi"}], model="gemini/gemini-flash-latest")
+
+    assert (reply.prompt_tokens, reply.cached_tokens) == (1500, 900)
+
+
+def test_a_reply_that_says_nothing_of_its_count_has_none():
+    assert gemini_direct.end_reply("m", "hi", (), True, False, 1).prompt_tokens is None

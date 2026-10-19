@@ -57,6 +57,7 @@ class Plan:
     fresh: bool = False
     withheld: tuple[str, ...] = ()  # the user has not approved `media` for this cloud model
     unsupported: tuple[str, ...] = ()  # this model cannot read files at all
+    reserved: int = 0  # what these files counted as when they were first sent (the provider's own figure), 0 until known
 
     @property
     def names(self) -> tuple[str, ...]:
@@ -99,7 +100,7 @@ def check(files: list[File]) -> tuple[File, ...]:
 
 
 # What is held for later messages: per (persona, conversation), the files and how many more messages they are carried into.
-_held: dict[tuple[str, str], tuple[tuple[File, ...], int]] = {}
+_held: dict[tuple[str, str], tuple[tuple[File, ...], int, int]] = {}
 _lock = threading.Lock()
 
 
@@ -108,7 +109,7 @@ def plan(model: str, handle: str, session_id: str, files: tuple[File, ...]) -> P
     any message of their `CARRY_TURNS` is left. A carried file is only ever sent when allowed and never reported as
     withheld or unsupported, so a conversation does not nag on every later turn."""
     with _lock:
-        carried = _held.get((handle, session_id), ((), 0))[0]
+        carried, _, counted = _held.get((handle, session_id), ((), 0, 0))
     chosen = files or carried
     if not chosen:
         return Plan()
@@ -116,28 +117,29 @@ def plan(model: str, handle: str, session_id: str, files: tuple[File, ...]) -> P
         return Plan(unsupported=tuple(f.name for f in files))
     if sharing.MEDIA not in sharing.allowed(model):
         return Plan(withheld=tuple(f.name for f in files))
-    return Plan(chosen, fresh=bool(files))
+    return Plan(chosen, fresh=bool(files), reserved=0 if files else counted)
 
 
-def settle(handle: str, session_id: str, found: Plan) -> None:
+def settle(handle: str, session_id: str, found: Plan, counted: int = 0) -> None:
     """After a turn that was kept: hold a message's own files for the next `CARRY_TURNS` messages, or use up one of the
     carried ones. Files the message brought and the turn did not send (withheld, unsupported) let go of what was held, so
-    the next message does not bring back an older file the user has since moved on from."""
+    the next message does not bring back an older file the user has since moved on from. `counted` is what the provider
+    said the files came to, kept with them so a later message can leave room for them before it is sent."""
     key = (handle, session_id)
     with _lock:
         if found.withheld or found.unsupported:
             _held.pop(key, None)
         elif found.fresh:
             _held.pop(key, None)
-            _held[key] = (found.files, CARRY_TURNS)
-            while len(_held) > HELD_CONVERSATIONS or (len(_held) > 1 and sum(len(f.data) for kept, _ in _held.values() for f in kept) > HELD_BYTES):
+            _held[key] = (found.files, CARRY_TURNS, counted)
+            while len(_held) > HELD_CONVERSATIONS or (len(_held) > 1 and sum(len(f.data) for kept, _, _ in _held.values() for f in kept) > HELD_BYTES):
                 _held.pop(next(iter(_held)))
         elif found.files and key in _held:
-            kept, left = _held[key]
+            kept, left, seen = _held[key]
             if left <= 1:
                 del _held[key]
             else:
-                _held[key] = (kept, left - 1)
+                _held[key] = (kept, left - 1, seen)
 
 
 def forget(handle: str, session_id: str) -> None:
@@ -153,11 +155,16 @@ def _listed(names: tuple[str, ...]) -> str:
 _MARKER = re.compile(r"\[attached: (.+?)\]")
 
 
+def named_in(message: dict) -> list[str]:
+    """The files a message names with its `[attached: name]` markers, in the order it names them."""
+    return _MARKER.findall(str(message.get("content") or ""))
+
+
 def gone(history: list[dict], found: Plan) -> tuple[str, ...]:
     """The files the user's earlier messages name that are not attached to this one: they ran out of their five messages,
     Sympose was restarted, or the conversation moved to a model that cannot read them. The history still says they were
     attached, so without this the persona could answer as if she were reading them."""
-    named = (n for m in history if m.get("role") == "user" for n in _MARKER.findall(str(m.get("content") or "")))
+    named = (n for m in history if m.get("role") == "user" for n in named_in(m))
     return tuple(n for n in dict.fromkeys(named) if n not in found.names)
 
 

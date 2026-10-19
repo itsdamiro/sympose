@@ -8,6 +8,10 @@ Under the chat box a dim line like `context ██████░░░░ 62% �
 
 Once per reply, not while you type. It leans a little high on purpose, turns warning colour from 70% and error colour from 90%, and is empty before the first reply. When you switch model it shows an estimate for the model you picked right away, counted from the conversation so far, until a reply gives the real figure. When you switch persona it is empty until that persona's first reply.
 
+## Does a file I attach count in the meter?
+
+Yes. A PDF, image, sound or video you attach is counted as the model's maker counted it, so a long PDF can fill much of the meter. It stays counted for the five messages the file is carried into.
+
 ## How do I see exactly what the number is?
 
 Type /context. It gives the tokens in full, says what is counted, and says when the figure is only an estimate after a model switch.
