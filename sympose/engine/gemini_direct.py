@@ -54,8 +54,8 @@ _REQUEST_REFUSED = (400, 404)
 
 
 # Where the model read a page or a search result it sometimes leaves the reader's own source marks in the text, `[1.1]` or
-# `[1.1, 2.3]`; the user has no list they point into. Only a turn that carried Google's tools is cleaned.
-_SOURCE_MARKS = re.compile(r"[ \t]*\[\d+\.\d+(?:,[ \t]*\d+\.\d+)*\]")
+# `[1.1, 2.3]`, or `[cite: 57, 62]`; the user has no list they point into. Only a turn that carried Google's tools is cleaned.
+_SOURCE_MARKS = re.compile(r"[ \t]*\[(?:\d+\.\d+(?:,[ \t]*\d+\.\d+)*|cite:[ \t]*\d+(?:,[ \t]*\d+)*)\]")
 
 
 def _pages(candidate: dict[str, Any], opened: bool) -> list[str]:

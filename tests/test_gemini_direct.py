@@ -275,13 +275,13 @@ def test_the_pages_google_could_not_open_are_handed_back_in_the_list_the_caller_
 
 
 def test_the_readers_source_marks_are_taken_out_of_an_answer_that_used_google_s_tools_and_only_then(server):
-    text = "It is a joke [1.1], and a real RFC [1.1, 2.3]. Version 2.5 and a [link](x) stay. See [3:10] and [1]."
+    text = "It is a joke [1.1], and a real RFC [1.1, 2.3]. Version 2.5 and a [link](x) stay. See [3:10] and [1]. Python 3.15 is out [cite: 57], by Hugo [cite: 58, 62]. A [cite] and [cite: x] stay."
     server.answer = httpx.Response(200, content=sse(parts({"text": text}, finish="STOP")))
 
     with_tools = gemini_direct.call([{"role": "user", "content": "hi"}], model="gemini/gemini-flash-latest", server_tools=("urlContext",))
     without = gemini_direct.call([{"role": "user", "content": "hi"}], model="gemini/gemini-flash-latest")
 
-    assert with_tools.text == "It is a joke, and a real RFC. Version 2.5 and a [link](x) stay. See [3:10] and [1]."
+    assert with_tools.text == "It is a joke, and a real RFC. Version 2.5 and a [link](x) stay. See [3:10] and [1]. Python 3.15 is out, by Hugo. A [cite] and [cite: x] stay."
     assert without.text == text
 
 
