@@ -18,7 +18,7 @@ import re
 from typing import Any
 
 from sympose import note_changes
-from sympose.engine import lookup_scope, video_stamps
+from sympose.engine import lookup_scope, video_stamps, web_sources
 from sympose.engine.lookup_result import Result
 
 EDIT, NOTE, COMMENT, SHOW = "propose_edit", "propose_note", "comment_on", "show_note"
@@ -112,10 +112,11 @@ def _arguments(name: str, raw: str | dict[str, Any] | None) -> dict[str, str] | 
 
 def _propose(
     handle: str, path: str | None, text: str | None, name: str, raw: str | dict[str, Any] | None, scope: tuple[tuple[int, int], ...] = (),
-    videos: tuple[str, ...] = (),
+    videos: tuple[str, ...] = (), trail: web_sources.Trail | None = None,
 ) -> tuple[bool, str]:
     """`(saved, what happened)`: the one place a tool call and a marker both end. `videos` are the ones this turn watched:
-    a new note's bare timestamps become links to the moment (`video_stamps`)."""
+    a new note's bare timestamps become links to the moment (`video_stamps`). `trail` is what the turn's web search rested
+    on: a new note's `source:` is those pages (`web_sources.attribute`)."""
     args = _arguments(name, raw)
     if args is None:
         return False, _BAD.format(name=name, fields=", ".join(_FIELDS[name]))
@@ -125,7 +126,10 @@ def _propose(
                 return False, _NO_NOTE
             note_changes.comment_on(handle, path, text, quote=args["find"], text=args["text"], author="persona", within=scope)
         elif name == NOTE:
-            note_changes.propose_create(handle, note_changes.new_note_path(), video_stamps.link(fenced(args["text"]), videos), say=args["say"], title=args["title"] or None, folder=args["folder"] or None)
+            written, made = video_stamps.link(fenced(args["text"]), videos), note_changes.new_note_path()
+            proposal = note_changes.propose_create(handle, made, web_sources.attribute(written, trail) if trail else written, say=args["say"], title=args["title"] or None, folder=args["folder"] or None)
+            if trail:
+                trail.drafts.append((made, proposal["id"]))
         elif path is None or text is None:
             return False, _NO_NOTE
         else:
@@ -149,6 +153,7 @@ def _show(profile: dict[str, Any] | None, raw: str | dict[str, Any] | None) -> t
 def run(
     handle: str, note_path: str | None, note_text: str | None, name: str, raw: str | dict[str, Any] | None,
     profile: dict[str, Any] | None = None, scope: tuple[tuple[int, int], ...] = (), videos: tuple[str, ...] = (),
+    trail: web_sources.Trail | None = None,
 ) -> Result | None:
     """The tool's result, or `None` for a name that is not ours so it composes in `persona_tools`."""
     if name not in _FIELDS:
@@ -156,7 +161,7 @@ def run(
     if name == SHOW:
         opened, said, path = _show(profile, raw)
         return Result(said if opened else said + _ASK_WHICH, lookup={"tool": name, "saved": opened, **({"path": path} if path else {})})
-    saved, said = _propose(handle, note_path, note_text, name, raw, scope, videos)
+    saved, said = _propose(handle, note_path, note_text, name, raw, scope, videos, trail)
     return Result(said, lookup={"tool": name, "saved": saved})
 
 

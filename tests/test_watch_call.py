@@ -3,9 +3,10 @@ will not take the video, and the rest of the turn's calls on whichever worked. B
 
 import pytest
 
-from sympose.engine import captions, gemini_direct, watch_call
+from sympose.engine import captions, gemini_direct, watch_call, web_sources
 from sympose.engine import model as model_mod
 from sympose.engine.model import EngineModelError, ModelReply
+from sympose.engine.model_tools import ToolCall
 from sympose.engine.prompt_text import CAPTIONS, READING_PAGES, READING_SEARCH, WATCHING
 
 ADDRESS = "https://www.youtube.com/watch?v=8jPQjjsBbIc"
@@ -208,3 +209,44 @@ def test_after_the_web_only_remember_is_refused_and_every_other_tool_runs_as_bef
     assert guarded({}, "m", "search_notes", "{}") == "inner" and ran == ["search_notes"]
     assert guarded({}, "m", "remember", "{}").text == watch_call.WEB_NOT_REMEMBERED and ran == ["search_notes"]
     assert before({}, "m", "remember", "{}") == "inner"
+
+
+REDIRECT = "https://vertexaisearch.cloud.google.com/grounding-api-redirect/a"
+GROUNDING = {"groundingChunks": [{"web": {"uri": REDIRECT, "title": "fifa.com"}}], "groundingSupports": [{"segment": {"text": "Spain won"}, "groundingChunkIndices": [0]}]}
+
+
+def test_the_answer_of_a_search_links_its_sentences_to_the_pages_google_gave_and_the_trail_keeps_the_pages(ways, monkeypatch):
+    monkeypatch.setattr(web_sources, "_lookup", lambda uri: "https://www.fifa.com/final")
+    trail = web_sources.Trail()
+
+    def search(messages, **kwargs):
+        kwargs["grounding"].append(GROUNDING)
+        return ModelReply("Spain won. Not sure of the rest.", 1)
+
+    monkeypatch.setattr(gemini_direct, "call", search)
+
+    reply = watch_call.for_links((), ("googleSearch",), trail=trail)(messages(), model="gemini/x")
+
+    assert reply.text == 'Spain won.[1](https://www.fifa.com/final "fifa.com") Not sure of the rest.'
+    assert [s.address for s in trail.sources] == ["https://www.fifa.com/final"]
+
+
+def test_a_round_of_tool_calls_with_no_words_still_enters_the_pages_in_the_trail(ways, monkeypatch):
+    monkeypatch.setattr(web_sources, "_lookup", lambda uri: "https://www.fifa.com/final")
+    trail = web_sources.Trail()
+
+    def search(messages, **kwargs):
+        kwargs["grounding"].append(GROUNDING)
+        return ModelReply("", 1, tool_calls=(ToolCall("call_0", "propose_note", "{}"),))
+
+    monkeypatch.setattr(gemini_direct, "call", search)
+
+    reply = watch_call.for_links((), ("googleSearch",), trail=trail)(messages(), model="gemini/x")
+
+    assert reply.text == "" and [s.address for s in trail.sources] == ["https://www.fifa.com/final"]
+
+
+def test_a_turn_with_no_trail_is_not_linked(ways, monkeypatch):
+    monkeypatch.setattr(gemini_direct, "call", lambda messages, **kwargs: (kwargs["grounding"].append(GROUNDING), ModelReply("Spain won.", 1))[1])
+
+    assert watch_call.for_links((), ("googleSearch",))(messages(), model="gemini/x").text == "Spain won."

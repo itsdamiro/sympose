@@ -315,6 +315,20 @@ def test_the_searches_google_ran_are_handed_back_in_their_own_list(server):
     assert searched == ["fern care", "ferns indoors"]
 
 
+def test_the_sources_google_gave_an_answer_are_handed_back_as_it_sent_them_in_the_list_the_caller_owns(server):
+    given = {"webSearchQueries": ["fern care"], "groundingChunks": [{"web": {"uri": "https://x.test/r", "title": "x.test"}}], "groundingSupports": [{"segment": {"text": "Ferns."}, "groundingChunkIndices": [0]}]}
+    server.answer = httpx.Response(200, content=sse(
+        {"candidates": [{"content": {"role": "model", "parts": [{"text": "Ferns."}]}, "finishReason": "STOP"}]},
+        {"candidates": [{"content": {"role": "model", "parts": []}, "groundingMetadata": given}]},
+    ))
+    heard: list[dict] = []
+
+    gemini_direct.call([{"role": "user", "content": "hi"}], model="gemini/gemini-flash-latest", server_tools=("googleSearch",), grounding=heard)
+    gemini_direct.call([{"role": "user", "content": "hi"}], model="gemini/gemini-flash-latest", server_tools=("googleSearch",))  # no list: nothing fails
+
+    assert heard == [given]
+
+
 def test_an_attached_file_rides_inside_the_request_on_the_turns_message_after_a_line_naming_it(server):
     files = (media.make("paper.pdf", b"%PDF-1"), media.make("chart.png", b"\x89PNG"))  # no video: its part is in the next test
     messages = [{"role": "user", "content": "earlier"}, {"role": "assistant", "content": "answer"}, {"role": "user", "content": "read these"}]

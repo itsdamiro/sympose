@@ -9,6 +9,7 @@ import pytest
 from sympose import note_changes as nc
 from sympose import note_changes_store as store
 from sympose.engine import edit_tools as et
+from sympose.engine import web_sources
 
 H = "samantha"
 PATH = "Garden plan.md"
@@ -362,3 +363,15 @@ def test_timestamps_are_left_alone_with_no_video_or_with_several():
     et.run(H, None, None, "propose_note", {"text": "- [0:30] y", "title": "Two", "say": "s"}, videos=(VIDEO, VIDEO + "2"))
 
     assert sorted(new_texts()) == ["- [0:30] x", "- [0:30] y"]
+
+
+def test_a_new_note_made_in_a_turn_that_searched_takes_its_source_from_the_pages_the_search_gave():
+    trail = web_sources.Trail(queries=["fern care"], sources=[web_sources.Source("https://ferns.test/care", "ferns.test")])
+
+    et.run(H, None, None, "propose_note", {"text": "---\nsource: https://made-up.test\n---\n# Ferns", "title": "Ferns", "say": "s"}, trail=trail)
+    et.run(H, None, None, "propose_note", {"text": "# Ferns again", "title": "Ferns again", "say": "s"})  # no trail: as written
+
+    assert sorted(new_texts()) == [
+        "# Ferns again",
+        '---\nsource:\n  - https://ferns.test/care\nsearched:\n  - "fern care"\n---\n# Ferns',
+    ]

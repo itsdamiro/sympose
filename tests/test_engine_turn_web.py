@@ -8,7 +8,7 @@ import pytest
 from helpers import write_persona
 
 from sympose import note_changes_store, settings_store
-from sympose.engine import captions, gemini_direct, memory, session, sharing, skills, tool_support, turn, watch_call, web_access
+from sympose.engine import captions, gemini_direct, memory, session, sharing, skills, tool_support, turn, watch_call, web_access, web_sources
 from sympose.engine.model import EngineModelError, ModelReply
 from sympose.engine.model_tools import ToolCall
 from sympose.engine.prompt_text import CAPTIONS, READING_PAGES, READING_SEARCH, WATCHING, WITHHELD_WEB
@@ -450,3 +450,65 @@ def test_in_auto_remember_works_until_google_searches_or_reads_a_page_in_the_tur
     assert searched.lookups == [{"tool": "remember", "saved": False}] and read.lookups == [{"tool": "remember", "saved": False}]
     kept = memory.decisions("samantha")
     assert len(kept) == 1 and "likes 0 ferns" in kept[0]
+
+
+REDIRECT = "https://vertexaisearch.cloud.google.com/grounding-api-redirect/a"
+SEARCHED = {"webSearchQueries": ["fern care"], "groundingChunks": [{"web": {"uri": REDIRECT, "title": "ferns.test"}}], "groundingSupports": [{"segment": {"text": "Ferns like shade"}, "groundingChunkIndices": [0]}]}
+
+
+def test_a_note_made_from_a_search_has_the_pages_google_gave_as_its_source_and_the_reply_links_to_them(monkeypatch):
+    sharing.set_approved(sharing.WEB, True)
+    settings_store.set(web_access.SETTING, web_access.AUTO)
+    monkeypatch.setattr(web_sources, "_lookup", lambda uri: "https://ferns.test/care")
+    note = json.dumps({"title": "Ferns", "text": "---\nsource: https://made-up.test\n---\n# Ferns\n\nFerns like shade.", "say": "Drafted."})
+    answers = [ModelReply("", 5, tool_calls=(ToolCall("call_0", "propose_note", note),)), ModelReply("Ferns like shade. I drafted it.", 5)]
+
+    def direct(messages, model=None, **kwargs):
+        kwargs["grounding"].append(SEARCHED)
+        kwargs["searched"].extend(SEARCHED["webSearchQueries"])
+        return answers.pop(0)
+
+    monkeypatch.setattr(gemini_direct, "call", direct)
+
+    result = turn.run_turn("samantha", "look up fern care and make a note", model=CLOUD, edits=True)
+
+    assert filed_texts() == ['---\nsource:\n  - https://ferns.test/care\nsearched:\n  - "fern care"\n---\n# Ferns\n\nFerns like shade.']
+    assert result.reply.startswith('Ferns like shade.[1](https://ferns.test/care "ferns.test") I drafted it.')
+
+
+def test_a_note_made_from_a_page_keeps_the_page_as_its_source_even_when_the_search_is_on(monkeypatch):
+    sharing.set_approved(sharing.WEB, True)
+    settings_store.set(web_access.SETTING, web_access.AUTO)
+    monkeypatch.setattr(web_sources, "_lookup", lambda uri: "https://ferns.test/care")
+    note = json.dumps({"title": "Page", "text": f"---\nsource: {PAGE}\n---\n# Page", "say": "Drafted."})
+    answers = [ModelReply("", 5, tool_calls=(ToolCall("call_0", "propose_note", note),)), ModelReply("Done.", 5)]
+
+    def direct(messages, model=None, **kwargs):
+        kwargs["grounding"].append(SEARCHED)
+        return answers.pop(0)
+
+    monkeypatch.setattr(gemini_direct, "call", direct)
+
+    turn.run_turn("samantha", f"make a note from {PAGE}", model=CLOUD, edits=True)
+
+    assert filed_texts() == [f"---\nsource: {PAGE}\n---\n# Page"]
+
+
+def test_a_note_proposed_in_a_round_before_google_named_its_pages_takes_them_when_the_turn_ends(monkeypatch):
+    sharing.set_approved(sharing.WEB, True)
+    settings_store.set(web_access.SETTING, web_access.AUTO)
+    monkeypatch.setattr(web_sources, "_lookup", lambda uri: "https://ferns.test/care")
+    note = json.dumps({"title": "Ferns", "text": "---\nsource: https://made-up.test\n---\n# Ferns", "say": "Drafted."})
+    answers = [(ModelReply("", 5, tool_calls=(ToolCall("call_0", "propose_note", note),)), None), (ModelReply("Ferns like shade.", 5), SEARCHED)]
+
+    def direct(messages, model=None, **kwargs):
+        reply, grounded = answers.pop(0)
+        if grounded:
+            kwargs["grounding"].append(grounded)
+        return reply
+
+    monkeypatch.setattr(gemini_direct, "call", direct)
+
+    turn.run_turn("samantha", "look up fern care and make a note", model=CLOUD, edits=True)
+
+    assert filed_texts() == ["---\nsource:\n  - https://ferns.test/care\n---\n# Ferns"]

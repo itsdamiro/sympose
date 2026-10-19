@@ -14,7 +14,7 @@ from typing import Any
 from sympose import note_changes
 from sympose import profile as profile_mod
 from sympose.engine import (
-    budget, compaction, confirmations, edit_tools, edit_turn, history_cap, lookup, media, memory, memory_tools, past_chats, persona_tools, reference, session, session_compaction, sharing, tool_support, turn_cancel, turn_evidence, turn_status, unfiled, watch_call as watch_call_mod,
+    budget, compaction, confirmations, edit_tools, edit_turn, history_cap, lookup, media, memory, memory_tools, past_chats, persona_tools, reference, session, session_compaction, sharing, tool_support, turn_cancel, turn_evidence, turn_status, unfiled, watch_call as watch_call_mod, web_sources,
 )
 from sympose.engine import model as model_mod
 from sympose.engine.model import EngineModelError
@@ -161,12 +161,13 @@ def _run(
     lookups: list[dict[str, Any]] = []
     # A video linked in the message is watched, and a page read or the web searched, by the model's maker, so the call goes straight to Google (docs/decisions/089).
     web_opened: list[str] = []
-    web_searched: list[str] = []
+    trail = web_sources.Trail(owns_source=not (found.watch.attached or found.files.files))  # a note made from the search takes its source from it
+    web_searched = trail.queries
     watch_call = (
-        watch_call_mod.for_links(found.watch.links, found.watch.server_tools, found.watch.asked, web_opened, web_searched, found.files.files)
+        watch_call_mod.for_links(found.watch.links, found.watch.server_tools, found.watch.asked, web_opened, web_searched, found.files.files, trail)
         if found.watch.direct or found.files.files else None
     )
-    tools = persona_tools.for_turn(ask, remember == memory.TOOL, modes.chats, sid, modes.edit, persona, found.map_allowed, found.watch.links)
+    tools = persona_tools.for_turn(ask, remember == memory.TOOL, modes.chats, sid, modes.edit, persona, found.map_allowed, found.watch.links, trail)
     if tools:
         tool_list, run_tool = tools
         if remember == memory.TOOL and outside:
@@ -193,6 +194,7 @@ def _run(
         reply_ttft = reply.ttft_ms
 
     turn_cancel.commit()  # a stop after this is refused; before it, nothing below (marker, record, session) happens
+    web_sources.settle(handle, trail)  # a note proposed before the search's pages were known takes them now
     # The files were counted by the provider, not by us: what it said beyond our own count is what they came to.
     file_tokens = max(0, reply.prompt_tokens - prompt_tokens) if found.files.files and limits and reply.prompt_tokens else 0
     prompt_tokens += file_tokens

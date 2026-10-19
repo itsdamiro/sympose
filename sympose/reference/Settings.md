@@ -242,7 +242,7 @@ Gemini Flash watches the video, reads the page and searches: the link is sent to
 
 Every other model, one on your computer included, is given a video's captions instead, fetched from YouTube by your computer, and cannot read a page or search. The same captions stand in when Google will not take a video.
 
-All of it needs `"web"` allowed under `cloud_share`. What comes from the web is marked as outside your notes, and a turn that uses it cannot save anything to the persona's memory. Addresses that only your own network knows are never sent.
+All of it needs `"web"` allowed under `cloud_share`. When a search backs a sentence of the reply, the sentence is followed by numbered links to the pages, and a note made from it lists them as its source. What comes from the web is marked as outside your notes, and a turn that uses it cannot save anything to the persona's memory. Addresses that only your own network knows are never sent.
 
 With captions the persona cannot see what is shown and not said, and a very long video is cut, with the persona saying where it stops. A video with no captions, or one YouTube will not hand out, cannot be read this way, and the persona says so and why.
 
