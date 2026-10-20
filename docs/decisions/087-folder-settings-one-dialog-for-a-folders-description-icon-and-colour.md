@@ -51,7 +51,7 @@ Folder definitions are built (ADRs 033, 034, 038, 064) but three things were mis
 
 > **Amendment (2026-10-17): the icon set is larger (ADR 088).** The curated 68 became 780 (the hand-named ones and a catalogue of one icon per concept), still found by typing and still checked by the server against a list; the rejection below of the whole library stands for the whole 6,000, not for a considered cut of it.
 
-> **Amendment (2026-10-20): a folder below a top-level one has a colour of its own (ADR 090).** Folder settings stays for top-level folders. A folder below one has a smaller dialog (Folder colour, on its row's menu) whose colour is kept in the top-level folder's note as a `subfolders` property, with no definition note of its own.
+> **Amendment (2026-10-20): a folder below a top-level one has a colour of its own (ADR 090).** Folder settings stays for top-level folders. A folder below one has a smaller dialog (Folder look, on its row's menu: icon and colour) whose look is kept in the top-level folder's note as a `subfolders` property, with no definition note of its own.
 
 ## Alternatives rejected
 

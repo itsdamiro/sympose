@@ -32,11 +32,11 @@ Right-click a top-level folder in the main menu and choose Folder settings. Type
 
 Save puts them in the folder's definition, like People/People.md, and changes only what you changed. A new folder offers the same dialog when you make it, and Skip leaves everything as it was.
 
-## How do I give a folder inside another folder its own colour, to tell projects apart?
+## How do I give a folder inside another folder its own icon or colour, to tell projects apart?
 
-Right-click a folder that sits inside a top-level folder, like Projects/sympose, in the folder list and choose Folder colour. Pick a swatch, or a Light and a Dark colour, and Save. The notes in that folder are drawn in that colour in the Knowledge Nebula, and the folder is listed in its legend by its path, so one project is easy to tell from another.
+Right-click a folder that sits inside a top-level folder, like Projects/sympose, in the folder list and choose Folder look. Pick an icon, a swatch or a Light and a Dark colour, and Save. The folder is drawn with that icon in the list, and its notes in that colour in the Knowledge Nebula, where the legend lists it by its path, so one project is easy to tell from another.
 
-The colour is kept in the top-level folder's own note, like Projects/Projects.md, in a subfolders property, so no extra note is made for it. A note takes the colour of the nearest coloured folder around it, at any depth, and keeps its top-level folder's colour when none of them has one. Renaming or moving the folder takes its colour with it, and the cross in the dialog removes it.
+The colour is kept in the top-level folder's own note, like Projects/Projects.md, in a subfolders property, so no extra note is made for it. A note takes the colour of the nearest coloured folder around it, at any depth, and keeps its top-level folder's colour when none of them has one. Renaming or moving the folder takes its look with it, and the cross in each field removes it.
 
 ## What are tracked changes and comments?
 

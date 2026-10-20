@@ -65,7 +65,21 @@ It is the top-level folder's note for a folder at any depth, not the direct pare
 
 ## Not part of this
 
-An icon for a subfolder, a colour in the tree or folder views, the persona proposing or setting a colour, colouring a top-level folder from this dialog (it has Folder settings), per-note colours, and a health check or `--fix` for an entry whose folder is gone.
+A colour in the tree or folder views (declined again on 2026-10-20), the persona proposing or setting a colour, colouring a top-level folder from this dialog (it has Folder settings), per-note colours, and a `--fix` for an entry whose folder is gone.
+
+## Update (2026-10-20): an icon, and a health observation for an entry whose folder is gone
+
+Decided with damiro when the leftovers were closed: the tree colour stays out (the nebula and its legend only), the icon goes in, and the check is an observation.
+
+**An icon.** An entry in `subfolders` may also hold `icon`, the name of an icon in the app's set (`look.ICON_NAME` on reading, `look.ICON_NAMES` on a save, as for a top-level folder, ADR 064 and 087). An entry may hold an icon alone, colours alone or both; a bad value reads as none and an entry with nothing usable is left out. The icon belongs to its own folder only: a deeper folder does not inherit it, and an entry with an icon but no colour colours nothing, so `nearest` goes on past it to the folder above. The tree folder carries its own `icon` beside its colour; the note's node never carries an icon.
+
+**Where it shows.** The tree draws the icon in place of the folder glyph (open or closed) on a row below a top-level folder, and nowhere else. A top-level folder's icon is still not drawn in the tree (it shows in the main menu and the folder view's caption, ADR 064), so the two rows of the tree are not changed by this. A name the icon set lacks is drawn as the usual glyph.
+
+**Setting it.** The dialog is now Folder look (menu item, title and toasts say so): the same icon picker as Folder settings above the same colour field. Save is on when the icon or either colour changed; clearing the icon, both colours or both writes the entry without the key, and an entry left with nothing is removed. `GET`/`PUT /api/vault/folder/color` keep their path and gain `icon` (the route, the module `subfolder_colors`, `folder-color-dialog.tsx` and `folder-color-api.ts` keep their names: renaming them would have touched every reference to this ADR for no change in behaviour). A rename or move carries the icon with the entry.
+
+**A health observation.** `sympose vault --health` lists, under "Subfolder colours and icons for a folder that is gone", each `subfolders` entry of a top-level folder's note whose folder is not in the vault (`vault_health.check_subfolder_looks`). It is an observation, never a fault (it does not change the exit code), and nothing is written: an entry with no folder is never drawn and does no harm, and a folder restored from the bin comes back with its look (see Deleting). There is no `--fix` for it; the line names the note, and the entry is removed by hand. A folder that exists but is empty counts as there. Not checked: an entry in a note the persona cannot read.
+
+**Checked.** `tests/test_subfolder_colors.py` (the icon read, its bad shapes, `nearest` past an icon-only entry, the text edit, the save with and without colours, clearing, a refused icon, a rename carrying it), `tests/test_server_subfolder_colors.py` (the routes, the tree's `icon`, no icon on a node), `tests/test_vault_health_subfolders.py`, and in the web app the dialog, the API client, the menu and the tree (a subfolder draws its icon, an unknown name and a top-level folder do not change). 10 of 10 mutants caught (six Python, four web app).
 
 ## Alternatives rejected
 

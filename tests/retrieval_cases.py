@@ -77,6 +77,8 @@ _RAW = [
     ("sympose", "can you write down what my Movies folder is for?", True, "Checking your notes.md"),
     ("sympose", "can I give a folder inside Projects its own colour?", True, "The web app.md"),
     ("sympose", "how do I tell my projects apart by colour in the graph?", True, "The web app.md"),
+    ("sympose", "can I give a folder inside Projects its own icon?", True, "The web app.md"),
+    ("sympose", "the notes check says a subfolder colour is for a folder that is gone, what does that mean?", True, "Checking your notes.md"),
 ]
 
 _VAULT = [

@@ -12,6 +12,10 @@ They are observations, not faults. "Folder notes inside sub-folders" lists a not
 
 "Possible duplicate notes" lists a note like a note called Recipe (2) beside one called Recipe, which is what a folder merge makes of two notes with one name. Combine them by hand if they are duplicates.
 
+## What does a subfolder colour or icon for a folder that is gone mean?
+
+The notes check lists, as an observation, a folder's icon or colour kept in a top-level folder's own note (in its subfolders property) when that folder is not there any more. Nothing is drawn from it and it does no harm, and it works again if the folder is restored. Remove the entry by hand if you do not want it.
+
 ## What counts as an empty note?
 
 A note with no text and no properties, so nothing but its file name. A note that is only a title, or only properties, is not empty.
