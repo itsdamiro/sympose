@@ -75,6 +75,8 @@ _RAW = [
     ("sympose", "how do I give you a picture or a recording to look at?", True, "Not built yet.md"),
     ("sympose", "can you write a definition for my Recipes folder while we chat?", True, "Checking your notes.md"),
     ("sympose", "can you write down what my Movies folder is for?", True, "Checking your notes.md"),
+    ("sympose", "can I give a folder inside Projects its own colour?", True, "The web app.md"),
+    ("sympose", "how do I tell my projects apart by colour in the graph?", True, "The web app.md"),
 ]
 
 _VAULT = [
