@@ -72,6 +72,16 @@ Settings gets a Jobs section: one row per job (name, schedule, model icon, last 
 
 - **A job drafts new notes only.** An edit proposal quotes a passage of the note open in the editor (`edit_turn.OpenNote`), and a run has no editor; the new-note tool (`edit_tools`) needs no open note. So a run can propose new notes but not changes to an existing one. A later `notes:` list in a job's front matter could open named notes for edits; not in this slice. A persona whose edit mode is `plan` proposes nothing, so its jobs only reply.
 
+## As built: running a job (slice 2, 2026-10-21)
+
+- `job_run.run` runs one job and `run_due` every due one; `sympose run --due` and `sympose run <persona>/<job>` (a manual run) call them. A manual run ignores the schedule, the off switch and a pause, and a run that works lifts the pause; it keeps the daily cap and refuses a file with a problem.
+- The cap is looked at in `run`, once the job is held (`job_state.claim`: the operating system's file lock plus a guard inside the process), together with "is it still due", so a run another process finished meanwhile is not repeated. A failed run counts as a run, so a failing job is not tried again every five minutes.
+- A run's conversation carries `job: <name>` in its meta line. The web app never lands in such a conversation on a refresh (`_latest_session` skips it), and the conversation list rows say which job (`job`); showing that mark is slice 3.
+- `refresh` rebuilds the search-by-meaning index through the embedder, not the chat model; with that knob on `keywords` or a cloud embedder it does nothing and says so. The persona's recaps are not part of it: opening a chat already refreshes them.
+- `health` drafts a note in `Jobs/` under the persona's first folder. A second report while the first still waits is refused (a failure the row shows), as for any identical draft.
+- Checked on a scratch install: `sympose run --due` made a health draft and left the vault alone; a real `gemma4:e4b` job (`ask`) took 49 s, opened a marked conversation and drafted one new note. That model put three tasks in the draft that the journal did not mention; the user reads every draft before Accept, and a bigger model is the job's own choice.
+- Not built yet: the Settings list (slice 3), the launchd entry and the app's timer (slice 4), the reference-library text (written when a user can reach the feature).
+
 ## Alternatives rejected
 
 - **Scheduler only inside the web app.** A weekly review would run only if the app happened to be open at that moment. Right if damiro would rather have no OS integration.
