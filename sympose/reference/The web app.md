@@ -98,6 +98,22 @@ Yes: Archive to note, on a conversation's ⋯ menu. It needs at least two messag
 
 The summary does not exist as a file yet. It waits in Drafts, filed for a folder called Sessions inside the persona's first folder (the top of the vault when the persona sees all of it). Open it, change what you like, and keep it or drop it. With a cloud model your messages go to it, so recaps must be allowed in /share.
 
+## Can a persona do something by itself on a schedule?
+
+Yes, as a job. A job is a small file in the persona's own folder, never in your vault. In Settings, under Jobs, Add a job makes one that starts off. Open it with the pencil, write when it runs (such as `weekly sun 18:00` or `daily 07:30`) and what to do, then switch it On.
+
+Whatever a job produces waits in Drafts for you to accept, so a job never touches your vault by itself. A job can propose notes to add but not alterations to one you already have. A job that uses a cloud model runs once a day unless its file says otherwise.
+
+## Do jobs run when Sympose is closed?
+
+While the web app is open, yes, and a time missed while it was closed runs when you next open it. On a Mac, switch on Run while Sympose is closed under Jobs in Settings, or run `sympose schedule install`, and the computer checks every 5 minutes with the app closed.
+
+`sympose schedule remove` takes that away. `sympose run --due` runs what is due now and `sympose run persona/job` runs one job now.
+
+## Why did a job stop running?
+
+A job that fails 3 times in a row switches itself off, and its row in Settings says so. Fix the cause, then switch it On to start it again. A job whose file cannot be understood, such as a schedule it cannot read, shows what is wrong in its row and does not run.
+
 ## What is the Knowledge Nebula?
 
 The Knowledge Nebula is a graph of your notes, in 2D or 3D. Each note is a point and the links between notes are the lines. It shows only the folders the active persona may see.

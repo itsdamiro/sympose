@@ -84,7 +84,7 @@ Settings gets a Jobs section: one row per job (name, schedule, model icon, last 
 - `refresh` rebuilds the search-by-meaning index through the embedder, not the chat model; with that knob on `keywords` or a cloud embedder it does nothing and says so. The persona's recaps are not part of it: opening a chat already refreshes them.
 - `health` drafts a note in `Jobs/` under the persona's first folder. A second report while the first still waits is refused (a failure the row shows), as for any identical draft.
 - Checked on a scratch install: `sympose run --due` made a health draft and left the vault alone; a real `gemma4:e4b` job (`ask`) took 49 s, opened a marked conversation and drafted one new note. That model put three tasks in the draft that the journal did not mention; the user reads every draft before Accept, and a bigger model is the job's own choice.
-- Not built yet: the launchd entry and the app's timer (slice 4), the reference-library text (written when a user can reach the feature).
+- The launchd entry and the app's timer came in slice 4 (below), and the reference-library text with them.
 
 ## As built: the Settings list (slice 3, 2026-10-21)
 
@@ -94,6 +94,16 @@ Settings gets a Jobs section: one row per job (name, schedule, model icon, last 
 - A conversation a job opened has a clock in place of the speech bubble in the conversation list and its job's name in the detail line (a pin still wins). No new strip or card.
 - Not built: removing a job from Settings (the file can be deleted in the folder), a "Run now" button (`sympose run persona/job` does it).
 - Checked: 16 of 16 Python and 14 of 14 web mutants caught; the real app on a scratch install (the rows, the pencil, a save, the pause lifted, a new job opened, the clock in the list).
+
+## As built: the OS entry and the app's timer (slice 4, 2026-10-21)
+
+- `job_launchd.py` writes `~/Library/LaunchAgents/com.sympose.jobs.plist` and loads it (`launchctl bootstrap gui/<uid>`; `bootout` first, so installing again replaces the entry). The entry runs `<this Python> -m sympose.launcher run --due` every 300 seconds, from the folder `sympose` was run in (its `.env` is read as for every command), with `VAULT_PATHS`, `SYMPOSE_PROFILES_DIR` and `SYMPOSE_SETTINGS_PATH` carried over when set and nothing else of the environment (no API key reaches the file). Its output goes to `~/Library/Logs/Sympose/jobs.log`. A refused load deletes the file again and says why. Anywhere but macOS it refuses in one line.
+- `sympose schedule install|remove|status`, and `GET`/`PUT /api/schedule` (`{supported, installed}`) behind one On/Off row in Settings → Jobs, "Run while Sympose is closed", shown only where it is supported. No new strip or card.
+- `job_timer.py`: `sympose web` starts a daemon thread that calls `job_run.run_due` at once (a time missed while the app was closed or the Mac slept is caught up) and every 5 minutes after; a failed pass is logged and the thread goes on. It is started by `sympose web` only, not by `python -m sympose.main` (the development server), so `npm run dev` never runs a job. `job_state.claim` keeps the OS entry and the app from running one job twice.
+- Moving Sympose (a new folder or Python) needs Off then On, or `sympose schedule install` again; the entry names the paths it was made with.
+- Checked: 18 Python and 7 web tests added; 17 of 17 Python and 7 of 7 web mutants caught (one equivalent mutant of my own, a `return 0 if True else 1`, was not counted). **Found by a mutation run:** with the platform check removed a test reached the real `launchctl` and registered a service in damiro's login session (pointing at a temporary test folder); it was unloaded at once, and an autouse fixture now makes any test that has not replaced `launchctl` fail instead. Real checks on a scratch install: `schedule install` made a plist `plutil` accepts, `launchctl kickstart` ran a due `health` job (a draft in the persona's folder, the vault untouched), `remove` left no entry; in the web app on a scratch server the row loaded, On added the entry and Off removed it, and the app's timer had already run the same due job at start.
+- Reference library: three entries in `The web app.md` (what a job is and that it starts off, whether jobs run while Sympose is closed, why a job stopped) and two reference cases. Retrieval `auto` 74 of 84 before (four of the five new messages failing) and 78 of 84 after, the same six failures as before; in `keywords` mode "how do I schedule a weekly meeting with my team?" now attaches the web app entry (a keyword limit; `auto` does not). The entries avoid "write", "edit" and "new notes": the first wording took `writes-notes` away from its answer (as in ADR 086).
+- Not built: a notification when a run finishes with nobody watching; Windows (#117); removing a job, or a "Run now" button, from Settings.
 
 ## Alternatives rejected
 
