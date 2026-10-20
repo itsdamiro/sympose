@@ -23,6 +23,7 @@ from dataclasses import dataclass
 
 REPO = os.path.join(os.path.dirname(__file__), "..")
 VAULT = os.path.join(os.path.dirname(__file__), "fixtures", "skills_vault")
+PLAIN_VAULT = os.path.join(os.path.dirname(__file__), "fixtures", "skills_vault_plain")  # Plants (6 notes) and Misc (5 unrelated titles), no definitions
 
 
 @dataclass(frozen=True)
@@ -40,6 +41,7 @@ class SkillCase:
     no_draft: bool = False  # nothing may have reached the proposals (a summary asked for in chat files no note)
     video: bool = False  # a public YouTube link is in the messages: the direct path to Gemini Flash only (docs/decisions/089), run for no other model
     web: str = ""  # a public page is linked or the web is searched, with `web_access` set to this: the same direct path, Gemini Flash only
+    vault: str = ""  # a fixture vault other than `skills_vault` (its Recipes folder has a definition): `skills_vault_plain` has folders with none
 
 
 TALK = "https://www.youtube.com/watch?v=8jPQjjsBbIc"  # a public 12-minute talk, the one the spike measured (docs/decisions/089)
@@ -170,6 +172,38 @@ CASES: list[SkillCase] = [
         forbid=(_CANNOT_BROWSE,),
         web="auto",
     ),
+    SkillCase(
+        "define-a-folder-from-its-notes", "defining-a-folder",
+        ("Can you define my Plants folder for me? Write down what it is for.",),
+        needs_draft=True, vault="plain",
+        draft_expect=(r"\A# Plants\n", r"plant", r"## Template", r"(?m)^light:", r"(?m)^water:"),
+        draft_forbid=(r"fertili[sz]er|pot size|price|\bdate\b",),
+    ),
+    SkillCase(
+        "define-a-folder-from-the-users-words", "defining-a-folder",
+        ("My Plants folder is for the houseplants I own and when each needs water. Please write that down as the folder's definition.",),
+        needs_draft=True, vault="plain",
+        draft_expect=(r"\A# Plants\n", r"water", r"## Template", r"(?m)^light:"),
+        draft_forbid=(r"fertili[sz]er|pot size|price",),
+    ),
+    SkillCase(
+        "define-a-folder-that-has-one-files-nothing", "defining-a-folder",
+        ("Define my Recipes folder.",),
+        no_draft=True,
+        expect=(r"already|Folder settings|has a (?:definition|purpose)",),
+    ),
+    SkillCase(
+        "define-a-folder-of-unrelated-titles", "defining-a-folder",
+        ("Define my Misc folder.",),
+        vault="plain",
+        draft_forbid=(r"recipes|plants|travel|invoices? and|receipts",),  # a draft is fine, an invented purpose is not
+    ),
+    SkillCase(
+        "near-miss-a-note-about-plants", "defining-a-folder",
+        ("Write a short note about a plant I want to buy: a calathea.",),
+        needs_draft=True, vault="plain",
+        draft_forbid=(r"## Template",),
+    ),
     # A message that shares words with the soul skill's description but asks for something else (selection is by
     # words, so the skill is in the prompt; she must not follow it).
     SkillCase(
@@ -218,6 +252,7 @@ def run_case(case: SkillCase, model: str | None) -> tuple[bool, str]:
     from sympose import note_changes_store, settings_store
     from sympose.engine import session, turn
 
+    os.environ["VAULT_PATHS"] = PLAIN_VAULT if case.vault else VAULT
     settings_store.set("skill_lookup", os.environ.get("SKILLS", "auto"))
     settings_store.set("web_access", case.web or "asked")
     from sympose.engine import sharing

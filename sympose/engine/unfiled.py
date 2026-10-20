@@ -26,7 +26,7 @@ _SAYS_MADE = re.compile(
     r"(?:added|created|made|saved|filed|updated|changed|edited|rewrote|rewritten|fixed|put|placed)\b[^.!?\n]*\b" + _NOUN + r"\b", re.I)
 # "is now added to", "has been created": a new thing, not the vault's own ("your note is saved in Recipes").
 _SAYS_NOW = re.compile(r"\b(?:is\s+now|are\s+now|has\s+been|have\s+been|was\s+just)\s+(?:added|created|saved|drafted|proposed|filed)\b", re.I)
-_FILING = (edit_tools.EDIT, edit_tools.NOTE, persona_proposal.PROPOSE, setting_proposal.PROPOSE)  # any proposal the user will see: "I have proposed Ada" is true after `propose_persona`
+_FILING = (edit_tools.EDIT, edit_tools.NOTE, edit_tools.DEFINE, persona_proposal.PROPOSE, setting_proposal.PROPOSE)  # any proposal the user will see: "I have proposed Ada" is true after `propose_persona`
 
 
 def claims(reply: str) -> bool:

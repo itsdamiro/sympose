@@ -5,7 +5,7 @@ sympose_reference: true
 
 # The skills she carries (docs/decisions/077), by name: bundled ones, or her own from her `skills/` folder once switched on
 # in Settings. Your own choice, made in the app, is kept in persona.local.yaml and wins over this.
-skills: ['deriving-a-persona-soul', 'drafting-a-note-in-a-folders-style', 'capturing-from-a-link', 'capturing-from-a-page', 'capturing-from-a-file']
+skills: ['deriving-a-persona-soul', 'drafting-a-note-in-a-folders-style', 'capturing-from-a-link', 'capturing-from-a-page', 'capturing-from-a-file', 'defining-a-folder']
 title: 'Polymath Strategic Master Orchestrator'
 
 # Her look: the name of her icon in the icon set the user chose, and her colour in light and dark.

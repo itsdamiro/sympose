@@ -11,23 +11,25 @@ which is read, filed and removed from what is shown. They end in `note_changes.p
 `annotate` (ADR 070, 069), which refuse a passage not found exactly once. A comment is hers on a passage, kept apart
 from the note's text like the user's own. Nothing here writes the vault: a proposal waits for the
 user's Accept. `show_note(path)` writes nothing at all: it only tells the web app to open a note of the persona's scope
-in the editor (the path is returned in the record). A change that could not be placed is told to the user, in the open, never dropped silently."""
+in the editor (the path is returned in the record). A change that could not be placed is told to the user, in the open, never dropped silently.
+`propose_folder_definition` is a tool only, with no marker: a skill teaches it, and a skill needs a model that calls tools. It files a
+folder's definition note as a new-note draft, its template counted from the folder's notes (`folder_definition_tool`, ADR 033)."""
 
 import json
 import re
 from typing import Any
 
 from sympose import note_changes
-from sympose.engine import lookup_scope, video_stamps, web_sources
+from sympose.engine import folder_definition_tool, lookup_scope, video_stamps, web_sources
 from sympose.engine.lookup_result import Result
 
-EDIT, NOTE, COMMENT, SHOW = "propose_edit", "propose_note", "comment_on", "show_note"
+EDIT, NOTE, COMMENT, SHOW, DEFINE = "propose_edit", "propose_note", "comment_on", "show_note", "propose_folder_definition"
 _NO_NOTE = "No note is open in the editor, so there is nothing to change; ask the user to open it."
 _BAD = "The arguments of {name} could not be read: give {fields} as text."
 _NO_SUCH_NOTE = "No note called {path} was found in the vault, so nothing was opened."  # a marker's failure is shown to the user as it is
 _ASK_WHICH = " Ask the user which note they mean."  # said to a model that called the tool, not to the user
 _DONE = {COMMENT: "Commented.", SHOW: "Opened."}
-_FIELDS = {EDIT: ("find", "replace", "say"), NOTE: ("text", "say"), COMMENT: ("find", "text"), SHOW: ("path",)}
+_FIELDS = {EDIT: ("find", "replace", "say"), NOTE: ("text", "say"), COMMENT: ("find", "text"), SHOW: ("path",), DEFINE: ("folder", "say")}
 
 
 def _tool(name: str, description: str, properties: dict[str, str], required: list[str]) -> dict[str, Any]:
@@ -70,6 +72,15 @@ TOOLS: list[dict[str, Any]] = [
         {"path": "The note's path in the vault, as it was given to you (for example Projects/Sympose/Plan.md), or its name."},
         ["path"],
     ),
+    _tool(
+        DEFINE,
+        "Propose a top-level folder's definition note as a draft the user accepts or declines. Its property lines are counted from the "
+        "folder's real notes: you do not write them. Use it when the user asks to define or describe a folder.",
+        {"folder": "The folder's name, as the vault map gives it.",
+         "purpose": "One or two plain sentences on what the folder holds, only from what the user said or the titles show; empty if unknown.",
+         "say": "One sentence telling the user what you proposed."},
+        ["folder", "say"],
+    ),
 ]
 
 _MARKER = re.compile(r"<!--\s*(propose_edit|propose_note|comment_on|show_note):\s*(\{.*?\})\s*-->", re.IGNORECASE | re.DOTALL)
@@ -106,13 +117,16 @@ def _arguments(name: str, raw: str | dict[str, Any] | None) -> dict[str, str] | 
         return None
     if not isinstance(data, dict) or not all(isinstance(data.get(k), str) for k in _FIELDS[name]):
         return None
-    title, folder = data.get("title"), data.get("folder")
-    return {**{k: data[k] for k in _FIELDS[name]}, "title": title if isinstance(title, str) else "", "folder": folder if isinstance(folder, str) else ""}
+    title, folder, purpose = data.get("title"), data.get("folder"), data.get("purpose")
+    return {
+        **{k: data[k] for k in _FIELDS[name]}, "title": title if isinstance(title, str) else "",
+        "folder": folder if isinstance(folder, str) else "", "purpose": purpose if isinstance(purpose, str) else "",
+    }
 
 
 def _propose(
     handle: str, path: str | None, text: str | None, name: str, raw: str | dict[str, Any] | None, scope: tuple[tuple[int, int], ...] = (),
-    videos: tuple[str, ...] = (), trail: web_sources.Trail | None = None,
+    videos: tuple[str, ...] = (), trail: web_sources.Trail | None = None, profile: dict[str, Any] | None = None,
 ) -> tuple[bool, str]:
     """`(saved, what happened)`: the one place a tool call and a marker both end. `videos` are the ones this turn watched:
     a new note's bare timestamps become links to the moment (`video_stamps`). `trail` is what the turn's web search rested
@@ -125,6 +139,8 @@ def _propose(
             if path is None or text is None:
                 return False, _NO_NOTE
             note_changes.comment_on(handle, path, text, quote=args["find"], text=args["text"], author="persona", within=scope)
+        elif name == DEFINE:
+            return folder_definition_tool.propose(handle, profile, args["folder"], args["purpose"], args["say"])
         elif name == NOTE:
             written, made = video_stamps.link(fenced(args["text"]), videos), note_changes.new_note_path()
             proposal = note_changes.propose_create(handle, made, web_sources.attribute(written, trail) if trail else written, say=args["say"], title=args["title"] or None, folder=args["folder"] or None)
@@ -161,7 +177,7 @@ def run(
     if name == SHOW:
         opened, said, path = _show(profile, raw)
         return Result(said if opened else said + _ASK_WHICH, lookup={"tool": name, "saved": opened, **({"path": path} if path else {})})
-    saved, said = _propose(handle, note_path, note_text, name, raw, scope, videos, trail)
+    saved, said = _propose(handle, note_path, note_text, name, raw, scope, videos, trail, profile)
     return Result(said, lookup={"tool": name, "saved": saved})
 
 
@@ -182,7 +198,7 @@ def apply_marker(
             saved, said, shown_path = _show(profile, found.group(2))
             record: dict[str, Any] = {"tool": name, "saved": saved, **({"path": shown_path} if shown_path else {})}
         else:
-            saved, said = _propose(handle, note_path, note_text, name, found.group(2), videos=videos)
+            saved, said = _propose(handle, note_path, note_text, name, found.group(2), videos=videos, profile=profile)
             record = {"tool": name, "saved": saved}
         if not saved:
             record["reason"] = said

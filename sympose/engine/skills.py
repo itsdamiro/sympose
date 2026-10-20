@@ -47,7 +47,7 @@ CAPTURE_FILE = "capturing-from-a-file"  # and for a turn that has a file attache
 CUT_NOTE = "[The rest of this skill was left out to fit.]"
 _NAME = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")  # ASCII only: the name is also the folder's
 _HEADER_END = re.compile(r"^---[ \t]*$", re.MULTILINE)  # a line of its own, not a longer run of dashes
-_EDITING = (edit_tools.EDIT, edit_tools.NOTE, edit_tools.COMMENT, edit_tools.SHOW)
+_EDITING = (edit_tools.EDIT, edit_tools.NOTE, edit_tools.COMMENT, edit_tools.SHOW, edit_tools.DEFINE)
 _LOOKUP = (lookup_tools.SEARCH, lookup_tools.OPEN, lookup_find.FIND, lookup_list.LIST)
 
 

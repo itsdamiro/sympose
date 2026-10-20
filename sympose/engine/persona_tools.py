@@ -98,5 +98,5 @@ def for_turn(
 
 
 def _edit_tools(edit: edit_turn.Edit) -> list[dict[str, Any]]:
-    """With no note open she is given only the two that need none: proposing a new note and showing one."""
-    return edit_tools.TOOLS if edit.note is not None else [t for t in edit_tools.TOOLS if t["function"]["name"] in (edit_tools.NOTE, edit_tools.SHOW)]
+    """With no note open she is given only the three that need none: proposing a new note, showing one and proposing a folder's definition."""
+    return edit_tools.TOOLS if edit.note is not None else [t for t in edit_tools.TOOLS if t["function"]["name"] in (edit_tools.NOTE, edit_tools.SHOW, edit_tools.DEFINE)]

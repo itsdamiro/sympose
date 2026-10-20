@@ -274,7 +274,7 @@ def test_the_bundled_skills_are_valid_and_samantha_carries_all_of_them():
         wanted = set(yaml.safe_load(f)["skills"])
 
     # The first two were measured on gemma4:e4b and Gemini Flash (docs/decisions/077, amendments); the last three are for Flash's video, page and file turns (089).
-    assert bundled_names == {"deriving-a-persona-soul", "drafting-a-note-in-a-folders-style", skills.CAPTURE, skills.CAPTURE_PAGE, skills.CAPTURE_FILE}
+    assert bundled_names == {"deriving-a-persona-soul", "drafting-a-note-in-a-folders-style", "defining-a-folder", skills.CAPTURE, skills.CAPTURE_PAGE, skills.CAPTURE_FILE}
     assert wanted == bundled_names
 
 

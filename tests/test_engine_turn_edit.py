@@ -173,7 +173,7 @@ def test_with_no_note_open_she_is_given_only_the_tools_that_need_no_note(monkeyp
 
     turn.run_turn("samantha", "hi", model=CLOUD, edits=True)
 
-    assert [t["function"]["name"] for t in seen[0]["tools"]] == ["propose_note", "show_note"]
+    assert [t["function"]["name"] for t in seen[0]["tools"]] == ["propose_note", "show_note", "propose_folder_definition"]
 
 
 def test_the_users_open_comments_come_with_the_message_for_a_local_model(monkeypatch):

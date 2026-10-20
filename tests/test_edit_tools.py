@@ -130,7 +130,7 @@ def test_another_tool_name_is_not_ours():
 def test_the_tools_are_named_and_the_descriptions_carry_no_marker_text():
     names = [t["function"]["name"] for t in et.TOOLS]
 
-    assert names == ["propose_edit", "propose_note", "comment_on", "show_note"]
+    assert names == ["propose_edit", "propose_note", "comment_on", "show_note", "propose_folder_definition"]
     assert "<!--" not in json.dumps(et.TOOLS)
 
 
