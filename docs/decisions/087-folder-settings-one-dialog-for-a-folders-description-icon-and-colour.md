@@ -39,7 +39,7 @@ Folder definitions are built (ADRs 033, 034, 038, 064) but three things were mis
 
 **A reading bug fixed with it.** `read_purpose` read the whole file, so a definition with properties (every one the health report's icon offer had touched) gave the persona its frontmatter as the folder's purpose in the vault map (`---\nicon: film-roll\n...`). It now skips the frontmatter.
 
-**Not in this slice.** The persona offering a definition while talking (#23's remaining agent surface) reuses this write later. The health report's draft keeps its own shape. The built-in name lists stay as the fallback until the health fix has run on the vaults in use (ADR 064).
+**Not in this slice.** The persona offering a definition while talking (#23's agent surface) is built since, as a draft the user accepts (ADR 033, update of 2026-10-20), and does not reuse this write. The health report's draft keeps its own shape. The built-in name lists stay as the fallback until the health fix has run on the vaults in use (ADR 064).
 
 ## Consequences
 

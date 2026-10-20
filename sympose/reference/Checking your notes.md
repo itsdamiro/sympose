@@ -56,6 +56,10 @@ When another note is already called by the title, when another note shares the n
 
 A note named after a top-level folder, like People/People.md, that says what the folder is for and holds a template of the properties its notes carry. Sympose can draft one for a folder that has enough notes and no definition yet, with `sympose vault --draft People`. In the web app, right-click the folder and choose Folder settings to make or change one yourself.
 
+## Can the persona define a folder for me while we talk?
+
+Yes, with a model that can call tools. Ask it to define a folder and it proposes the definition note as a draft; nothing is saved until you accept. It writes the purpose from the note titles, and the property list is counted from the folder's real notes, never written by the model.
+
 ## Which folders does the report offer a definition for?
 
 Top-level folders with five or more notes and no definition. `folder_definition_min_notes` changes the five. They are listed under Folders due a definition, as an offer and not as a problem.

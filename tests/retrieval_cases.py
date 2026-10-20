@@ -73,6 +73,8 @@ _RAW = [
     ("sympose", "how do I delete a skill I added?", True, "Settings.md"),
     ("sympose", "does she give my conversations a title of her own?", True, "Settings.md"),
     ("sympose", "how do I give you a picture or a recording to look at?", True, "Not built yet.md"),
+    ("sympose", "can you write a definition for my Recipes folder while we chat?", True, "Checking your notes.md"),
+    ("sympose", "can you write down what my Movies folder is for?", True, "Checking your notes.md"),
 ]
 
 _VAULT = [
