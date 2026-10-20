@@ -19,6 +19,9 @@ function Bar({ title, children, action }: { title: string; children: React.React
   )
 }
 
+/** A job's file (docs/decisions/091) is not one of the four with a line of their own in the list of files. */
+const JOB_DESCRIPTION = "A scheduled job. The properties say when it runs; the text below them says what to do."
+
 const actionClass = cn(toolbarButtonClass, "size-auto h-6 px-2 text-xs text-foreground")
 
 /**
@@ -26,7 +29,7 @@ const actionClass = cn(toolbarButtonClass, "size-auto h-6 px-2 text-xs text-fore
  * editor's toolbar does not say, and what is particular to it. For the soul, whether it is the shipped one (saving
  * makes the user's own copy, the shipped file is never written) or the user's own (with Reset to default, which asks
  * first and keeps the user's text aside); for the profile and the context, a rewrite she proposed, with Review;
- * otherwise what the file is.
+ * a scheduled job's file, what a job is; otherwise what the file is.
  * `onChanged` says the file or the list of files changed under the editor, so it is read again.
  */
 export function PersonaFileBanner({
@@ -74,6 +77,7 @@ export function PersonaFileBanner({
     )
   }
 
+  if (name.startsWith("jobs/")) return <Bar title={title}>{JOB_DESCRIPTION}</Bar>
   if (!info?.pending) return <Bar title={title}>{info?.description ?? ""}</Bar>
   return (
     <>

@@ -221,10 +221,17 @@ export function AppShell() {
   // A persona's own files (docs/decisions/061): listed in the Persona page's FILES chip, and opened in the editor in
   // place of the vault note until a note is opened again.
   const personaFiles = usePersonaFiles(activePersona)
+  // A save in the editor may have changed a job's file: the Settings rows for the jobs are read again.
+  const [jobsVersion, setJobsVersion] = React.useState(0)
+  const { refresh: refreshPersonaFiles } = personaFiles
+  const refreshFiles = React.useCallback(() => {
+    void refreshPersonaFiles()
+    setJobsVersion((n) => n + 1)
+  }, [refreshPersonaFiles])
   const fileEditor = usePersonaFileEditor({
     handle: activePersona,
     personaName: activePersonaName,
-    refreshFiles: personaFiles.refresh,
+    refreshFiles,
   })
   const { close: closePersonaFile } = fileEditor
   // The persona's drafts (docs/decisions/071), and the draft of a new note open in the editor, which has no file yet.
@@ -577,6 +584,8 @@ export function AppShell() {
         cloudNotice={cloudNotice}
         persona={activePersona}
         personaName={activePersonaName}
+        jobsVersion={jobsVersion}
+        onOpenJob={openPersonaFile}
         query={vaultSearchQuery}
       />
     ) : (

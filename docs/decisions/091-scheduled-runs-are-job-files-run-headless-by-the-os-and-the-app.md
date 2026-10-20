@@ -80,7 +80,16 @@ Settings gets a Jobs section: one row per job (name, schedule, model icon, last 
 - `refresh` rebuilds the search-by-meaning index through the embedder, not the chat model; with that knob on `keywords` or a cloud embedder it does nothing and says so. The persona's recaps are not part of it: opening a chat already refreshes them.
 - `health` drafts a note in `Jobs/` under the persona's first folder. A second report while the first still waits is refused (a failure the row shows), as for any identical draft.
 - Checked on a scratch install: `sympose run --due` made a health draft and left the vault alone; a real `gemma4:e4b` job (`ask`) took 49 s, opened a marked conversation and drafted one new note. That model put three tasks in the draft that the journal did not mention; the user reads every draft before Accept, and a bigger model is the job's own choice.
-- Not built yet: the Settings list (slice 3), the launchd entry and the app's timer (slice 4), the reference-library text (written when a user can reach the feature).
+- Not built yet: the launchd entry and the app's timer (slice 4), the reference-library text (written when a user can reach the feature).
+
+## As built: the Settings list (slice 3, 2026-10-21)
+
+- Settings has a Jobs section (`jobs-rows.tsx`, rows like the Skills ones): a row for each job with its name, its schedule, how the last run went (a tick and when, or the failure and its reason, or "not run yet"), the model's mark (computer or cloud, none for a mechanical job), a pencil that opens the file in the editor, and an On/Off switch. A file with a problem shows the problem in place of the schedule. A paused job shows as Off with "Paused after 3 failures in a row", and On takes the pause off. "Add a job" makes `new-job.md` (then `new-job-2`) from a template and opens it in the editor; the template is off until the user has written what to do.
+- Routes: `GET`/`POST /api/personas/{handle}/jobs` and `PUT /api/personas/{handle}/jobs/{name}` (`job_manage.py`, `server_job_handlers.py`). The switch changes only the `enabled:` property (a file with none is on) and keeps line endings and a byte-order mark; the old text goes to `<name>.md.bak`.
+- The editor opens a job through ADR 061's routes: the name `jobs/<name>.md` is the one more name `persona_editable` allows (a plain job name, an existing file, saved in place with the `.bak` and the mtime check; a save never creates a job). `{name:path}` carries the slash; the pending-rewrite route is declared first so it keeps its path. The editor's strip says what a job file is, and the rows are read again after a save.
+- A conversation a job opened has a clock in place of the speech bubble in the conversation list and its job's name in the detail line (a pin still wins). No new strip or card.
+- Not built: removing a job from Settings (the file can be deleted in the folder), a "Run now" button (`sympose run persona/job` does it).
+- Checked: 16 of 16 Python and 14 of 14 web mutants caught; the real app on a scratch install (the rows, the pencil, a save, the pause lifted, a new job opened, the clock in the list).
 
 ## Alternatives rejected
 

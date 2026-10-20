@@ -37,12 +37,13 @@ from sympose import server_settings_handlers as seh
 from sympose import server_sharing_handlers as sph
 from sympose import server_search_handlers as sh
 from sympose import server_session_handlers as sess
+from sympose import server_job_handlers as jh
 from sympose import server_skill_handlers as skh
 from sympose import server_trash_handlers as th
 from sympose import server_vault_handlers as vh
 from sympose import vault_paths
 from sympose.server_change_models import AnnotationChange, AnnotationCreate, ChangesResolve, DraftText
-from sympose.server_models import ChatBinAction, ChatCancel, ChatCompact, ChatSessionArchive, ChatSessionStart, ChatSessionUpdate, ChatTurn, DefinitionsSwitch, EditModeChoice, FolderColor, FolderIcon, FolderMove, FolderMovePlan, FolderRename, FolderSettings, HiddenPath, ModelChoice, PersonaFileWrite, SettingChange, SharingChange, SkillAdd, SkillSwitch, TrashEmpty, TrashRestore, VaultActivate
+from sympose.server_models import ChatBinAction, ChatCancel, ChatCompact, ChatSessionArchive, ChatSessionStart, ChatSessionUpdate, ChatTurn, DefinitionsSwitch, EditModeChoice, FolderColor, FolderIcon, FolderMove, FolderMovePlan, FolderRename, FolderSettings, HiddenPath, JobSwitch, ModelChoice, PersonaFileWrite, SettingChange, SharingChange, SkillAdd, SkillSwitch, TrashEmpty, TrashRestore, VaultActivate
 
 
 def create_app() -> FastAPI:
@@ -230,25 +231,38 @@ def create_app() -> FastAPI:
     def delete_persona_skill(handle: str, name: str) -> dict[str, Any]:
         return skh.delete_skill(handle, name)
 
+    @app.get("/api/personas/{handle}/jobs")
+    def list_persona_jobs(handle: str) -> dict[str, Any]:
+        return jh.list_jobs(handle)
+
+    @app.post("/api/personas/{handle}/jobs")
+    def post_persona_job(handle: str) -> dict[str, Any]:
+        return jh.post_job(handle)
+
+    @app.put("/api/personas/{handle}/jobs/{name}")
+    def put_persona_job(handle: str, name: str, body: JobSwitch) -> dict[str, Any]:
+        return jh.put_job(handle, name, body)
+
     @app.get("/api/personas/{handle}/files")
     def list_persona_files(handle: str) -> dict[str, Any]:
         return pfh.list_files(handle)
 
-    @app.get("/api/personas/{handle}/files/{name}")
+    @app.get("/api/personas/{handle}/files/{name}/pending")
+    def get_persona_file_pending(handle: str, name: str) -> dict[str, str]:
+        return pfh.get_pending(handle, name)
+
+    # `{name:path}`: a job's file is `jobs/<name>.md`. The pending route above is declared first so it keeps its own path.
+    @app.get("/api/personas/{handle}/files/{name:path}")
     def get_persona_file(handle: str, name: str) -> dict[str, Any]:
         return pfh.get_file(handle, name)
 
-    @app.put("/api/personas/{handle}/files/{name}")
+    @app.put("/api/personas/{handle}/files/{name:path}")
     def put_persona_file(handle: str, name: str, body: PersonaFileWrite) -> dict[str, Any]:
         return pfh.put_file(handle, name, body)
 
     @app.post("/api/personas/{handle}/files/soul.md/reset")
     def reset_persona_soul(handle: str) -> dict[str, Any]:
         return pfh.reset_soul(handle)
-
-    @app.get("/api/personas/{handle}/files/{name}/pending")
-    def get_persona_file_pending(handle: str, name: str) -> dict[str, str]:
-        return pfh.get_pending(handle, name)
 
     @app.post("/api/personas/{handle}/files/{name}/pending/accept")
     def accept_persona_file_pending(handle: str, name: str) -> dict[str, Any]:

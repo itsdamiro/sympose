@@ -10,6 +10,8 @@ export interface SessionRow {
   updated_at: string | null
   /** When it was pinned (the pinned ones come first, in this order), else `null`. */
   pinned_at: string | null
+  /** The scheduled job that opened it (docs/decisions/091), else `null`. */
+  job: string | null
   /** A reply is being written into it right now (per the backend, so also one started in another window). */
   replying: boolean
 }

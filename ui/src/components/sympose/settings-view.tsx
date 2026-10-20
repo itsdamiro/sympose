@@ -6,10 +6,12 @@ import {
   ChatDisplaySection,
   CollapseAllButton,
   ControlSearchProvider,
+  ControlSection,
   ControlSectionsProvider,
   EditorPreferencesSection,
   EngineSettingsSections,
   HiddenSection,
+  JobsRows,
   NebulaAppearanceSection,
   NotificationsSection,
   RecentNotesPreferencesSection,
@@ -51,6 +53,8 @@ export function SettingsView({
   cloudNotice,
   persona,
   personaName,
+  jobsVersion,
+  onOpenJob,
   query = "",
 }: {
   title: string
@@ -79,6 +83,10 @@ export function SettingsView({
   /** The persona that is open: the skills listed under Skills are hers. */
   persona: string | null
   personaName: string
+  /** Changes when the editor saved a job's file, so the Jobs rows are read again. */
+  jobsVersion?: number
+  /** Open a job's file in the editor, by the name the persona-file routes know it by (`jobs/<name>.md`). */
+  onOpenJob: (file: string) => void
   /** What the toolbar's search field holds (docs/decisions/065): rows and sections without a match are hidden. */
   query?: string
 }) {
@@ -126,6 +134,9 @@ export function SettingsView({
           onNoticeOpenChange={(open) => (open ? cloudNotice.reopen() : cloudNotice.close())}
         />
         <EngineSettingsSections extras={{ Skills: <SkillsRows persona={persona} personaName={personaName} /> }} />
+        <ControlSection title="Jobs">
+          <JobsRows persona={persona} personaName={personaName} version={jobsVersion} onOpen={onOpenJob} />
+        </ControlSection>
         {query.trim() !== "" && (
           // shown only while no row is visible and no section matched by its title (the page has no state of its own
           // about that: the rows and sections hide themselves)

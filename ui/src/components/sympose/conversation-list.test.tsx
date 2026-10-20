@@ -12,6 +12,7 @@ const row = (id: string, extra: Partial<ListedSession> = {}): ListedSession => (
   created_at: null,
   updated_at: new Date(Date.now() - 3 * 3600 * 1000).toISOString(),
   pinned_at: null,
+  job: null,
   replying: false,
   unread: false,
   current: false,
@@ -110,6 +111,22 @@ describe("ConversationList", () => {
     expect(screen.getByLabelText("Pinned")).toBeTruthy()
     expect(screen.getByText("replying…")).toBeTruthy()
     expect(screen.getAllByLabelText("New reply")).toHaveLength(1) // one that is replying does not also show the dot
+  })
+
+  it("marks a conversation a scheduled job opened with a clock and the job's name, and a pin wins over the clock", () => {
+    setup([row("a", { job: "weekly" }), row("b", { job: "daily", pinned_at: "2026-10-01T10:00:00+00:00" }), row("c")])
+    expect(screen.getByLabelText("Run by the job weekly")).toBeTruthy()
+    expect(screen.getByText("2 messages · 3h ago · weekly")).toBeTruthy()
+    expect(screen.queryByLabelText("Run by the job daily")).toBeNull()
+    expect(screen.getByLabelText("Pinned")).toBeTruthy()
+    expect(screen.getAllByText("2 messages · 3h ago")).toHaveLength(1) // an ordinary conversation's detail line is unchanged
+  })
+
+  it("draws a pinned conversation with the pin whether or not a job opened it", () => {
+    setup([row("a", { job: "daily", pinned_at: "2026-10-01T10:00:00+00:00" }), row("b", { pinned_at: "2026-10-02T10:00:00+00:00" })])
+    const [withJob, plain] = screen.getAllByLabelText("Pinned").map((icon) => icon.querySelector("path")?.getAttribute("d"))
+    expect(withJob).toBeTruthy()
+    expect(withJob).toBe(plain)
   })
 
   it("has no title line and no New button: the list is only its conversations (a new one starts from the chat)", () => {

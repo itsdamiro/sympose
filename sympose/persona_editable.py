@@ -11,13 +11,18 @@ made meanwhile (the engine appending a decision, the terminal) is refused instea
 
 A rewrite the engine staged for `profile.md` or `context.md` (`<file>.pending`, `engine/memory_write.py`) is read
 here with a diff against the current file, then accepted or discarded one file at a time, the web's counterpart of
-the terminal's `/memory review`."""
+the terminal's `/memory review`.
+
+A scheduled job's file, `jobs/<name>.md` (docs/decisions/091), is the one more name the editor may open. It is the
+user's own and is saved in place with the same `.bak` and mtime check; a job that is not there is not created by a save
+(Settings makes a new one from its template)."""
 
 import os
 import threading
 from typing import Any
 
 from sympose.atomic_write import write_atomic_text
+from sympose import jobs
 from sympose.engine import memory_write
 from sympose.persona_files import SOUL_FILENAME, SOUL_LOCAL_FILENAME, persona_dir, profiles_dir
 from sympose.security import is_safe_path
@@ -35,6 +40,17 @@ FILES: dict[str, tuple[str, str]] = {
 _PENDING = {"profile.md": memory_write.PROFILE_PENDING, "context.md": memory_write.CONTEXT_PENDING}
 _APPLY = {"profile.md": memory_write.apply_profile, "context.md": memory_write.apply_context}
 _LOCK = threading.Lock()
+
+
+def known(name: str) -> bool:
+    """Whether `name` is one of the four files or a job's file (`jobs/<name>.md`)."""
+    return name in FILES or _job(name) is not None
+
+
+def _job(name: str) -> str | None:
+    """The job a name like `jobs/weekly.md` stands for."""
+    folder, _, file = name.partition("/")
+    return file[:-3] if folder == jobs.JOBS_FOLDER and file.endswith(".md") and jobs.valid_name(file[:-3]) else None
 
 
 def _path(handle: str, filename: str) -> str | None:
@@ -76,11 +92,12 @@ def list_files(handle: str) -> list[dict[str, Any]]:
 
 def read(handle: str, name: str) -> dict[str, Any] | None:
     """The file as it is in effect, whole and untouched, with its mtime (`None` while it does not exist yet, so a
-    file not written so far opens empty and a first save creates it). `None` for a name outside the four."""
-    if name not in FILES:
+    file not written so far opens empty and a first save creates it; a job that is not there is `None`). `None` for a
+    name that is neither one of the four nor a job."""
+    if not known(name):
         return None
     path = _effective(handle, name)
-    if path is None:
+    if path is None or (name not in FILES and not os.path.isfile(path)):
         return None
     local = name == SOUL_FILENAME and os.path.basename(path) == SOUL_LOCAL_FILENAME
     try:
@@ -92,11 +109,13 @@ def read(handle: str, name: str) -> dict[str, Any] | None:
 
 
 def write(handle: str, name: str, text: str, expected_mtime: float | None) -> str:
-    if name not in FILES:
+    if not known(name):
         return UNKNOWN
     effective, target = _effective(handle, name), _target(handle, name)
     if effective is None or target is None:
         return FAILED
+    if name not in FILES and not os.path.isfile(target):
+        return UNKNOWN
     with _LOCK:
         if not mtime_matches(effective, expected_mtime):  # the version the editor opened, not the file it will write
             return CONFLICT

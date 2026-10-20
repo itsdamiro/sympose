@@ -13,7 +13,7 @@ import { SettingsView } from "./settings-view"
 const setShowDefinitionNotes = vi.fn()
 vi.mock("@/lib/vault-hidden-api", () => ({ setShowDefinitionNotes: (...a: unknown[]) => setShowDefinitionNotes(...a) }))
 
-const OPEN = ["hidden-from-view", "cloud-models", "recent-notes", "workspace"]
+const OPEN = ["hidden-from-view", "cloud-models", "recent-notes", "workspace", "jobs"]
 beforeEach(() => {
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, json: async () => ({}) }))
   for (const k of OPEN) document.cookie = `sympose:pref.section.${k}=1`
@@ -73,6 +73,7 @@ function setup(over: Record<string, unknown> = {}) {
         cloudNotice={{ open: true, reopen: spies.reopen, close: spies.close }}
         persona="samantha"
         personaName="Samantha"
+        onOpenJob={vi.fn()}
         {...over}
       />
     )
@@ -89,9 +90,18 @@ describe("SettingsView", () => {
 
   it("lists every group of preferences", () => {
     setup()
-    for (const name of ["Workspace", "Markdown editor", "Notifications", "Knowledge Nebula", "Recent notes", "Hidden from view", "Chat", "Cloud models"]) {
+    for (const name of ["Workspace", "Markdown editor", "Notifications", "Knowledge Nebula", "Recent notes", "Hidden from view", "Chat", "Cloud models", "Jobs"]) {
       expect(screen.getAllByText(name).length, name).toBeGreaterThan(0)
     }
+  })
+
+  it("opens a job's file in the editor through the shell, from the row's button", async () => {
+    const job = { name: "weekly", file: "jobs/weekly.md", schedule: "weekly sun 18:00", kind: "ask", mechanical: false, model: null, cloud: false, enabled: true, problem: null, paused: false, failures: 0, last_run: null, outcome: null, detail: "", session_id: null }
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => ({ ok: url.endsWith("/jobs"), json: async () => ({ jobs: [job] }) })))
+    const onOpenJob = vi.fn()
+    setup({ onOpenJob })
+    fireEvent.click(await screen.findByRole("button", { name: "Open weekly in the editor" }))
+    expect(onOpenJob).toHaveBeenCalledExactlyOnceWith("jobs/weekly.md")
   })
 
   it("unhides a path through the shell's unhide", () => {

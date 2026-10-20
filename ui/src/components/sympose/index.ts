@@ -27,6 +27,7 @@ export { FolderSettingsDialog } from "./folder-settings-dialog"
 export { RootCreateDialog } from "./root-create-dialog"
 export { FrontmatterCard } from "./frontmatter-card"
 export { EngineSettingsSections } from "./engine-settings-section"
+export { JobsRows } from "./jobs-rows"
 export { SkillsRows } from "./skills-rows"
 export { HiddenSection } from "./hidden-section"
 // `AmbientNebula` is intentionally NOT re-exported here — it pulls in

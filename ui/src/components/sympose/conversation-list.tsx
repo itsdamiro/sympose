@@ -2,6 +2,7 @@ import * as React from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Archive02Icon,
+  Clock01Icon,
   Delete02Icon,
   Edit01Icon,
   Message01Icon,
@@ -132,8 +133,8 @@ function ConversationRow({
             )}
           >
             <ResultText
-              icon={pinned ? PinIcon : Message01Icon}
-              iconLabel={pinned ? "Pinned" : undefined}
+              icon={pinned ? PinIcon : row.job ? Clock01Icon : Message01Icon}
+              iconLabel={pinned ? "Pinned" : row.job ? `Run by the job ${row.job}` : undefined}
               title={title}
               emphasized={row.current}
               trailing={
@@ -148,7 +149,7 @@ function ConversationRow({
                   )}
                 </>
               }
-              detail={`${row.turns} message${row.turns === 1 ? "" : "s"}${when ? ` · ${when}` : ""}`}
+              detail={`${row.turns} message${row.turns === 1 ? "" : "s"}${when ? ` · ${when}` : ""}${row.job ? ` · ${row.job}` : ""}`}
             />
           </button>
 

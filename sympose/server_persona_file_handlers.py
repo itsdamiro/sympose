@@ -16,7 +16,7 @@ def _handle(handle: str) -> str:
 
 
 def _known(name: str) -> str:
-    if name not in pe.FILES:
+    if not pe.known(name):
         raise HTTPException(status_code=404, detail="That file isn't one the persona uses.")
     return name
 
@@ -38,6 +38,8 @@ def get_file(handle: str, name: str) -> dict[str, Any]:
 def put_file(handle: str, name: str, body: PersonaFileWrite) -> dict[str, Any]:
     handle = _handle(handle)
     result = pe.write(handle, _known(name), body.content, body.expected_mtime)
+    if result == pe.UNKNOWN:
+        raise HTTPException(status_code=404, detail="That file isn't one the persona uses.")
     if result == pe.CONFLICT:
         raise HTTPException(status_code=409, detail=f"`{name}` was changed somewhere else since you opened it. Reload it, then save again.")
     if result != pe.OK:
