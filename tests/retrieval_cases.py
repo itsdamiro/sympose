@@ -79,6 +79,10 @@ _RAW = [
     ("sympose", "how do I tell my projects apart by colour in the graph?", True, "The web app.md"),
     ("sympose", "can I give a folder inside Projects its own icon?", True, "The web app.md"),
     ("sympose", "the notes check says a subfolder colour is for a folder that is gone, what does that mean?", True, "Checking your notes.md"),
+    ("sympose", "can I have you do something on your own every week?", True, "The web app.md"),
+    ("sympose", "how do I set up a task that runs by itself on a schedule?", True, "The web app.md"),
+    ("sympose", "will my jobs still run if I close Sympose?", True, "The web app.md"),
+    ("sympose", "one of my jobs stopped running by itself, why?", True, "The web app.md"),
 ]
 
 _VAULT = [
@@ -117,6 +121,7 @@ _NONE = [
     ("general", "who wrote Pride and Prejudice?"),
     ("general", "give me names of famous female computer scientists from history"),
     ("general", "what is the capital of Portugal?"),
+    ("general", "how do I schedule a weekly meeting with my team?"),
     ("general", "explain what an embedding is"),
     ("general", "suggest a name for my new puppy"),
     ("general", "what is the tallest mountain in the world?"),

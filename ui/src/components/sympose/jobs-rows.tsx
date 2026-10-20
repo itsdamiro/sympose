@@ -16,6 +16,7 @@ import { SegmentedControl } from "@/components/sympose/segmented-control"
 import { agoIso } from "@/lib/ago"
 import type { Job } from "@/lib/jobs-api"
 import { useJobs } from "@/lib/use-jobs"
+import { useSchedule } from "@/lib/use-schedule"
 
 /** One line under a job's name: its schedule, and how it last went (or what stops it), in the muted style of a hint. */
 function JobStatus({ job }: { job: Job }) {
@@ -57,7 +58,8 @@ function JobStatus({ job }: { job: Job }) {
 /**
  * Settings → Jobs (docs/decisions/091): one row for each of the persona's scheduled jobs, with its schedule, how the last
  * run went, the model's mark, a button that opens the job's file in the editor and a switch, and a button that makes a new
- * job from the template (off, and opened in the editor at once). A job that stopped itself after failing shows as off: the
+ * job from the template (off, and opened in the editor at once), and, on a Mac, the switch that has the operating system
+ * run due jobs while the app is closed. A job that stopped itself after failing shows as off: the
  * switch turns it back on. The backend holds every rule: this only asks, and shows the reason when it refuses.
  */
 function JobsRows({
@@ -74,6 +76,7 @@ function JobsRows({
   onOpen: (file: string) => void
 }) {
   const { state, setEnabled, add } = useJobs(persona, version)
+  const { schedule, set: setSchedule } = useSchedule()
   const [adding, setAdding] = React.useState(false)
 
   if (!persona) return null
@@ -104,6 +107,29 @@ function JobsRows({
           <HugeiconsIcon icon={Add01Icon} />
         </Button>
       </ControlRow>
+      {schedule?.supported && (
+        <ControlRow
+          label="Run while Sympose is closed"
+          keywords="job schedule scheduled background launchd login"
+          hint={
+            <p className="text-xs text-fg-muted">
+              On: your Mac checks for jobs that are due every 5 minutes, even when this app is closed. Off: they run only
+              while it is open.
+            </p>
+          }
+        >
+          <SegmentedControl
+            size="sm"
+            aria-label="Run jobs while Sympose is closed"
+            value={schedule.installed ? "on" : "off"}
+            onValueChange={(v) => void setSchedule(v === "on")}
+            options={[
+              { value: "on", label: "On" },
+              { value: "off", label: "Off" },
+            ]}
+          />
+        </ControlRow>
+      )}
       {state.status === "error" && <p className="text-sm text-fg-muted">Couldn&apos;t load the jobs: {state.error}</p>}
       {jobs.map((job) => (
         <ControlRow

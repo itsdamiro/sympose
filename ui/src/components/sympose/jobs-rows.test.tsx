@@ -16,10 +16,22 @@ const res = (body: unknown, ok = true, status = ok ? 200 : 422) => ({ ok, status
 
 let calls: { url: string; init?: RequestInit }[]
 
-function stub(routes: { list?: unknown[]; put?: (enabled: boolean) => Response; post?: Response } = {}) {
+function stub(
+  routes: {
+    list?: unknown[]
+    put?: (enabled: boolean) => Response
+    post?: Response
+    schedule?: { supported: boolean; installed: boolean }
+    putSchedule?: (installed: boolean) => Response
+  } = {}
+) {
   calls = []
   vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
     calls.push({ url, init })
+    if (url === "/api/schedule") {
+      if (init?.method === "PUT") return routes.putSchedule?.(JSON.parse(init.body as string).installed) ?? res(routes.schedule)
+      return res(routes.schedule ?? { supported: false, installed: false })
+    }
     if (init?.method === "POST") return routes.post ?? res({ job: job({ name: "new-job", file: "jobs/new-job.md", enabled: false }) })
     if (init?.method === "PUT") return routes.put?.(JSON.parse(init.body as string).enabled) ?? res({ job: job() })
     return res({ jobs: routes.list ?? [job()] })
@@ -156,5 +168,45 @@ describe("JobsRows", () => {
     expect(await screen.findByText("Couldn't load the jobs: No.")).toBeTruthy()
     rerender(<JobsRows persona={null} personaName="Ada" onOpen={vi.fn()} />)
     expect(container.textContent).toBe("")
+  })
+
+  describe("running while Sympose is closed", () => {
+    const state = () => screen.getByRole("radiogroup", { name: "Run jobs while Sympose is closed" }).querySelector('[aria-checked="true"]')?.textContent
+
+    it("shows the switch as the operating system has it", async () => {
+      stub({ schedule: { supported: true, installed: true } })
+      render(<JobsRows persona="ada" personaName="Ada" onOpen={vi.fn()} />)
+      expect(await screen.findByText("Run while Sympose is closed")).toBeTruthy()
+      expect(state()).toBe("On")
+    })
+
+    it("is not offered where it cannot be set up", async () => {
+      stub({ schedule: { supported: false, installed: false } })
+      render(<JobsRows persona="ada" personaName="Ada" onOpen={vi.fn()} />)
+      await screen.findByText("weekly")
+      expect(screen.queryByText("Run while Sympose is closed")).toBeNull()
+    })
+
+    it("sets it up when switched on, and takes it away when switched off", async () => {
+      stub({ schedule: { supported: true, installed: false }, putSchedule: (installed) => res({ supported: true, installed }) })
+      render(<JobsRows persona="ada" personaName="Ada" onOpen={vi.fn()} />)
+      await screen.findByText("Run while Sympose is closed")
+      const group = screen.getByRole("radiogroup", { name: "Run jobs while Sympose is closed" })
+      fireEvent.click(group.querySelector('[role="radio"]:first-child')!) // On
+      await waitFor(() => expect(state()).toBe("On"))
+      fireEvent.click(group.querySelector('[role="radio"]:last-child')!) // Off
+      await waitFor(() => expect(state()).toBe("Off"))
+      const sent = calls.filter((c) => c.url === "/api/schedule" && c.init?.method === "PUT").map((c) => JSON.parse(c.init!.body as string))
+      expect(sent).toEqual([{ installed: true }, { installed: false }])
+    })
+
+    it("keeps the switch where it was and shows the reason when it is refused", async () => {
+      stub({ schedule: { supported: true, installed: false }, putSchedule: () => res({ detail: "Couldn't start the schedule: no way" }, false) })
+      render(<JobsRows persona="ada" personaName="Ada" onOpen={vi.fn()} />)
+      await screen.findByText("Run while Sympose is closed")
+      fireEvent.click(screen.getByRole("radiogroup", { name: "Run jobs while Sympose is closed" }).querySelector('[role="radio"]:first-child')!)
+      await waitFor(() => expect(notifyError).toHaveBeenCalledWith("Couldn't start the schedule: no way"))
+      expect(state()).toBe("Off")
+    })
   })
 })

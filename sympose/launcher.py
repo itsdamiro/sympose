@@ -55,6 +55,9 @@ def _run_web(args: argparse.Namespace) -> int:
         # against a server that has not bound the port yet. uvicorn.run blocks, so this runs on
         # its own thread.
         threading.Timer(1.0, _open).start()
+    from sympose import job_timer
+
+    job_timer.start()  # jobs that came due while the app was closed run now, the rest as their time comes (ADR 091)
     uvicorn.run(app, host="127.0.0.1", port=port)  # this machine only: no auth, no TLS
     return 0
 
@@ -103,6 +106,27 @@ def _run_jobs(args: argparse.Namespace) -> int:
     return 1 if any(o.status != job_run.RAN for o in outcomes) and not args.due else 0
 
 
+def _run_schedule(args: argparse.Namespace) -> int:
+    from sympose import job_launchd
+
+    if not job_launchd.supported():
+        print("sympose schedule: running jobs while Sympose is closed is only set up for macOS so far.", file=sys.stderr)
+        return 1
+    try:
+        if args.action == "install":
+            job_launchd.install()
+            print(f"Installed: due jobs run every {job_launchd.EVERY_SECONDS // 60} minutes ({job_launchd.plist_path()}).")
+        elif args.action == "remove":
+            job_launchd.remove()
+            print("Removed: jobs run only while the web app is open.")
+        else:
+            print("Installed." if job_launchd.installed() else "Not installed: jobs run only while the web app is open.")
+    except job_launchd.ScheduleRefused as e:
+        print(f"sympose schedule: {e}", file=sys.stderr)
+        return 1
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="sympose", description="Sympose: an AI companion for your Obsidian vault.")
     commands = parser.add_subparsers(dest="command", title="commands")
@@ -126,6 +150,9 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("job", nargs="?", metavar="PERSONA/JOB", help="run this job now, whatever its schedule")
     run.add_argument("--due", action="store_true", help="run every job whose time has come, then stop")
     run.set_defaults(run=_run_jobs, run_parser=run)
+    schedule = commands.add_parser("schedule", help="have the operating system run due jobs while the web app is closed (macOS)")
+    schedule.add_argument("action", choices=["install", "remove", "status"], help="install or remove the entry, or say whether it is there")
+    schedule.set_defaults(run=_run_schedule)
     return parser
 
 

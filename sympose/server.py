@@ -38,12 +38,13 @@ from sympose import server_sharing_handlers as sph
 from sympose import server_search_handlers as sh
 from sympose import server_session_handlers as sess
 from sympose import server_job_handlers as jh
+from sympose import server_schedule_handlers as sch
 from sympose import server_skill_handlers as skh
 from sympose import server_trash_handlers as th
 from sympose import server_vault_handlers as vh
 from sympose import vault_paths
 from sympose.server_change_models import AnnotationChange, AnnotationCreate, ChangesResolve, DraftText
-from sympose.server_models import ChatBinAction, ChatCancel, ChatCompact, ChatSessionArchive, ChatSessionStart, ChatSessionUpdate, ChatTurn, DefinitionsSwitch, EditModeChoice, FolderColor, FolderIcon, FolderMove, FolderMovePlan, FolderRename, FolderSettings, HiddenPath, JobSwitch, ModelChoice, PersonaFileWrite, SettingChange, SharingChange, SkillAdd, SkillSwitch, TrashEmpty, TrashRestore, VaultActivate
+from sympose.server_models import ChatBinAction, ChatCancel, ChatCompact, ChatSessionArchive, ChatSessionStart, ChatSessionUpdate, ChatTurn, DefinitionsSwitch, EditModeChoice, FolderColor, FolderIcon, FolderMove, FolderMovePlan, FolderRename, FolderSettings, HiddenPath, JobSwitch, ModelChoice, PersonaFileWrite, ScheduleSwitch, SettingChange, SharingChange, SkillAdd, SkillSwitch, TrashEmpty, TrashRestore, VaultActivate
 
 
 def create_app() -> FastAPI:
@@ -238,6 +239,14 @@ def create_app() -> FastAPI:
     @app.post("/api/personas/{handle}/jobs")
     def post_persona_job(handle: str) -> dict[str, Any]:
         return jh.post_job(handle)
+
+    @app.get("/api/schedule")
+    def get_schedule() -> dict[str, Any]:
+        return sch.get_schedule()
+
+    @app.put("/api/schedule")
+    def put_schedule(body: ScheduleSwitch) -> dict[str, Any]:
+        return sch.put_schedule(body)
 
     @app.put("/api/personas/{handle}/jobs/{name}")
     def put_persona_job(handle: str, name: str, body: JobSwitch) -> dict[str, Any]:

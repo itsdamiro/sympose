@@ -21,6 +21,9 @@ def ran(monkeypatch):
     import uvicorn
 
     monkeypatch.setattr(uvicorn, "run", lambda app, **kw: calls.update(web=kw))
+    from sympose import job_timer
+
+    monkeypatch.setattr(job_timer, "start", lambda *a, **kw: calls.update(timer=calls.get("timer", 0) + 1))  # never a real pass over real jobs
     import sympose.cli.__main__ as cli_main
 
     monkeypatch.setattr(cli_main, "main", lambda: calls.update(cli=True))
@@ -59,6 +62,11 @@ def test_web_serves_on_this_machine_only_on_port_8000_by_default(ran, capsys):
 
     assert ran["web"] == {"host": "127.0.0.1", "port": 8000}
     assert "http://127.0.0.1:8000" in capsys.readouterr().out
+
+
+def test_web_starts_the_jobs_timer_before_it_serves(ran):
+    launcher.main(["web"])
+    assert ran["timer"] == 1
 
 
 def test_web_takes_its_port_from_the_flag_before_the_environment(ran, monkeypatch, capsys):

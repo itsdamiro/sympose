@@ -404,6 +404,9 @@ REF_CASES: list[RefCase] = [
         find=("Accept",),
         first="Not built yet.md",
     ),
+    # Scheduled jobs (ADR 091)
+    RefCase("jobs-schedule", "how do I make a persona do something on a schedule?", find=("Add a job", "Drafts"), first="The web app.md"),
+    RefCase("jobs-closed", "do my jobs run when Sympose is closed?", find=("sympose schedule install",), first="The web app.md"),
     # Checking the notes (ADR 034)
     RefCase("check-notes", "how do I check my notes for problems?", find=("sympose vault --health",), first="Checking your notes.md"),
     RefCase("empty-notes", "how do I find empty notes in my vault?", find=("sympose vault --health",), first="Checking your notes.md"),
