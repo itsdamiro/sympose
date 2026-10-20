@@ -54,7 +54,8 @@ export interface VaultNode {
   type: "folder" | "note"
   children?: VaultNode[]
   /** A top-level folder's look from its definition note (docs/decisions/064): the name of its icon in the icon set,
-   *  and its colour for the nebula (`accent` light, `accent_dark` dark). Each is set only when the note sets it. */
+   *  and its colour for the nebula (`accent` light, `accent_dark` dark). Each is set only when the note sets it. A
+   *  folder below a top-level one carries only the colour its top-level folder's note gives it (docs/decisions/090). */
   icon?: string
   accent?: string
   accent_dark?: string
@@ -256,6 +257,9 @@ export interface RowActions {
   onBeforeFolderRename?: () => Promise<boolean>
   /** A note row was moved to trash. */
   onDeleted?: (path: string) => void
+  /** A subfolder's colour was saved from its row's "Folder colour" (docs/decisions/090): the tree is read again.
+   *  Omit to leave that item out of a subfolder's menu. */
+  onFolderColored?: () => void
   /** A new note was created from a folder row. */
   onCreated?: (path: string) => void
   /** Is this note path pinned — feeds the row's "Pin note" / "Unpin note"
@@ -334,6 +338,7 @@ function VaultTree({
   onFolderRenamed,
   onBeforeFolderRename,
   onDeleted,
+  onFolderColored,
   onCreated,
   isPinned,
   onTogglePin,
@@ -390,6 +395,7 @@ function VaultTree({
     onFolderRenamed,
     onBeforeFolderRename,
     onDeleted,
+    onFolderColored,
     onCreated,
     isPinned,
     onTogglePin,
@@ -569,6 +575,7 @@ export function VaultTreeRow({
         onFolderRenamed={actions.onFolderRenamed}
         onBeforeFolderRename={actions.onBeforeFolderRename}
         onDeleted={actions.onDeleted!}
+        onFolderColored={actions.onFolderColored}
         onCreated={actions.onCreated!}
         pinned={pinned}
         onTogglePin={actions.onTogglePin}

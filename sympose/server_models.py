@@ -143,6 +143,16 @@ class FolderSettings(BaseModel):
     persona: str | None = None
 
 
+class FolderColor(BaseModel):
+    """Body of `PUT /api/vault/folder/color` — the colour of the folder `path` below a top-level folder, kept in that
+    folder's definition note (docs/decisions/090): `accent` and `accent_dark` as hex colours, both `None` to clear it."""
+
+    path: str = Field(..., min_length=1)
+    accent: str | None = None
+    accent_dark: str | None = None
+    persona: str | None = None
+
+
 class ChatCancel(BaseModel):
     """Body of `POST /api/chat/cancel` — stop a reply in flight (docs/decisions/054): the conversation
     `session_id` names, or every reply the persona is writing when it is left out, or with `unnamed` only a first message's, which has no id

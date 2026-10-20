@@ -42,7 +42,7 @@ from sympose import server_trash_handlers as th
 from sympose import server_vault_handlers as vh
 from sympose import vault_paths
 from sympose.server_change_models import AnnotationChange, AnnotationCreate, ChangesResolve, DraftText
-from sympose.server_models import ChatBinAction, ChatCancel, ChatCompact, ChatSessionArchive, ChatSessionStart, ChatSessionUpdate, ChatTurn, DefinitionsSwitch, EditModeChoice, FolderIcon, FolderMove, FolderMovePlan, FolderRename, FolderSettings, HiddenPath, ModelChoice, PersonaFileWrite, SettingChange, SharingChange, SkillAdd, SkillSwitch, TrashEmpty, TrashRestore, VaultActivate
+from sympose.server_models import ChatBinAction, ChatCancel, ChatCompact, ChatSessionArchive, ChatSessionStart, ChatSessionUpdate, ChatTurn, DefinitionsSwitch, EditModeChoice, FolderColor, FolderIcon, FolderMove, FolderMovePlan, FolderRename, FolderSettings, HiddenPath, ModelChoice, PersonaFileWrite, SettingChange, SharingChange, SkillAdd, SkillSwitch, TrashEmpty, TrashRestore, VaultActivate
 
 
 def create_app() -> FastAPI:
@@ -335,6 +335,17 @@ def create_app() -> FastAPI:
     @app.put("/api/vault/folder/settings")
     def put_folder_settings(body: FolderSettings) -> dict[str, Any]:
         return dh.put_folder_settings(body)
+
+    @app.get("/api/vault/folder/color")
+    def get_folder_color(
+        path: str = Query(..., description="A folder below a top-level folder"),
+        persona: str | None = Query(None),
+    ) -> dict[str, Any]:
+        return dh.get_folder_color(path, persona)
+
+    @app.put("/api/vault/folder/color")
+    def put_folder_color(body: FolderColor) -> dict[str, Any]:
+        return dh.put_folder_color(body)
 
     @app.patch("/api/vault/folder")
     def rename_folder(body: FolderRename) -> dict[str, Any]:

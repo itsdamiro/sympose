@@ -7,12 +7,25 @@ from typing import Any
 
 from fastapi import HTTPException
 
-from sympose import note_changes, persona_scope, vault_hidden, vault_paths
+from sympose import note_changes, persona_scope, subfolder_colors, vault_hidden, vault_paths
+from sympose.folder_looks_write import Refused
 from sympose.server_handlers import require_profile, sandbox_denied, translate_vault_result
 from sympose.server_models import FolderMove, FolderMovePlan, FolderRename
 from sympose.vault_move_folder_plan import plan_move
 from sympose.vault_write_move_folder import move_folder_to_path
 from sympose.vault_write_rename_folder import OK, rename_folder_to_path
+
+
+def _carry_colors(profile: dict[str, Any], old: str, new: str, bits: list[str]) -> None:
+    """The folder colours kept in the top-level folder's note (docs/decisions/090) follow the folder to its new path.
+    Best effort once the directory has moved: a note that cannot be written is said, not raised."""
+    try:
+        moved = subfolder_colors.follow(profile, old, new)
+    except Refused as reason:
+        bits.append(f"folder colours not carried: {reason}")
+        return
+    if moved:
+        bits.append(f"{moved} folder colour{'s' if moved != 1 else ''} carried along")
 
 
 def rename_folder(body: FolderRename) -> dict[str, Any]:
@@ -34,6 +47,7 @@ def rename_folder(body: FolderRename) -> dict[str, Any]:
         vault_hidden.rename_folder(vault, old, got.path)
     note_changes.rename_folder_everywhere(old, got.path)  # a persona's pending changes follow the notes (docs/decisions/070)
     bits = []
+    _carry_colors(profile, old, got.path, bits)
     if got.relinked:
         bits.append(f"{got.relinked} note{'s' if got.relinked != 1 else ''} relinked")
     if got.failed:
@@ -110,6 +124,7 @@ def move_folder(body: FolderMove) -> dict[str, Any]:
     note_changes.rename_folder_everywhere(plan.path, got.path)
     _keep_what_a_merge_left(vault, plan.path, got)
     bits = []
+    _carry_colors(profile, plan.path, got.path, bits)
     if got.relinked:
         bits.append(f"{_plural(got.relinked, 'note')} relinked")
     if got.failed:

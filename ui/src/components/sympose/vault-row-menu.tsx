@@ -5,6 +5,7 @@ import {
   Delete02Icon,
   Edit01Icon,
   NoteAddIcon,
+  PaintBoardIcon,
   PinIcon,
   PinOffIcon,
   ViewOffIcon,
@@ -21,6 +22,8 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
 import { createVaultNote, deleteVaultFolder } from "@/lib/vault-note-api"
+import { fetchFolderColor } from "@/lib/folder-color-api"
+import { FolderColorDialog } from "@/components/sympose/folder-color-dialog"
 import { confirm } from "@/lib/confirm-store"
 import { notify } from "@/lib/notify"
 import { RowActionsTrigger } from "@/components/sympose/row-actions"
@@ -59,6 +62,7 @@ function VaultRowMenu({
   onFolderRenamed,
   onBeforeFolderRename,
   onDeleted,
+  onFolderColored,
   onCreated,
   pinned = false,
   onTogglePin,
@@ -82,6 +86,8 @@ function VaultRowMenu({
   onBeforeFolderRename?: () => Promise<boolean>
   /** A note row was moved to trash. */
   onDeleted: (path: string) => void
+  /** A subfolder's colour was saved (docs/decisions/090). Omit to leave "Folder colour" out of a subfolder's menu. */
+  onFolderColored?: () => void
   /** A new note was created (from a folder row): its vault-relative path. */
   onCreated: (path: string) => void
   /** Is this note currently pinned. */
@@ -128,6 +134,24 @@ function VaultRowMenu({
     } else {
       notify.error(res.error)
     }
+  }
+
+  // "Folder colour" (docs/decisions/090): only a folder below a top-level one; the top-level folders have Folder settings.
+  const [colorSetup, setColorSetup] = React.useState<{
+    path: string
+    start: { accent: string | null; accentDark: string | null }
+  } | null>(null)
+  const openFolderColor = async () => {
+    const found = await fetchFolderColor(node.path, persona)
+    if (!found) {
+      notify.error("Couldn't read the folder. Check that Sympose is running, then try again.")
+      return
+    }
+    if (!found.editable) {
+      notify.info(`${node.name} has no colour to set: it isn't in one of your own folders.`)
+      return
+    }
+    setColorSetup({ path: node.path, start: { accent: found.accent, accentDark: found.accentDark } })
   }
 
   const newNoteHere = async () => {
@@ -199,6 +223,12 @@ function VaultRowMenu({
         <DropdownMenuItem onClick={() => onHide(node.path)}>
           <HugeiconsIcon icon={ViewOffIcon} />
           Hide from view
+        </DropdownMenuItem>
+      )}
+      {onFolderColored && node.path.includes("/") && (
+        <DropdownMenuItem onClick={() => void openFolderColor()}>
+          <HugeiconsIcon icon={PaintBoardIcon} />
+          Folder colour
         </DropdownMenuItem>
       )}
       {onFolderRenamed && (
@@ -274,6 +304,16 @@ function VaultRowMenu({
       <ContextMenuContent className="duration-thumb ease-snappy">
         {items}
       </ContextMenuContent>
+
+      {/* Not inside the row's trigger, so a right-click in the dialog never opens the row's menu. */}
+      {!isNote && (
+        <FolderColorDialog
+          setup={colorSetup}
+          persona={persona}
+          onClose={() => setColorSetup(null)}
+          onSaved={() => onFolderColored?.()}
+        />
+      )}
     </ContextMenu>
   )
 }

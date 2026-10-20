@@ -56,6 +56,25 @@ describe("folderLegend", () => {
     expect(folderLegend(graph, false)).toEqual([{ folder: "Garden", color: "#88cc88" }])
   })
 
+  it("lists a coloured subfolder by its path besides its top-level folder (docs/decisions/090)", () => {
+    const violet = { accent: "#7c3aed", accent_dark: "#b98cff", colored_by: "Projects/sympose" }
+    const graph = {
+      nodes: [node("Projects"), node("Projects", violet), node("Projects", { ...violet, id: "other" }), node("Code")],
+      links: [],
+    }
+    expect(folderLegend(graph, false)).toEqual([
+      { folder: "Projects", color: FOLDER_COLORS.Projects },
+      { folder: "Code", color: FOLDER_COLORS.Code },
+      { folder: "Projects/sympose", color: "#b98cff" },
+    ])
+    expect(folderLegend(graph, true).find((e) => e.folder === "Projects/sympose")?.color).toBe("#7c3aed")
+  })
+
+  it("lists a subfolder even when none of the other notes of its top-level folder is in the graph", () => {
+    const graph = { nodes: [node("Projects", { accent: "#7c3aed", colored_by: "Projects/sympose" })], links: [] }
+    expect(folderLegend(graph).map((e) => e.folder)).toEqual(["Projects/sympose"])
+  })
+
   it("never takes a name of the object prototype for a folder in a table", () => {
     const graph = { nodes: [node("constructor"), node("toString", { accent: "#123456" })], links: [] }
     expect(folderLegend(graph).map((e) => e.folder)).toEqual(["toString"])

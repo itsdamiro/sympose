@@ -9,7 +9,7 @@ a grounding source; quoted content always comes from the note itself.
 import os
 from typing import Any
 
-from sympose import folder_looks, vault_manifest_build, vault_paths, vault_tree
+from sympose import folder_looks, subfolder_colors, vault_manifest_build, vault_paths, vault_tree
 from sympose.vault_defaults import IGNORE_FOLDERS, NOTE_EXTENSIONS
 from sympose.vault_snapshot import get_vault_snapshot
 
@@ -87,12 +87,30 @@ def get_vault_tree(profile: dict[str, Any]) -> list[dict[str, Any]]:
     tree = vault_tree.build_tree(
         manifest.get("nodes", []), prefixes, real_folders, manifest.get("links", [])
     )
-    # A top-level folder's own look (ADR 064) rides on its node: the icon, and the colour the nebula uses.
+    # A top-level folder's own look (ADR 064) rides on its node: the icon, and the colour the nebula uses. A folder
+    # below it carries the colour its top-level folder's note gives it, if any (ADR 090).
     looks = folder_looks.looks(notes)
+    below = subfolder_colors.colors(notes)
     for node in tree:
         if node["type"] == "folder":
             node.update(looks.get(node["name"], {}))
+            _colour_subfolders(node.get("children", []), below)
     return tree
+
+
+def _colour_subfolders(children: list[dict[str, Any]], below: dict[str, dict[str, str]]) -> None:
+    for child in children:
+        if child["type"] == "folder":
+            child.update(below.get(child["path"], {}))
+            _colour_subfolders(child.get("children", []), below)
+
+
+def _colour_of(n: dict[str, Any], looks: dict[str, dict[str, str]], below: dict[str, dict[str, str]]) -> dict[str, str]:
+    """The colour a note's node is drawn with: its nearest coloured folder's (ADR 090), named by `colored_by` so the
+    legend can say which folder it is, else its top-level folder's own from its definition (ADR 064), when it sets one."""
+    if (near := subfolder_colors.nearest(n["id"], below)) is not None:
+        return {**near[1], "colored_by": near[0]}
+    return {k: v for k, v in looks.get(n["folder"], {}).items() if k != "icon"}
 
 
 def _label(n: dict[str, Any]) -> str:
@@ -122,6 +140,7 @@ def get_vault_graph(profile: dict[str, Any]) -> dict[str, Any]:
     notes = get_vault_snapshot(mv, allowed_dirs)
     manifest = vault_manifest_build.build(mv, notes)
     looks = folder_looks.looks(notes)
+    below = subfolder_colors.colors(notes)
     all_nodes = manifest.get("nodes", [])
     links = manifest.get("links", [])
 
@@ -150,8 +169,7 @@ def get_vault_graph(profile: dict[str, Any]) -> dict[str, Any]:
             "tags": n.get("tags", []),
             "val": degree.get(n["id"], 0) + 1,
             "exists": n.get("exists", True),
-            # The folder's colour from its definition (ADR 064), when it sets one.
-            **{k: v for k, v in looks.get(n["folder"], {}).items() if k != "icon"},
+            **_colour_of(n, looks, below),
         }
         for n in all_nodes
     ]

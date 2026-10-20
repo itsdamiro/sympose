@@ -130,6 +130,7 @@ export function useNoteChanges({
         setSelectedNote(undefined)
       }
     },
+    onFolderColored: refreshVault,
     onCreated: (path: string) => {
       refreshVault()
       selectNote(path)

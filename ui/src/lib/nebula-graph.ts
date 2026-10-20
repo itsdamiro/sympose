@@ -28,6 +28,9 @@ export interface NebulaNode {
    *  It wins over the built-in table, and `accent` stands in for dark when `accent_dark` is missing. */
   accent?: string
   accent_dark?: string
+  /** The folder below its top-level folder whose colour this is (docs/decisions/090), as a vault path:
+   *  `Projects/sympose`. Set only when the colour is a subfolder's, so the legend can name that folder. */
+  colored_by?: string
 }
 
 export interface NebulaLink {
@@ -109,13 +112,16 @@ export function nodeColor(node: NebulaNode, isLight = false): string {
 const hasOwnColor = (n: NebulaNode) => Boolean(n.accent || n.accent_dark)
 
 /** The legend: each folder present in the graph that has a colour of its own (set by its definition note, or in the
- *  built-in table), with that colour. The built-in ones come first in the table's order, then the others by name. */
+ *  built-in table), with that colour. A folder below a top-level one that has its own colour (docs/decisions/090) is
+ *  listed by its path, besides the top-level folder. The built-in ones come first in the table's order, then the others
+ *  by name. */
 export function folderLegend(graph: NebulaGraph, isLight = false): { folder: string; color: string }[] {
   const byFolder = new Map<string, NebulaNode>()
   for (const n of graph.nodes) {
-    if (!n.folder || n.exists === false) continue
-    const held = byFolder.get(n.folder)
-    if (!held || (hasOwnColor(n) && !hasOwnColor(held))) byFolder.set(n.folder, n)
+    const key = n.colored_by ?? n.folder
+    if (!key || n.exists === false) continue
+    const held = byFolder.get(key)
+    if (!held || (hasOwnColor(n) && !hasOwnColor(held))) byFolder.set(key, n)
   }
   const builtIn = Object.keys(FOLDER_COLORS)
   const rank = (f: string) => (builtIn.includes(f) ? builtIn.indexOf(f) : builtIn.length)
