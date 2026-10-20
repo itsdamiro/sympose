@@ -561,3 +561,20 @@ def test_a_file_far_over_the_limit_is_refused_before_it_is_decoded(client, monke
     response = client.post("/api/chat/turn", json={"message": "read it", "persona": "cloudy", "files": [{"name": "a.pdf", "data": "A" * 4000}]})
 
     assert response.status_code == 400 and "too large" in response.json()["detail"]
+
+
+# -- a conversation a scheduled job opened (docs/decisions/091) -------------------------------------------
+
+
+def test_a_refresh_never_lands_in_a_conversation_a_job_opened(client):
+    seed("20260930T090000-aaaaaaaa", 2)
+    session.start_session("samantha", "20260930T100000-bbbbbbbb", job="weekly")
+    session.append_turn("samantha", "20260930T100000-bbbbbbbb", "Draft my weekly note.", "Done.")
+    assert page(client)["session_id"] == "20260930T090000-aaaaaaaa"
+
+
+def test_pressing_new_conversation_after_a_job_opened_one_starts_a_blank_one(client):
+    seed("20260930T090000-aaaaaaaa", 2)
+    session.start_session("samantha", "20260930T100000-bbbbbbbb", job="weekly")
+    started = client.post("/api/chat/session", json={"persona": "samantha"}).json()["session_id"]
+    assert started not in ("20260930T090000-aaaaaaaa", "20260930T100000-bbbbbbbb")

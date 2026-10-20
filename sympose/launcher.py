@@ -82,6 +82,27 @@ def _run_vault(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_jobs(args: argparse.Namespace) -> int:
+    from sympose import job_run
+    from sympose.envfile import load_env
+
+    load_env()
+    if bool(args.job) == args.due:
+        args.run_parser.print_help()
+        return 0 if not args.job and not args.due else 1
+    if args.due:
+        outcomes = job_run.run_due()
+    else:
+        handle, _, name = args.job.partition("/")
+        if not name:
+            print("sympose run: name the job as persona/job, like samantha/weekly-review", file=sys.stderr)
+            return 1
+        outcomes = [job_run.run(handle, name, manual=True)]
+    for outcome in outcomes:
+        print(f"{outcome.job}: {outcome.status}" + (f" ({outcome.detail})" if outcome.detail else ""))
+    return 1 if any(o.status != job_run.RAN for o in outcomes) and not args.due else 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="sympose", description="Sympose: an AI companion for your Obsidian vault.")
     commands = parser.add_subparsers(dest="command", title="commands")
@@ -101,6 +122,10 @@ def build_parser() -> argparse.ArgumentParser:
     what.add_argument("--draft", metavar="FOLDER", help="draft the definition note of a folder, show it, and write it only if you say yes")
     vault.add_argument("--persona", metavar="HANDLE", help="read what this persona can read (default: the default persona)")
     vault.set_defaults(run=_run_vault, vault_parser=vault)
+    run = commands.add_parser("run", help="run scheduled jobs: --due runs the ones whose time has come, persona/job runs one now")
+    run.add_argument("job", nargs="?", metavar="PERSONA/JOB", help="run this job now, whatever its schedule")
+    run.add_argument("--due", action="store_true", help="run every job whose time has come, then stop")
+    run.set_defaults(run=_run_jobs, run_parser=run)
     return parser
 
 

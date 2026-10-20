@@ -30,6 +30,7 @@ def _row(handle: str, session_id: str, loaded: dict[str, Any]) -> dict[str, Any]
         "created_at": meta.get("created_at"),
         "updated_at": meta.get("updated_at"),
         "pinned_at": meta.get("pinned_at") if isinstance(meta.get("pinned_at"), str) else None,
+        "job": meta["job"] if isinstance(meta.get("job"), str) else None,
         "replying": turn_status.phase(handle, session_id) is not None or turn_cancel.running(handle, session_id),
     }
 

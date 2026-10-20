@@ -144,30 +144,36 @@ def start_build(index: Any, wait: bool = False, model: str | None = None) -> thr
     return thread
 
 
-def refresh_in_background(handle: str) -> None:
-    """Start building the vectors for what `handle` searches (its notes and, if it has them, the
-    Sympose library), unless the knob is `keywords`. Returns at once."""
+def refresh(handle: str) -> bool:
+    """Build the vectors for what `handle` searches (its notes and, if it has them, the Sympose library) and wait for them,
+    unless the knob is `keywords` or the embedder is a cloud one. `False` when nothing was built for either reason."""
     if embeddings.mode() == embeddings.KEYWORDS:
-        return
+        return False
+    # Imported here: these modules import the search, which imports this one.
+    from sympose import profile as profile_mod
+    from sympose.engine import grounding, reference
 
+    persona = profile_mod.resolve_profile(handle)
+    if persona is None:
+        return False
+    if not sharing.embeds_notes(embeddings.model()):
+        return False  # a cloud embedder gets neither the notes nor the messages that search them (ADR 031)
+    for index in (grounding.scope_index(persona), reference.library_index(persona)):
+        if index is not None:
+            start_build(index, wait=True)
+    return True
+
+
+def refresh_in_background(handle: str) -> None:
+    """`refresh`, started on a thread: returns at once."""
     def work() -> None:
-        # Imported here: these modules import the search, which imports this one.
-        from sympose import profile as profile_mod
-        from sympose.engine import grounding, reference
-
         try:
-            persona = profile_mod.resolve_profile(handle)
-            if persona is None:
-                return
-            if not sharing.embeds_notes(embeddings.model()):
-                return  # a cloud embedder gets neither the notes nor the messages that search them (ADR 031)
-            for index in (grounding.scope_index(persona), reference.library_index(persona)):
-                if index is not None:
-                    start_build(index, wait=True)
+            refresh(handle)
         except Exception:  # an unreadable vault or persona file must not print over the terminal UI
             log.exception("Could not start the search index for %s", handle)
 
-    threading.Thread(target=work, name=f"embeddings-{handle}", daemon=True).start()
+    if embeddings.mode() != embeddings.KEYWORDS:
+        threading.Thread(target=work, name=f"embeddings-{handle}", daemon=True).start()
 
 
 def _forget_for_tests() -> None:

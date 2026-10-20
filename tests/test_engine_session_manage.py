@@ -269,3 +269,12 @@ def test_a_recap_is_not_needed_for_a_delete():
     write(A, T1)
 
     assert session_manage.delete("samantha", A) == "ok"
+
+
+def test_a_conversation_a_job_opened_says_which_job_in_the_list(scratch):
+    write("20260930T090000-aaaaaaaa", "2026-09-30T09:00:00+00:00")
+    write("20260930T100000-bbbbbbbb", "2026-09-30T10:00:00+00:00", job="weekly")
+    rows = {row["id"]: row for row in session_manage.list_sessions("samantha")}
+    assert (rows["20260930T090000-aaaaaaaa"]["job"], rows["20260930T100000-bbbbbbbb"]["job"]) == (None, "weekly")
+    session_manage.rename("samantha", "20260930T100000-bbbbbbbb", "Weekly review")
+    assert session_manage.list_sessions("samantha")[0]["job"] == "weekly"  # a rename keeps the mark

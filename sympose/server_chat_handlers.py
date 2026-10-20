@@ -143,10 +143,11 @@ def get_context(persona: str | None, session_id: str | None) -> dict[str, Any]:
 
 def _latest_session(handle: str) -> tuple[str, dict[str, Any]] | None:
     """The newest of `handle`'s sessions, whichever channel wrote it. One with no turns yet counts: it is a
-    conversation begun on purpose (`start_session`) and left blank."""
+    conversation begun on purpose (`start_session`) and left blank. One a scheduled job opened does not: it is in the list
+    to open, but a refresh never lands in it (docs/decisions/091)."""
     for session_id in session.session_ids(handle):
         loaded = session.load_session(handle, session_id)
-        if loaded:
+        if loaded and not loaded["meta"].get("job"):
             return session_id, loaded
     return None
 

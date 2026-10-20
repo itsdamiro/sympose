@@ -111,7 +111,7 @@ def history_as_messages(session: dict[str, Any] | None, max_turns: int = HISTORY
     return messages
 
 
-def _new_meta(handle: str, session_id: str, title: str, now: str) -> dict[str, Any]:
+def _new_meta(handle: str, session_id: str, title: str, now: str, job: str | None = None) -> dict[str, Any]:
     return {
         "type": "meta",
         "session_id": session_id,
@@ -120,17 +120,18 @@ def _new_meta(handle: str, session_id: str, title: str, now: str) -> dict[str, A
         "created_at": now,
         "updated_at": now,
         "turns_count": 0,
+        **({"job": job} if job else {}),
     }
 
 
-def start_session(handle: str, session_id: str) -> bool:
+def start_session(handle: str, session_id: str, job: str | None = None) -> bool:
     """Open an empty session: a file with only its meta line, so a conversation begun on purpose (the web
     chat's "New conversation") is the latest one and survives a refresh before anything is said. Its first
-    turn names it. `False` when the file could not be written."""
+    turn names it. `job` marks a conversation a scheduled job opened (docs/decisions/091). `False` when the file could not be written."""
     try:
         path = session_path(handle, session_id)
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        write_atomic_text(path, json.dumps(_new_meta(handle, session_id, "", datetime.now(timezone.utc).isoformat())) + "\n")
+        write_atomic_text(path, json.dumps(_new_meta(handle, session_id, "", datetime.now(timezone.utc).isoformat(), job)) + "\n")
         return True
     except (OSError, ValueError) as e:
         log.warning("Failed to open session %s: %s", session_id, e)

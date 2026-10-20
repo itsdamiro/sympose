@@ -177,3 +177,39 @@ def test_web_reads_the_env_file_of_the_folder_it_runs_in(ran, monkeypatch, tmp_p
     launcher.main(["web"])
 
     assert ran["web"]["port"] == 9300
+
+
+# -- sympose run (docs/decisions/091) ---------------------------------------------------------------
+
+
+@pytest.fixture
+def jobs_run(monkeypatch):
+    from sympose import job_run
+
+    calls = []
+    monkeypatch.setattr(job_run, "run_due", lambda: calls.append("due") or [job_run.Outcome("samantha/a", job_run.RAN, "Done.")])
+    monkeypatch.setattr(
+        job_run, "run", lambda handle, name, manual=False: calls.append((handle, name, manual)) or job_run.Outcome(f"{handle}/{name}", job_run.FAILED, "down"),
+    )
+    return calls
+
+
+def test_run_due_runs_what_is_due_and_says_so(jobs_run, capsys):
+    assert launcher.main(["run", "--due"]) == 0
+    assert jobs_run == ["due"] and capsys.readouterr().out == "samantha/a: ran (Done.)\n"
+
+
+def test_run_with_a_job_runs_it_now_and_exits_one_when_it_did_not_run(jobs_run, capsys):
+    assert launcher.main(["run", "samantha/weekly"]) == 1
+    assert jobs_run == [("samantha", "weekly", True)] and capsys.readouterr().out == "samantha/weekly: failed (down)\n"
+
+
+def test_run_needs_a_persona_and_a_name(jobs_run, capsys):
+    assert launcher.main(["run", "weekly"]) == 1
+    assert "persona/job" in capsys.readouterr().err and not jobs_run
+
+
+def test_run_alone_or_with_both_prints_help_and_runs_nothing(jobs_run, capsys):
+    assert launcher.main(["run"]) == 0
+    assert launcher.main(["run", "--due", "samantha/weekly"]) == 1
+    assert "--due" in capsys.readouterr().out and not jobs_run

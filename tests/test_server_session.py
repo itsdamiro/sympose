@@ -50,7 +50,7 @@ def test_the_list_gives_the_conversations_newest_first(client):
 
     assert [row["id"] for row in body["sessions"]] == [B, A]
     assert body["sessions"][0] == {
-        "id": B, "title": "second", "turns": 1, "created_at": T2, "updated_at": T2, "pinned_at": None, "replying": False,
+        "id": B, "title": "second", "turns": 1, "created_at": T2, "updated_at": T2, "pinned_at": None, "job": None, "replying": False,
     }
 
 
