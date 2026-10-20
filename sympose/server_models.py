@@ -144,12 +144,14 @@ class FolderSettings(BaseModel):
 
 
 class FolderColor(BaseModel):
-    """Body of `PUT /api/vault/folder/color` — the colour of the folder `path` below a top-level folder, kept in that
-    folder's definition note (docs/decisions/090): `accent` and `accent_dark` as hex colours, both `None` to clear it."""
+    """Body of `PUT /api/vault/folder/color` — the look of the folder `path` below a top-level folder, kept in that
+    folder's top-level folder's definition note (docs/decisions/090): `accent` and `accent_dark` as hex colours and an
+    `icon` name, all `None` to clear it."""
 
     path: str = Field(..., min_length=1)
     accent: str | None = None
     accent_dark: str | None = None
+    icon: str | None = None
     persona: str | None = None
 
 

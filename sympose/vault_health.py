@@ -14,7 +14,7 @@ from typing import Any, Callable
 from sympose import folder_definitions as defs
 from sympose import folder_definitions_write as write_defs
 from sympose import folder_looks
-from sympose import vault_fixes, vault_graph, vault_health_links, vault_health_moves, vault_paths
+from sympose import subfolder_colors, vault_fixes, vault_graph, vault_health_links, vault_health_moves, vault_paths
 from sympose.vault_defaults import ATTACHMENT_EXTENSIONS, IGNORE_FOLDERS, NOTE_EXTENSIONS
 from sympose.vault_file_names import why_not_a_file_name
 from sympose.vault_snapshot import get_vault_snapshot
@@ -172,6 +172,17 @@ def check_numbered_twins(scope: Scope) -> list[Finding]:
     return [Finding(folder_of(rel), rel, message) for rel, message in vault_health_moves.numbered_twins(scope.notes)]
 
 
+def check_subfolder_looks(scope: Scope) -> list[Finding]:
+    """An entry in a top-level folder's `subfolders` property (ADR 090) for a folder that is no longer there. An
+    observation: it is never drawn and does no harm, and a folder restored from the bin as a unit comes back with its look."""
+    found = []
+    for path in sorted(subfolder_colors.colors(scope.notes)):
+        if not os.path.isdir(os.path.join(scope.vault, *path.split("/"))):
+            top, _, below = path.partition("/")
+            found.append(Finding(top, defs.definition_path(top), f"gives `{below}` a colour or icon in `subfolders`, but there is no folder `{path}`"))
+    return found
+
+
 CHECKS: list[Check] = [
     Check("Folders due a definition", check_due_folders, problem=False, per_folder=False),
     Check("Folder definitions with no icon", check_definition_icons, problem=False, of_notes=False, fixable=True),
@@ -181,6 +192,7 @@ CHECKS: list[Check] = [
     Check("Titles that are not the file name", check_titles, fixable=True),
     Check("Other files (clutter)", check_other_files, problem=False, of_notes=False),
     Check("Folder notes inside sub-folders", check_stale_definitions, problem=False),
+    Check("Subfolder colours and icons for a folder that is gone", check_subfolder_looks, problem=False, of_notes=False),
     Check("Possible duplicate notes (name (2))", check_numbered_twins, problem=False),
 ]
 

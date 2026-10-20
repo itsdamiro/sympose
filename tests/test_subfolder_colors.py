@@ -1,5 +1,5 @@
-"""The colours of folders below a top-level folder, kept in that folder's definition note (docs/decisions/090): what is
-read from the note, the nearest coloured folder, the text edit that keeps every other line, the save the Folder colour
+"""The look (colours and icon) of folders below a top-level folder, kept in that folder's definition note (docs/decisions/090): what is
+read from the note, the nearest coloured folder, the text edit that keeps every other line, the save the Folder look
 dialog makes (an existing definition edited in place, a missing one created with only this property), and a renamed or
 moved folder taking its entries with it. Everything runs in a temporary vault."""
 
@@ -182,8 +182,8 @@ def test_the_colour_is_quoted_so_a_hash_is_not_a_comment():
 
 def test_the_dialog_starts_from_the_folder_s_own_entry(vault):
     put(vault, "Projects/Projects.md", PROJECTS)
-    assert sc.read(ALL, "Projects/sympose") == {"editable": True, **VIOLET}
-    assert sc.read(ALL, "Projects/stylo") == {"editable": True, "accent": None, "accent_dark": None}
+    assert sc.read(ALL, "Projects/sympose") == {"editable": True, **VIOLET, "icon": None}
+    assert sc.read(ALL, "Projects/stylo") == {"editable": True, "accent": None, "accent_dark": None, "icon": None}
 
 
 @pytest.mark.parametrize("path", ["Projects", "Nope/x", "Projects/missing", "Templates/x", "../x", "", ".git/x"])
@@ -335,3 +335,79 @@ def test_a_folder_that_becomes_top_level_leaves_its_entries_behind_and_drops_the
     move(vault, "Projects/sympose", "sympose")
     sc.follow(ALL, "Projects/sympose", "sympose")
     assert sc.of_note(meta(get(vault))) == {}
+
+
+# --- the icon ----------------------------------------------------------------------------------
+
+ROCKET = {"icon": "rocket"}
+
+
+def test_an_entry_may_hold_an_icon_alone_or_with_colours():
+    front = "---\nsubfolders:\n  a:\n    icon: rocket\n  b:\n    icon: rocket\n    accent: '#123456'\n---\n"
+    assert sc.of_note(meta(front)) == {"a": {"icon": "rocket"}, "b": {"icon": "rocket", "accent": "#123456"}}
+
+
+@pytest.mark.parametrize("icon", ["Rocket Ship", "../x", "", 3, "a" * 41, "-x"])
+def test_an_icon_of_the_wrong_shape_is_the_same_as_none(icon):
+    assert sc.of_note(meta(f"---\nsubfolders:\n  a:\n    icon: {icon!r}\n    accent: '#123456'\n---\n")) == {"a": {"accent": "#123456"}}
+
+
+def test_an_entry_with_only_a_bad_icon_is_left_out():
+    assert sc.of_note(meta("---\nsubfolders:\n  a:\n    icon: '../x'\n---\n")) == {}
+
+
+def test_an_icon_alone_colours_nothing_so_the_search_goes_on_past_it():
+    own = {"Projects/sympose": VIOLET, "Projects/sympose/decisions": ROCKET}
+    assert sc.nearest("Projects/sympose/decisions/a.md", own) == ("Projects/sympose", VIOLET)
+    assert sc.nearest("Projects/stylo/a.md", {"Projects/stylo": ROCKET}) is None
+
+
+def test_the_colour_of_an_entry_with_both_leaves_the_icon_out():
+    own = {"Projects/sympose": {**VIOLET, **ROCKET}}
+    assert sc.nearest("Projects/sympose/a.md", own) == ("Projects/sympose", VIOLET)
+
+
+def test_the_text_edit_writes_the_icon_with_the_colours():
+    text = sc.with_entries("# Projects\n", {"sympose": {**VIOLET, **ROCKET}})
+    assert sc.of_note(meta(text)) == {"sympose": {**VIOLET, **ROCKET}}
+
+
+def test_the_dialog_starts_from_the_folder_s_icon(vault):
+    put(vault, "Projects/Projects.md", "---\nsubfolders:\n  stylo:\n    icon: rocket\n---\n# Projects\n")
+    assert sc.read(ALL, "Projects/stylo") == {"editable": True, "accent": None, "accent_dark": None, "icon": "rocket"}
+
+
+def test_saving_an_icon_with_colours_keeps_every_other_line(vault):
+    put(vault, "Projects/Projects.md", PROJECTS)
+    sc.set_color(ALL, "Projects/stylo", {**ROSE, **ROCKET})
+    saved = get(vault)
+    assert sc.of_note(meta(saved)) == {"sympose": VIOLET, "stylo": {**ROSE, **ROCKET}}
+    assert "What I build." in saved and saved.endswith("My closing remarks.\n")
+
+
+def test_an_icon_alone_can_be_saved_and_then_cleared(vault):
+    put(vault, "Projects/Projects.md", PROJECTS)
+    sc.set_color(ALL, "Projects/stylo", ROCKET)
+    assert sc.of_note(meta(get(vault)))["stylo"] == ROCKET
+    sc.set_color(ALL, "Projects/stylo", None)
+    assert sc.of_note(meta(get(vault))) == {"sympose": VIOLET}
+
+
+def test_an_icon_for_a_folder_with_no_definition_makes_the_note_too(vault):
+    assert sc.set_color(ALL, "Notes/old", ROCKET) is True
+    assert get(vault, "Notes/Notes.md") == "---\nsubfolders:\n  old:\n    icon: rocket\n---\n# Notes\n"
+
+
+@pytest.mark.parametrize("icon", ["not-an-icon-sympose-has", "Rocket", "../x", ""])
+def test_an_icon_the_app_does_not_have_is_refused(vault, icon):
+    put(vault, "Projects/Projects.md", PROJECTS)
+    with pytest.raises(Refused):
+        sc.set_color(ALL, "Projects/stylo", {"icon": icon})
+    assert get(vault) == PROJECTS
+
+
+def test_a_renamed_folder_carries_its_icon(vault):
+    put(vault, "Projects/Projects.md", "---\nsubfolders:\n  sympose:\n    icon: rocket\n---\n# Projects\n")
+    os.rename(os.path.join(vault, "Projects/sympose"), os.path.join(vault, "Projects/symposium"))
+    assert sc.follow(ALL, "Projects/sympose", "Projects/symposium") == 1
+    assert sc.of_note(meta(get(vault))) == {"symposium": ROCKET}

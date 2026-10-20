@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/context-menu"
 import { createVaultNote, deleteVaultFolder } from "@/lib/vault-note-api"
 import { fetchFolderColor } from "@/lib/folder-color-api"
-import { FolderColorDialog } from "@/components/sympose/folder-color-dialog"
+import { FolderColorDialog, type FolderLookStart } from "@/components/sympose/folder-color-dialog"
 import { confirm } from "@/lib/confirm-store"
 import { notify } from "@/lib/notify"
 import { RowActionsTrigger } from "@/components/sympose/row-actions"
@@ -86,7 +86,7 @@ function VaultRowMenu({
   onBeforeFolderRename?: () => Promise<boolean>
   /** A note row was moved to trash. */
   onDeleted: (path: string) => void
-  /** A subfolder's colour was saved (docs/decisions/090). Omit to leave "Folder colour" out of a subfolder's menu. */
+  /** A subfolder's look was saved (docs/decisions/090). Omit to leave "Folder look" out of a subfolder's menu. */
   onFolderColored?: () => void
   /** A new note was created (from a folder row): its vault-relative path. */
   onCreated: (path: string) => void
@@ -136,11 +136,8 @@ function VaultRowMenu({
     }
   }
 
-  // "Folder colour" (docs/decisions/090): only a folder below a top-level one; the top-level folders have Folder settings.
-  const [colorSetup, setColorSetup] = React.useState<{
-    path: string
-    start: { accent: string | null; accentDark: string | null }
-  } | null>(null)
+  // "Folder look" (docs/decisions/090): only a folder below a top-level one; the top-level folders have Folder settings.
+  const [colorSetup, setColorSetup] = React.useState<{ path: string; start: FolderLookStart } | null>(null)
   const openFolderColor = async () => {
     const found = await fetchFolderColor(node.path, persona)
     if (!found) {
@@ -148,10 +145,10 @@ function VaultRowMenu({
       return
     }
     if (!found.editable) {
-      notify.info(`${node.name} has no colour to set: it isn't in one of your own folders.`)
+      notify.info(`${node.name} has no look to set: it isn't in one of your own folders.`)
       return
     }
-    setColorSetup({ path: node.path, start: { accent: found.accent, accentDark: found.accentDark } })
+    setColorSetup({ path: node.path, start: { accent: found.accent, accentDark: found.accentDark, icon: found.icon } })
   }
 
   const newNoteHere = async () => {
@@ -228,7 +225,7 @@ function VaultRowMenu({
       {onFolderColored && node.path.includes("/") && (
         <DropdownMenuItem onClick={() => void openFolderColor()}>
           <HugeiconsIcon icon={PaintBoardIcon} />
-          Folder colour
+          Folder look
         </DropdownMenuItem>
       )}
       {onFolderRenamed && (

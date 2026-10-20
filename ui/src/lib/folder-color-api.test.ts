@@ -14,19 +14,20 @@ describe("fetchFolderColor", () => {
   it("asks about the folder's path and persona and reads its own colours", async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValue(jsonResponse({ editable: true, accent: "#7c3aed", accent_dark: "#b98cff" }))
+      .mockResolvedValue(jsonResponse({ editable: true, accent: "#7c3aed", accent_dark: "#b98cff", icon: "rocket" }))
     vi.stubGlobal("fetch", fetchMock)
     expect(await fetchFolderColor("Projects/my app", "samantha")).toEqual({
       editable: true,
       accent: "#7c3aed",
       accentDark: "#b98cff",
+      icon: "rocket",
     })
     expect(fetchMock.mock.calls[0][0]).toBe("/api/vault/folder/color?path=Projects%2Fmy%20app&persona=samantha")
   })
 
   it("reads a colour that is not set as null, and anything but true as not editable", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({ editable: "yes", accent: "", accent_dark: 3 })))
-    expect(await fetchFolderColor("Projects/x", "samantha")).toEqual({ editable: false, accent: null, accentDark: null })
+    expect(await fetchFolderColor("Projects/x", "samantha")).toEqual({ editable: false, accent: null, accentDark: null, icon: null })
   })
 
   it("gives null when the backend answers an error or cannot be reached", async () => {
@@ -38,10 +39,10 @@ describe("fetchFolderColor", () => {
 })
 
 describe("saveFolderColor", () => {
-  it("puts the path, both colours and the persona", async () => {
+  it("puts the path, both colours, the icon and the persona", async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ path: "Projects/x", created: true }))
     vi.stubGlobal("fetch", fetchMock)
-    expect(await saveFolderColor("Projects/x", { accent: "#be123c", accentDark: "#f2889b" }, "samantha")).toEqual({
+    expect(await saveFolderColor("Projects/x", { accent: "#be123c", accentDark: "#f2889b", icon: "rocket" }, "samantha")).toEqual({
       ok: true,
       created: true,
     })
@@ -52,25 +53,26 @@ describe("saveFolderColor", () => {
       path: "Projects/x",
       accent: "#be123c",
       accent_dark: "#f2889b",
+      icon: "rocket",
       persona: "samantha",
     })
   })
 
-  it("sends null for both to clear the colour", async () => {
+  it("sends null for all three to clear the look", async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ created: false }))
     vi.stubGlobal("fetch", fetchMock)
-    await saveFolderColor("Projects/x", { accent: null, accentDark: null }, "samantha")
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({ accent: null, accent_dark: null })
+    await saveFolderColor("Projects/x", { accent: null, accentDark: null, icon: null }, "samantha")
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({ accent: null, accent_dark: null, icon: null })
   })
 
   it("carries the server's reason when it refuses", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 400, json: () => Promise.resolve({ detail: "Not a colour." }) } as Response))
-    expect(await saveFolderColor("Projects/x", { accent: "red", accentDark: null }, "samantha")).toEqual({ ok: false, error: "Not a colour." })
+    expect(await saveFolderColor("Projects/x", { accent: "red", accentDark: null, icon: null }, "samantha")).toEqual({ ok: false, error: "Not a colour." })
   })
 
   it("says Sympose isn't responding when the request fails", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("down")))
-    const res = await saveFolderColor("Projects/x", { accent: null, accentDark: null }, "samantha")
+    const res = await saveFolderColor("Projects/x", { accent: null, accentDark: null, icon: null }, "samantha")
     expect(res.ok).toBe(false)
     expect(!res.ok && res.error).toMatch(/isn't responding/)
   })

@@ -45,3 +45,32 @@ describe("VaultTree: captions", () => {
     expect(captions()).toEqual([])
   })
 })
+
+describe("VaultTree: a subfolder's icon (docs/decisions/090)", () => {
+  const folder = (path: string, extra: Partial<VaultNode> = {}, children: VaultNode[] = []): VaultNode =>
+    ({ type: "folder", name: path.split("/").pop()!, path, children, ...extra }) as VaultNode
+  // The folder glyph of the row named `name`: the third svg in its row after the arrow, as markup to compare.
+  const glyph = (name: string) => {
+    const label = screen.getByText(name)
+    return label.parentElement!.querySelectorAll("svg")[1].innerHTML
+  }
+
+  it("draws a folder below a top-level one with the icon its entry names, and leaves one without alone", () => {
+    const nodes = [
+      folder("Projects", {}, [folder("Projects/plain"), folder("Projects/sympose", { icon: "rocket" })]),
+    ]
+    render(<VaultTree nodes={nodes} defaultExpanded={["Projects"]} />)
+    expect(glyph("sympose")).not.toBe(glyph("plain"))
+  })
+
+  it("keeps a name the icon set lacks as the usual glyph", () => {
+    const nodes = [folder("Projects", {}, [folder("Projects/plain"), folder("Projects/odd", { icon: "no-such-icon-here" })])]
+    render(<VaultTree nodes={nodes} defaultExpanded={["Projects"]} />)
+    expect(glyph("odd")).toBe(glyph("plain"))
+  })
+
+  it("does not change how a top-level folder is drawn in the tree", () => {
+    render(<VaultTree nodes={[folder("Movies", { icon: "rocket" }), folder("Plain")]} />)
+    expect(glyph("Movies")).toBe(glyph("Plain"))
+  })
+})

@@ -1,10 +1,11 @@
-"""The colours of folders below a top-level folder, kept in that top-level folder's own definition note
+"""The look of folders below a top-level folder, kept in that top-level folder's own definition note
 (docs/decisions/090): `Projects/Projects.md` holds a `subfolders` property, a map from a path below `Projects` to the
-folder's `accent` and `accent_dark`, so `Projects/sympose` and `Projects/stylo` can be told apart in the Knowledge Nebula
-without a note of their own for each. A note takes the colour of its nearest coloured folder.
+folder's `accent` and `accent_dark` (and its `icon`), so `Projects/sympose` and `Projects/stylo` can be told apart in
+the Knowledge Nebula and the tree without a note of their own for each. A note takes the colour of its nearest coloured
+folder; an icon belongs to its own folder only.
 
 Reading is `of_note`, `colors` and `nearest`; writing is `with_entries` (text in, text out), `set_color` (the one save the
-Folder colour dialog makes) and `follow` (a renamed or moved folder takes its entries with it). A colour here is a
+Folder look dialog makes) and `follow` (a renamed or moved folder takes its entries with it). A colour here is a
 six-digit hex, as for a top-level folder (ADR 064): it comes from a note that may be from a shared vault."""
 
 import os
@@ -15,6 +16,7 @@ import yaml
 from sympose import folder_definitions as defs
 from sympose import folder_definitions_write as write_defs
 from sympose import folder_looks, folder_settings_text, vault_paths
+from sympose.look import ICON_NAME, ICON_NAMES
 from sympose.look import clean as clean_value
 from sympose.folder_looks_write import Failed, Missing, Refused, rewrite_note
 from sympose.vault_snapshot import get_vault_snapshot, parse_frontmatter
@@ -22,6 +24,7 @@ from sympose.vault_write_status import NOTE_DENIED, NOTE_EXISTS
 
 KEY = "subfolders"
 COLOR_KEYS = ("accent", "accent_dark")
+LOOK_KEYS = (*COLOR_KEYS, "icon")
 _CREATED = "Created note:"
 
 
@@ -37,8 +40,9 @@ def clean_path(path: object) -> str | None:
 
 
 def of_note(meta: dict[str, Any]) -> dict[str, dict[str, str]]:
-    """`{path below the folder: {accent, accent_dark}}` from one definition note's properties: each entry that is a
-    folder path and sets at least one colour of the safe shape. The rest is left out, so a bad value is the same as none."""
+    """`{path below the folder: {accent, accent_dark, icon}}` from one definition note's properties: each entry that is
+    a folder path and sets at least one colour or icon of the safe shape. The rest is left out, so a bad value is the
+    same as none."""
     raw = meta.get(KEY)
     if not isinstance(raw, dict):
         return {}
@@ -47,15 +51,15 @@ def of_note(meta: dict[str, Any]) -> dict[str, dict[str, str]]:
         path = clean_path(key if isinstance(key, str) else str(key))
         if path is None or not isinstance(value, dict):
             continue
-        look = {k: v for k in COLOR_KEYS if (v := clean_value(value.get(k), folder_looks.HEX_COLOR))}
+        look = {k: v for k in LOOK_KEYS if (v := clean_value(value.get(k), ICON_NAME if k == "icon" else folder_looks.HEX_COLOR))}
         if look:
             found[path] = look
     return found
 
 
 def colors(notes: list[dict[str, Any]]) -> dict[str, dict[str, str]]:
-    """`{vault path of a folder: colour}` for every folder below a top-level folder that its top-level folder's
-    definition note (`<Top>/<Top>.md`, among `notes`) colours."""
+    """`{vault path of a folder: look}` (colours and icon, whichever it sets) for every folder below a top-level folder
+    that its top-level folder's definition note (`<Top>/<Top>.md`, among `notes`) has an entry for."""
     found: dict[str, dict[str, str]] = {}
     for note in notes:
         top = defs.top_folder(note.get("rel_path") or "")
@@ -68,12 +72,13 @@ def colors(notes: list[dict[str, Any]]) -> dict[str, dict[str, str]]:
 
 def nearest(note_path: str, own: dict[str, dict[str, str]]) -> tuple[str, dict[str, str]] | None:
     """The closest coloured folder above a note: `(its vault path, its colour)`, or `None` when no folder between the
-    note and the top-level folder (the top-level folder itself not counted) is coloured."""
+    note and the top-level folder (the top-level folder itself not counted) is coloured. An entry with only an icon
+    colours nothing, so the search goes on past it."""
     parts = note_path.replace("\\", "/").split("/")[:-1]
     for depth in range(len(parts), 1, -1):
         folder = "/".join(parts[:depth])
-        if folder in own:
-            return folder, own[folder]
+        if colour := {k: v for k, v in own.get(folder, {}).items() if k in COLOR_KEYS}:
+            return folder, colour
     return None
 
 
@@ -83,8 +88,8 @@ def _entry_lines(mapping: dict[str, Any]) -> list[str]:
 
 
 def with_entries(text: str, changes: dict[str, dict[str, str] | None]) -> str | None:
-    """`text`, a definition note, with each path of `changes` set to its colour (a dict of `accent` and/or
-    `accent_dark`) or removed (`None`) in its `subfolders` property. Entries the note holds for other paths stay as they
+    """`text`, a definition note, with each path of `changes` set to its look (a dict of `accent`, `accent_dark`
+    and/or `icon`) or removed (`None`) in its `subfolders` property. Entries the note holds for other paths stay as they
     are, even ones this module cannot read. The property is written in YAML block style, so a comment inside it is not
     kept; every other line of the note is. `None` when the note opens a properties block it never closes, or when
     `subfolders` is there but is not a map."""
@@ -110,7 +115,7 @@ def with_entries(text: str, changes: dict[str, dict[str, str] | None]) -> str | 
         if look is None:
             mapping.pop(existing, None)
         else:
-            mapping[existing] = {k: look[k] for k in COLOR_KEYS if k in look}
+            mapping[existing] = {k: look[k] for k in LOOK_KEYS if k in look}
     if span is not None:
         ending = "\r\n" if inner[span[0]].endswith("\r\n") else "\n"
         new = [line.rstrip("\n") + ending for line in _entry_lines(mapping)] if mapping else []
@@ -125,7 +130,11 @@ def with_entries(text: str, changes: dict[str, dict[str, str] | None]) -> str | 
 
 
 def _refusal(look: dict[str, str] | None) -> str | None:
-    if look is not None and (not look or any(k not in COLOR_KEYS or not folder_looks.HEX_COLOR.fullmatch(v) for k, v in look.items())):
+    if look is None:
+        return None
+    if look.get("icon") is not None and look["icon"] not in ICON_NAMES:
+        return f"`{look['icon']}` is not an icon Sympose has."
+    if not look or any(k not in LOOK_KEYS or (k != "icon" and not folder_looks.HEX_COLOR.fullmatch(v)) for k, v in look.items()):
         return "A colour is six hexadecimal digits after a `#`, like `#be123c`."
     return None
 
@@ -150,9 +159,9 @@ def _reachable(profile: dict[str, Any], path: str) -> tuple[str, list[str]] | No
 
 
 def read(profile: dict[str, Any], path: str) -> dict[str, Any]:
-    """What the Folder colour dialog for `path` starts from: `{"editable": False}` when the folder cannot be coloured
+    """What the Folder look dialog for `path` starts from: `{"editable": False}` when the folder cannot be given a look
     (not below one of the user's own top-level folders, or not there for this persona), otherwise `editable` and the
-    colours its own entry sets (`None` for one it does not)."""
+    colours and icon its own entry sets (`None` for one it does not)."""
     try:
         top, below = _split(path)
     except Refused:
@@ -161,13 +170,13 @@ def read(profile: dict[str, Any], path: str) -> dict[str, Any]:
     if scope is None:
         return {"editable": False}
     own = colors(get_vault_snapshot(*scope)).get(f"{top}/{below}", {})
-    return {"editable": True, **{key: own.get(key) for key in COLOR_KEYS}}
+    return {"editable": True, **{key: own.get(key) for key in LOOK_KEYS}}
 
 
 def set_color(profile: dict[str, Any], path: str, look: dict[str, str] | None) -> bool:
-    """Sets the colour of the folder `path` (`{accent, accent_dark}` hex values) or clears it (`look` is `None`), in
-    its top-level folder's definition note: edited in place, or created with only this property when the folder has no
-    definition yet (nothing is created to clear a colour). `True` when the note was created. Raises `Refused` with
+    """Sets the look of the folder `path` (`{accent, accent_dark}` hex values and/or an `icon` name) or clears it
+    (`look` is `None`), in its top-level folder's definition note: edited in place, or created with only this property
+    when the folder has no definition yet (nothing is created to clear a look). `True` when the note was created. Raises `Refused` with
     the reason a person can read (`Missing` for a folder that is not there, `Changed` when the note changed while it
     was being read, `Failed` when the disk did)."""
     top, below = _split(path)

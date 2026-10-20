@@ -38,7 +38,7 @@ def put_folder_settings(body: FolderSettings) -> dict[str, Any]:
 
 
 def get_folder_color(path: str, persona: str | None) -> dict[str, Any]:
-    """What the Folder colour dialog for the folder `path` starts from (`subfolder_colors.read`)."""
+    """What the Folder look dialog for the folder `path` starts from (`subfolder_colors.read`)."""
     if not vault_paths.get_master_vault():
         raise HTTPException(status_code=409, detail="No vault is configured.")
     return subfolder_colors.read(require_profile(persona), path)
@@ -46,7 +46,7 @@ def get_folder_color(path: str, persona: str | None) -> dict[str, Any]:
 
 def put_folder_color(body: FolderColor) -> dict[str, Any]:
     profile = require_profile(body.persona)
-    look = {key: value for key, value in (("accent", body.accent), ("accent_dark", body.accent_dark)) if value is not None}
+    look = {key: value for key, value in (("accent", body.accent), ("accent_dark", body.accent_dark), ("icon", body.icon)) if value is not None}
     try:
         created = subfolder_colors.set_color(profile, body.path, look or None)
     except Missing as reason:

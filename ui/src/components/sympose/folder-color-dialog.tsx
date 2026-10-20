@@ -1,4 +1,5 @@
 import * as React from "react"
+import { Folder01Icon } from "@hugeicons/core-free-icons"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -11,8 +12,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { FolderColorField } from "@/components/sympose/folder-color-field"
+import { IconPicker } from "@/components/sympose/icon-picker"
 import { saveFolderColor } from "@/lib/folder-color-api"
 import { notify } from "@/lib/notify"
+
+export interface FolderLookStart {
+  accent: string | null
+  accentDark: string | null
+  icon: string | null
+}
 
 function ColorForm({
   path,
@@ -22,21 +30,22 @@ function ColorForm({
   onSaved,
 }: {
   path: string
-  start: { accent: string | null; accentDark: string | null }
+  start: FolderLookStart
   persona: string
   onClose: () => void
   onSaved: () => void
 }) {
-  const [colors, setColors] = React.useState(start)
+  const [colors, setColors] = React.useState({ accent: start.accent, accentDark: start.accentDark })
+  const [icon, setIcon] = React.useState(start.icon)
   const [busy, setBusy] = React.useState(false)
   const top = path.split("/")[0]
   const name = path.split("/").slice(1).join("/")
-  const changed = colors.accent !== start.accent || colors.accentDark !== start.accentDark
+  const changed = colors.accent !== start.accent || colors.accentDark !== start.accentDark || icon !== start.icon
 
   const save = async () => {
     if (busy) return
     setBusy(true)
-    const res = await saveFolderColor(path, colors, persona)
+    const res = await saveFolderColor(path, { ...colors, icon }, persona)
     setBusy(false)
     if (!res.ok) {
       notify.error(res.error)
@@ -45,22 +54,29 @@ function ColorForm({
     onSaved()
     onClose()
     notify.success(
-      colors.accent === null && colors.accentDark === null ? `Cleared the colour of ${name}` : `Saved the colour of ${name}`
+      colors.accent === null && colors.accentDark === null && icon === null ? `Cleared the look of ${name}` : `Saved the look of ${name}`
     )
   }
 
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Colour for {name}</DialogTitle>
+        <DialogTitle>Look of {name}</DialogTitle>
         <DialogDescription>
-          Notes in this folder are drawn in this colour in the Knowledge Nebula, unless a folder inside it has its own. It
-          is saved in the properties of {top}/{top}.md. No colour means the folder above it decides.
+          The icon is drawn beside this folder in the list. Notes in it are drawn in the colour in the Knowledge Nebula,
+          unless a folder inside it has its own. Both are saved in the properties of {top}/{top}.md. No colour means the
+          folder above it decides.
         </DialogDescription>
       </DialogHeader>
-      <div className="grid gap-1.5 text-sm">
-        <span className="font-medium">Colour</span>
-        <FolderColorField {...colors} onChange={setColors} disabled={busy} />
+      <div className="grid gap-4">
+        <div className="grid gap-1.5 text-sm">
+          <span className="font-medium">Icon</span>
+          <IconPicker label="Icon" value={icon} fallback={Folder01Icon} onChange={setIcon} disabled={busy} />
+        </div>
+        <div className="grid gap-1.5 text-sm">
+          <span className="font-medium">Colour</span>
+          <FolderColorField {...colors} onChange={setColors} disabled={busy} />
+        </div>
       </div>
       <DialogFooter>
         <DialogClose render={<Button variant="outline" disabled={busy} />}>Cancel</DialogClose>
@@ -73,8 +89,8 @@ function ColorForm({
 }
 
 /**
- * The Folder colour dialog (docs/decisions/090), opened from the right-click menu of a folder below a top-level one:
- * a colour for the folder, to tell one project from another in the Knowledge Nebula. It opens filled from the
+ * The Folder look dialog (docs/decisions/090), opened from the right-click menu of a folder below a top-level one:
+ * an icon and a colour for the folder, to tell one project from another in the list and the Knowledge Nebula. It opens filled from the
  * folder's own entry (`setup.start`, already fetched). Cancel writes nothing; only Save does.
  */
 export function FolderColorDialog({
@@ -83,10 +99,10 @@ export function FolderColorDialog({
   onClose,
   onSaved,
 }: {
-  setup: { path: string; start: { accent: string | null; accentDark: string | null } } | null
+  setup: { path: string; start: FolderLookStart } | null
   persona: string
   onClose: () => void
-  /** Called after the colour was written, so the tree and the nebula can refresh. */
+  /** Called after the look was written, so the tree and the nebula can refresh. */
   onSaved: () => void
 }) {
   return (

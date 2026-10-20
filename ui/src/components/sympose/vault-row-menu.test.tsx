@@ -124,47 +124,47 @@ describe("VaultRowMenu: the rename field on a folder row", () => {
 })
 
 
-describe("VaultRowMenu: Folder colour (docs/decisions/090)", () => {
+describe("VaultRowMenu: Folder look (docs/decisions/090)", () => {
   const sub: VaultNode = { name: "sympose", path: "Projects/sympose", type: "folder", children: [] }
 
   it("is offered on a folder below a top-level one once the app wires it, and not on a top-level folder", async () => {
     show(sub, { onFolderColored: vi.fn() })
-    expect(await screen.findByRole("menuitem", { name: "Folder colour" })).toBeTruthy()
+    expect(await screen.findByRole("menuitem", { name: "Folder look" })).toBeTruthy()
     cleanup()
     show({ ...folder, children: [] }, { onFolderColored: vi.fn() })
     await screen.findByRole("menuitem", { name: "New note here" })
-    expect(screen.queryByRole("menuitem", { name: "Folder colour" })).toBeNull()
+    expect(screen.queryByRole("menuitem", { name: "Folder look" })).toBeNull()
   })
 
   it("is left out where the app has not wired it, and on a note", async () => {
     show(sub)
     await screen.findByRole("menuitem", { name: "New note here" })
-    expect(screen.queryByRole("menuitem", { name: "Folder colour" })).toBeNull()
+    expect(screen.queryByRole("menuitem", { name: "Folder look" })).toBeNull()
     cleanup()
     show({ ...note, path: "Projects/sympose/Plan.md" }, { onFolderColored: vi.fn() })
     await screen.findByRole("menuitem", { name: "Rename" })
-    expect(screen.queryByRole("menuitem", { name: "Folder colour" })).toBeNull()
+    expect(screen.queryByRole("menuitem", { name: "Folder look" })).toBeNull()
   })
 
   it("opens the dialog on the folder's own colour and tells the app once it is saved", async () => {
-    colorApi.fetchFolderColor.mockResolvedValue({ editable: true, accent: "#7c3aed", accentDark: "#b98cff" })
+    colorApi.fetchFolderColor.mockResolvedValue({ editable: true, accent: "#7c3aed", accentDark: "#b98cff", icon: null })
     colorApi.saveFolderColor.mockResolvedValue({ ok: true, created: false })
     const onFolderColored = vi.fn()
     show(sub, { onFolderColored })
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Folder colour" }))
-    expect(await screen.findByText("Colour for sympose")).toBeTruthy()
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Folder look" }))
+    expect(await screen.findByText("Look of sympose")).toBeTruthy()
     expect(colorApi.fetchFolderColor).toHaveBeenCalledWith("Projects/sympose", "samantha")
     fireEvent.click(screen.getByRole("button", { name: "Rose" }))
     fireEvent.click(screen.getByRole("button", { name: "Save" }))
     await waitFor(() => expect(onFolderColored).toHaveBeenCalled())
-    expect(colorApi.saveFolderColor).toHaveBeenCalledWith("Projects/sympose", { accent: "#be123c", accentDark: "#f2889b" }, "samantha")
+    expect(colorApi.saveFolderColor).toHaveBeenCalledWith("Projects/sympose", { accent: "#be123c", accentDark: "#f2889b", icon: null }, "samantha")
   })
 
-  it("opens no dialog for a folder the server says cannot be coloured", async () => {
-    colorApi.fetchFolderColor.mockResolvedValue({ editable: false, accent: null, accentDark: null })
+  it("opens no dialog for a folder the server says cannot be given a look", async () => {
+    colorApi.fetchFolderColor.mockResolvedValue({ editable: false, accent: null, accentDark: null, icon: null })
     show(sub, { onFolderColored: vi.fn() })
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Folder colour" }))
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Folder look" }))
     await waitFor(() => expect(notify.info).toHaveBeenCalled())
-    expect(screen.queryByText("Colour for sympose")).toBeNull()
+    expect(screen.queryByText("Look of sympose")).toBeNull()
   })
 })

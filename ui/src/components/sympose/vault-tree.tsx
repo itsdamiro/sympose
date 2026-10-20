@@ -20,6 +20,7 @@ import { onFolderMoved } from "@/lib/folder-moved"
 import { endFolderDrag, folderDropHandlers, startFolderDrag, startNoteDrag } from "@/lib/vault-drag"
 import { useAnimatedNodeList } from "@/lib/use-animated-node-list"
 import { GroupCaption } from "@/components/sympose/group-caption"
+import { iconByName } from "@/lib/persona-icons"
 import { VaultRowMenu } from "@/components/sympose/vault-row-menu"
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu"
 
@@ -55,7 +56,8 @@ export interface VaultNode {
   children?: VaultNode[]
   /** A top-level folder's look from its definition note (docs/decisions/064): the name of its icon in the icon set,
    *  and its colour for the nebula (`accent` light, `accent_dark` dark). Each is set only when the note sets it. A
-   *  folder below a top-level one carries only the colour its top-level folder's note gives it (docs/decisions/090). */
+   *  folder below a top-level one carries the icon and colour its own entry in its top-level folder's note gives it
+   *  (docs/decisions/090); the tree draws that icon in place of the folder glyph. */
   icon?: string
   accent?: string
   accent_dark?: string
@@ -257,7 +259,7 @@ export interface RowActions {
   onBeforeFolderRename?: () => Promise<boolean>
   /** A note row was moved to trash. */
   onDeleted?: (path: string) => void
-  /** A subfolder's colour was saved from its row's "Folder colour" (docs/decisions/090): the tree is read again.
+  /** A subfolder's look was saved from its row's "Folder look" (docs/decisions/090): the tree is read again.
    *  Omit to leave that item out of a subfolder's menu. */
   onFolderColored?: () => void
   /** A new note was created from a folder row. */
@@ -589,11 +591,9 @@ export function VaultTreeRow({
     )
 
   if (node.type === "folder") {
-    const FolderGlyph = isDailyFolder(node.name)
-      ? Calendar03Icon
-      : isOpen
-        ? FolderOpenIcon
-        : Folder01Icon
+    const FolderGlyph =
+      (node.path.includes("/") ? iconByName(node.icon) : undefined) ??
+      (isDailyFolder(node.name) ? Calendar03Icon : isOpen ? FolderOpenIcon : Folder01Icon)
     return (
       // Keyed on `node.path` by the parent map, so this only mounts (and
       // animates in) for a genuinely new folder — an existing row re-renders

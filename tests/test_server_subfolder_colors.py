@@ -1,5 +1,5 @@
-"""Folder colours below a top-level folder (docs/decisions/090) through the real app on a scratch vault: the routes the
-Folder colour dialog calls, the colour a note's node and a tree folder carry, and the entries following a renamed or
+"""Folder looks below a top-level folder (docs/decisions/090) through the real app on a scratch vault: the routes the
+Folder look dialog calls, the colour a note's node and the icon and colour a tree folder carry, and the entries following a renamed or
 moved folder. The module's own cases are `test_subfolder_colors.py`."""
 
 import pytest
@@ -60,10 +60,10 @@ def folder(tree, path):
 def test_the_get_route_gives_the_folders_own_colours(env):
     client, _ = env
     assert client.get("/api/vault/folder/color", params={"path": "Projects/sympose", "persona": "samantha"}).json() == {
-        "editable": True, "accent": None, "accent_dark": None,
+        "editable": True, "accent": None, "accent_dark": None, "icon": None,
     }
     paint(client, "Projects/sympose")
-    assert client.get("/api/vault/folder/color", params={"path": "Projects/sympose", "persona": "samantha"}).json() == {"editable": True, **VIOLET}
+    assert client.get("/api/vault/folder/color", params={"path": "Projects/sympose", "persona": "samantha"}).json() == {"editable": True, **VIOLET, "icon": None}
     assert client.get("/api/vault/folder/color", params={"path": "Projects", "persona": "samantha"}).json() == {"editable": False}
 
 
@@ -168,3 +168,41 @@ def test_renaming_a_top_level_folder_keeps_its_entries_because_the_note_goes_wit
     assert res.status_code == 200
     assert frontmatter(vault, "Work/Work.md")["subfolders"] == {"sympose": VIOLET}
     assert nodes(client)["Work/sympose/Plan.md"]["colored_by"] == "Work/sympose"
+
+
+ROCKET = {"icon": "rocket"}
+
+
+def test_the_put_route_writes_and_the_get_route_reads_an_icon_with_the_colours(env):
+    client, vault = env
+    assert paint(client, "Projects/sympose", {**VIOLET, **ROCKET}).status_code == 200
+    assert frontmatter(vault)["subfolders"] == {"sympose": {**VIOLET, **ROCKET}}
+    got = client.get("/api/vault/folder/color", params={"path": "Projects/sympose", "persona": "samantha"}).json()
+    assert got == {"editable": True, **VIOLET, **ROCKET}
+
+
+def test_the_put_route_refuses_an_icon_the_app_does_not_have(env):
+    client, vault = env
+    before = (vault / "Projects/Projects.md").read_text()
+    assert paint(client, "Projects/sympose", {"icon": "no-such-icon-here"}).status_code == 400
+    assert (vault / "Projects/Projects.md").read_text() == before
+
+
+def test_a_tree_folder_carries_its_own_icon_and_a_neighbour_does_not(env):
+    client, _ = env
+    paint(client, "Projects/sympose", ROCKET)
+    tree = client.get("/api/vault/tree", params={"persona": "samantha"}).json()["tree"]
+    assert folder(tree, "Projects/sympose")["icon"] == "rocket"
+    assert "icon" not in folder(tree, "Projects/stylo")
+    assert "icon" not in folder(tree, "Projects/sympose/decisions")
+    assert folder(tree, "Projects")["icon"] == "folder-library"
+
+
+def test_an_icon_does_not_colour_the_nebula_nor_reach_a_note_s_node(env):
+    client, _ = env
+    paint(client, "Projects/sympose", ROCKET)
+    node = nodes(client)["Projects/sympose/Plan.md"]
+    assert node["accent"] == "#0284c7" and "colored_by" not in node and "icon" not in node
+    paint(client, "Projects/sympose", {**VIOLET, **ROCKET})
+    node = nodes(client)["Projects/sympose/Plan.md"]
+    assert node["accent"] == VIOLET["accent"] and node["colored_by"] == "Projects/sympose" and "icon" not in node
