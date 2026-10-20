@@ -154,6 +154,21 @@ def test_an_entry_this_module_cannot_read_is_kept():
     assert sc.of_note(meta(out))["sympose"] == VIOLET
 
 
+def test_a_hand_written_number_key_is_changed_and_removed_not_duplicated():
+    text = "---\nsubfolders:\n  2024:\n    accent: '#123456'\n---\n"
+    out = sc.with_entries(text, {"2024": ROSE})
+    assert out.count("2024") == 1
+    assert sc.of_note(meta(out)) == {"2024": ROSE}
+    assert sc.with_entries(text, {"2024": None}) == "---\n---\n"
+
+
+def test_the_other_keys_of_an_entry_stay_when_its_look_is_changed():
+    text = "---\nsubfolders:\n  sympose:\n    accent: '#123456'\n    note: mine\n---\n"
+    out = sc.with_entries(text, {"sympose": ROSE})
+    assert "note: mine" in out
+    assert sc.of_note(meta(out)) == {"sympose": ROSE}
+
+
 def test_a_hand_written_key_with_slashes_is_changed_not_duplicated():
     text = "---\nsubfolders:\n  /a/b/:\n    accent: '#123456'\n---\n"
     out = sc.with_entries(text, {"a/b": ROSE})
@@ -328,6 +343,26 @@ def test_a_merge_inside_one_note_keeps_the_destination_s_colour(vault):
     sc.follow(ALL, "Projects/sympose", "Projects/stylo")
     assert sc.of_note(meta(get(vault)))["stylo"] == {"accent": "#111111"}
     assert "sympose" not in sc.of_note(meta(get(vault)))
+
+
+def test_a_move_whose_new_note_cannot_take_the_entries_leaves_them_where_they_were(vault):
+    two_entries(vault)
+    before = get(vault)
+    put(vault, "Notes/Notes.md", "---\nsubfolders: nope\n---\n# Notes\n")
+    move(vault, "Projects/sympose", "Notes/sympose")
+    with pytest.raises(Refused):
+        sc.follow(ALL, "Projects/sympose", "Notes/sympose")
+    assert get(vault) == before
+
+
+def test_a_move_that_carries_nothing_does_not_touch_the_new_note(vault):
+    two_entries(vault)
+    kept = "---\nsubfolders:\n  sympose: {accent: '#111111'}\n  sympose/decisions: {accent: '#222222'}   # mine\n---\n# Notes\n"
+    put(vault, "Notes/Notes.md", kept)
+    move(vault, "Projects/sympose", "Notes/sympose")
+    sc.follow(ALL, "Projects/sympose", "Notes/sympose")
+    assert get(vault, "Notes/Notes.md") == kept
+    assert sc.of_note(meta(get(vault))) == {}
 
 
 def test_a_folder_that_becomes_top_level_leaves_its_entries_behind_and_drops_them(vault):

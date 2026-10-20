@@ -13,7 +13,7 @@ from sympose import folder_definitions as defs
 from sympose import folder_looks
 
 
-def _key_span(lines: list[str], key: str) -> tuple[int, int] | None:
+def key_span(lines: list[str], key: str) -> tuple[int, int] | None:
     """`(first, after)` indexes of `key`'s property in frontmatter `lines`: its line and the indented lines that
     continue it. `None` when the note does not set it."""
     first = next((i for i, line in enumerate(lines) if re.match(rf"{re.escape(key)}[ \t]*:", line)), None)
@@ -38,7 +38,7 @@ def with_look(text: str, look: dict[str, str | None]) -> str | None:
     inner = lines[1:-1] if front else []  # the lines between the two `---` rules
     added: list[str] = []
     for key, value in look.items():
-        span = _key_span(inner, key)
+        span = key_span(inner, key)
         if span is None:
             if value is not None:
                 added.append(folder_looks.line(key, value) + "\n")

@@ -26,6 +26,7 @@ KEY = "subfolders"
 COLOR_KEYS = ("accent", "accent_dark")
 LOOK_KEYS = (*COLOR_KEYS, "icon")
 _CREATED = "Created note:"
+_NOT_CARRIED = "The `subfolders` property could not be read, so its colours were not carried."
 
 
 def clean_path(path: object) -> str | None:
@@ -90,7 +91,7 @@ def _entry_lines(mapping: dict[str, Any]) -> list[str]:
 def with_entries(text: str, changes: dict[str, dict[str, str] | None]) -> str | None:
     """`text`, a definition note, with each path of `changes` set to its look (a dict of `accent`, `accent_dark`
     and/or `icon`) or removed (`None`) in its `subfolders` property. Entries the note holds for other paths stay as they
-    are, even ones this module cannot read. The property is written in YAML block style, so a comment inside it is not
+    are, even ones this module cannot read, and so do the other keys of an entry whose look is changed. The property is written in YAML block style, so a comment inside it is not
     kept; every other line of the note is. `None` when the note opens a properties block it never closes, or when
     `subfolders` is there but is not a map."""
     parts = defs.split_frontmatter(text)
@@ -99,7 +100,7 @@ def with_entries(text: str, changes: dict[str, dict[str, str] | None]) -> str | 
     front, rest = parts
     lines = front.splitlines(keepends=True)
     inner = lines[1:-1] if front else []
-    span = folder_settings_text._key_span(inner, KEY)
+    span = folder_settings_text.key_span(inner, KEY)
     mapping: dict[Any, Any] = {}
     if span is not None:
         try:
@@ -111,11 +112,14 @@ def with_entries(text: str, changes: dict[str, dict[str, str] | None]) -> str | 
             return None
         mapping = dict(held or {})
     for path, look in changes.items():
-        existing = next((k for k in mapping if isinstance(k, str) and clean_path(k) == path), path)
+        # `of_note` reads a key YAML made a number or a bool through `str`, so the match does too.
+        existing = next((k for k in mapping if clean_path(k if isinstance(k, str) else str(k)) == path), path)
         if look is None:
             mapping.pop(existing, None)
         else:
-            mapping[existing] = {k: look[k] for k in LOOK_KEYS if k in look}
+            old = mapping.get(existing)
+            others = {k: v for k, v in old.items() if k not in LOOK_KEYS} if isinstance(old, dict) else {}
+            mapping[existing] = {**{k: look[k] for k in LOOK_KEYS if k in look}, **others}
     if span is not None:
         ending = "\r\n" if inner[span[0]].endswith("\r\n") else "\n"
         new = [line.rstrip("\n") + ending for line in _entry_lines(mapping)] if mapping else []
@@ -192,15 +196,9 @@ def _write(profile: dict[str, Any], vault: str, top: str, changes: dict[str, dic
     """`changes` made in `top`'s definition note, which is created with only this property when there is none (and
     nothing is created to clear a colour). `True` when the note was created."""
     note = defs.definition_path(top)
-
-    def edit(text: str) -> str:
-        updated = with_entries(text, changes)
-        if updated is None:
-            raise Refused(f"`{note}` has a `{KEY}` property that is not a list of folders, or a properties block it does not close, so nothing was changed.")
-        return updated
-
     if write_defs.defined(vault, top):
-        rewrite_note(profile, note, edit)
+        why = f"`{note}` has a `{KEY}` property that is not a list of folders, or a properties block it does not close, so nothing was changed."
+        rewrite_note(profile, note, lambda text: _changed(text, changes, why))
         return False
     text = with_entries(f"# {top}\n", changes)
     if text is None or not any(changes.values()):
@@ -235,14 +233,16 @@ def follow(profile: dict[str, Any], old: str, new: str) -> int:
         carried = {new_below + key[len(old_below) :]: look for key, look in moving.items()}
     leaving: dict[str, dict[str, str] | None] = {key: None for key in moving}
     if new_top == old_top:
-        carried = {key: look for key, look in carried.items() if key not in held or key in moving}
-        rewrite_note(profile, defs.definition_path(old_top), lambda text: _with(text, {**leaving, **carried}))
+        carried = {key: look for key, look in carried.items() if key not in held}
+        rewrite_note(profile, defs.definition_path(old_top), lambda text: _changed(text, {**leaving, **carried}, _NOT_CARRIED))
         return len(carried)
-    # Into another top-level folder's note: its own entries win, and the note is made when it has none.
+    # Into another top-level folder's note: its own entries win, and the note is made when it has none. The new note is
+    # written first, so a refusal there leaves the entries where they were.
     there = _held(scope[0], new_top)
     carried = {key: look for key, look in carried.items() if key not in there}
-    rewrite_note(profile, defs.definition_path(old_top), lambda text: _with(text, leaving))
-    _write(profile, scope[0], new_top, carried)
+    if carried:
+        _write(profile, scope[0], new_top, carried)
+    rewrite_note(profile, defs.definition_path(old_top), lambda text: _changed(text, leaving, _NOT_CARRIED))
     return len(carried)
 
 
@@ -250,10 +250,11 @@ def _held(vault: str, top: str) -> dict[str, dict[str, str]]:
     return of_note(parse_frontmatter(_read_note(vault, defs.definition_path(top)))[0])
 
 
-def _with(text: str, changes: dict[str, dict[str, str] | None]) -> str:
+def _changed(text: str, changes: dict[str, dict[str, str] | None], why: str) -> str:
+    """`with_entries`, or `Refused` with `why` for a note it cannot edit safely."""
     updated = with_entries(text, changes)
     if updated is None:
-        raise Refused("The `subfolders` property could not be read, so its colours were not carried.")
+        raise Refused(why)
     return updated
 
 
