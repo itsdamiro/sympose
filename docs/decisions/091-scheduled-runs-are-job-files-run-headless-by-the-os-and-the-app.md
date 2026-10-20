@@ -68,6 +68,10 @@ Settings gets a Jobs section: one row per job (name, schedule, model icon, last 
 - The first mechanical kinds are `health` and `refresh`.
 - A local model's runs have no daily cap.
 
+## Settled with damiro (2026-10-21, later)
+
+- A job conversation's recap feeds the persona's recaps like any other conversation's. `recap_refresh` scans every session and has no job filter, so nothing is built for it. The cost is one recap call for a job's conversation (the persona's own model, under the same cloud rules as any recap).
+
 ## Settled: new notes only
 
 - **A job drafts new notes only.** An edit proposal quotes a passage of the note open in the editor (`edit_turn.OpenNote`), and a run has no editor; the new-note tool (`edit_tools`) needs no open note. So a run can propose new notes but not changes to an existing one. A later `notes:` list in a job's front matter could open named notes for edits; not in this slice. A persona whose edit mode is `plan` proposes nothing, so its jobs only reply.
