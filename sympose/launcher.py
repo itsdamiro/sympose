@@ -133,6 +133,8 @@ def _run_slack(args: argparse.Namespace) -> int:
     load_env()
     from sympose import slack_connect
 
+    if args.slack_command == "manifest":
+        return slack_connect.manifest(args.handle)
     return slack_connect.run()
 
 
@@ -164,6 +166,9 @@ def build_parser() -> argparse.ArgumentParser:
     schedule.set_defaults(run=_run_schedule)
     slack = commands.add_parser("slack", help="answer in Slack: every persona with a Slack token pair, as its own Slack user (needs Slack switched on in settings)")
     slack.set_defaults(run=_run_slack)
+    slack_commands = slack.add_subparsers(dest="slack_command", title="commands")
+    manifest = slack_commands.add_parser("manifest", help="print the Slack App manifest of a persona, to paste into Slack when making its App")
+    manifest.add_argument("handle", metavar="HANDLE", help="the persona's handle (its folder under profiles/)")
     return parser
 
 

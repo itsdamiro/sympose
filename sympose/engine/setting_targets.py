@@ -7,13 +7,16 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-from sympose import persona_model
+from sympose import persona_model, slack_approval
 from sympose.engine import model as model_mod, settings_apply, settings_registry as registry, sharing
 from sympose.engine.model_options import offered
 
 MODEL = "model"
 SHARE = "cloud_share:"
 SETTING, SHARING, PERSONA_MODEL = "setting", "sharing", "model"  # a target's `kind`
+# Settings only the user changes, in Settings: a persona may not even ask. A Slack reply leaves the machine, so switching it on
+# is not something a chat should be able to put on a card (docs/decisions/093).
+USER_ONLY = frozenset({slack_approval.SETTING})
 
 
 @dataclass(frozen=True)
@@ -34,12 +37,14 @@ def find(name: str) -> Target | None:
             return Target(name, SHARING, f"Cloud models may receive: {category}", sharing.DESCRIPTIONS[category])
         return None
     setting = registry.find(name)
+    if setting is not None and setting.key in USER_ONLY:
+        return None
     return Target(name, SETTING, settings_apply.label(setting), "", setting) if setting else None
 
 
 def names() -> list[str]:
     """Every name she may use, for the tool's description."""
-    return [s.key for s in registry.SETTINGS] + [MODEL] + [SHARE + c for c in sharing.CATEGORIES]
+    return [s.key for s in registry.SETTINGS if s.key not in USER_ONLY] + [MODEL] + [SHARE + c for c in sharing.CATEGORIES]
 
 
 def _named(value: str, ids: list[str]) -> list[str]:

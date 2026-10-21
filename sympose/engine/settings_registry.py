@@ -6,6 +6,7 @@ channel's own (the terminal's are in `cli/display_settings.py`)."""
 from dataclasses import dataclass
 from typing import Any, Callable
 
+from sympose import slack_approval
 from sympose.engine import budget, compaction, edit_mode, edit_turn, open_comments, embeddings, followup, history_cap, lookup, memory, memory_refresh, model_wait, parallel, past_chats, recap, related, semantic, skills, web_access
 
 TOGGLE, CHOICE, NUMBER = "toggle", "choice", "number"
@@ -32,8 +33,10 @@ def toggle(key: str, summary: str, current: Callable[[], bool], default: bool = 
     return Setting(key, TOGGLE, summary, current, lambda: default, group=group)
 
 
-CONTEXT, SEARCH, LOOKUP, MEMORY, CONVERSATIONS, EDITING, SKILLS, WEB = "Conversation memory", "Search", "Searching notes", "Memory", "Conversations", "Editing", "Skills", "Links"
-GROUPS = (CONTEXT, SEARCH, LOOKUP, MEMORY, CONVERSATIONS, EDITING, SKILLS, WEB)
+CONTEXT, SEARCH, LOOKUP, MEMORY, CONVERSATIONS, EDITING, SKILLS, WEB, SLACK = (
+    "Conversation memory", "Search", "Searching notes", "Memory", "Conversations", "Editing", "Skills", "Links", "Slack",
+)
+GROUPS = (CONTEXT, SEARCH, LOOKUP, MEMORY, CONVERSATIONS, EDITING, SKILLS, WEB, SLACK)
 
 SETTINGS: list[Setting] = [
     Setting(
@@ -157,6 +160,10 @@ SETTINGS: list[Setting] = [
     Setting(
         web_access.SETTING, CHOICE, "reading links you share, and searching the web",
         web_access.mode, lambda: web_access.ASKED, choices=web_access.MODES, group=WEB,
+    ),
+    toggle(
+        slack_approval.SETTING, "answering in Slack (replies leave this computer)",
+        slack_approval.approved, default=False, group=SLACK,
     ),
 ]
 

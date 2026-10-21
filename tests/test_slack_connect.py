@@ -1,11 +1,13 @@
 """What the Slack connection does with events, replies and start-up (docs/decisions/093). Slack's library is not used here:
 the listeners are called the way it calls them, and `connect` is replaced."""
 
+from types import SimpleNamespace
+
 import pytest
 from helpers import write_persona
 from slack_shapes import BOT, OWNER, dm, mention
 
-from sympose import settings_store, slack_channel, slack_connect
+from sympose import settings_store, slack_approval, slack_channel, slack_connect, slack_heartbeat
 from sympose.engine import turn
 from sympose.engine.turn_result import TurnResult
 
@@ -19,7 +21,7 @@ def home(tmp_path, monkeypatch):
     monkeypatch.setenv(slack_channel.OWNER_VARIABLE, OWNER)
     for name in ("SLACK_SAMANTHA_BOT_TOKEN", "SLACK_SAMANTHA_APP_TOKEN"):
         monkeypatch.delenv(name, raising=False)
-    settings_store.set(slack_channel.SETTING, True)
+    settings_store.set(slack_approval.SETTING, True)
     monkeypatch.setattr(turn, "run_turn", lambda handle, message, session_id=None, **_: TurnResult(reply=f"re: {message}", session_id=session_id))
     return base
 
@@ -94,8 +96,14 @@ def test_slash_new_from_a_stranger_is_acknowledged_and_unanswered(home):
 
 
 # --- start-up -----------------------------------------------------------------------------------
+class _Client:
+    def is_connected(self):
+        return True
+
+
 class Handler:
     closed = False
+    client = _Client()
 
     def close(self):
         self.closed = True
@@ -117,7 +125,7 @@ def test_each_persona_with_tokens_is_connected_and_the_others_are_not(home, monk
     _both(monkeypatch, "samantha")
     opened = []
     monkeypatch.setattr(slack_connect, "connect", lambda handle, bot, app: opened.append((handle, bot, app)) or Handler())
-    monkeypatch.setattr(slack_connect.threading, "Event", _Stop)
+    monkeypatch.setattr(slack_connect, "threading", SimpleNamespace(Event=_Stop))
     assert slack_connect.run() == 0
     assert opened == [("samantha", "xoxb-1", "xapp-1")]
     assert "samantha is in Slack" in capsys.readouterr().out
@@ -134,7 +142,7 @@ def test_a_persona_slack_refuses_does_not_stop_the_others(home, monkeypatch, cap
         return Handler()
 
     monkeypatch.setattr(slack_connect, "connect", connect)
-    monkeypatch.setattr(slack_connect.threading, "Event", _Stop)
+    monkeypatch.setattr(slack_connect, "threading", SimpleNamespace(Event=_Stop))
     assert slack_connect.run() == 0
     err = capsys.readouterr()
     assert "archia is not connected (invalid_auth)" in err.err and "samantha is in Slack" in err.out
@@ -144,14 +152,40 @@ def test_connections_are_closed_when_stopped(home, monkeypatch):
     _both(monkeypatch, "samantha")
     handler = Handler()
     monkeypatch.setattr(slack_connect, "connect", lambda *_: handler)
-    monkeypatch.setattr(slack_connect.threading, "Event", _Stop)
+    monkeypatch.setattr(slack_connect, "threading", SimpleNamespace(Event=_Stop))
     slack_connect.run()
     assert handler.closed
 
 
+def test_a_connected_persona_shows_as_connected_while_it_runs_and_not_after(home, monkeypatch):
+    _both(monkeypatch, "samantha")
+    monkeypatch.setattr(slack_connect, "connect", lambda *_: Handler())
+    seen = []
+
+    class Looking:
+        def wait(self):
+            seen.append(slack_heartbeat.connected("samantha"))
+            raise KeyboardInterrupt
+
+    monkeypatch.setattr(slack_connect, "threading", SimpleNamespace(Event=Looking))
+    slack_connect.run()
+    assert seen == [True] and slack_heartbeat.connected("samantha") is False
+
+
+def test_a_persona_slack_refused_is_not_shown_as_connected(home, monkeypatch):
+    _both(monkeypatch, "samantha")
+
+    def refuse(*_):
+        raise RuntimeError("invalid_auth")
+
+    monkeypatch.setattr(slack_connect, "connect", refuse)
+    assert slack_connect.run() == 1
+    assert slack_heartbeat.connected("samantha") is False
+
+
 def test_nothing_is_connected_while_slack_is_switched_off(home, monkeypatch, capsys):
     _both(monkeypatch, "samantha")
-    settings_store.set(slack_channel.SETTING, False)
+    settings_store.set(slack_approval.SETTING, False)
     monkeypatch.setattr(slack_connect, "connect", lambda *_: pytest.fail("connected while switched off"))
     assert slack_connect.run() == 1
     assert "switched off" in capsys.readouterr().err

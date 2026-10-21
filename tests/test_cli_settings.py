@@ -6,7 +6,7 @@ import asyncio
 import pytest
 from helpers import write_persona
 
-from sympose import engine, settings_store
+from sympose import engine, settings_store, slack_approval
 from sympose.cli import commands, settings_list, settings_registry as registry
 from sympose.cli.app import SymposeCLI
 from sympose.cli.composer import DEFAULT_PLACEHOLDER
@@ -17,7 +17,7 @@ KEYS = [
     "show_grounding", "show_trim_notice", "show_context_meter", "show_background_status", "status_typing", "reply_reveal",
     "context_window", "reply_limit", "history_tokens", "model_timeout", "grounding_followups", "session_recaps", "recap_count", "recap_chars", "past_chats", "connections_by_meaning", "connections_relevance", "auto_compact", "compact_at", "compact_to",
     "grounding_search", "embedding_min_similarity", "embedding_margin", "library_sync_limit", "vault_lookup", "vault_lookup_rounds",
-    "memory_remember", "memory_rewrite", "memory_auto_refresh", "parallel_replies", "edit_mode", "show_note_marker", "open_note_cap", "annotations_cap", "skill_lookup", "skill_cap", "web_access",
+    "memory_remember", "memory_rewrite", "memory_auto_refresh", "parallel_replies", "edit_mode", "show_note_marker", "open_note_cap", "annotations_cap", "skill_lookup", "skill_cap", "web_access", "slack",
 ]
 
 
@@ -76,10 +76,10 @@ def test_settings_is_a_real_command_now():
 def test_every_toggle_is_on_when_nothing_is_set_except_the_off_by_default_ones():
     """`memory_remember` ships off (docs/decisions/041: trusting a model with even a safe,
     append-only write is the user's own call, never a default). `memory_auto_refresh` ships off
-    too, and `show_note_marker` (docs/decisions/072: the line costs a model without tools about half its edits);
+    too, and `show_note_marker` (docs/decisions/072: the line costs a model without tools about half its edits), and `slack` (docs/decisions/093: a reply leaves the machine whatever model wrote it);
     unlike recaps, a context.md/profile.md check shares the same model a real chat turn
     needs, and is not worth running on its own every launch (measured live, 2026-09-29)."""
-    off_by_default = {memory.REMEMBER_SETTING, memory_refresh.AUTO_REFRESH_SETTING, edit_turn.SHOW_MARKER_SETTING}
+    off_by_default = {memory.REMEMBER_SETTING, memory_refresh.AUTO_REFRESH_SETTING, edit_turn.SHOW_MARKER_SETTING, slack_approval.SETTING}
     for s in registry.SETTINGS:
         if s.kind != registry.TOGGLE:
             continue
@@ -313,7 +313,7 @@ def test_slash_settings_lists_every_setting_with_its_value(profiles):
             await _open(pilot, app)
             assert app.panel_kind == settings_list.PICKER_KIND
             labels = [str(app.panel.get_option_at_index(i).prompt) for i in range(app.panel.option_count)]
-            assert len(labels) == 37
+            assert len(labels) == 38
             assert "(show_grounding) — off" in labels[0]
             assert "(status_typing) — 40 (default)" in labels[4]
             assert "(reply_reveal) — 50 (default)" in labels[5]

@@ -8,8 +8,10 @@ when unreachable — this route is what makes that live instead of static.
 
 from typing import Any
 
+from sympose import slack_heartbeat
 from sympose.engine.model import resolve_model
 from sympose.profile import list_profiles, resolve_default_persona
+from sympose.server_handlers import require_profile
 
 
 def get_personas() -> dict[str, Any]:
@@ -32,3 +34,8 @@ def get_personas() -> dict[str, Any]:
             for p in list_profiles()
         ],
     }
+
+
+def get_slack(handle: str) -> dict[str, Any]:
+    """Whether `sympose slack` has this persona connected now (docs/decisions/093): the persona page shows a dot while it is."""
+    return {"connected": slack_heartbeat.connected(require_profile(handle)["handle"])}

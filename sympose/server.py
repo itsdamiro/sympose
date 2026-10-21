@@ -212,6 +212,10 @@ def create_app() -> FastAPI:
     def get_personas() -> dict[str, Any]:
         return ph.get_personas()
 
+    @app.get("/api/personas/{handle}/slack")
+    def get_persona_slack(handle: str) -> dict[str, Any]:
+        return ph.get_slack(handle)
+
     @app.get("/api/personas/{handle}/skills")
     def list_persona_skills(handle: str) -> dict[str, Any]:
         return skh.list_skills(handle)

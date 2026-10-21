@@ -11,15 +11,15 @@ from dataclasses import dataclass
 
 from sympose import note_changes
 from sympose import profile as profile_mod
-from sympose import settings_store, slack_drafts, slack_sessions
+from sympose import slack_drafts, slack_sessions
 from sympose.engine import model as model_mod
 from sympose.server_chat_locks import acquire, lock_for
+from sympose.slack_approval import approved
 from sympose.slack_events import Incoming, conversation_key
 from sympose.slack_text import to_mrkdwn
 
 log = logging.getLogger(__name__)
 
-SETTING = "slack"
 OWNER_VARIABLE = "SLACK_OWNER_USER_ID"
 SWITCHED_OFF = "Slack is switched off in Sympose's settings, so nothing is answered here. Switch it on there and ask again."
 NO_MODEL = "Sympose could not reach the model. Check that it is running, then ask again."
@@ -30,12 +30,6 @@ NO_PERSONA = "Sympose could not find this persona any more. Run `sympose doctor`
 class Reply:
     text: str
     thread_ts: str | None  # the thread to answer in; a direct message is answered in the channel itself
-
-
-def approved() -> bool:
-    """Whether the user has switched Slack on. Off until they do, for every persona and every model, since a Slack reply
-    leaves the machine whatever model wrote it (so this is not one of the categories `sharing.gate` holds back)."""
-    return settings_store.flag(SETTING, False)
 
 
 def owner() -> str | None:

@@ -9,12 +9,12 @@ from collections.abc import Callable
 from typing import Any
 
 from sympose import profile as profile_mod
-from sympose import slack_channel, slack_sessions
+from sympose import slack_channel, slack_heartbeat, slack_manifest, slack_sessions
 from sympose.slack_events import Incoming, parse
 
 log = logging.getLogger(__name__)
 
-NEW_COMMAND = "/new"
+NEW_COMMAND = slack_manifest.NEW_COMMAND["command"]  # the manifest declares it, so the two cannot differ
 
 
 def listeners(handle: str, bot_user_id: str, seen: slack_sessions.Seen | None = None) -> tuple[Callable, Callable]:
@@ -68,14 +68,14 @@ def run() -> int:
     if not slack_channel.approved():
         print("sympose slack: Slack is switched off in Sympose's settings. Switch it on there, then run this again.", file=sys.stderr)
         return 1
-    handlers = []
+    handlers: dict[str, Any] = {}
     for persona in profile_mod.list_profiles():
         handle = persona["handle"]
         found = slack_channel.tokens(handle)
         if found is None:
             continue
         try:
-            handlers.append(connect(handle, *found))
+            handlers[handle] = connect(handle, *found)
         except Exception as e:  # Slack refused the tokens, or could not be reached: the other personas carry on
             print(f"sympose slack: {handle} is not connected ({e}).", file=sys.stderr)
             continue
@@ -84,10 +84,22 @@ def run() -> int:
         print("sympose slack: no persona has a Slack token pair (SLACK_<HANDLE>_BOT_TOKEN and SLACK_<HANDLE>_APP_TOKEN in .env).", file=sys.stderr)
         return 1
     print("Slack is connected (Ctrl-C to stop).")
+    stop_beating = slack_heartbeat.keep(handlers)
     try:
         threading.Event().wait()
     except KeyboardInterrupt:
         pass
-    for handler in handlers:
+    stop_beating()
+    for handler in handlers.values():
         handler.close()
+    return 0
+
+
+def manifest(handle: str) -> int:
+    """`sympose slack manifest <handle>`: print the manifest to paste into Slack's "create an app from a manifest"."""
+    text = slack_manifest.render(handle)
+    if text is None:
+        print(f"sympose slack: there is no persona called {handle!r}. Run `sympose doctor` to see the roster.", file=sys.stderr)
+        return 1
+    print(text)
     return 0

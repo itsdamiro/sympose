@@ -4,28 +4,32 @@ import { cn } from "@/lib/utils"
 import { resolvePersonaVisuals, type LivePersona } from "@/lib/personas"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { ControlRow } from "@/components/sympose/control-section"
+import { SlackDot } from "@/components/sympose/slack-dot"
 
 /**
- * "Switch persona" as a settings-style row, pinned under the Persona panel as the Settings footer is: the label on
- * the left and one icon per persona on the right, each the size of the persona icon in the main menu. Hovering or
- * focusing an icon shows the persona's name and short description in the app's floating-info surface
+ * The footer pinned under the Persona panel, as the Settings footer is: one icon per persona on the far left, each the
+ * size of the persona icon in the main menu, and on the far right the Slack dot while the active persona is connected
+ * to Slack (docs/decisions/093). The icons are the switch ("Switch persona" is the group's name for a screen reader).
+ * Hovering or focusing an icon shows the persona's name and short description in the app's floating-info surface
  * (docs/decisions/060). The active persona is marked and is not a switch target.
  */
 function PersonaSwitcher({
   personas,
   active,
   onSwitch,
+  slack = false,
   className,
 }: {
   personas: LivePersona[]
   active: string
   onSwitch: (handle: string) => void
+  /** The active persona is connected to Slack now: the dot at the far right. */
+  slack?: boolean
   className?: string
 }) {
   return (
-    <ControlRow label="Switch persona" className={cn("w-full", className)}>
-      <div className="flex flex-wrap items-center justify-end gap-2">
+    <div data-slot="persona-switcher" className={cn("flex w-full items-center justify-between gap-2", className)}>
+      <div role="group" aria-label="Switch persona" className="flex flex-wrap items-center gap-2">
         {personas.map((p) => {
           const visuals = resolvePersonaVisuals(p.handle)
           const isActive = p.handle === active
@@ -59,7 +63,8 @@ function PersonaSwitcher({
           )
         })}
       </div>
-    </ControlRow>
+      {slack && <SlackDot />}
+    </div>
   )
 }
 

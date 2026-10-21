@@ -165,6 +165,12 @@ def check_embedding_model() -> list[Finding]:
     return [Finding(problem)] if problem else []
 
 
+def check_slack() -> list[Finding]:
+    from sympose import doctor_slack
+
+    return [Finding(problem) for problem in doctor_slack.problems()]
+
+
 # settings after folders: a renamed folder can make a default_persona valid again
 CHECKS: list[Callable[[], list[Finding]]] = [
     check_persona_folders,
@@ -172,6 +178,7 @@ CHECKS: list[Callable[[], list[Finding]]] = [
     check_persona_vault_folders,
     check_persona_limits,
     check_embedding_model,
+    check_slack,
 ]
 
 
@@ -205,10 +212,12 @@ def examine(fix: bool = False) -> list[Outcome]:
 
 def run(fix: bool = False, out: TextIO | None = None) -> int:
     """Prints the findings (and, with `fix`, applies what can be) and returns 0 when nothing is left wrong, else 1."""
-    from sympose import doctor_models  # imported here: it brings in litellm, a few seconds
+    from sympose import doctor_models, doctor_slack  # imported here: doctor_models brings in litellm, a few seconds
 
     out = out or sys.stdout
     print("\n".join(doctor_models.report()) + "\n", file=out)
+    if slack := doctor_slack.report():
+        print("\n".join(slack) + "\n", file=out)
     outcomes = examine(fix)
     found = len(outcomes)
     left = sum(o.state in ("needs_you", "fixable", "failed") for o in outcomes)

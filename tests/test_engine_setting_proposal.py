@@ -200,6 +200,17 @@ def test_she_is_told_what_the_user_decided():
     assert "the user declined it, so nothing changed" in said[1] and "notes" in said[1]
 
 
+def test_a_persona_may_not_propose_switching_slack_on_and_the_tool_does_not_list_it():
+    """A Slack reply leaves the machine, so that switch is the user's alone, in Settings (docs/decisions/093)."""
+    assert setting_targets.find("slack") is None and "slack" not in setting_targets.names()
+    assert "slack" not in setting_proposal.tool()["function"]["description"].split("The setting is one of: ")[1].split(".")[0].split(", ")
+
+    result = call("slack", True)
+
+    assert result.lookup["saved"] is False and "There is no setting called 'slack'" in result.text
+    assert c.for_session("samantha", "s1") == [] and settings_store.get("slack") is None
+
+
 def test_every_real_tool_name_is_one_a_soul_may_not_mention():
     assert "propose_setting" in persona_proposal.tool_names()
 

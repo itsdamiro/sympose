@@ -11,7 +11,7 @@ pytest.importorskip("slack_bolt")
 from slack_bolt import App, BoltRequest  # noqa: E402
 from slack_bolt.authorization import AuthorizeResult  # noqa: E402
 
-from sympose import settings_store, slack_channel, slack_connect  # noqa: E402
+from sympose import settings_store, slack_approval, slack_channel, slack_connect  # noqa: E402
 from sympose.engine import turn  # noqa: E402
 from sympose.engine.turn_result import TurnResult  # noqa: E402
 
@@ -23,7 +23,7 @@ def app(tmp_path, monkeypatch):
     monkeypatch.setenv("SYMPOSE_PROFILES_DIR", str(base))
     monkeypatch.setenv("SYMPOSE_SETTINGS_PATH", str(tmp_path / "settings.json"))
     monkeypatch.setenv(slack_channel.OWNER_VARIABLE, OWNER)
-    settings_store.set(slack_channel.SETTING, True)
+    settings_store.set(slack_approval.SETTING, True)
     monkeypatch.setattr(turn, "run_turn", lambda handle, message, session_id=None, **_: TurnResult(reply=f"re: {message}", session_id=session_id))
     built = App(
         token_verification_enabled=False, request_verification_enabled=False, ignoring_self_events_enabled=False,

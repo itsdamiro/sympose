@@ -8,7 +8,7 @@ import pytest
 from helpers import write_persona
 from slack_shapes import BOT, OWNER, dm, mention
 
-from sympose import note_changes, settings_store, slack_channel, slack_drafts, slack_sessions
+from sympose import note_changes, settings_store, slack_approval, slack_channel, slack_drafts, slack_sessions
 from sympose.engine import turn
 from sympose.engine.turn_result import TurnResult
 from sympose.slack_events import parse
@@ -23,7 +23,7 @@ def home(tmp_path, monkeypatch):
     monkeypatch.setenv("SYMPOSE_PROFILES_DIR", str(base))
     monkeypatch.setenv("SYMPOSE_SETTINGS_PATH", str(tmp_path / "settings.json"))
     monkeypatch.setenv(slack_channel.OWNER_VARIABLE, OWNER)
-    settings_store.set(slack_channel.SETTING, True)
+    settings_store.set(slack_approval.SETTING, True)
     return base
 
 
@@ -86,7 +86,7 @@ def test_a_strangers_message_is_not_logged(home, turns, caplog):
 
 # --- the approval -------------------------------------------------------------------------------
 def test_switched_off_says_so_and_runs_nothing(home, turns):
-    settings_store.set(slack_channel.SETTING, False)
+    settings_store.set(slack_approval.SETTING, False)
     reply = _answer(dm("hi"))
     assert reply.text == slack_channel.SWITCHED_OFF
     assert turns == []
@@ -99,12 +99,12 @@ def test_it_is_off_until_the_user_switches_it_on(home, turns, tmp_path):
 
 
 def test_a_setting_of_the_wrong_kind_leaves_it_off(home, turns):
-    settings_store.set(slack_channel.SETTING, "yes")
+    settings_store.set(slack_approval.SETTING, "yes")
     assert slack_channel.approved() is False
 
 
 def test_the_approval_applies_to_a_local_model_too(home, turns):
-    settings_store.set(slack_channel.SETTING, False)
+    settings_store.set(slack_approval.SETTING, False)
     assert _answer(dm("hi")).text == slack_channel.SWITCHED_OFF  # the persona's model is local
 
 

@@ -49,6 +49,7 @@ export { PersonaCard } from "./persona-card"
 export { PersonaFileBanner } from "./persona-file-banner"
 export { DraftBanner } from "./draft-banner"
 export { PersonaSwitcher } from "./persona-switcher"
+export { SlackDot } from "./slack-dot"
 export {
   RecentNotesPreferencesSection,
 } from "./recent-notes-preferences-section"

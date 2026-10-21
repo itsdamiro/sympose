@@ -13,12 +13,23 @@ const personas = [
 ] as LivePersona[]
 
 describe("PersonaSwitcher", () => {
-  it("is a settings-style row: the label on the left, a persona icon for each persona on the right", () => {
+  it("has the persona icons on the far left, named as one group, with no label of its own", () => {
     const { container } = render(<PersonaSwitcher personas={personas} active="samantha" onSwitch={() => {}} />)
-    const row = container.querySelector('[data-slot="control-row"]') as HTMLElement
-    expect(row.firstElementChild?.textContent).toBe("Switch persona")
-    expect(screen.getByRole("button", { name: "Samantha" })).toBeTruthy()
-    expect(screen.getByRole("button", { name: "Aria" })).toBeTruthy()
+    const row = container.querySelector('[data-slot="persona-switcher"]') as HTMLElement
+    const group = screen.getByRole("group", { name: "Switch persona" })
+    expect(row.firstElementChild).toBe(group)
+    expect(group.querySelectorAll("button")).toHaveLength(2)
+    expect(row.textContent).toBe("")
+    expect(row.className).toContain("justify-between")
+  })
+
+  it("shows the Slack dot at the far right while the persona is connected, and nothing otherwise", () => {
+    const { container, rerender } = render(<PersonaSwitcher personas={personas} active="samantha" onSwitch={() => {}} />)
+    expect(container.querySelector("[data-slot=slack-dot]")).toBeNull()
+    rerender(<PersonaSwitcher personas={personas} active="samantha" onSwitch={() => {}} slack />)
+    const row = container.querySelector('[data-slot="persona-switcher"]') as HTMLElement
+    expect(row.lastElementChild).toBe(container.querySelector("[data-slot=slack-dot]"))
+    expect(row.lastElementChild?.textContent).toBe("Slack")
   })
 
   it("draws the icons at the size of the main menu's persona icon", () => {

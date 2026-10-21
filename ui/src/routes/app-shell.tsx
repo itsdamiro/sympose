@@ -24,6 +24,7 @@ import { deleteVaultFolder } from "@/lib/vault-note-api"
 import { useChatSession } from "@/lib/use-chat-session"
 import { useSessionList } from "@/lib/use-session-list"
 import { usePersonaRoster } from "@/lib/use-persona-roster"
+import { useSlackConnected } from "@/lib/use-slack-connected"
 import { useConfirmations } from "@/lib/use-confirmations"
 import { announceSettingsChanged } from "@/lib/settings-changed"
 import { PersonaRequestCard } from "@/components/sympose/persona-request-card"
@@ -221,6 +222,7 @@ export function AppShell() {
   // A persona's own files (docs/decisions/061): listed in the Persona page's FILES chip, and opened in the editor in
   // place of the vault note until a note is opened again.
   const personaFiles = usePersonaFiles(activePersona)
+  const slackConnected = useSlackConnected(activePersona, active === MENU_ACCOUNT_ID)
   // A save in the editor may have changed a job's file: the Settings rows for the jobs are read again.
   const [jobsVersion, setJobsVersion] = React.useState(0)
   const { refresh: refreshPersonaFiles } = personaFiles
@@ -783,7 +785,7 @@ export function AppShell() {
                   <ThemeToggle />
                 </div>
               ) : active === MENU_ACCOUNT_ID ? (
-                <PersonaSwitcher personas={rosterPersonas} active={activePersona} onSwitch={setActivePersona} />
+                <PersonaSwitcher personas={rosterPersonas} active={activePersona} onSwitch={setActivePersona} slack={slackConnected} />
               ) : !trashView && (showRelated || recentNodes.length > 0) ? (
                 <div className="flex min-h-0 flex-col gap-3">
                   {showRelated && (

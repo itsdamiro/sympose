@@ -14,6 +14,7 @@ import re
 
 from reference_cases import REFERENCE_DIR
 
+from sympose import slack_manifest
 from sympose.cli import commands
 
 ROOT = os.path.join(REFERENCE_DIR, "..", "..")
@@ -74,7 +75,7 @@ def _stale_in_library(notes: dict[str, str]) -> list[str]:
         _package_source(),
         _read(os.path.join(ROOT, "sympose", "launcher.py")),
         _read(os.path.join(ROOT, ".env.example")),
-        {c.name for c in commands.COMMANDS},
+        {c.name for c in commands.COMMANDS} | {slack_manifest.NEW_COMMAND["command"]},  # Slack's own slash command is in the Slack page
     )
 
 
