@@ -248,6 +248,23 @@ describe("MarkdownPanel leaving a note with unsaved edits", () => {
       expect(file.save.mock.calls[0][1]).toBe("---\nschedule: daily 08:00\nenabled: false\n---\nCheck the vault, and #rest.")
     })
 
+    it("a draft with properties shows its banner and the card together", async () => {
+      const text = "---\ntype: note\n---\nA plan."
+      const file = {
+        ...makeFile(),
+        properties: true,
+        banner: <p>Accept or decline this draft.</p>,
+        load: vi.fn().mockResolvedValue({ content: text, mtime: 40 }),
+      }
+      const view = render(<MarkdownPanel {...base} path="draft:samantha/new/a.md" file={file} previewRequest={0} />)
+      const editor = (await screen.findByLabelText("editor")) as HTMLTextAreaElement
+      expect(editor.value).toBe("A plan.")
+      expect(screen.getByLabelText("Hide properties")).toBeTruthy()
+      view.rerender(<MarkdownPanel {...base} path="draft:samantha/new/a.md" file={file} previewRequest={1} />)
+      expect(await screen.findByText("note")).toBeTruthy()
+      expect(screen.getByText("Accept or decline this draft.")).toBeTruthy()
+    })
+
     it("reads the file again when told to from outside, as after a reset or an accepted rewrite", async () => {
       const file = makeFile()
       const view = render(<MarkdownPanel {...base} path="persona:samantha/soul.md" file={file} reloadToken={0} />)

@@ -433,6 +433,7 @@ function MarkdownPanel({
     frontmatterVisible,
     readOnly,
     banner: file?.banner,
+    hasCard: !!file?.properties,
     outdated: [] as Proposal[],
     onDecline: (() => {}) as (ids: string[]) => void,
   })
@@ -448,18 +449,25 @@ function MarkdownPanel({
     frontmatterVisible,
     readOnly,
     banner: file?.banner,
+    hasCard: !!file?.properties,
     outdated: readOnly || file ? [] : outdatedProposals,
     onDecline: (ids: string[]) => void resolveChanges(ids),
   }
   const canvasHeader = React.useCallback(() => {
-    const { frontmatter, onWikiLinkClick, phone, frontmatterVisible, readOnly, banner, outdated, onDecline } =
+    const { frontmatter, onWikiLinkClick, phone, frontmatterVisible, readOnly, banner, hasCard, outdated, onDecline } =
       frontmatterCardStateRef.current
     // A persona's file has no frontmatter card; what is particular to it (docs/decisions/061) takes the place.
-    // A file with `properties` (a job's) has no banner and gets the card as a note does.
-    if (banner) return <div className={cn("mt-2", phone ? "px-2" : "px-4 sm:px-6")}>{banner}</div>
+    // A file with `properties` gets the card as a note does: a job's has no banner, a draft's has its Accept and Decline above it.
+    // Beside the card the banner is its sibling block: the same inset from the panel edge and the same content gutter (`--gutter`).
+    const bannerBlock = banner ? (
+      <div className={hasCard ? cn("mx-2 mt-2", phone ? "[--gutter:0.5rem]" : "[--gutter:1rem] sm:[--gutter:1.5rem]") : cn("mt-2", phone ? "px-2" : "px-4 sm:px-6")}>
+        {banner}
+      </div>
+    ) : null
+    if (banner && !hasCard) return bannerBlock
     const outdatedStrip =
       outdated.length > 0 ? <OutdatedChanges proposals={outdated} onDecline={onDecline} className={cn("mt-2", phone ? "mx-2" : "mx-4 sm:mx-6")} /> : null
-    if (frontmatter === null) return outdatedStrip
+    if (frontmatter === null) return bannerBlock ?? outdatedStrip
     // Animate via `grid-template-rows` rather than `max-height` — it tweens
     // to the card's real content height with no guessed cap, and (unlike a
     // hardcoded `max-height`) never needs revisiting if the card's content
@@ -467,6 +475,7 @@ function MarkdownPanel({
     // clips it; the outer grid is what animates.
     return (
       <>
+        {bannerBlock}
         <div
           className={cn(
             "grid transition-[grid-template-rows] duration-mode ease-mode",

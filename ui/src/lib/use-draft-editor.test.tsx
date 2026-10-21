@@ -48,6 +48,11 @@ describe("useDraftEditor", () => {
     expect(changes.fetchChanges).toHaveBeenCalledWith(PATH, "samantha")
   })
 
+  it("opens with the properties card, as the note will", () => {
+    const { result } = setup()
+    expect(result.current.file!.properties).toBe(true)
+  })
+
   it("has nothing to load when the proposal is gone", async () => {
     const { result } = setup()
     changes.fetchChanges.mockResolvedValue({ proposals: [] })

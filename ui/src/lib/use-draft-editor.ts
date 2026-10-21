@@ -48,6 +48,7 @@ export function useDraftEditor({
       notePath
         ? {
             title: `${personaName} · draft`,
+            properties: true, // a note's draft opens with its properties card, as the note will
             load: async () => {
               const kept = texts.current.get(`${handle}:${notePath}`)
               if (kept !== undefined) return { content: kept }
