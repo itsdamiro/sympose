@@ -149,3 +149,7 @@ The 10 s connect limit above was not enough. A cloud reply (`gemini/gemini-flash
 ## Amended (2026-10-15): `search_notes` also searches the Sympose library for a persona that has it
 
 The library stays automatic in both modes, as decided above, and `search_notes` now searches it too for a persona with `sympose_reference` (`lookup_tools.search_notes`, the same strict, local search, passages marked as the library's). In `ask` nothing rewrites a follow-up such as "and what is the lowest I can set it to?" for the automatic library search, and a model told the reference comes with the message did not look on those cases: 0 of 16 on Flash (ADR 017, measured 2026-10-15). The query the persona writes is standalone, and a line after the reference in the user's turn (`SEARCH_THE_REFERENCE`, only with `lookup`) says `search_notes` also searches it: 9 of 16, with the calls of the other cases unchanged (ADR 017, the section "Built"). Nothing new reaches a cloud model: the library is public text, and the query is searched locally unless a cloud embedder is approved for notes.
+
+## Amended (2026-10-21): a scheduled run always looks in the notes itself
+
+A job's turn (ADR 091) is run in `ask` on any model that can call tools, whatever `vault_lookup` says, because its fixed prompt is a poor search query and nobody checks the draft. Measured on `gemma4:e4b`: in `auto` 1 of 12 job-style turns filed a draft with invented content, in `ask` 0 of 12 (ADR 091, "As built: a scheduled run looks in the notes itself"). The setting is unchanged for every other turn.
