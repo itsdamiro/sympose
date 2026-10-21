@@ -29,6 +29,14 @@ def test_a_run_is_recorded_and_read_back():
     assert state.held == ["notes"] and state.detail == "notes"
 
 
+def test_a_run_with_no_conversation_keeps_the_one_the_job_had():
+    js.record("samantha", "weekly", NOW, "abc")
+    js.record("samantha", "weekly", NOW + timedelta(hours=1), None, error="down")
+    assert js.read("samantha", "weekly").session_id == "abc"
+    js.record("samantha", "weekly", NOW + timedelta(hours=2), "def")
+    assert js.read("samantha", "weekly").session_id == "def"
+
+
 def test_runs_are_counted_for_the_day_and_start_again_the_next():
     js.record("samantha", "weekly", NOW, None)
     js.record("samantha", "weekly", NOW + timedelta(hours=2), None)

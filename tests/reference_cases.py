@@ -417,6 +417,7 @@ REF_CASES: list[RefCase] = [
     RefCase("jobs-file", "what goes in a job file?", find=("kind", "enabled"), first="The web app.md"),
     RefCase("jobs-schedules", "which schedules can I write for a job?", find=("every 6 hours", "weekdays 07:30"), first="The web app.md"),
     RefCase("jobs-every-hours", "can a job run every 6 hours?", find=("every 6 hours",), first="The web app.md"),
+    RefCase("jobs-conversation", "where can I read what my job said?", find=("one conversation",), first="The web app.md"),
     RefCase("jobs-closed", "do my jobs run when Sympose is closed?", find=("sympose schedule install",), first="The web app.md"),
     # Checking the notes (ADR 034)
     RefCase("check-notes", "how do I check my notes for problems?", find=("sympose vault --health",), first="Checking your notes.md"),

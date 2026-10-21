@@ -140,16 +140,67 @@ def test_a_job_turn_is_told_it_is_unattended(home, monkeypatch):
     assert kinds == [True]
 
 
-def test_a_run_is_a_new_marked_conversation_with_edits_on_and_the_jobs_model(home, turns):
+def test_a_run_is_in_a_marked_conversation_with_edits_on_and_the_jobs_model(home, turns):
+    _job(home, model=LOCAL)
+    first = job_run.run("samantha", "weekly", SUN_NIGHT)
+    assert (first.status, first.detail) == (job_run.RAN, "Done.")
+    assert [t[:2] + t[3:] for t in turns] == [("samantha", "Draft my weekly note.", LOCAL, True)]
+    assert first.session_id == turns[0][2]
+    assert session.load_session("samantha", first.session_id)["meta"]["job"] == "weekly"
+    state = job_state.read("samantha", "weekly")
+    assert (state.last_run, state.outcome, state.session_id) == (SUN_NIGHT, "ok", first.session_id)
+
+
+def test_every_run_of_a_job_goes_on_in_its_one_conversation(home, turns):
     _job(home, model=LOCAL)
     first = job_run.run("samantha", "weekly", SUN_NIGHT)
     second = job_run.run("Samantha", "weekly", SUN_NIGHT, manual=True)
-    assert (first.status, first.detail) == (job_run.RAN, "Done.")
-    assert [t[:2] + t[3:] for t in turns] == [("samantha", "Draft my weekly note.", LOCAL, True)] * 2
-    assert first.session_id and second.session_id and first.session_id != second.session_id == turns[1][2]
-    assert session.load_session("samantha", first.session_id)["meta"]["job"] == "weekly"
-    state = job_state.read("samantha", "weekly")
-    assert (state.last_run, state.outcome, state.session_id) == (SUN_NIGHT, "ok", second.session_id)
+    assert first.session_id and first.session_id == second.session_id == turns[1][2]
+    assert len(session.session_ids("samantha")) == 1
+
+
+def test_a_deleted_conversation_is_replaced_by_a_new_one_for_the_next_run(home, turns):
+    _job(home)
+    first = job_run.run("samantha", "weekly", SUN_NIGHT)
+    os.remove(session.session_path("samantha", first.session_id))
+    second = job_run.run("samantha", "weekly", SUN_NIGHT, manual=True)
+    assert second.session_id and second.session_id != first.session_id
+    assert session.load_session("samantha", second.session_id)["meta"]["job"] == "weekly"
+
+
+def test_a_conversation_that_is_not_this_jobs_is_not_added_to(home, turns):
+    _job(home)
+    other = session.new_session_id()
+    assert session.start_session("samantha", other)  # an ordinary conversation, as one the user opened
+    job_state.record("samantha", "weekly", SUN_NIGHT - timedelta(days=7), other)
+    run = job_run.run("samantha", "weekly", SUN_NIGHT)
+    assert run.session_id and run.session_id != other
+    other_job = session.new_session_id()
+    assert session.start_session("samantha", other_job, "another-job")
+    job_state.record("samantha", "weekly", SUN_NIGHT, other_job)
+    assert job_run.run("samantha", "weekly", SUN_NIGHT, manual=True).session_id not in (other, other_job)
+
+
+def test_a_job_turn_carries_only_the_last_few_turns_of_its_conversation(home, monkeypatch):
+    _job(home)
+    seen = []
+
+    def fake(handle, message, session_id=None, model=None, edits=False, unattended=False, history_turns=None, **_):
+        seen.append(history_turns)
+        return TurnResult(reply="Done.", session_id=session_id)
+
+    monkeypatch.setattr(turn, "run_turn", fake)
+    job_run.run("samantha", "weekly", SUN_NIGHT)
+    assert seen == [job_run.HISTORY_TURNS]
+
+
+def test_a_failed_run_keeps_the_conversation_the_job_had(home, turns):
+    _job(home)
+    first = job_run.run("samantha", "weekly", SUN_NIGHT)
+    turns.fail = RuntimeError("down")
+    again = job_run.run("samantha", "weekly", SUN_NIGHT, manual=True)
+    assert again.status == job_run.FAILED and again.session_id == first.session_id
+    assert job_state.read("samantha", "weekly").session_id == first.session_id
 
 
 def test_a_job_with_no_model_runs_on_the_personas(home, turns):

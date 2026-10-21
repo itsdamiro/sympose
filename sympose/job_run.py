@@ -19,6 +19,7 @@ log = logging.getLogger(__name__)
 RAN, FAILED, SKIPPED = "ran", "failed", "skipped"
 RETRY_AFTER = (timedelta(minutes=30), timedelta(hours=2))  # after the first and the second failure in a row; the third pauses
 CLOUD_RUNS_PER_DAY = 1  # a cloud model costs money and nobody is watching; a local model costs time only
+HISTORY_TURNS = 6  # of the job's one conversation, sent word for word: the last few runs and the user's replies, not all of them
 
 
 @dataclass(frozen=True)
@@ -38,6 +39,17 @@ def daily_cap(job: jobs.Job, persona: dict) -> int | None:
     if job.max_runs_per_day is not None:
         return job.max_runs_per_day
     return None if job.mechanical or sharing.is_local(_model(job, persona)) else CLOUD_RUNS_PER_DAY
+
+
+def _conversation(job: jobs.Job) -> str | None:
+    """The conversation this job keeps adding to (docs/decisions/091, amended): the one its last run used, if it is still
+    there and still this job's. A new one is opened otherwise, and it is then the job's."""
+    last = job_state.read(job.handle, job.name).session_id
+    found = session.load_session(job.handle, last) if last else None
+    if found is not None and found["meta"].get("job") == job.name:
+        return last
+    new = session.new_session_id()
+    return new if session.start_session(job.handle, new, job.name) else None
 
 
 def due(job: jobs.Job, now: datetime) -> bool:
@@ -90,10 +102,12 @@ def _execute(job: jobs.Job, persona: dict, now: datetime) -> Outcome:
         else:
             from sympose.engine import turn  # imported here: it brings in litellm, a few seconds
 
-            session_id = session.new_session_id()
-            if not session.start_session(job.handle, session_id, job.name):
+            session_id = _conversation(job)
+            if session_id is None:
                 raise job_mechanical.NothingToDo("The conversation could not be started.")
-            result = turn.run_turn(job.handle, job.prompt, session_id, model=job.model, edits=True, unattended=True)
+            result = turn.run_turn(
+                job.handle, job.prompt, session_id, model=job.model, edits=True, unattended=True, history_turns=HISTORY_TURNS,
+            )
             held = list(result.withheld)
             detail = "Held back from the model: " + ", ".join(held) + "." if held else "Done."
     except job_mechanical.NothingToDo as e:

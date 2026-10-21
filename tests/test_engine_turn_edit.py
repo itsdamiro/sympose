@@ -455,6 +455,20 @@ def test_a_scheduled_run_is_told_nobody_is_there_but_the_search_and_the_conversa
     assert session.history_as_messages(saved)[0]["content"] == "Draft my weekly note."
 
 
+def test_a_turn_sends_only_as_many_earlier_turns_as_it_is_given_and_a_scheduled_run_is_told_not_to_trust_them(monkeypatch):
+    seen = model_that(monkeypatch, *[ModelReply(f"reply {i}", 5) for i in range(4)])
+    first = turn.run_turn("samantha", "run 0", model=LOCAL, edits=True, unattended=True)
+    for i in (1, 2):
+        turn.run_turn("samantha", f"run {i}", session_id=first.session_id, model=LOCAL, edits=True, unattended=True)
+
+    turn.run_turn("samantha", "run 3", session_id=first.session_id, model=LOCAL, edits=True, unattended=True, history_turns=2)
+
+    sent = [m["content"] for m in seen[-1]["messages"]]
+    assert any(text == "run 2" for text in sent) and any(text == "run 1" for text in sent)
+    assert not any(text == "run 0" for text in sent)
+    assert "not facts about the notes" in turn.UNATTENDED
+
+
 def test_an_ordinary_turn_is_not_told_it_is_unattended(monkeypatch):
     seen = model_that(monkeypatch, ModelReply("Hi", 5))
 

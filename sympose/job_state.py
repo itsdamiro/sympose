@@ -109,11 +109,12 @@ def _write(handle: str, name: str, values: dict[str, Any]) -> None:
 
 def record(handle: str, name: str, now: datetime, session_id: str | None, error: str | None = None, held: list[str] | None = None, retry: bool = False) -> State:
     """Note that the job ran at `now`. An error counts a failure and, at `PAUSE_AFTER` in a row, pauses the job; a run
-    without one clears both. `retry` says a later try may mend the failure (`job_run.RETRY_AFTER`). A pause is lifted by a run that works (a manual `sympose run`) or by `resume`."""
+    without one clears both. `retry` says a later try may mend the failure (`job_run.RETRY_AFTER`). A pause is lifted by a run that works (a manual `sympose run`) or by `resume`. A run with no conversation of its own (a
+    mechanical kind, or a failure before one was found) keeps the conversation the job already had."""
     before = read(handle, name)
     failures = before.failures + 1 if error else 0
     after = State(
-        last_run=now, outcome=FAILED if error else OK, detail=error or ", ".join(held or []), session_id=session_id,
+        last_run=now, outcome=FAILED if error else OK, detail=error or ", ".join(held or []), session_id=session_id or before.session_id,
         day=now.date().isoformat(), runs_today=before.runs_on(now) + 1, failures=failures, paused=failures >= PAUSE_AFTER, retry=bool(error) and retry, held=held or [],
     )
     _write(handle, name, {**after.__dict__, "last_run": now.isoformat(timespec="seconds")})

@@ -104,6 +104,10 @@ Yes, as a job. A job is a small file in the persona's own folder, never in your 
 
 Whatever a job produces waits in Drafts for you to accept, so a job never touches your vault by itself. A job can propose notes to add but not alterations to one you already have. A job that uses a cloud model runs once a day unless its file says otherwise.
 
+## Where can I read what my job said?
+
+In the job's one conversation. Every run of a job is added to it, so it is a single row in your list of conversations, marked with a clock; open it to read and reply. The next run sees the last few turns of it.
+
 ## How do I rename or delete a job?
 
 In Settings, under Jobs, open the ⋯ menu on the job's row. Rename turns what you type into a file name (`Weekly review` becomes `weekly-review`) and keeps its last run. Delete asks first and keeps a copy of the file beside the others, with .bak added to its name. A job that is running right now has to finish first.

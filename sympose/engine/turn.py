@@ -29,7 +29,8 @@ __all__ = ["TurnResult", "run_turn", "EngineModelError", "PersonaNotFoundError",
 # goes, and the job's prompt is also the search that grounds the turn, so the line goes to the model alone.
 UNATTENDED = (
     "This is a scheduled run and nobody is here to answer. Write only what the notes say, from notes you searched for and "
-    "opened; if they say nothing about this, say so and propose nothing. Begin the text of any note you propose with the "
+    "opened; if they say nothing about this, say so and propose nothing. Earlier replies in this conversation are what earlier runs "
+    "said, not facts about the notes: look in the notes again. Begin the text of any note you propose with the "
     "line \"Drafted by a scheduled run from:\" followed by the paths of the notes it rests on."
 )
 
@@ -55,12 +56,14 @@ def run_turn(
     attached: list[edit_turn.Attached] | None = None,
     files: tuple[media.File, ...] = (),
     unattended: bool = False,
+    history_turns: int = session.HISTORY_TURNS,
 ) -> TurnResult:
     """`open_note` is the note open in the editor, and `edits` says the caller can show a proposal at all (the web
     app); the terminal passes neither, so a persona there is never given the edit tool (docs/decisions/072).
     `attached` are the passages of the open note the user pointed at (docs/decisions/076). `files` are the PDFs, images,
     sounds and videos attached to the message, already checked by `media.check` (docs/decisions/089). `unattended` is a scheduled run
-    (docs/decisions/091): the model is told nobody is there and to rest what it writes on notes it opened."""
+    (docs/decisions/091): the model is told nobody is there and to rest what it writes on notes it opened. `history_turns` is the most earlier turns sent
+    word for word (a job keeps its own, shorter, in `job_run`)."""
     persona = profile_mod.resolve_profile(handle)
     if persona is None:
         raise PersonaNotFoundError(f"No persona named '{handle}' was found.")
@@ -71,7 +74,7 @@ def run_turn(
     # loading unconditionally lets the already-loaded state be handed
     # straight to `append_turn` below instead of it re-reading the file.
     existing = session.load_session(handle, sid)
-    history = session.history_as_messages(existing)
+    history = session.history_as_messages(existing, history_turns)
 
     # An explicit per-call model wins; otherwise `resolve_model` owns the
     # rest of the order (persona's model > setting > default), so this
