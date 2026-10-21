@@ -76,7 +76,7 @@ function JobsRows({
   onOpen: (file: string) => void
 }) {
   const { state, setEnabled, add } = useJobs(persona, version)
-  const { schedule, set: setSchedule } = useSchedule()
+  const { schedule, busy: scheduleBusy, set: setSchedule } = useSchedule()
   const [adding, setAdding] = React.useState(false)
 
   if (!persona) return null
@@ -123,6 +123,7 @@ function JobsRows({
             aria-label="Run jobs while Sympose is closed"
             value={schedule.installed ? "on" : "off"}
             onValueChange={(v) => void setSchedule(v === "on")}
+            disabledValues={scheduleBusy ? ["on", "off"] : undefined}
             options={[
               { value: "on", label: "On" },
               { value: "off", label: "Off" },

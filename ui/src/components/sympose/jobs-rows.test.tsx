@@ -200,6 +200,21 @@ describe("JobsRows", () => {
       expect(sent).toEqual([{ installed: true }, { installed: false }])
     })
 
+    it("ignores a second click while the first change is still being made", async () => {
+      let answer!: (r: Response) => void
+      const pending = new Promise<Response>((resolve) => (answer = resolve))
+      stub({ schedule: { supported: true, installed: false }, putSchedule: () => pending as unknown as Response })
+      render(<JobsRows persona="ada" personaName="Ada" onOpen={vi.fn()} />)
+      await screen.findByText("Run while Sympose is closed")
+      const group = screen.getByRole("radiogroup", { name: "Run jobs while Sympose is closed" })
+      fireEvent.click(group.querySelector('[role="radio"]:first-child')!) // On
+      await waitFor(() => expect(group.querySelector('[role="radio"]:last-child')!.hasAttribute("disabled")).toBe(true))
+      fireEvent.click(group.querySelector('[role="radio"]:last-child')!) // Off, too soon
+      answer(res({ supported: true, installed: true }))
+      await waitFor(() => expect(state()).toBe("On"))
+      expect(calls.filter((c) => c.url === "/api/schedule" && c.init?.method === "PUT")).toHaveLength(1)
+    })
+
     it("keeps the switch where it was and shows the reason when it is refused", async () => {
       stub({ schedule: { supported: true, installed: false }, putSchedule: () => res({ detail: "Couldn't start the schedule: no way" }, false) })
       render(<JobsRows persona="ada" personaName="Ada" onOpen={vi.fn()} />)

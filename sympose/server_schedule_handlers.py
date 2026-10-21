@@ -19,7 +19,10 @@ def get_schedule() -> dict[str, Any]:
 
 def put_schedule(body: ScheduleSwitch) -> dict[str, Any]:
     try:
-        job_launchd.install() if body.installed else job_launchd.remove()
+        if body.installed:
+            job_launchd.install()
+        else:
+            job_launchd.remove()
     except job_launchd.ScheduleRefused as e:
         raise HTTPException(status_code=422, detail=str(e)) from None
     return _state()

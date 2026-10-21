@@ -7,8 +7,13 @@ environment keeps its value."""
 
 from pathlib import Path
 
-from dotenv import load_dotenv
+from dotenv import dotenv_values, load_dotenv
 
 
 def load_env() -> None:
     load_dotenv(Path.cwd() / ".env")
+
+
+def file_values() -> dict[str, str | None]:
+    """What the `.env` file itself says, apart from what the environment holds."""
+    return dotenv_values(Path.cwd() / ".env")

@@ -16,8 +16,7 @@ EVERY_SECONDS = 300
 def _loop(stop: threading.Event, every: float) -> None:
     while not stop.is_set():
         try:
-            for outcome in job_run.run_due():
-                log.info("Job %s: %s %s", outcome.job, outcome.status, outcome.detail)
+            job_run.run_due()  # each outcome is kept in the job's own state, which Settings shows
         except Exception:  # the timer must outlive whatever one pass hit
             log.exception("Looking for due jobs failed")
         stop.wait(every)

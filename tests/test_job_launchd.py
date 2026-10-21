@@ -86,6 +86,29 @@ def test_a_refused_load_leaves_no_entry_and_says_why(launchctl):
     assert not job_launchd.plist_path().exists() and not job_launchd.installed()
 
 
+def test_a_setting_the_env_file_gives_is_left_to_it_so_an_edit_of_the_file_applies(launchctl, monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".env").write_text("VAULT_PATHS=/from-file\nSYMPOSE_PROFILES_DIR=/p-file\n")
+    monkeypatch.setenv("VAULT_PATHS", "/from-file")  # what load_env put there
+    monkeypatch.setenv("SYMPOSE_PROFILES_DIR", "/p-shell")  # exported in the shell, so it won over the file
+    monkeypatch.delenv("SYMPOSE_SETTINGS_PATH", raising=False)
+    job_launchd.install()
+    assert plistlib.loads(job_launchd.plist_path().read_bytes())["EnvironmentVariables"] == {"SYMPOSE_PROFILES_DIR": "/p-shell"}
+
+
+def test_a_refused_reinstall_puts_the_working_entry_back_and_loads_it(launchctl, monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    job_launchd.install()
+    before = job_launchd.plist_path().read_bytes()
+    monkeypatch.setenv("VAULT_PATHS", "/changed")
+    launchctl.refuse_bootstrap = "Bootstrap failed: 5: Input/output error"
+    launchctl.calls.clear()
+    with pytest.raises(job_launchd.ScheduleRefused, match="Input/output error"):
+        job_launchd.install()
+    assert job_launchd.plist_path().read_bytes() == before and job_launchd.installed()
+    assert [c[0] for c in launchctl.calls] == ["bootout", "bootstrap", "bootstrap"]  # the old one is loaded again
+
+
 def test_remove_unloads_and_deletes_and_is_fine_when_nothing_is_there(launchctl):
     job_launchd.remove()
     job_launchd.install()
