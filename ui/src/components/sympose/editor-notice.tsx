@@ -19,6 +19,7 @@ export function EditorNotice({
   actions,
   below,
   role,
+  compact,
 }: {
   title: React.ReactNode
   /** The title is a file's name, set in the monospace face. */
@@ -29,9 +30,11 @@ export function EditorNotice({
   /** More, under the whole row (a list the notice is about). */
   below?: React.ReactNode
   role?: "status"
+  /** Folded to one short line: the title and the actions, none of the room around them. */
+  compact?: boolean
 }) {
   return (
-    <div role={role} className="sy-frontmatter-panel rounded-lg px-(--gutter,1rem) py-4 text-xs text-fg-muted">
+    <div role={role} className={cn("sy-frontmatter-panel rounded-lg px-(--gutter,1rem) text-xs text-fg-muted", compact ? "py-1.5" : "py-4")}>
       <div className="flex items-center justify-between gap-4">
         <div className="flex min-w-0 flex-col gap-0.5">
           <span className={cn("truncate text-foreground", mono ? "font-mono" : "font-medium")}>{title}</span>

@@ -33,6 +33,7 @@ const mount = (proposals: Proposal[], doc = NOTE) => {
   return view
 }
 afterEach(() => {
+  document.cookie = "sympose:review_notice_folded=; path=/; max-age=0"
   cleanup()
   views.splice(0).forEach((v) => v.destroy())
 })
@@ -77,5 +78,30 @@ describe("ReviewNotice", () => {
     expect([onAccept.mock.calls.length, onDecline.mock.calls.length]).toEqual([1, 0])
     fireEvent.click(screen.getByRole("button", { name: "Decline all" }))
     expect([onAccept.mock.calls.length, onDecline.mock.calls.length]).toEqual([1, 1])
+  })
+
+  it("folds to a short line without its buttons, and unfolds again", () => {
+    render(<ReviewNotice personaName="Samantha" count={2} onAccept={() => {}} onDecline={() => {}} />)
+    expect(screen.getByRole("status").className).toContain("py-4")
+
+    fireEvent.click(screen.getByRole("button", { name: "Fold" }))
+    expect(screen.queryByRole("button", { name: "Accept all" })).toBeNull()
+    expect(screen.queryByRole("button", { name: "Decline all" })).toBeNull()
+    expect(screen.getByRole("status").textContent).toContain("Samantha suggested 2 changes")
+    expect(screen.getByRole("status").className).toContain("py-1.5")
+
+    fireEvent.click(screen.getByRole("button", { name: "Show the buttons" }))
+    expect(screen.getByRole("button", { name: "Accept all" })).toBeTruthy()
+    expect(screen.getByRole("status").className).not.toContain("py-1.5")
+  })
+
+  it("remembers the fold for this viewer across a remount", () => {
+    const first = render(<ReviewNotice personaName="Samantha" count={2} onAccept={() => {}} onDecline={() => {}} />)
+    fireEvent.click(screen.getByRole("button", { name: "Fold" }))
+    first.unmount()
+
+    render(<ReviewNotice personaName="Samantha" count={2} onAccept={() => {}} onDecline={() => {}} />)
+    expect(screen.queryByRole("button", { name: "Accept all" })).toBeNull()
+    expect(screen.getByRole("button", { name: "Show the buttons" })).toBeTruthy()
   })
 })

@@ -25,6 +25,15 @@ from sympose.engine.turn_result import TurnResult
 __all__ = ["TurnResult", "run_turn", "EngineModelError", "PersonaNotFoundError", "TurnCancelled"]
 
 
+# Said to the model on a scheduled run, before the job's own words (docs/decisions/091): nobody can answer or check it as it
+# goes, and the job's prompt is also the search that grounds the turn, so the line goes to the model alone.
+UNATTENDED = (
+    "This is a scheduled run and nobody is here to answer. Write only what the notes say, from notes you searched for and "
+    "opened; if they say nothing about this, say so and propose nothing. Begin the text of any note you propose with the "
+    "line \"Drafted by a scheduled run from:\" followed by the paths of the notes it rests on."
+)
+
+
 class PersonaNotFoundError(Exception):
     """`resolve_profile(handle)` returned `None` — defensive-only today
     (the CLI's persona picker only ever offers real roster handles), but
@@ -45,11 +54,13 @@ def run_turn(
     edits: bool = False,
     attached: list[edit_turn.Attached] | None = None,
     files: tuple[media.File, ...] = (),
+    unattended: bool = False,
 ) -> TurnResult:
     """`open_note` is the note open in the editor, and `edits` says the caller can show a proposal at all (the web
     app); the terminal passes neither, so a persona there is never given the edit tool (docs/decisions/072).
     `attached` are the passages of the open note the user pointed at (docs/decisions/076). `files` are the PDFs, images,
-    sounds and videos attached to the message, already checked by `media.check` (docs/decisions/089)."""
+    sounds and videos attached to the message, already checked by `media.check` (docs/decisions/089). `unattended` is a scheduled run
+    (docs/decisions/091): the model is told nobody is there and to rest what it writes on notes it opened."""
     persona = profile_mod.resolve_profile(handle)
     if persona is None:
         raise PersonaNotFoundError(f"No persona named '{handle}' was found.")
@@ -81,7 +92,7 @@ def run_turn(
     turn_cancel.begin(handle, sid, named=session_id is not None)  # from here a stop request is heard (docs/decisions/054); cleared in `finally`
     try:
         try:
-            result = _run(persona, handle, user_message, sid, existing, history, target_model, modes, capped, files)
+            result = _run(persona, handle, user_message, sid, existing, history, target_model, modes, capped, files, unattended)
         except lookup.ToolsRefused:
             # The model failed with the tools: the turn is run with none, and a model that does that twice in a
             # row while working without them is not given tools again (docs/decisions/040). `remember` falls
@@ -96,6 +107,7 @@ def run_turn(
                 ),
                 capped,
                 files,
+                unattended,
             )
             tool_support.note_refusal(target_model)
             return result
@@ -119,6 +131,7 @@ def _run(
     modes: "persona_tools.Modes",
     capped: int = 0,
     files: tuple[media.File, ...] = (),
+    unattended: bool = False,
 ) -> TurnResult:
     # The prompt is sized to this model's window, not left to the runtime's
     # silent cut (docs/decisions/015); the follow-up rewrite shares that window.
@@ -134,6 +147,8 @@ def _run(
     mem, notes = found.mem, found.notes
     # The note and the rules go with the message to the model; the conversation keeps only what the user said.
     asked = edit_turn.message(modes.edit, user_message) if modes.edit else user_message
+    if unattended:
+        asked = f"{UNATTENDED}\n\n{asked}"
     told = confirmations.outcomes(handle, sid) if modes.edit and modes.edit.proposes else []
     if told:
         asked = "\n".join(confirmations.lines(told)) + "\n\n" + asked

@@ -441,3 +441,42 @@ def test_only_the_decided_comment_goes_and_not_another_on_the_same_words(monkeyp
 
     left = {a["id"] for a in store.read("samantha", NOTE.path)["annotations"]}
     assert decided["id"] not in left and {other["id"], mine["id"]} <= left
+
+
+def test_a_scheduled_run_is_told_nobody_is_there_but_the_search_and_the_conversation_keep_the_jobs_own_words(monkeypatch):
+    seen = model_that(monkeypatch, ModelReply("Hi", 5))
+
+    result = turn.run_turn("samantha", "Draft my weekly note.", model=LOCAL, edits=True, unattended=True)
+
+    sent = seen[0]["messages"][-1]["content"]
+    assert turn.UNATTENDED in sent and sent.index(turn.UNATTENDED) < sent.index("Draft my weekly note.")
+    from sympose.engine import session
+    saved = session.load_session("samantha", result.session_id)
+    assert session.history_as_messages(saved)[0]["content"] == "Draft my weekly note."
+
+
+def test_an_ordinary_turn_is_not_told_it_is_unattended(monkeypatch):
+    seen = model_that(monkeypatch, ModelReply("Hi", 5))
+
+    turn.run_turn("samantha", "Draft my weekly note.", model=LOCAL, edits=True)
+
+    assert turn.UNATTENDED not in seen[0]["messages"][-1]["content"]
+
+
+def test_a_scheduled_run_whose_tools_are_refused_is_still_told_it_is_unattended_on_the_retry(monkeypatch):
+    sharing.set_approved(sharing.OPEN_NOTE, True)
+    from sympose.engine import lookup
+    sent = []
+
+    def call_model(messages, model=None, **kwargs):
+        if kwargs.get("tools"):
+            raise lookup.ToolsRefused("no")
+        sent.append(messages[-1]["content"])
+        return ModelReply("ok", 5)
+
+    monkeypatch.setattr(turn.model_mod, "call_model", call_model)
+    monkeypatch.setattr(lookup.model_mod, "call_model", call_model, raising=False)
+
+    turn.run_turn("samantha", "Draft my weekly note.", model=CLOUD, edits=True, unattended=True)
+
+    assert sent and turn.UNATTENDED in sent[-1]

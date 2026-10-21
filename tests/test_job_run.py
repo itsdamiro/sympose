@@ -127,6 +127,19 @@ def test_a_failed_run_counts_toward_the_cap(home, turns):
 
 
 # --- what a run does -----------------------------------------------------------------------------
+def test_a_job_turn_is_told_it_is_unattended(home, monkeypatch):
+    _job(home, model=LOCAL)
+    kinds = []
+
+    def fake(handle, message, session_id=None, model=None, edits=False, unattended=False, **_):
+        kinds.append(unattended)
+        return TurnResult(reply="Done.", session_id=session_id)
+
+    monkeypatch.setattr(turn, "run_turn", fake)
+    job_run.run("samantha", "weekly", SUN_NIGHT)
+    assert kinds == [True]
+
+
 def test_a_run_is_a_new_marked_conversation_with_edits_on_and_the_jobs_model(home, turns):
     _job(home, model=LOCAL)
     first = job_run.run("samantha", "weekly", SUN_NIGHT)

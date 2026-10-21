@@ -93,7 +93,7 @@ def _execute(job: jobs.Job, persona: dict, now: datetime) -> Outcome:
             session_id = session.new_session_id()
             if not session.start_session(job.handle, session_id, job.name):
                 raise job_mechanical.NothingToDo("The conversation could not be started.")
-            result = turn.run_turn(job.handle, job.prompt, session_id, model=job.model, edits=True)
+            result = turn.run_turn(job.handle, job.prompt, session_id, model=job.model, edits=True, unattended=True)
             held = list(result.withheld)
             detail = "Held back from the model: " + ", ".join(held) + "." if held else "Done."
     except job_mechanical.NothingToDo as e:
