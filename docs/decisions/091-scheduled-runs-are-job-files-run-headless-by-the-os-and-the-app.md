@@ -120,6 +120,15 @@ Settings gets a Jobs section: one row per job (name, schedule, model icon, last 
 - Checked: 4 Python and 5 web tests added; 5 of 5 Python and 5 of 5 web mutants caught; the menu, a rename and a delete in the real web app on a scratch install.
 - Not built: a "Run now" button.
 
+## As built: fixes from the review of slices 1 to 3
+
+From `/code-review high` of `cd2335c~1..aa62775` (findings 1, 2 and 4; finding 3, grounding in unattended `ask` jobs, waits for damiro).
+
+- A failure a later try may mend (an exception from the model or the disk, recorded with `retry`) is tried again after 30 minutes, and a second one after 2 hours (`job_run.RETRY_AFTER`), instead of at the job's next scheduled time. The third failure pauses the job as before. A failure of "nothing to do" (a report is waiting already) is not retried. A cloud job's daily limit still holds, so a cloud job fails once a day at most.
+- A job whose record folder cannot be written is not run and the run is reported as failed (`job_state.can_record`): with no record the daily limit and the schedule could not hold, and a cloud job would run every 5 minutes.
+- `monthly` and `every` read the number with `isdecimal`, so a superscript digit is refused with the usual line instead of raising in `int()` (before: `GET /jobs` answered 500 and `run_due` stopped). `run_due` also catches an error from one job's check and goes on to the next.
+- Checked: 7 tests added; 8 of 9 mutants caught, the survivor (no upper bound on the failure count in the retry check) is equivalent, because a job with 3 failures is paused first. The reference library is unchanged (it says 3 in a row switch a job off, still true).
+
 ## Alternatives rejected
 
 - **Scheduler only inside the web app.** A weekly review would run only if the app happened to be open at that moment. Right if damiro would rather have no OS integration.
