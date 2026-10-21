@@ -99,17 +99,17 @@ describe("useDraftEditor", () => {
     const WORKING = "new/741e5dad7a59.md"
     function fresh(folder?: string) {
       const onAccepted = vi.fn()
-      changes.fetchChanges.mockResolvedValue({ proposals: [{ ...proposal, name: "Collaboration: note / ideas" }] })
+      changes.fetchChanges.mockResolvedValue({ proposals: [{ ...proposal, name: "Collaboration: note / ideas", ...(folder ? { folder } : {}) }] })
       changes.resolveChanges.mockResolvedValue({ ok: true, resolved: ["p"] })
       vault.createVaultNote.mockResolvedValue({ ok: true, path: "x" })
       vault.saveVaultNote.mockResolvedValue({ ok: true })
       guard.getUnsavedGuard.mockReturnValue(null)
-      const hook = renderHook(() => useDraftEditor({ handle: "samantha", personaName: "Samantha", folder: () => folder, onAccepted }))
+      const hook = renderHook(() => useDraftEditor({ handle: "samantha", personaName: "Samantha", onAccepted }))
       act(() => hook.result.current.open(WORKING))
       return { ...hook, onAccepted }
     }
 
-    it("is made in the folder the user is in, named by its title, not under the working path", async () => {
+    it("is made in the folder its proposal names, by its title, not under the working path", async () => {
       const { result, onAccepted } = fresh("Garden")
 
       await act(async () => result.current.accept())
@@ -120,7 +120,7 @@ describe("useDraftEditor", () => {
       expect(onAccepted).toHaveBeenCalledWith("Garden/Collaboration note ideas.md")
     })
 
-    it("is made in the folder she was asked for, even a new one, and not in the one the user is in", async () => {
+    it("is made in the folder she was asked for, even a new one, instead of the one the draft was given", async () => {
       const { result, onAccepted } = fresh("Garden")
       changes.fetchChanges.mockResolvedValue({ proposals: [{ ...proposal, name: "Plan", folder: "Projects/Sympose" }] })
 
@@ -130,7 +130,7 @@ describe("useDraftEditor", () => {
       expect(onAccepted).toHaveBeenCalledWith("Projects/Sympose/Plan.md")
     })
 
-    it("goes to the top of the vault when no folder is in view", async () => {
+    it("is made with no folder when an older draft has none, whatever folder the user is in", async () => {
       const { result } = fresh(undefined)
       await act(async () => result.current.accept())
       expect(vault.createVaultNote).toHaveBeenCalledWith("Collaboration note ideas", "samantha")

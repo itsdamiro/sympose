@@ -230,6 +230,34 @@ def test_a_new_note_proposed_with_a_folder_keeps_it_and_one_without_does_not():
     assert folders == [("Other", None), ("Plan", "Projects/Sympose")]
 
 
+def test_a_new_note_with_no_folder_named_is_filed_in_the_inbox_of_her_scope(vault):
+    et.run(H, None, None, "propose_note", {"text": "# Other\n", "say": "Another."}, vault)
+    et.run(H, None, None, "propose_note", {"text": "# Plan\n", "say": "A plan.", "title": "Plan", "folder": "Projects/Sympose"}, vault)
+
+    assert sorted((d["name"], d["folder"]) for d in nc.drafts(H)) == [("Other", "Projects/Inbox"), ("Plan", "Projects/Sympose")]
+
+
+def test_a_folder_that_leaves_the_vault_is_not_kept_and_the_inbox_is_used(vault):
+    et.run(H, None, None, "propose_note", {"text": "# Out\n", "say": "x", "title": "Out", "folder": "../elsewhere"}, vault)
+
+    assert [d["folder"] for d in nc.drafts(H)] == ["Projects/Inbox"]
+
+
+def test_a_note_in_a_marker_with_no_folder_goes_to_the_inbox_too(vault):
+    reply = '<!-- propose_note: {"text": "# Marked\\n", "say": "Marked.", "title": "Marked"} -->'
+
+    et.apply_marker(H, None, None, reply, vault)
+
+    assert [d["folder"] for d in nc.drafts(H)] == ["Projects/Inbox"]
+
+
+def test_the_new_note_tool_says_where_it_goes_without_a_folder():
+    (tool,) = [t["function"] for t in et.TOOLS if t["function"]["name"] == "propose_note"]
+
+    assert "Inbox" in tool["parameters"]["properties"]["folder"]["description"]
+    assert "folder the user is in" not in tool["parameters"]["properties"]["folder"]["description"]
+
+
 def test_the_new_note_tool_offers_a_folder_but_does_not_require_one():
     (tool,) = [t["function"] for t in et.TOOLS if t["function"]["name"] == "propose_note"]
 
@@ -375,3 +403,31 @@ def test_a_new_note_made_in_a_turn_that_searched_takes_its_source_from_the_pages
         "# Ferns again",
         '---\nsource:\n  - https://ferns.test/care\nsearched:\n  - "fern care"\n---\n# Ferns',
     ]
+
+
+# No editor (Slack): show_note is refused whether or not it was offered (docs/decisions/093).
+
+
+def test_show_note_is_refused_without_an_editor_and_opens_nothing(vault):
+    result = et.run(H, None, None, "show_note", {"path": "Projects/Atlas.md"}, vault, shows=False)
+
+    assert result.lookup == {"tool": "show_note", "saved": False}
+    assert "no editor" in result.text.lower() and "Opened" not in result.text
+
+
+def test_a_show_note_marker_without_an_editor_is_removed_and_opens_nothing(vault):
+    reply = 'Here it is.\n<!-- show_note: {"path": "Projects/Atlas.md"} -->'
+
+    shown, records = et.apply_marker(H, None, None, reply, vault, shows=False)
+
+    assert shown == "Here it is."
+    assert records == [{"tool": "show_note", "saved": False, "reason": et.NO_EDITOR}]
+
+
+def test_a_note_marker_still_files_a_draft_when_there_is_no_editor(vault):
+    reply = '<!-- propose_note: {"text": "# Kept\\n", "say": "Kept.", "title": "Kept"} -->\n<!-- show_note: {"path": "Atlas"} -->'
+
+    _, records = et.apply_marker(H, None, None, reply, vault, shows=False)
+
+    assert [(r["tool"], r["saved"]) for r in records] == [("propose_note", True), ("show_note", False)]
+    assert [d["name"] for d in nc.drafts(H)] == ["Kept"]

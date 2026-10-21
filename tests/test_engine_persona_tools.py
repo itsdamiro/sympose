@@ -187,3 +187,18 @@ def test_the_tool_capability_is_not_probed_when_no_tool_could_be_used(tmp_path, 
     modes = persona_tools.resolve({"handle": "samantha"}, LOCAL)
 
     assert (modes.ask, modes.chose_ask, modes.remember) == (False, False, None)
+
+
+def test_a_call_to_show_a_note_is_refused_when_there_is_no_editor_even_if_the_model_makes_it_up(tmp_path, monkeypatch):
+    from sympose.engine import edit_turn
+
+    _settings(tmp_path, monkeypatch)
+    _vault(tmp_path, monkeypatch)
+    persona = {"handle": "samantha", "vault_folders": ["*"]}
+    edit = edit_turn.Edit("manual", True, shows=False)
+
+    tools, run = persona_tools.for_turn(ask=False, remember=False, edit=edit, persona=persona)
+    result = run(persona, CLOUD, "show_note", {"path": "Anything.md"})
+
+    assert "show_note" not in [t["function"]["name"] for t in tools]
+    assert result.lookup == {"tool": "show_note", "saved": False} and "no editor" in result.text.lower()

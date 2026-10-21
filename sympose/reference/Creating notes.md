@@ -14,17 +14,21 @@ You can change the draft's text before you accept. What you change is kept with 
 
 ## Where is the note saved when I accept it?
 
-The file is saved in your vault with the text as it is now, and opened. The file takes the note's title. If a note with that title is already there, Sympose adds a number, such as Plan (2), and never replaces your note.
+The file is saved in your vault with the text as it is now, and opened, in the folder you asked for or else in a folder called Inbox. The file takes the note's title. If a note with that title is already there, Sympose adds a number, such as Plan (2), and never replaces your note.
 
 Decline forgets the draft and creates nothing.
 
 ## Which folder is the note saved in, and can I choose a subfolder?
 
-Yes, you can choose any folder or subfolder. Tell her where, for example "make it in Projects/Sympose". The folder is made too if it is not there yet. If you chose none, the note is saved in the folder you are in when you accept, or at the top of your vault if you are in none.
+Yes, you can choose any folder or subfolder. Tell her where, for example "make it in Projects/Sympose". The folder is made too if it is not there yet. If you chose none, the note goes to Inbox.
+
+## Where does a new note go if I do not choose a folder?
+
+It goes to a folder called Inbox, inside her main folder. Sympose makes the folder the first time you accept a note there. Move the note out of it whenever you like.
 
 ## Can she put it in a folder I did not mention, or use another title?
 
-She picks a folder only when you asked for one. The title is the file's title: to use another, rename the note after you accept, from its row's menu.
+She picks a folder only when you asked for one; otherwise the note goes to Inbox. The title is the file's title: to use another, rename the note after you accept, from its row's menu.
 
 ## Why can't I see the note I asked her to create?
 

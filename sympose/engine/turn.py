@@ -246,7 +246,7 @@ def _run(
     if modes.edit and modes.edit.active and not modes.edit.tool:  # the same for a proposal (docs/decisions/072)
         opened = modes.edit.source
         reply_text, edit_lookups = edit_tools.apply_marker(
-            handle, opened.path if opened else None, opened.text if opened else None, reply_text, persona, found.watch.links,
+            handle, opened.path if opened else None, opened.text if opened else None, reply_text, persona, found.watch.links, modes.edit.shows,
         )
         lookups += edit_lookups
     if modes.edit and modes.edit.active and unfiled.said_but_not_filed(reply_text, lookups):  # a draft that was said and not filed (docs/decisions/082)

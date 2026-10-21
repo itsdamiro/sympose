@@ -78,11 +78,7 @@ def _name(day: str, title: str) -> str:
 
 def _folder(profile: dict[str, Any]) -> str | None:
     """Where the note is made: `Sessions` in the first folder of her scope, or `None` when she has no vault."""
-    sandbox = vault_paths.resolve_sandbox(profile)
-    if sandbox is None:
-        return None
-    prefix = vault_paths.scope_prefixes(*sandbox)[0]
-    return f"{prefix}/{FOLDER}" if prefix else FOLDER
+    return vault_paths.folder_in_scope(profile, FOLDER)
 
 
 def archive(handle: str, session_id: str) -> tuple[str, dict[str, str] | None]:

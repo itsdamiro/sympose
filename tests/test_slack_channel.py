@@ -199,11 +199,29 @@ def test_what_was_held_back_comes_before_what_was_proposed(home, turns):
     assert text.index("_Held back from the model: notes._") < text.index("*New note: Seeds*")
 
 
-def test_a_turn_that_failed_shows_only_its_one_line_even_if_it_had_proposed_a_note(home, turns):
-    turns.proposes = [("Seeds", "# Seeds\n")]
+def test_a_turn_that_failed_after_it_proposed_a_note_says_so_and_still_shows_the_note(home, turns):
+    turns.proposes = [("Seeds", "# Seeds\n\nSow in March.\n")]
+    turns.fail = turn.EngineModelError("down")
+
+    text = _answer(dm("hi")).text
+
+    assert text.startswith(slack_channel.NO_MODEL + "\n\n*New note: Seeds*") and "Sow in March." in text
+    assert text.endswith(slack_drafts.FOOTER)
+    assert len(note_changes.drafts("samantha")) == 1
+
+
+def test_a_turn_that_failed_before_it_proposed_anything_says_only_its_one_line(home, turns):
     turns.fail = turn.EngineModelError("down")
 
     assert _answer(dm("hi")).text == slack_channel.NO_MODEL
+
+
+def test_a_stopped_turn_says_nothing_even_if_it_had_proposed_a_note(home, turns):
+    turns.proposes = [("Seeds", "# Seeds\n")]
+    turns.fail = turn.TurnCancelled()
+
+    assert _answer(dm("hi")) is None
+    assert len(note_changes.drafts("samantha")) == 1  # whoever stopped it is at the web app, where it waits
 
 
 def test_the_next_message_does_not_show_the_note_of_the_one_before(home, turns):

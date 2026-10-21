@@ -123,3 +123,15 @@ def test_every_read_of_a_persona_pointed_at_a_missing_folder_is_empty_and_create
 def test_a_single_folder_written_as_a_string_grants_only_that_folder(vault_root):
     profile = {"vault_folders": "Code"}
     assert vault_paths.get_allowed_dirs(profile) == [os.path.join(vault_root, "Code")]
+
+
+def test_a_folder_in_scope_is_inside_the_first_folder_of_her_scope(vault_root):
+    assert vault_paths.folder_in_scope({"vault_folders": ["Notes", "Code"]}, "Inbox") == "Notes/Inbox"
+
+
+def test_a_folder_in_scope_is_at_the_top_when_her_scope_is_the_whole_vault(vault_root):
+    assert vault_paths.folder_in_scope({"vault_folders": ["*"]}, "Inbox") == "Inbox"
+
+
+def test_a_persona_with_no_vault_has_no_folder_in_scope(vault_root):
+    assert vault_paths.folder_in_scope({"vault_folders": []}, "Inbox") is None

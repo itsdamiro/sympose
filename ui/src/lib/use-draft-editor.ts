@@ -24,13 +24,10 @@ function fileNameOf(title: string | null | undefined): string {
 export function useDraftEditor({
   handle,
   personaName,
-  folder,
   onAccepted,
 }: {
   handle: string
   personaName: string
-  /** The folder the user is in, where a new note that has no folder yet is made when accepted (none: the vault's top). */
-  folder?: () => string | undefined
   /** The note was created: its vault path, for the caller to open it and refresh the vault. */
   onAccepted: (path: string) => void
 }) {
@@ -85,12 +82,12 @@ export function useDraftEditor({
     const proposed = (await fetchChanges(notePath, handle))?.proposals.find((p) => p.kind === "create")
     const text = texts.current.get(`${handle}:${notePath}`) ?? proposed?.text
     if (text === undefined) return notify.error("That draft no longer exists, so no note was created.")
-    // A note she proposed lives under a working path (`new/<id>.md`) that is nothing to keep: it is made in the folder the user
-    // is in, named by its title, and under another number when that name is taken. A draft that already has a real path keeps it.
+    // A note she proposed lives under a working path (`new/<id>.md`) that is nothing to keep: it is made in the folder its
+    // proposal names (the persona's Inbox unless she was asked for another, docs/decisions/094), named by its title, and under another number when that name is taken. A draft that already has a real path keeps it.
     let target = notePath.replace(/\.md$/, "")
     if (notePath.startsWith("new/")) {
-      // The folder she was asked to make it in, else the one the user is in.
-      const base = [proposed?.folder || folder?.(), fileNameOf(proposed?.name)].filter(Boolean).join("/")
+      // A draft made before the Inbox (docs/decisions/094) has no folder: it is made in the persona's main folder.
+      const base = [proposed?.folder, fileNameOf(proposed?.name)].filter(Boolean).join("/")
       let made = false
       for (let n = 1; n <= 20 && !made; n++) {
         const candidate = n === 1 ? base : `${base} (${n})`
@@ -111,7 +108,7 @@ export function useDraftEditor({
     await forget(notePath)
     notify.success("Draft accepted")
     onAccepted(path)
-  }, [notePath, handle, folder, forget, onAccepted])
+  }, [notePath, handle, forget, onAccepted])
 
   const decline = React.useCallback(async () => {
     if (!notePath) return

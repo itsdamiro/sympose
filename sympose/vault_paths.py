@@ -113,6 +113,16 @@ def scope_prefixes(mv: str, allowed_dirs: list[str]) -> list[str]:
     return prefixes
 
 
+def folder_in_scope(profile: dict[str, Any], name: str) -> str | None:
+    """`name` as a folder inside the first folder of the persona's scope (at the top of the vault when her scope is the whole
+    vault), as a vault path; `None` when she has no vault. Where her own notes are filed: `Inbox`, `Sessions`, `Jobs`."""
+    sandbox = resolve_sandbox(profile)
+    if sandbox is None:
+        return None
+    prefix = scope_prefixes(*sandbox)[0]
+    return f"{prefix}/{name}" if prefix else name
+
+
 def get_primary_dir(profile: dict[str, Any]) -> str | None:
     """The persona's first allowed directory — where a bare (unqualified)
     note name is created, as opposed to an explicit `Folder/Note` path."""

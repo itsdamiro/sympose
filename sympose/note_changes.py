@@ -26,6 +26,7 @@ ATTACHED, DETACHED = "attached", "detached"
 OPEN, RESOLVED = "open", "resolved"
 ACCEPTED, DECLINED = "accepted", "declined"  # the user's verdict on one of her comments (docs/decisions/069)
 _NAME_WORDS = 5
+INBOX = "Inbox"  # where a new note is made when nobody named a folder, in the first folder of the persona's scope (docs/decisions/094)
 _WATCHING = threading.local()  # the list `new_notes_made` fills, on the thread that is inside its block
 
 
@@ -153,7 +154,7 @@ def clean_folder(folder: str | None) -> str | None:
 
 def propose_create(handle: str, note_path: str, text: str, *, say: str, title: str | None = None, folder: str | None = None) -> dict[str, Any]:
     """A new note she proposes. `folder` is where she was asked to make it (a vault path such as `Projects/Sympose`; made when
-    the user accepts, with the folder if it is not there yet): without one it is made in the folder the user is in."""
+    the user accepts, with the folder if it is not there yet): without one (only a draft older than docs/decisions/094) it is made in her main folder."""
     proposal = {"id": _id(), "time": _now(), "kind": "create", "text": text, "name": working_name(text, title), "say": say}
     if cleaned := clean_folder(folder):
         proposal["folder"] = cleaned
@@ -169,13 +170,16 @@ def propose_create(handle: str, note_path: str, text: str, *, say: str, title: s
 def new_notes_made() -> Iterator[list[tuple[str, str]]]:
     """The new notes proposed on this thread inside the block, as `(draft path, proposal id)` in the order they were made.
     Whatever filed them (a tool call, a marker, a folder's definition) went through `propose_create`, so this is exactly
-    one turn's drafts and never another conversation's, which a look at the pending files before and after would not be."""
+    one turn's drafts and never another conversation's, which a look at the pending files before and after would not be.
+    A block inside another is listed in both. A note filed on another thread (a tool that ran off it) is not listed: the turn runs its tools on its own thread."""
     before, made = getattr(_WATCHING, "made", None), []
     _WATCHING.made = made
     try:
         yield made
     finally:
         _WATCHING.made = before
+        if before is not None:
+            before.extend(made)  # a block inside another is part of it
 
 
 def pending_new_note(handle: str, note_path: str, proposal_id: str) -> dict[str, Any] | None:

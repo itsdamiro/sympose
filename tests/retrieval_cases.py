@@ -66,6 +66,7 @@ _RAW = [
     ("sympose", "where do I click accept on your change?", True, "The web app.md"),
     ("sympose", "where does the note you created for me get saved?", True, "Creating notes.md"),
     ("sympose", "can you create the new note in a folder I pick?", True, "Creating notes.md"),
+    ("sympose", "where does a new note go if I do not say which folder?", True, "Creating notes.md"),
     ("sympose", "how do I open a comment you left on my note?", True, "The web app.md"),
     ("sympose", "can you delete a table from my note?", True, "The web app.md"),
     ("sympose", "can I attach a PDF for you to read?", True, "Not built yet.md"),

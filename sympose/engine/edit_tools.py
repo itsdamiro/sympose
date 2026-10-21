@@ -19,7 +19,7 @@ import json
 import re
 from typing import Any
 
-from sympose import note_changes
+from sympose import note_changes, vault_paths
 from sympose.engine import folder_definition_tool, lookup_scope, video_stamps, web_sources
 from sympose.engine.lookup_result import Result
 
@@ -27,6 +27,7 @@ EDIT, NOTE, COMMENT, SHOW, DEFINE = "propose_edit", "propose_note", "comment_on"
 _NO_NOTE = "No note is open in the editor, so there is nothing to change; ask the user to open it."
 _BAD = "The arguments of {name} could not be read: give {fields} as text."
 _NO_SUCH_NOTE = "No note called {path} was found in the vault, so nothing was opened."  # a marker's failure is shown to the user as it is
+NO_EDITOR = "There is no editor here to open a note in, so nothing was opened. Say where the note is instead."  # said to a model that called the tool in Slack
 _ASK_WHICH = " Ask the user which note they mean."  # said to a model that called the tool, not to the user
 _DONE = {COMMENT: "Commented.", SHOW: "Opened."}
 _FIELDS = {EDIT: ("find", "replace", "say"), NOTE: ("text", "say"), COMMENT: ("find", "text"), SHOW: ("path",), DEFINE: ("folder", "say")}
@@ -54,7 +55,7 @@ TOOLS: list[dict[str, Any]] = [
         "Propose a new note. The user reads it as a draft and accepts or declines it; no file exists before that.",
         {"text": "The whole text of the new note.", "title": "A name of three to five words.", "say": "One sentence telling the user what it is.",
          "folder": "Only if the user asked for a place: the folder to make it in, as a path of the vault such as Projects/Sympose (it is made there "
-                   "when they accept, and the folder with it if it is not there yet). Leave it out to make it in the folder the user is in."},
+                   "when they accept, and the folder with it if it is not there yet). Leave it out to make it in the Inbox folder."},
         ["text", "say"],
     ),
     _tool(
@@ -143,7 +144,8 @@ def _propose(
             return folder_definition_tool.propose(handle, profile, args["folder"], args["purpose"], args["say"])
         elif name == NOTE:
             written, made = video_stamps.link(fenced(args["text"]), videos), note_changes.new_note_path()
-            proposal = note_changes.propose_create(handle, made, web_sources.attribute(written, trail) if trail else written, say=args["say"], title=args["title"] or None, folder=args["folder"] or None)
+            folder = note_changes.clean_folder(args["folder"]) or (vault_paths.folder_in_scope(profile, note_changes.INBOX) if profile is not None else None)
+            proposal = note_changes.propose_create(handle, made, web_sources.attribute(written, trail) if trail else written, say=args["say"], title=args["title"] or None, folder=folder)
             if trail:
                 trail.drafts.append((made, proposal["id"]))
         elif path is None or text is None:
@@ -169,11 +171,14 @@ def _show(profile: dict[str, Any] | None, raw: str | dict[str, Any] | None) -> t
 def run(
     handle: str, note_path: str | None, note_text: str | None, name: str, raw: str | dict[str, Any] | None,
     profile: dict[str, Any] | None = None, scope: tuple[tuple[int, int], ...] = (), videos: tuple[str, ...] = (),
-    trail: web_sources.Trail | None = None,
+    trail: web_sources.Trail | None = None, shows: bool = True,
 ) -> Result | None:
-    """The tool's result, or `None` for a name that is not ours so it composes in `persona_tools`."""
+    """The tool's result, or `None` for a name that is not ours so it composes in `persona_tools`. Without an editor to show
+    a note in (`shows` false, Slack) `show_note` is refused, whether or not it was offered."""
     if name not in _FIELDS:
         return None
+    if name == SHOW and not shows:
+        return Result(NO_EDITOR, lookup={"tool": name, "saved": False})
     if name == SHOW:
         opened, said, path = _show(profile, raw)
         return Result(said if opened else said + _ASK_WHICH, lookup={"tool": name, "saved": opened, **({"path": path} if path else {})})
@@ -183,17 +188,20 @@ def run(
 
 def apply_marker(
     handle: str, note_path: str | None, note_text: str | None, reply: str, profile: dict[str, Any] | None = None,
-    videos: tuple[str, ...] = (),
+    videos: tuple[str, ...] = (), shows: bool = True,
 ) -> tuple[str, list[dict[str, Any]]]:
     """`reply` with every marker removed and filed as a proposal, and a record per marker (the same shape a tool
     call leaves). A marker that could not be placed adds one line saying so to what is shown. A reply with no marker
-    is returned exactly as given."""
+    is returned exactly as given. Without an editor to show a note in (`shows` false, Slack) a `show_note` marker is removed and opens nothing."""
     matches = list(_MARKER.finditer(reply))
     if not matches:
         return reply, []
     records, failures = [], []
     for found in matches:
         name = found.group(1).lower()
+        if name == SHOW and not shows:
+            records.append({"tool": name, "saved": False, "reason": NO_EDITOR})
+            continue
         if name == SHOW:
             saved, said, shown_path = _show(profile, found.group(2))
             record: dict[str, Any] = {"tool": name, "saved": saved, **({"path": shown_path} if shown_path else {})}

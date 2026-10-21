@@ -134,13 +134,13 @@ def test_a_note_after_a_long_one_is_named_not_squeezed_in():
 
 
 def test_a_note_too_long_to_show_is_named_and_a_short_one_after_it_is_still_shown():
-    shown = slack_drafts.under("r" * 39_300, [draft("Big", "x " * 2000), draft("Small", "hi")])
+    shown = slack_drafts.under("r" * 39_500, [draft("Big", "x " * 2000), draft("Small", "hi")])
 
     assert "*New note: Small*\n```\nhi\n```" in shown and "Too long to show here" in shown and "Big" in shown.split("Too long")[1]
 
 
 def test_when_the_reply_leaves_too_little_room_every_note_is_named_and_the_message_still_fits():
-    reply = "r" * 39_300  # a reply close to what Slack takes leaves under what a cut note needs
+    reply = "r" * 39_500  # a reply close to what Slack takes leaves under what a cut note needs
 
     shown = slack_drafts.under(reply, [draft("First", "Some words " * 300), draft("Second", "More words " * 300)])
 
@@ -151,7 +151,7 @@ def test_when_the_reply_leaves_too_little_room_every_note_is_named_and_the_messa
 def test_many_long_names_are_counted_not_all_listed():
     many = [draft(f"Note number {i}", "x " * 2000) for i in range(9)]
 
-    shown = slack_drafts.under("r" * 39_300, many)
+    shown = slack_drafts.under("r" * 39_500, many)
 
     assert len(shown) <= LIMIT and "Note number 0, Note number 1, Note number 2 and 6 more" in shown and "Note number 5" not in shown
 
@@ -191,3 +191,50 @@ def test_a_draft_that_is_gone_by_the_time_the_reply_is_built_is_not_shown():
 
 def test_nothing_made_shows_nothing():
     assert slack_drafts.waiting(H, []) == []
+
+
+# --- review of slice 2 (2026-10-22) ---------------------------------------------------------------
+def test_a_note_with_a_code_block_says_that_the_block_is_marked_and_a_note_without_one_does_not():
+    with_block = slack_drafts.under("ok", [draft(text=f"Run:\n{FENCE}\nls\n{FENCE}")])
+    without = slack_drafts.under("ok", [draft(text="Plain words.")])
+
+    assert slack_drafts.MARKED_FENCE in with_block
+    assert slack_drafts.MARKED_FENCE not in without
+
+
+def test_the_note_about_a_marked_code_block_sits_under_that_note_and_not_the_other_one():
+    shown = slack_drafts.under("ok", [draft("One", "Plain."), draft("Two", f"{FENCE}\nx\n{FENCE}")])
+
+    assert shown.index("*New note: Two*") < shown.index(slack_drafts.MARKED_FENCE) < shown.index(slack_drafts.FOOTER)
+    assert shown.count(slack_drafts.MARKED_FENCE) == 1
+
+
+def test_the_marked_block_note_is_counted_in_the_room():
+    text = (f"{FENCE}\n" + "code\n" * 50 + f"{FENCE}\n") * 1000
+
+    shown = slack_drafts.under("ok", [draft(text=text)])
+
+    assert len(shown) <= LIMIT and slack_drafts.MARKED_FENCE in shown and shown.endswith(slack_drafts.FOOTER)
+
+
+@pytest.mark.parametrize("mark", ["*", "_", "~", "`"])
+def test_a_title_or_folder_cannot_start_formatting_of_its_own(mark):
+    shown = slack_drafts.under("ok", [draft(f"a{mark}b{mark}c", folder=f"x{mark}y{mark}z")])
+
+    assert "*New note: abc* in xyz\n" in shown
+
+
+def test_the_room_kept_for_the_names_of_drafts_left_out_is_the_line_at_its_longest():
+    longest = slack_drafts.NOT_SHOWN.format(names=", ".join(["x" * 60] * 3) + " and 999 more")
+
+    assert slack_drafts._RESERVED == len(longest) + 2
+
+
+@pytest.mark.parametrize("reply_length", [0, 20000, 38000, MAX_CHARS, MAX_CHARS + 120])
+@pytest.mark.parametrize("count", [1, 2, 5, 40])
+@pytest.mark.parametrize("size", [0, 100, 600, 5000, 45000])
+def test_the_whole_message_never_passes_the_limit_whatever_is_proposed(reply_length, count, size):
+    names = ["N" * 120 + str(i) for i in range(count)]
+    drafts = [draft(name, ("&" * size) + f"\n{FENCE}\n" + "y" * 10) for name in names]
+
+    assert len(slack_drafts.under("r" * reply_length, drafts)) <= LIMIT

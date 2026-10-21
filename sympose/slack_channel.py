@@ -84,7 +84,7 @@ def _turn(handle: str, profile: dict, message: Incoming, where: str | None) -> R
         return Reply(NO_PERSONA, where)
     except turn.EngineModelError as e:
         log.warning("Slack turn for %s failed: %s", handle, e)
-        return Reply(NO_MODEL, where)
+        return Reply(slack_drafts.under(NO_MODEL, slack_drafts.waiting(handle, made)), where)  # a note filed before the failure still waits, so it is shown
     except turn.TurnCancelled:
         return None
     finally:

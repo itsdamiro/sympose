@@ -236,11 +236,9 @@ export function AppShell() {
   const { close: closePersonaFile } = fileEditor
   // The persona's drafts (docs/decisions/071), and the draft of a new note open in the editor, which has no file yet.
   const drafts = useDrafts(activePersona, vaultRefreshKey)
-  const folderInView = React.useRef<string | undefined>(undefined)
   const draftEditor = useDraftEditor({
     handle: activePersona,
     personaName: activePersonaName,
-    folder: () => folderInView.current,
     onAccepted: (path) => {
       refreshVault()
       selectNote(path)
@@ -381,10 +379,6 @@ export function AppShell() {
 
   const { activeNode, panelNodes, activeRootFolder, pinnedNodes, pinnedShowPath, recentNodes } =
     useFolderView({ vaultTree, resolvedActive, pinnedPaths, recentPaths })
-  // Where a new note she proposed is made when accepted: the folder the user is in (ADR 071).
-  React.useEffect(() => {
-    folderInView.current = activeRootFolder?.path
-  }, [activeRootFolder])
 
   // what the toolbar's search field searches on this page (docs/decisions/065)
   const searchScope =

@@ -17,11 +17,10 @@ class NothingToDo(Exception):
 
 def _folder(profile: dict[str, Any]) -> str:
     """`Jobs` in the first folder of the persona's scope, where a job's own notes are drafted."""
-    sandbox = vault_paths.resolve_sandbox(profile)
-    if sandbox is None:
+    folder = vault_paths.folder_in_scope(profile, FOLDER)
+    if folder is None:
         raise NothingToDo("The persona has no vault to look at.")
-    prefix = vault_paths.scope_prefixes(*sandbox)[0]
-    return f"{prefix}/{FOLDER}" if prefix else FOLDER
+    return folder
 
 
 def health(profile: dict[str, Any], today: date) -> str:

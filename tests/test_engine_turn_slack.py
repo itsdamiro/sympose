@@ -109,3 +109,13 @@ def test_a_model_without_tools_is_not_told_how_to_open_a_note_in_slack_even_when
     assert "show_note" in seen[0]["messages"][-1]["content"]
     assert "show_note" not in seen[1]["messages"][-1]["content"]
     assert "propose_note" in seen[1]["messages"][-1]["content"]  # a new note it may still offer
+
+
+def test_a_show_note_marker_in_a_slack_reply_is_removed_and_opens_nothing(monkeypatch):
+    settings_store.set("show_note_marker", True)
+    model_that(monkeypatch, ModelReply('Here you go.\n<!-- show_note: {"path": "Seeds.md"} -->', 5))
+
+    result = turn.run_turn("samantha", "show me Seeds", model=LOCAL, edits=True, in_slack=True)
+
+    assert result.reply == "Here you go."
+    assert [(r["tool"], r["saved"]) for r in result.lookups] == [("show_note", False)]

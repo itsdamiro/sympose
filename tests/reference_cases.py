@@ -399,6 +399,12 @@ REF_CASES: list[RefCase] = [
         first="Creating notes.md",
     ),
     RefCase(
+        "new-note-no-folder",
+        "which folder is the new note saved in when I do not choose a subfolder?",
+        find=("Inbox",),
+        first="Creating notes.md",
+    ),
+    RefCase(
         "new-note-not-listed",
         "I asked you to create a note but I cannot see it anywhere",
         find=("Drafts group",),

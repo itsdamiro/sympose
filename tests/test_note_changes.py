@@ -974,14 +974,14 @@ def test_another_thread_does_not_add_to_the_list():
     assert made == [] and len(nc.drafts(H)) == 1
 
 
-def test_a_block_inside_a_block_keeps_its_own_list_and_the_outer_one_goes_on_after_it():
+def test_a_block_inside_a_block_lists_its_notes_in_its_own_list_and_in_the_outer_one_in_order():
     with nc.new_notes_made() as outer:
         new_note(1, "# One\n\nFirst.\n", title="One")
         with nc.new_notes_made() as inner:
             new_note(2, "# Two\n\nSecond.\n", title="Two")
         new_note(3, "# Three\n\nThird.\n", title="Three")
 
-    assert [path for path, _ in outer] == ["new/1", "new/3"] and [path for path, _ in inner] == ["new/2"]
+    assert [path for path, _ in outer] == ["new/1", "new/2", "new/3"] and [path for path, _ in inner] == ["new/2"]
 
 
 def test_nothing_is_listed_once_the_block_has_ended_even_after_an_error():
