@@ -26,7 +26,7 @@ def test_a_schedule_in_words_is_read(text, expected):
 
 @pytest.mark.parametrize("text", [
     "", "   ", "sometimes", "daily", "daily 25:00", "daily 07:60", "daily 7", "daily 07:30 extra", "weekly 18:00",
-    "weekly funday 18:00", "monthly 0 09:00", "monthly 29 09:00", "monthly first 09:00", "every 0 hours", "every 169 hours",
+    "weekly funday 18:00", "monthly 0 09:00", "monthly 29 09:00", "monthly first 09:00", "monthly \u00b2 09:00", "every \u00b2 hours", "every 0 hours", "every 169 hours",
     "every 6 minutes", "every hours", "0 7 * * *",
 ])
 def test_text_that_is_not_a_schedule_is_refused_with_a_reason(text):

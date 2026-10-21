@@ -8,6 +8,7 @@ import contextlib
 import json
 import logging
 import os
+import tempfile
 import threading
 from collections.abc import Iterator
 from dataclasses import dataclass, field
@@ -36,6 +37,7 @@ class State:
     runs_today: int = 0
     failures: int = 0  # in a row
     paused: bool = False
+    retry: bool = False  # the last failure was one a later try may mend, not "nothing to do"
     held: list[str] = field(default_factory=list)
 
     def runs_on(self, now: datetime) -> int:
@@ -69,6 +71,7 @@ def read(handle: str, name: str) -> State:
             runs_today=raw["runs_today"] if isinstance(raw.get("runs_today"), int) else 0,
             failures=raw["failures"] if isinstance(raw.get("failures"), int) else 0,
             paused=raw.get("paused") is True,
+            retry=raw.get("retry") is True,
             held=[x for x in held if isinstance(x, str)] if isinstance(held, list) else [],
         )
     except FileNotFoundError:
@@ -76,6 +79,21 @@ def read(handle: str, name: str) -> State:
     except (OSError, ValueError, AttributeError, TypeError) as e:
         log.warning("Couldn't read the record of job %s: %s", name, e)
         return State()
+
+
+def can_record(handle: str, name: str) -> bool:
+    """Whether the job's record can be saved. A run whose record is lost would count for nothing, so a daily limit and a
+    schedule could not hold: such a job is not run."""
+    folder = _folder(handle)
+    if folder is None or not jobs.valid_name(name):
+        return False
+    try:
+        os.makedirs(folder, exist_ok=True)
+        with tempfile.TemporaryFile(dir=folder):
+            return True
+    except OSError as e:
+        log.warning("Couldn't write in the record folder of job %s: %s", name, e)
+        return False
 
 
 def _write(handle: str, name: str, values: dict[str, Any]) -> None:
@@ -89,14 +107,14 @@ def _write(handle: str, name: str, values: dict[str, Any]) -> None:
         log.warning("Couldn't save the record of job %s: %s", name, e)
 
 
-def record(handle: str, name: str, now: datetime, session_id: str | None, error: str | None = None, held: list[str] | None = None) -> State:
+def record(handle: str, name: str, now: datetime, session_id: str | None, error: str | None = None, held: list[str] | None = None, retry: bool = False) -> State:
     """Note that the job ran at `now`. An error counts a failure and, at `PAUSE_AFTER` in a row, pauses the job; a run
-    without one clears both. A pause is lifted by a run that works (a manual `sympose run`) or by `resume`."""
+    without one clears both. `retry` says a later try may mend the failure (`job_run.RETRY_AFTER`). A pause is lifted by a run that works (a manual `sympose run`) or by `resume`."""
     before = read(handle, name)
     failures = before.failures + 1 if error else 0
     after = State(
         last_run=now, outcome=FAILED if error else OK, detail=error or ", ".join(held or []), session_id=session_id,
-        day=now.date().isoformat(), runs_today=before.runs_on(now) + 1, failures=failures, paused=failures >= PAUSE_AFTER, held=held or [],
+        day=now.date().isoformat(), runs_today=before.runs_on(now) + 1, failures=failures, paused=failures >= PAUSE_AFTER, retry=bool(error) and retry, held=held or [],
     )
     _write(handle, name, {**after.__dict__, "last_run": now.isoformat(timespec="seconds")})
     return after

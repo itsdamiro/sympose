@@ -164,6 +164,60 @@ def test_a_run_that_fails_is_recorded_and_three_in_a_row_pause_the_job(home, tur
     assert job_run.run("samantha", "weekly", SUN_NIGHT + timedelta(days=30)).status == job_run.SKIPPED
 
 
+def test_a_run_that_failed_is_tried_again_after_a_short_wait_not_at_the_next_time(home, turns):
+    _job(home, model=LOCAL)
+    turns.fail = RuntimeError("the model is not running")
+    assert job_run.run("samantha", "weekly", SUN_NIGHT).status == job_run.FAILED
+    job = jobs.load("samantha", "weekly")
+    assert not job_run.due(job, SUN_NIGHT + job_run.RETRY_AFTER[0] - timedelta(minutes=1))
+    assert job_run.due(job, SUN_NIGHT + job_run.RETRY_AFTER[0])
+    turns.fail = None
+    assert job_run.run("samantha", "weekly", SUN_NIGHT + job_run.RETRY_AFTER[0]).status == job_run.RAN
+    assert not job_run.due(job, SUN_NIGHT + timedelta(days=1))  # it worked: back to the weekly time
+
+
+def test_the_second_retry_waits_longer_and_a_paused_job_is_not_retried(home, turns):
+    _job(home, model=LOCAL)
+    turns.fail = RuntimeError("down")
+    job_run.run("samantha", "weekly", SUN_NIGHT)
+    second = SUN_NIGHT + job_run.RETRY_AFTER[0]
+    job_run.run("samantha", "weekly", second)
+    job = jobs.load("samantha", "weekly")
+    assert not job_run.due(job, second + job_run.RETRY_AFTER[1] - timedelta(minutes=1))
+    assert job_run.due(job, second + job_run.RETRY_AFTER[1])
+    job_run.run("samantha", "weekly", second + job_run.RETRY_AFTER[1])
+    assert job_state.read("samantha", "weekly").paused
+    assert not job_run.due(job, second + timedelta(hours=40))
+
+
+def test_a_run_with_nothing_to_do_waits_for_its_next_time_instead_of_retrying(home):
+    _job(home, "health", model=LOCAL)
+    job_state.record("samantha", "health", SUN_NIGHT, None, error="A report is waiting already.")
+    assert not job_run.due(jobs.load("samantha", "health"), SUN_NIGHT + timedelta(hours=6))
+
+
+def test_a_cloud_job_that_failed_is_not_retried_past_its_daily_limit(home, turns):
+    _job(home, model=CLOUD)
+    turns.fail = RuntimeError("down")
+    job_run.run("samantha", "weekly", SUN_NIGHT)
+    later = SUN_NIGHT + job_run.RETRY_AFTER[0]
+    assert job_run.run("samantha", "weekly", later).status == job_run.SKIPPED and len(turns) == 1
+
+
+def test_a_job_whose_record_cannot_be_saved_is_not_run(home, turns):
+    _job(home, model=LOCAL)
+    state_folder = home / "jobs" / job_state.STATE_FOLDER
+    state_folder.mkdir()
+    state_folder.chmod(0o500)
+    try:
+        if os.access(state_folder, os.W_OK):
+            pytest.skip("this account can write anywhere")
+        outcome = job_run.run("samantha", "weekly", SUN_NIGHT)
+    finally:
+        state_folder.chmod(0o700)
+    assert outcome.status == job_run.FAILED and "record" in outcome.detail and turns == []
+
+
 def test_a_manual_run_that_works_lifts_a_pause(home, turns):
     _job(home)
     for _ in range(3):
@@ -257,3 +311,17 @@ def test_run_due_leaves_out_a_job_that_was_due_but_at_its_limit(home, turns):
     os.utime(home / "jobs" / "hourly.md", (old, old))
     assert [o.status for o in job_run.run_due(SUN_NIGHT)] == [job_run.RAN]
     assert job_run.run_due(SUN_NIGHT + timedelta(hours=2)) == [] and len(turns) == 1  # due again, but a cloud job runs once a day
+
+
+def test_run_due_goes_on_to_the_next_job_when_one_cannot_be_looked_at(home, turns, monkeypatch):
+    _job(home, "a-odd")
+    _job(home, "b-good")
+    real = job_run.due
+
+    def due(job, now):
+        if job.name == "a-odd":
+            raise ValueError("invalid literal")
+        return real(job, now)
+
+    monkeypatch.setattr(job_run, "due", due)
+    assert [(o.job, o.status) for o in job_run.run_due(SUN_NIGHT)] == [("samantha/b-good", job_run.RAN)]

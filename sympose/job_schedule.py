@@ -79,11 +79,11 @@ def parse(text: str) -> Schedule:
             raise BadSchedule("'weekly' takes a day and a time, like 'weekly sun 18:00'.")
         return Schedule(kind, at=_time(rest[1]), day=DAYS.index(_DAY_ALIASES.get(rest[0], rest[0])))
     if kind == "monthly":
-        if len(rest) != 2 or not rest[0].isdigit() or not 1 <= int(rest[0]) <= MAX_MONTH_DAY:
+        if len(rest) != 2 or not rest[0].isdecimal() or not 1 <= int(rest[0]) <= MAX_MONTH_DAY:
             raise BadSchedule(f"'monthly' takes a day from 1 to {MAX_MONTH_DAY} and a time, like 'monthly 1 09:00'.")
         return Schedule(kind, at=_time(rest[1]), day=int(rest[0]))
     if kind == "every":
-        if len(rest) != 2 or not rest[0].isdigit() or rest[1] not in ("hour", "hours") or not 1 <= int(rest[0]) <= MAX_HOURS:
+        if len(rest) != 2 or not rest[0].isdecimal() or rest[1] not in ("hour", "hours") or not 1 <= int(rest[0]) <= MAX_HOURS:
             raise BadSchedule(f"'every' takes a number of hours from 1 to {MAX_HOURS}, like 'every 6 hours'.")
         return Schedule("hours", hours=int(rest[0]))
     raise BadSchedule(f"'{words[0]}' is not a schedule. Write one like {_EXAMPLES}.")
