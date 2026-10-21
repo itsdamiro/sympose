@@ -454,11 +454,6 @@ export function pendingIds(state: EditorState): string[] {
   return classify(state.doc.toString(), state.field(reviewField).proposals).placed.map((p) => p.proposal.id)
 }
 
-/** How many proposals the editor holds for the open note, placed in the text or not. */
-export function proposalCount(state: EditorState): number {
-  return state.field(reviewField, false)?.proposals.length ?? 0
-}
-
 /** What the user has selected, for a new comment: the words, the text around them and where they are on screen. */
 export interface CommentTarget {
   quote: string
@@ -484,9 +479,6 @@ export function selectionTarget(view: EditorView, anchor?: DOMRect): CommentTarg
   return { quote: text.slice(from, to), before, after, rect }
 }
 
-export function hasPending(state: EditorState): boolean {
-  return state.field(reviewField, false) !== undefined && pendingIds(state).length > 0
-}
 
 /**
  * What stylo draws inside table cells (its `inPlace.cellMarks`, 0.20): the same highlights `decorate` gives words

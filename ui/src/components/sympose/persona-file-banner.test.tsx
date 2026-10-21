@@ -79,6 +79,7 @@ describe("PersonaFileBanner", () => {
   it("always says which file this is, leading with its name", () => {
     render(<PersonaFileBanner title={TITLE} handle="samantha" name="soul.md" info={info("soul.md")} onChanged={() => {}} />)
     expect(screen.getByText(TITLE)).toBeTruthy()
+    expect(screen.getByText(TITLE).className).toContain("font-mono") // a file's name, set as one
   })
 
   it("says what a file with nothing particular to it is, in its own words", () => {

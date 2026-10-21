@@ -18,7 +18,6 @@ import {
   commentHighlights,
   classify,
   declineChanges,
-  hasPending,
   isTableChange,
   lastCellEnd,
   pendingIds,
@@ -327,13 +326,10 @@ describe("accepting and declining", () => {
   it("reports what is pending now, which changes with the text", () => {
     const { view } = mount({ proposals: [edit("a", "three times", "four times"), edit("b", "raised", "sunken")], annotations: [] })
     expect(pendingIds(view.state).sort()).toEqual(["a", "b"])
-    expect(hasPending(view.state)).toBe(true)
 
     const at = view.state.doc.toString().indexOf("raised")
     view.dispatch({ changes: { from: at, to: at + 6, insert: "dug" } })
     expect(pendingIds(view.state)).toEqual(["a"])
-
-    expect(hasPending(EditorState.create({ doc: "x" }))).toBe(false) // an editor without the extension has none
   })
 })
 

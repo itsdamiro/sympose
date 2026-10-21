@@ -1,28 +1,21 @@
 import * as React from "react"
 
-import { cn } from "@/lib/utils"
 import { confirm } from "@/lib/confirm-store"
 import { notify } from "@/lib/notify"
 import { resetPersonaSoul, type PersonaFileInfo } from "@/lib/persona-files-api"
 import { PendingRewriteDialog } from "@/components/sympose/pending-rewrite-dialog"
-import { toolbarButtonClass } from "@/components/sympose/panel-collapse-button"
+import { EditorNotice, noticeActionClass } from "@/components/sympose/editor-notice"
 
 function Bar({ title, children, action }: { title: string; children: React.ReactNode; action?: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-md bg-chip px-3 py-2 text-xs text-fg-muted">
-      <div className="flex min-w-0 flex-col gap-0.5">
-        <span className="truncate font-mono text-foreground">{title}</span>
-        <span>{children}</span>
-      </div>
-      {action}
-    </div>
+    <EditorNotice title={title} mono actions={action}>
+      {children}
+    </EditorNotice>
   )
 }
 
-const actionClass = cn(toolbarButtonClass, "size-auto h-6 px-2 text-xs text-foreground")
-
 /**
- * The strip at the top of the persona file open in the editor (docs/decisions/061): which file it is, since the
+ * The notice at the top of the persona file open in the editor (docs/decisions/061): which file it is, since the
  * editor's toolbar does not say, and what is particular to it. For the soul, whether it is the shipped one (saving
  * makes the user's own copy, the shipped file is never written) or the user's own (with Reset to default, which asks
  * first and keeps the user's text aside); for the profile and the context, a rewrite she proposed, with Review;
@@ -64,7 +57,7 @@ export function PersonaFileBanner({
       <Bar
         title={title}
         action={
-          <button type="button" onClick={reset} className={actionClass}>
+          <button type="button" onClick={reset} className={noticeActionClass}>
             Reset to default
           </button>
         }
@@ -80,7 +73,7 @@ export function PersonaFileBanner({
       <Bar
         title={title}
         action={
-          <button type="button" onClick={() => setReviewing(true)} className={actionClass}>
+          <button type="button" onClick={() => setReviewing(true)} className={noticeActionClass}>
             Review
           </button>
         }

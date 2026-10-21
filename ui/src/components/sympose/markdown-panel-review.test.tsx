@@ -211,11 +211,10 @@ describe("MarkdownPanel with the persona's suggested changes", () => {
     await waitFor(() => expect(screen.getByTestId("cm").querySelector(".sy-change")).toBeNull())
   })
 
-  it("accepts the whole note from the toolbar: every change applied, forgotten, and the note saved with them", async () => {
+  it("accepts the whole note from the review notice: every change applied, forgotten, and the note saved with them", async () => {
     changesApi.fetchChanges.mockResolvedValue(changes([edit("p1", "three times", "four times"), edit("p2", "raised", "sunken")]))
     open()
-    const accept = await screen.findByRole("button", { name: /accept all suggested changes/i })
-    await waitFor(() => expect((accept as HTMLButtonElement).disabled).toBe(false))
+    const accept = await screen.findByRole("button", { name: "Accept all" })
 
     await act(async () => fireEvent.click(accept))
 
@@ -224,12 +223,11 @@ describe("MarkdownPanel with the persona's suggested changes", () => {
     expect(changesApi.resolveChanges).toHaveBeenCalledWith("Garden plan.md", "samantha", expect.arrayContaining(["p1", "p2"]), true)
   })
 
-  it("declines the whole note from the toolbar, forgetting every suggestion and leaving the text", async () => {
+  it("declines the whole note from the review notice, forgetting every suggestion and leaving the text", async () => {
     changesApi.fetchChanges.mockResolvedValue(changes([edit("p1", "three times", "four times")]))
     open()
 
-    const decline = await screen.findByRole("button", { name: /decline all suggested changes/i })
-    await waitFor(() => expect((decline as HTMLButtonElement).disabled).toBe(false))
+    const decline = await screen.findByRole("button", { name: "Decline all" })
 
     await act(async () => fireEvent.click(decline))
 
@@ -238,16 +236,18 @@ describe("MarkdownPanel with the persona's suggested changes", () => {
     expect(api.saveVaultNote).not.toHaveBeenCalled()
   })
 
-  it("adds the two toolbar buttons only while the note has suggestions", async () => {
+  it("draws the review notice only while a suggestion is in the text, and says how many", async () => {
     open()
     await waitFor(() => expect(changesApi.fetchChanges).toHaveBeenCalled())
-    expect(screen.queryByRole("button", { name: /suggested changes/i })).toBeNull()
+    expect(screen.queryByRole("button", { name: "Accept all" })).toBeNull()
+    expect(screen.queryByText(/suggested \d+ change/i)).toBeNull()
 
     cleanup()
-    changesApi.fetchChanges.mockResolvedValue(changes([edit("p1", "three times", "four times")]))
+    changesApi.fetchChanges.mockResolvedValue(changes([edit("p1", "three times", "four times"), edit("p2", "raised", "sunken")]))
     open()
-    expect(await screen.findByRole("button", { name: /accept all suggested changes/i })).toBeTruthy()
-    expect(screen.getByRole("button", { name: /decline all suggested changes/i })).toBeTruthy()
+    expect(await screen.findByRole("button", { name: "Accept all" })).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Decline all" })).toBeTruthy()
+    expect(screen.getByText("Samantha suggested 2 changes")).toBeTruthy()
   })
 
   it("shows a suggestion whose passage was rewritten in a strip, not in the text, and declines it from there", async () => {

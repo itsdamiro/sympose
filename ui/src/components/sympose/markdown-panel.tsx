@@ -34,7 +34,8 @@ import { OutdatedChanges } from "@/components/sympose/outdated-changes"
 import { CommentPopover, type CommentBox } from "@/components/sympose/comment-popover"
 import { attach, setAttachmentsNote } from "@/lib/attachments"
 import { setOpenNoteSource } from "@/lib/open-note-source"
-import { commentMenuItem, commentToolbarItem, reviewToolbarItems } from "@/components/sympose/review-toolbar"
+import { commentMenuItem, commentToolbarItem } from "@/components/sympose/review-toolbar"
+import { acceptAllIn, ReviewNotice } from "@/components/sympose/review-notice"
 import type { EditorPreferences } from "@/lib/use-editor-preferences"
 import { FrontmatterCard } from "@/components/sympose/frontmatter-card"
 import { NoteActionsMenu } from "@/components/sympose/note-actions-menu"
@@ -296,6 +297,7 @@ function MarkdownPanel({
   // A persona's own file has none. The extensions array is memoized (stylo reconfigures the live editor when it
   // changes, so a new array per render would redo that every keystroke); what they read is kept in refs.
   const styloRef = React.useRef<StyloHandle>(null)
+  const personaLabel = personaName ?? persona.charAt(0).toUpperCase() + persona.slice(1)
   const { changes, resolve: resolveChanges, refresh: refreshChanges } = usePersonaChanges({ path, persona, enabled: !file })
   const [commentBox, setCommentBox] = React.useState<CommentBox | null>(null)
   // A box opened on one note is closed when another is opened, or a comment written for one could be saved onto the other.
@@ -394,7 +396,9 @@ function MarkdownPanel({
     revealedRef.current.add(next.proposal.id)
     view.dispatch({ selection: { anchor: next.from }, scrollIntoView: true })
   }, [acceptMode, file, readOnly, note.status, path, loadedPathRef, reviewData, body, editorMade])
-  const outdatedProposals = React.useMemo(() => classify(body, reviewData.proposals).outdated, [body, reviewData])
+  const classified = React.useMemo(() => classify(body, reviewData.proposals), [body, reviewData])
+  const outdatedProposals = classified.outdated
+  const waitingCount = classified.placed.length
   // Accepting the whole note changes the text, and the save writes what the text is by then: it waits for the
   // change to reach `body` (`saveNote` closes over it) instead of saving the text from before.
   const saveAfterAcceptRef = React.useRef(false)
@@ -403,23 +407,17 @@ function MarkdownPanel({
     saveAfterAcceptRef.current = false
     void saveNote()
   }, [body, saveNote])
-  const hasProposals = reviewData.proposals.length > 0
   const acceptNote = React.useCallback(() => {
     saveAfterAcceptRef.current = true
   }, [])
   const declineNote = React.useCallback(() => void resolveRef.current("all"), [])
+  const acceptAll = React.useCallback(() => {
+    const view = styloRef.current?.getView()
+    if (view && acceptAllIn(view)) acceptNote()
+  }, [acceptNote])
   const commentItem = React.useMemo(() => commentToolbarItem((target) => setCommentBox({ kind: "compose", target })), [])
   const commentMenu = React.useMemo(() => [commentMenuItem((target) => setCommentBox({ kind: "compose", target }))], [])
-  const toolbarWithReview = React.useMemo<ToolbarItem[]>(
-    () => [
-      ...toolbarItems,
-      "|",
-      commentItem,
-      // eslint-disable-next-line react-hooks/refs -- the two callbacks run when a toolbar button is pressed, never during render
-      ...(hasProposals ? ["|" as const, ...reviewToolbarItems({ onAcceptNote: acceptNote, onDeclineNote: declineNote })] : []),
-    ],
-    [toolbarItems, commentItem, hasProposals, acceptNote, declineNote]
-  )
+  const toolbarWithReview = React.useMemo<ToolbarItem[]>(() => [...toolbarItems, "|", commentItem], [toolbarItems, commentItem])
 
   // stylo's `canvasHeader` (>=0.11.0) is read once, at mount — same contract
   // as `inPlace`/`wikiLinkSource` (see `wikiLinkSource` prop doc above). The
@@ -436,6 +434,10 @@ function MarkdownPanel({
     hasCard: !!file?.properties,
     outdated: [] as Proposal[],
     onDecline: (() => {}) as (ids: string[]) => void,
+    waiting: 0,
+    personaLabel: "",
+    onAcceptAll: (() => {}) as () => void,
+    onDeclineAll: (() => {}) as () => void,
   })
   // Deliberately synchronous, not effect-deferred: `canvasHeader()` below is
   // invoked directly in this component's own render (the read-only branch
@@ -452,22 +454,37 @@ function MarkdownPanel({
     hasCard: !!file?.properties,
     outdated: readOnly || file ? [] : outdatedProposals,
     onDecline: (ids: string[]) => void resolveChanges(ids),
+    waiting: readOnly || file ? 0 : waitingCount,
+    personaLabel,
+    onAcceptAll: acceptAll,
+    onDeclineAll: declineNote,
   }
   const canvasHeader = React.useCallback(() => {
-    const { frontmatter, onWikiLinkClick, phone, frontmatterVisible, readOnly, banner, hasCard, outdated, onDecline } =
+    const { frontmatter, onWikiLinkClick, phone, frontmatterVisible, readOnly, banner, hasCard, outdated, onDecline, waiting, onAcceptAll, onDeclineAll, personaLabel } =
       frontmatterCardStateRef.current
-    // A persona's file has no frontmatter card; what is particular to it (docs/decisions/061) takes the place.
-    // A file with `properties` gets the card as a note does: a job's has no banner, a draft's has its Accept and Decline above it.
-    // Beside the card the banner is its sibling block: the same inset from the panel edge and the same content gutter (`--gutter`).
-    const bannerBlock = banner ? (
-      <div className={hasCard ? cn("mx-2 mt-2", phone ? "[--gutter:0.5rem]" : "[--gutter:1rem] sm:[--gutter:1.5rem]") : cn("mt-2", phone ? "px-2" : "px-4 sm:px-6")}>
-        {banner}
-      </div>
-    ) : null
+    // Every notice is a block like the card (ADR 092): the same inset from the panel edge and the same content gutter
+    // (`--gutter`). A persona's file has no frontmatter card; what is particular to it (docs/decisions/061) takes the
+    // place. A file with `properties` gets the card as a note does: a job's has no banner, a draft's has its Accept and
+    // Decline above it.
+    const block = cn("mx-2 mt-2", phone ? "[--gutter:0.5rem]" : "[--gutter:1rem] sm:[--gutter:1.5rem]")
+    const bannerBlock = banner ? <div className={block}>{banner}</div> : null
     if (banner && !hasCard) return bannerBlock
-    const outdatedStrip =
-      outdated.length > 0 ? <OutdatedChanges proposals={outdated} onDecline={onDecline} className={cn("mt-2", phone ? "mx-2" : "mx-4 sm:mx-6")} /> : null
-    if (frontmatter === null) return bannerBlock ?? outdatedStrip
+    const notices =
+      waiting > 0 || outdated.length > 0 ? (
+        <>
+          {waiting > 0 ? (
+            <div className={block}>
+              <ReviewNotice personaName={personaLabel} count={waiting} onAccept={onAcceptAll} onDecline={onDeclineAll} />
+            </div>
+          ) : null}
+          {outdated.length > 0 ? (
+            <div className={block}>
+              <OutdatedChanges proposals={outdated} onDecline={onDecline} />
+            </div>
+          ) : null}
+        </>
+      ) : null
+    if (frontmatter === null) return <>{bannerBlock}{notices}</>
     // Animate via `grid-template-rows` rather than `max-height` — it tweens
     // to the card's real content height with no guessed cap, and (unlike a
     // hardcoded `max-height`) never needs revisiting if the card's content
@@ -476,6 +493,7 @@ function MarkdownPanel({
     return (
       <>
         {bannerBlock}
+        {notices}
         <div
           className={cn(
             "grid transition-[grid-template-rows] duration-mode ease-mode",
@@ -497,7 +515,6 @@ function MarkdownPanel({
             />
           </div>
         </div>
-        {outdatedStrip}
       </>
     )
   }, [frontmatterEditedRef, setFrontmatter])
@@ -927,7 +944,7 @@ function MarkdownPanel({
           key={path}
           box={commentBox}
           annotations={reviewData.annotations}
-          personaName={personaName ?? persona.charAt(0).toUpperCase() + persona.slice(1)}
+          personaName={personaLabel}
           path={path}
           persona={persona}
           onClose={() => setCommentBox(null)}
