@@ -127,6 +127,15 @@ def _run_schedule(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_slack(args: argparse.Namespace) -> int:
+    from sympose.envfile import load_env
+
+    load_env()
+    from sympose import slack_connect
+
+    return slack_connect.run()
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="sympose", description="Sympose: an AI companion for your Obsidian vault.")
     commands = parser.add_subparsers(dest="command", title="commands")
@@ -153,6 +162,8 @@ def build_parser() -> argparse.ArgumentParser:
     schedule = commands.add_parser("schedule", help="have the operating system run due jobs while the web app is closed (macOS)")
     schedule.add_argument("action", choices=["install", "remove", "status"], help="install or remove the entry, or say whether it is there")
     schedule.set_defaults(run=_run_schedule)
+    slack = commands.add_parser("slack", help="answer in Slack: every persona with a Slack token pair, as its own Slack user (needs Slack switched on in settings)")
+    slack.set_defaults(run=_run_slack)
     return parser
 
 

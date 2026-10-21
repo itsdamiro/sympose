@@ -1,0 +1,231 @@
+"""A Slack message reaching a persona (docs/decisions/093): who may talk, the `slack` approval, the conversation a message
+belongs to, one turn at a time, and what is said when the turn fails. The turn and the model are fakes."""
+
+import threading
+import time
+
+import pytest
+from helpers import write_persona
+from slack_shapes import BOT, OWNER, dm, mention
+
+from sympose import settings_store, slack_channel, slack_sessions
+from sympose.engine import turn
+from sympose.engine.turn_result import TurnResult
+from sympose.slack_events import parse
+
+LOCAL = "ollama_chat/gemma4:e4b"
+
+
+@pytest.fixture
+def home(tmp_path, monkeypatch):
+    base = tmp_path / "profiles"
+    write_persona(base, "samantha", f"name: Samantha\nmodel: {LOCAL}\n")
+    monkeypatch.setenv("SYMPOSE_PROFILES_DIR", str(base))
+    monkeypatch.setenv("SYMPOSE_SETTINGS_PATH", str(tmp_path / "settings.json"))
+    monkeypatch.setenv(slack_channel.OWNER_VARIABLE, OWNER)
+    settings_store.set(slack_channel.SETTING, True)
+    return base
+
+
+@pytest.fixture
+def turns(monkeypatch):
+    """Every `run_turn` call as `(handle, message, session_id, kwargs)`; set `.fail` to raise, `.reply` and `.withheld` to shape the result."""
+    class Turns(list):
+        fail = None
+        reply = "A **short** answer."
+        withheld: list[str] = []
+
+    seen = Turns()
+
+    def fake(handle, message, session_id=None, **kwargs):
+        seen.append((handle, message, session_id, kwargs))
+        if seen.fail:
+            raise seen.fail
+        return TurnResult(reply=seen.reply, session_id=session_id, withheld=list(seen.withheld))
+
+    monkeypatch.setattr(turn, "run_turn", fake)
+    return seen
+
+
+def _answer(body, seen=None):
+    return slack_channel.answer("samantha", parse(body, BOT), seen or slack_sessions.Seen())
+
+
+# --- who may talk -------------------------------------------------------------------------------
+def test_the_owner_is_answered_in_slacks_own_format(home, turns):
+    reply = _answer(dm("hi"))
+    assert reply.text == "A *short* answer."
+    assert turns[0][:2] == ("samantha", "hi")
+
+
+def test_anyone_else_is_dropped_before_the_engine(home, turns):
+    assert _answer(dm("hi", user="U0STRANGER")) is None
+    assert _answer(mention(user="U0STRANGER")) is None
+    assert turns == []
+
+
+def test_without_an_owner_nobody_is_answered(home, turns, monkeypatch):
+    monkeypatch.delenv(slack_channel.OWNER_VARIABLE)
+    assert _answer(dm("hi")) is None
+    assert turns == []
+
+
+def test_a_strangers_message_is_not_logged(home, turns, caplog):
+    with caplog.at_level("DEBUG"):
+        _answer(dm("a secret about the vault", user="U0STRANGER"))
+    assert "secret" not in caplog.text
+
+
+# --- the approval -------------------------------------------------------------------------------
+def test_switched_off_says_so_and_runs_nothing(home, turns):
+    settings_store.set(slack_channel.SETTING, False)
+    reply = _answer(dm("hi"))
+    assert reply.text == slack_channel.SWITCHED_OFF
+    assert turns == []
+
+
+def test_it_is_off_until_the_user_switches_it_on(home, turns, tmp_path):
+    (tmp_path / "settings.json").unlink()
+    assert slack_channel.approved() is False
+    assert _answer(dm("hi")).text == slack_channel.SWITCHED_OFF
+
+
+def test_a_setting_of_the_wrong_kind_leaves_it_off(home, turns):
+    settings_store.set(slack_channel.SETTING, "yes")
+    assert slack_channel.approved() is False
+
+
+def test_the_approval_applies_to_a_local_model_too(home, turns):
+    settings_store.set(slack_channel.SETTING, False)
+    assert _answer(dm("hi")).text == slack_channel.SWITCHED_OFF  # the persona's model is local
+
+
+# --- the conversation a message belongs to ------------------------------------------------------
+def test_a_direct_message_continues_the_same_conversation(home, turns):
+    _answer(dm("one", ts="1.1", event_id="E1"))
+    _answer(dm("two", ts="2.2", event_id="E2", thread_ts="1.1"))
+    assert turns[0][2] == turns[1][2]
+
+
+def test_a_channel_thread_is_its_own_conversation_and_answered_in_the_thread(home, turns):
+    first = _answer(mention(ts="5.5", event_id="E1"))
+    second = _answer(mention(ts="6.6", thread_ts="5.5", event_id="E2"))
+    third = _answer(mention(ts="7.7", event_id="E3"))
+    assert turns[0][2] == turns[1][2] != turns[2][2]
+    assert (first.thread_ts, second.thread_ts, third.thread_ts) == ("5.5", "5.5", "7.7")
+
+
+def test_a_direct_message_is_answered_in_the_channel_not_a_thread(home, turns):
+    assert _answer(dm("hi")).thread_ts is None
+
+
+def test_a_channel_and_a_direct_message_are_not_one_conversation(home, turns):
+    _answer(dm("one", event_id="E1"))
+    _answer(mention(event_id="E2"))
+    assert turns[0][2] != turns[1][2]
+
+
+def test_a_redelivered_event_is_answered_once(home, turns):
+    seen = slack_sessions.Seen()
+    assert _answer(dm("hi"), seen) is not None
+    assert _answer(dm("hi"), seen) is None
+    assert len(turns) == 1
+
+
+def test_slash_new_starts_another_conversation(home, turns):
+    _answer(dm("one", event_id="E1"))
+    reply = slack_channel.new_conversation("samantha", parse(dm("/new"), BOT))
+    _answer(dm("two", event_id="E2"))
+    assert reply.text == "New conversation."
+    assert turns[0][2] != turns[1][2]
+
+
+def test_slash_new_from_anyone_else_does_nothing(home, turns):
+    _answer(dm("one", event_id="E1"))
+    assert slack_channel.new_conversation("samantha", parse(dm("/new", user="U0STRANGER"), BOT)) is None
+    _answer(dm("two", event_id="E2"))
+    assert turns[0][2] == turns[1][2]
+
+
+def test_slash_new_in_a_channel_says_to_use_a_thread(home, turns):
+    reply = slack_channel.new_conversation("samantha", parse(mention(ts="9.9"), BOT))
+    assert "thread" in reply.text and reply.thread_ts == "9.9"
+
+
+# --- the turn -----------------------------------------------------------------------------------
+def test_the_turn_proposes_nothing_yet(home, turns):
+    _answer(dm("hi"))
+    assert "edits" not in turns[0][3]  # no edit tools until the reply can show a proposal (slice 2)
+
+
+def test_what_was_held_back_from_a_cloud_model_is_said(home, turns):
+    turns.withheld = ["notes", "recaps"]
+    assert _answer(dm("hi")).text.endswith("_Held back from the model: notes, recaps._")
+
+
+@pytest.mark.parametrize("error, said", [
+    (turn.EngineModelError("down"), slack_channel.NO_MODEL),
+    (turn.PersonaNotFoundError("gone"), slack_channel.NO_PERSONA),
+])
+def test_a_failed_turn_says_one_plain_line(home, turns, error, said):
+    turns.fail = error
+    assert _answer(dm("hi")).text == said
+
+
+def test_a_stopped_turn_says_nothing(home, turns):
+    turns.fail = turn.TurnCancelled()
+    assert _answer(dm("hi")) is None
+
+
+def test_a_persona_that_is_gone_says_so(home, turns):
+    assert slack_channel.answer("ghost", parse(dm("hi"), BOT), slack_sessions.Seen()).text == slack_channel.NO_PERSONA
+    assert turns == []
+
+
+def test_the_lock_is_let_go_after_a_failure(home, turns):
+    turns.fail = turn.EngineModelError("down")
+    _answer(dm("one", event_id="E1"))
+    turns.fail = None
+    assert _answer(dm("two", event_id="E2")).text == "A *short* answer."
+
+
+def test_two_messages_to_one_persona_run_one_after_the_other(home, turns, monkeypatch):
+    running, most, guard = 0, 0, threading.Lock()
+
+    def measured(handle, message, session_id=None, **kwargs):
+        nonlocal running, most
+        with guard:
+            running += 1
+            most = max(most, running)
+        time.sleep(0.1)
+        with guard:
+            running -= 1
+        return TurnResult(reply="ok", session_id=session_id)
+
+    monkeypatch.setattr(turn, "run_turn", measured)
+    threads = [threading.Thread(target=_answer, args=(dm(f"m{i}", event_id=f"E{i}"),)) for i in range(3)]
+    [t.start() for t in threads]
+    [t.join() for t in threads]
+    assert most == 1
+
+
+# --- the tokens ---------------------------------------------------------------------------------
+def test_a_persona_has_tokens_only_with_both(monkeypatch):
+    monkeypatch.setenv("SLACK_SAMANTHA_BOT_TOKEN", "xoxb-1")
+    assert slack_channel.tokens("samantha") is None
+    monkeypatch.setenv("SLACK_SAMANTHA_APP_TOKEN", " xapp-1 ")
+    assert slack_channel.tokens("samantha") == ("xoxb-1", "xapp-1")
+
+
+def test_tokens_are_read_by_the_personas_handle_alone(monkeypatch):
+    monkeypatch.setenv("SLACK_ARCHIA_BOT_TOKEN", "xoxb-a")
+    monkeypatch.setenv("SLACK_ARCHIA_APP_TOKEN", "xapp-a")
+    monkeypatch.delenv("SLACK_BOT_TOKEN", raising=False)
+    assert slack_channel.tokens("samantha") is None
+    assert slack_channel.tokens("archia") == ("xoxb-a", "xapp-a")
+
+
+def test_a_shared_token_pair_is_not_a_fallback(monkeypatch):
+    monkeypatch.setenv("SLACK_BOT_TOKEN", "xoxb-shared")
+    monkeypatch.setenv("SLACK_APP_TOKEN", "xapp-shared")
+    assert slack_channel.tokens("samantha") is None
