@@ -40,7 +40,7 @@ The colour is kept in the top-level folder's own note, like Projects/Projects.md
 
 ## What are tracked changes and comments?
 
-When a persona proposes a change to the note you have open, the editor shows it as a tracked change: the old text struck through and the new text beside it. A small tab above it holds Accept and Decline (and a paperclip). The toolbar has Accept all and save, and Decline all, for the whole note. A change you edited underneath is marked outdated, not merged.
+When a persona proposes a change to the note you have open, the editor shows it as a tracked change: the old text struck through and the new text beside it. A small tab above it holds Accept and Decline (and a paperclip). A block at the top says how many changes the persona suggested, with Accept all (which saves) and Decline all. A change you edited underneath is marked outdated, not merged.
 
 To leave a comment, select text and choose Comment; the persona reads your open comments with your next message and can reply or propose a change. A comment can be resolved, and a persona's own comment can be accepted or declined (a reason is optional). Nothing reaches the file until you accept or save. This is web app only.
 
@@ -52,7 +52,7 @@ You then see the table's source, the old rows struck and the new ones beside the
 
 ## Where do I click Accept or Decline on a change?
 
-In the note, a small tab above the changed words holds Accept and Decline, and a paperclip. For a new note she proposed, the bar above the draft has Accept and Decline. The toolbar has Accept all and Decline all for the whole note.
+In the note, a small tab above the changed words holds Accept and Decline, and a paperclip. For a new note the persona proposed, the block above the draft has Accept and Decline. For the whole note, the block at the top has Accept all and Decline all.
 
 ## How do I point the persona at a part of my note?
 
