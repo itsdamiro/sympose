@@ -100,9 +100,13 @@ The summary does not exist as a file yet. It waits in Drafts, filed for a folder
 
 ## Can a persona do something by itself on a schedule?
 
-Yes, as a job. A job is a small file in the persona's own folder, never in your vault. In Settings, under Jobs, Add a job makes one that starts off. Open it with the pencil, write when it runs (such as `weekly sun 18:00` or `daily 07:30`) and what to do, then switch it On.
+Yes, as a job. A job is a small file in the persona's own folder, never in your vault. In Settings, under Jobs, Add a job makes one that starts off. Open it from the ⋯ menu on its row, write when it runs (such as `weekly sun 18:00` or `daily 07:30`) and what to do, then switch it On.
 
 Whatever a job produces waits in Drafts for you to accept, so a job never touches your vault by itself. A job can propose notes to add but not alterations to one you already have. A job that uses a cloud model runs once a day unless its file says otherwise.
+
+## How do I rename or delete a job?
+
+In Settings, under Jobs, open the ⋯ menu on the job's row. Rename turns what you type into a file name (`Weekly review` becomes `weekly-review`) and keeps its last run. Delete asks first and keeps a copy of the file beside the others, with .bak added to its name. A job that is running right now has to finish first.
 
 ## What goes in a job's file?
 

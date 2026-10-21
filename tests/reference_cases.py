@@ -406,6 +406,8 @@ REF_CASES: list[RefCase] = [
     ),
     # Scheduled jobs (ADR 091)
     RefCase("jobs-schedule", "how do I make a persona do something on a schedule?", find=("Add a job", "Drafts"), first="The web app.md"),
+    RefCase("jobs-delete", "how do I delete a job?", find=("⋯", ".bak"), first="The web app.md"),
+    RefCase("jobs-rename", "can I rename a job?", find=("Rename", "weekly-review"), first="The web app.md"),
     RefCase("jobs-file", "what goes in a job file?", find=("kind", "enabled"), first="The web app.md"),
     RefCase("jobs-schedules", "which schedules can I write for a job?", find=("every 6 hours", "weekdays 07:30"), first="The web app.md"),
     RefCase("jobs-every-hours", "can a job run every 6 hours?", find=("every 6 hours",), first="The web app.md"),

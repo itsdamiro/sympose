@@ -92,7 +92,7 @@ Settings gets a Jobs section: one row per job (name, schedule, model icon, last 
 - Routes: `GET`/`POST /api/personas/{handle}/jobs` and `PUT /api/personas/{handle}/jobs/{name}` (`job_manage.py`, `server_job_handlers.py`). The switch changes only the `enabled:` property (a file with none is on) and keeps line endings and a byte-order mark; the old text goes to `<name>.md.bak`.
 - The editor opens a job through ADR 061's routes: the name `jobs/<name>.md` is the one more name `persona_editable` allows (a plain job name, an existing file, saved in place with the `.bak` and the mtime check; a save never creates a job). `{name:path}` carries the slash; the pending-rewrite route is declared first so it keeps its path. The editor's strip says what a job file is, and the rows are read again after a save.
 - A conversation a job opened has a clock in place of the speech bubble in the conversation list and its job's name in the detail line (a pin still wins). No new strip or card.
-- Not built: removing a job from Settings (the file can be deleted in the folder), a "Run now" button (`sympose run persona/job` does it).
+- Not built: a "Run now" button (`sympose run persona/job` does it). Removing a job was built later (see "As built: a job's `⋯` menu, rename and delete").
 - Checked: 16 of 16 Python and 14 of 14 web mutants caught; the real app on a scratch install (the rows, the pencil, a save, the pause lifted, a new job opened, the clock in the list).
 
 ## As built: the OS entry and the app's timer (slice 4, 2026-10-21)
@@ -103,13 +103,22 @@ Settings gets a Jobs section: one row per job (name, schedule, model icon, last 
 - Moving Sympose (a new folder or Python) needs Off then On, or `sympose schedule install` again; the entry names the paths it was made with.
 - Checked: 18 Python and 7 web tests added; 17 of 17 Python and 7 of 7 web mutants caught (one equivalent mutant of my own, a `return 0 if True else 1`, was not counted). **Found by a mutation run:** with the platform check removed a test reached the real `launchctl` and registered a service in damiro's login session (pointing at a temporary test folder); it was unloaded at once, and an autouse fixture now makes any test that has not replaced `launchctl` fail instead. Real checks on a scratch install: `schedule install` made a plist `plutil` accepts, `launchctl kickstart` ran a due `health` job (a draft in the persona's folder, the vault untouched), `remove` left no entry; in the web app on a scratch server the row loaded, On added the entry and Off removed it, and the app's timer had already run the same due job at start.
 - Reference library: three entries in `The web app.md` (what a job is and that it starts off, whether jobs run while Sympose is closed, why a job stopped) and two reference cases. Retrieval `auto` 74 of 84 before (four of the five new messages failing) and 78 of 84 after, the same six failures as before; in `keywords` mode "how do I schedule a weekly meeting with my team?" now attaches the web app entry (a keyword limit; `auto` does not). The entries avoid "write", "edit" and "new notes": the first wording took `writes-notes` away from its answer (as in ADR 086).
-- Not built: a notification when a run finishes with nobody watching; Windows (#117); removing a job, or a "Run now" button, from Settings.
+- Not built: a notification when a run finishes with nobody watching; Windows (#117); a "Run now" button in Settings (removing a job was built later).
 
 ## As built: review fixes and the persona writing a job's file (2026-10-21)
 
 - From `/code-review high` of slice 4: the entry no longer copies a value the `.env` file gives (it went stale against later edits, and the CLI and the web app wrote different entries); a refused reinstall no longer loses a working entry; the timer's per-job log line is gone (the outcome is in the job's own run state, which Settings shows, and the web process shows no `info` logs); the On/Off row is disabled while a change is made. Not changed: `jobs.log` is not rotated (`run --due` prints only when a job ran, so it grows slowly).
 - **The persona helps to set up a job, by the skill `setting-up-a-job`** (ADR 077; no tool, carried by Samantha). It asks for the task and the time if either is missing, writes only the five schedule forms, leaves `model` and `max_runs_per_day` out unless the user names them, and gives the file as one block with `enabled: false`; the user adds a job in Settings, pastes it over the template, saves and switches it On. She cannot see, create or change a job file herself. `The web app.md` has an entry with the schedule forms and the properties.
 - Next, not built: a confirmation card (ADR 078 and 080) so the persona files the job herself and the user clicks Accept, which amends ADR 080's "not a persona's files". It needs its own decision with damiro.
+
+## As built: a job's `⋯` menu, rename and delete (2026-10-21)
+
+- A job's row in Settings → Jobs has one `⋯` menu in place of the pencil: Open in the editor, Rename, Delete. The row keeps the model's mark and the On/Off switch, so the row is no wider. No new surface: rename is an inline field in the name's place (Enter commits, Esc or a click away cancels), delete asks first (`confirm`).
+- Rename (`POST /api/personas/{handle}/jobs/{name}/rename`, `job_manage.rename`): what is typed becomes a file name (lower case, spaces as dashes, a trailing `.md` dropped; anything that is not letters, numbers, dashes and underscores is refused), the file, its `.bak` and its record in `.state/` move together so a pause and the last run carry over, a name that is taken is refused. The editor, if it holds that file, is pointed at the new one, after its unsaved edits are saved under the old name.
+- Delete (`DELETE /api/personas/{handle}/jobs/{name}`, `job_manage.delete`): the file becomes `<name>.md.bak` (the backup a switch keeps, so the text is not lost and the list no longer shows it), its record and lock go. The editor lets go of the file. There is no Bin for it: the Bin is the vault's.
+- Both are refused while a run of the job holds its claim (`job_state.claim`), with a line that says so.
+- Checked: 4 Python and 5 web tests added; 5 of 5 Python and 5 of 5 web mutants caught; the menu, a rename and a delete in the real web app on a scratch install.
+- Not built: a "Run now" button.
 
 ## Alternatives rejected
 
