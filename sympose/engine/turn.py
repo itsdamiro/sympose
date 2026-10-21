@@ -82,7 +82,7 @@ def run_turn(
     # checked against what this model can actually do and, for `ask`, whether the persona has a
     # vault to look up at all -- see `persona_tools.resolve`.
     since = existing["turns"][-1].get("timestamp") if existing and existing.get("turns") else None  # when the previous turn was recorded
-    modes = persona_tools.resolve(persona, target_model, open_note, edits, since, attached)
+    modes = persona_tools.resolve(persona, target_model, open_note, edits, since, attached, unattended)
     # Cleared in `finally`, not just on the normal path: an exception from `_run` (a raised
     # `EngineModelError`, or anything else) must not leave the busy indicator (docs/decisions/043)
     # showing a phase forever for a turn that's already over. `_run` narrows this further (searching,

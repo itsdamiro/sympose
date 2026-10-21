@@ -480,3 +480,20 @@ def test_a_scheduled_run_whose_tools_are_refused_is_still_told_it_is_unattended_
     turn.run_turn("samantha", "Draft my weekly note.", model=CLOUD, edits=True, unattended=True)
 
     assert sent and turn.UNATTENDED in sent[-1]
+
+
+def test_only_a_scheduled_run_asks_for_the_lookups_of_an_unattended_turn(monkeypatch):
+    model_that(monkeypatch, ModelReply("Hi", 5), ModelReply("Hi", 5))
+    asked = []
+    real = turn.persona_tools.resolve
+
+    def resolve(*args, **kwargs):
+        asked.append(args[6] if len(args) > 6 else kwargs.get("unattended", False))
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(turn.persona_tools, "resolve", resolve)
+
+    turn.run_turn("samantha", "Draft my weekly note.", model=LOCAL, edits=True, unattended=True)
+    turn.run_turn("samantha", "Draft my weekly note.", model=LOCAL, edits=True)
+
+    assert asked == [True, False]

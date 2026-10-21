@@ -24,13 +24,15 @@ class Modes:
 
 def resolve(
     persona: dict[str, Any], target_model: str, open_note: edit_turn.OpenNote | None = None, edits: bool = False,
-    since: str | None = None, attached: list[edit_turn.Attached] | None = None,
+    since: str | None = None, attached: list[edit_turn.Attached] | None = None, unattended: bool = False,
 ) -> Modes:
     """What this turn's `ask`/`remember` actually are, given `target_model`'s own tool-calling
     capability and a persona with or without a vault -- the one place `run_turn` needs to check
-    both settings against the model before deciding whether to run the tool-calling loop at all."""
+    both settings against the model before deciding whether to run the tool-calling loop at all.
+    A scheduled run (`unattended`) looks in the notes itself whatever the setting says, on any model that can call tools:
+    its prompt is a fixed instruction, a poor search query, and nobody is there to check a draft (docs/decisions/091)."""
     has_vault = vault_paths.resolve_sandbox(persona) is not None
-    chose_ask = lookup.chooses_ask(target_model) and has_vault
+    chose_ask = (unattended or lookup.chooses_ask(target_model)) and has_vault
     # Asking whether the model can call tools may cost a network probe, so only when a tool could be used.
     chose_chats = past_chats.chooses_ask()
     wants_edit = (edits or open_note is not None) and edit_mode.for_persona(persona) != edit_mode.PLAN

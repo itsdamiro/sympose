@@ -131,6 +131,30 @@ def test_resolve_ask_needs_the_model_to_call_tools_too(tmp_path, monkeypatch):
     assert local_modes.ask is False and local_modes.chose_ask is True  # chosen, just not runnable here
 
 
+def test_a_scheduled_run_looks_in_the_notes_itself_on_any_model_that_can_call_tools_whatever_the_setting_says(tmp_path, monkeypatch):
+    _settings(tmp_path, monkeypatch)
+    _vault(tmp_path, monkeypatch)
+    monkeypatch.setattr(tool_support.litellm, "supports_function_calling", lambda model: model == LOCAL)
+    persona = {"vault_folders": ["*"]}
+
+    for setting in (lookup.AUTO, lookup.ASK, lookup.BY_MODEL):
+        settings_store.set(lookup.SETTING, setting)
+        assert persona_tools.resolve(persona, LOCAL, unattended=True).ask is True  # LOCAL is not in `lookup.MEASURED`
+    settings_store.set(lookup.SETTING, lookup.AUTO)
+    assert persona_tools.resolve(persona, LOCAL).ask is False  # a turn somebody is at keeps the setting
+    assert persona_tools.resolve(persona, CLOUD, unattended=True).ask is False  # a model that cannot call tools falls back to `auto`
+
+
+def test_a_scheduled_run_with_no_vault_has_nothing_to_look_in(tmp_path, monkeypatch):
+    _settings(tmp_path, monkeypatch)
+    monkeypatch.delenv("VAULT_PATHS", raising=False)
+    monkeypatch.setattr(tool_support.litellm, "supports_function_calling", lambda model: True)
+
+    modes = persona_tools.resolve({"vault_folders": ["*"]}, LOCAL, unattended=True)
+
+    assert modes.ask is False and modes.chose_ask is False
+
+
 def test_resolve_remember_follows_the_setting_and_the_models_own_capability(tmp_path, monkeypatch):
     _settings(tmp_path, monkeypatch)
     _vault(tmp_path, monkeypatch)
