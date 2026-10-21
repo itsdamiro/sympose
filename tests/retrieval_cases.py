@@ -87,6 +87,12 @@ _RAW = [
     ("sympose", "what do I write in a job file, and which schedules can I use?", True, "The web app.md"),
     ("sympose", "how do I delete one of my jobs, or rename it?", True, "The web app.md"),
     ("sympose", "can I talk to you in the browser, or only in the terminal?", True, "The web app.md"),
+    ("sympose", "can I message Samantha from my phone through Slack?", True, "Slack.md"),
+    ("sympose", "how do I make a persona a user in my Slack workspace?", True, "Slack.md"),
+    ("sympose", "why does it say Slack is switched off?", True, "Slack.md"),
+    ("sympose", "does what you say in Slack end up on Slack's servers?", True, "Slack.md"),
+    ("sympose", "how can I tell whether a persona is connected to Slack?", True, "Slack.md"),
+    ("sympose", "can other people in my Slack workspace talk to the bot?", True, "Slack.md"),
 ]
 
 _VAULT = [
@@ -127,6 +133,7 @@ _NONE = [
     ("general", "what is the capital of Portugal?"),
     ("general", "how do I schedule a weekly meeting with my team?"),
     ("general", "explain what an embedding is"),
+    ("general", "how do I mute a channel in Slack?"),
     ("general", "suggest a name for my new puppy"),
     ("general", "what is the tallest mountain in the world?"),
     ("general", "write me a haiku about autumn"),

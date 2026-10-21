@@ -34,10 +34,6 @@ In the web app Samantha can propose a new persona, and you accept or decline it.
 
 Some, from the terminal. `sympose vault --fix` walks the repairs one note at a time, each change shown and made only when you say yes, never in bulk. There is no health or fix command in the chat yet.
 
-## Does Sympose work in Slack?
-
-Not yet. Slack is planned as the first remote way to reach your vault, and Telegram or others may follow. Today Sympose is the terminal chat and the web app.
-
 ## Does Samantha remember me between conversations?
 
 In two ways. At the start of a conversation she is given short recaps of your last conversations, written from what you said, so she can pick up where you left off. And each persona has memory files, profile.md, context.md and decisions.md, which she reads every time. She cannot browse past conversations unless you set `past_chats` to `"auto"`.

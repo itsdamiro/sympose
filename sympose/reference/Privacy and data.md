@@ -12,6 +12,10 @@ The kinds are: passages of your notes, their properties, your recaps, your earli
 
 The links in your messages (a YouTube video or a web page) are one more kind, and so is what you ask when `web_access` is `"auto"` and the web is searched. See `web_access`. Files you attach to a message (a PDF, an image, a sound or a video) are another: Google reads them, Sympose keeps none, and `"media"` must be allowed.
 
+## Does Slack get what a persona says?
+
+Yes, if you set a persona up in Slack and switch on `slack`. Its replies, which can quote your notes, go to Slack's servers whichever model wrote them. That is why `slack` is off until you switch it on. See the Slack page.
+
 ## How do I let a cloud model use my notes?
 
 When you switch from a local model to a cloud one with /model, Sympose asks about each kind. Type /share to see or change what is allowed; it is kept in `cloud_share` in `settings.json`. A cloud reply's header shows `cloud:` for what was sent and `withheld:` for what was held back.

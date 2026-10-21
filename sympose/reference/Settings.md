@@ -256,6 +256,12 @@ A video costs more than a message: with Gemini Flash each question that needs th
 
 A note made from a video is a proposal that waits for your Accept, like any other. Ask for one: a link or a summary alone files nothing. The note has the video's address in its properties, and the times in its outline are links to that moment of the video.
 
+## slack
+
+The `slack` setting switches Slack on. It is off by default, for every persona and every model, because a Slack reply leaves your computer whichever model wrote it. Set it in Settings (the Slack section) or as the `slack` row of /settings.
+
+While it is off, `sympose slack` will not start and a message in Slack is answered with one line naming this setting. A persona cannot propose switching it on; only you can. See the Slack page.
+
 ## How do the true or false settings work?
 
 Only an explicit `false` turns a setting off. Anything else leaves the default.
