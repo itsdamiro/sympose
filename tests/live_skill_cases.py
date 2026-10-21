@@ -204,6 +204,30 @@ CASES: list[SkillCase] = [
         needs_draft=True, vault="plain",
         draft_forbid=(r"## Template",),
     ),
+    SkillCase(
+        "job-from-a-clear-request", "setting-up-a-job",
+        ("Set up a job that runs every Sunday at 6pm and lists the open tasks in my Journal notes.",),
+        expect=(r"(?m)^schedule: weekly sun 18:00\s*$", r"(?m)^enabled: false\s*$", r"Settings"),
+        forbid=(r"(?m)^model:", _ENGINE_WORDS),
+    ),
+    SkillCase(
+        "job-with-a-time-no-form-names", "setting-up-a-job",
+        ("Make a job that runs twice a day and summarises my inbox notes.",),
+        # "twice a day" has no form: she says so and offers one, never writes a schedule line the app would reject.
+        expect=(r"daily|every \d+ hours|nearest|closest|can't|cannot|no (?:way|form)",),
+        forbid=(r"(?m)^schedule: twice",),
+    ),
+    SkillCase(
+        "job-asks-for-the-missing-time", "setting-up-a-job",
+        ("I want a job that drafts a weekly review.",),
+        expect=(r"\?", r"when|which day|what time|what day"),
+        forbid=(r"(?m)^schedule:",),
+    ),
+    SkillCase(
+        "near-miss-a-meeting-schedule", "setting-up-a-job",
+        ("Help me schedule a weekly meeting with my team.",),
+        forbid=(r"(?m)^schedule:", r"enabled: false"),
+    ),
     # A message that shares words with the soul skill's description but asks for something else (selection is by
     # words, so the skill is in the prompt; she must not follow it).
     SkillCase(

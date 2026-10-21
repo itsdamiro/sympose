@@ -83,6 +83,7 @@ _RAW = [
     ("sympose", "how do I set up a task that runs by itself on a schedule?", True, "The web app.md"),
     ("sympose", "will my jobs still run if I close Sympose?", True, "The web app.md"),
     ("sympose", "one of my jobs stopped running by itself, why?", True, "The web app.md"),
+    ("sympose", "what do I write in a job file, and which schedules can I use?", True, "The web app.md"),
 ]
 
 _VAULT = [

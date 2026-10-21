@@ -104,6 +104,14 @@ Yes, as a job. A job is a small file in the persona's own folder, never in your 
 
 Whatever a job produces waits in Drafts for you to accept, so a job never touches your vault by itself. A job can propose notes to add but not alterations to one you already have. A job that uses a cloud model runs once a day unless its file says otherwise.
 
+## What goes in a job's file?
+
+Which schedules can you write for a job? The schedule of a job is one of `daily 07:30`, `weekdays 07:30`, `weekly sun 18:00`, `monthly 1 09:00` (a day from 1 to 28) and `every 6 hours` (1 to 168), on your own clock. No other schedule is understood, such as twice a day or every other week.
+
+A job's file has a few lines of properties, then what to write for the job to do. `schedule` is one of those, `kind` is `ask` (a turn with the persona's model, the usual), `health` or `refresh`, and `enabled` is true or false.
+
+`health` (the notes check) and `refresh` (rebuilds the search index) use no model and need no text below. Optional: `model`, for another model than the persona's, and `max_runs_per_day`, a whole number. A persona can write this file for you to paste in, and you switch the job on yourself.
+
 ## Do jobs run when Sympose is closed?
 
 While the web app is open, yes, and a time missed while it was closed runs when you next open it. On a Mac, switch on Run while Sympose is closed under Jobs in Settings, or run `sympose schedule install`, and the computer checks every 5 minutes with the app closed.
