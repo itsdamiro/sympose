@@ -194,6 +194,12 @@ REF_CASES: list[RefCase] = [
         first="Chat commands.md",
     ),
     RefCase(
+        "chat-in-the-web-app",
+        "can I chat with you in the web app?",
+        find=("same chat",),
+        first="The web app.md",
+    ),
+    RefCase(
         "hide-a-folder",
         "how do I hide a folder in the web app?",
         find=("Hide from view",),

@@ -132,4 +132,4 @@ The Knowledge Nebula is a graph of your notes, in 2D or 3D. Each note is a point
 
 ## Can I chat in the web app?
 
-Not yet. The web app has a chat panel, but it is only a design mock for now. Chatting works in the terminal.
+Yes. The web app has the same chat as the terminal, in a panel beside your notes. Pick a model, attach a file, stop a reply while it is written, and use the Condense button to shorten a long conversation. A change a persona proposes to a note waits for your Accept in the editor.

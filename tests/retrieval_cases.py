@@ -85,6 +85,7 @@ _RAW = [
     ("sympose", "one of my jobs stopped running by itself, why?", True, "The web app.md"),
     ("sympose", "what do I write in a job file, and which schedules can I use?", True, "The web app.md"),
     ("sympose", "how do I delete one of my jobs, or rename it?", True, "The web app.md"),
+    ("sympose", "can I talk to you in the browser, or only in the terminal?", True, "The web app.md"),
 ]
 
 _VAULT = [
