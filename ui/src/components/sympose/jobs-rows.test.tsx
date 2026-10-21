@@ -2,8 +2,9 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-const { notifyError } = vi.hoisted(() => ({ notifyError: vi.fn() }))
+const { notifyError, confirmMock } = vi.hoisted(() => ({ notifyError: vi.fn(), confirmMock: vi.fn() }))
 vi.mock("@/lib/notify", () => ({ notify: { error: notifyError } }))
+vi.mock("@/lib/confirm-store", () => ({ confirm: confirmMock }))
 
 import { JobsRows } from "./jobs-rows"
 
@@ -21,6 +22,8 @@ function stub(
     list?: unknown[]
     put?: (enabled: boolean) => Response
     post?: Response
+    rename?: Response
+    del?: Response
     schedule?: { supported: boolean; installed: boolean }
     putSchedule?: (installed: boolean) => Response
   } = {}
@@ -32,6 +35,8 @@ function stub(
       if (init?.method === "PUT") return routes.putSchedule?.(JSON.parse(init.body as string).installed) ?? res(routes.schedule)
       return res(routes.schedule ?? { supported: false, installed: false })
     }
+    if (init?.method === "POST" && url.endsWith("/rename")) return routes.rename ?? res({ job: job() })
+    if (init?.method === "DELETE") return routes.del ?? res({ deleted: "weekly" })
     if (init?.method === "POST") return routes.post ?? res({ job: job({ name: "new-job", file: "jobs/new-job.md", enabled: false }) })
     if (init?.method === "PUT") return routes.put?.(JSON.parse(init.body as string).enabled) ?? res({ job: job() })
     return res({ jobs: routes.list ?? [job()] })
@@ -44,13 +49,22 @@ const ago = (hours: number) => {
   return new Date(at.getTime() - at.getTimezoneOffset() * 60000).toISOString().slice(0, 19)
 }
 
-beforeEach(() => notifyError.mockClear())
+beforeEach(() => {
+  notifyError.mockClear()
+  confirmMock.mockClear()
+})
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
 })
 
 describe("JobsRows", () => {
+  it("says under Add a job what a job's file holds, now that its editor has no strip for it", async () => {
+    stub()
+    render(<JobsRows persona="ada" personaName="Ada" onOpen={vi.fn()} />)
+    expect(await screen.findByText(/the properties say when it runs and the text says what to do/)).toBeTruthy()
+  })
+
   it("lists each job with its schedule and says one has not run yet", async () => {
     stub()
     render(<JobsRows persona="ada" personaName="Ada" onOpen={vi.fn()} />)
@@ -138,8 +152,69 @@ describe("JobsRows", () => {
     stub()
     const onOpen = vi.fn()
     render(<JobsRows persona="ada" personaName="Ada" onOpen={onOpen} />)
-    fireEvent.click(await screen.findByRole("button", { name: "Open weekly in the editor" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Actions for weekly" }))
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Open in the editor" }))
     expect(onOpen).toHaveBeenCalledExactlyOnceWith("jobs/weekly.md")
+  })
+
+  it("renames a job from its menu: the field takes the new name, Enter asks, the row and the editor follow", async () => {
+    const renamed = job({ name: "weekly-review", file: "jobs/weekly-review.md" })
+    stub({ rename: res({ job: renamed }) })
+    const onRenamed = vi.fn()
+    render(<JobsRows persona="ada" personaName="Ada" onOpen={vi.fn()} onRenamed={onRenamed} />)
+    fireEvent.click(await screen.findByRole("button", { name: "Actions for weekly" }))
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Rename" }))
+    const field = (await screen.findByLabelText("New name for weekly")) as HTMLInputElement
+    expect(field.value).toBe("weekly")
+    fireEvent.change(field, { target: { value: "Weekly review" } })
+    fireEvent.keyDown(field, { key: "Enter" })
+
+    expect(await screen.findByText("weekly-review")).toBeTruthy()
+    expect(calls.at(-1)).toMatchObject({ url: "/api/personas/ada/jobs/weekly/rename", init: { method: "POST", body: JSON.stringify({ name: "Weekly review" }) } })
+    expect(screen.queryByText("weekly")).toBeNull()
+    expect(onRenamed).toHaveBeenCalledExactlyOnceWith("jobs/weekly.md", "jobs/weekly-review.md")
+  })
+
+  it("keeps the field open and says why when a rename is refused, and Esc leaves the name as it was", async () => {
+    stub({ rename: res({ detail: "There is already a job called daily." }, false) })
+    render(<JobsRows persona="ada" personaName="Ada" onOpen={vi.fn()} />)
+    fireEvent.click(await screen.findByRole("button", { name: "Actions for weekly" }))
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Rename" }))
+    const field = await screen.findByLabelText("New name for weekly")
+    fireEvent.change(field, { target: { value: "daily" } })
+    fireEvent.keyDown(field, { key: "Enter" })
+    await waitFor(() => expect(notifyError).toHaveBeenCalledExactlyOnceWith("There is already a job called daily."))
+    expect(screen.getByLabelText("New name for weekly")).toBeTruthy()
+    fireEvent.keyDown(screen.getByLabelText("New name for weekly"), { key: "Escape" })
+    expect(await screen.findByText("weekly")).toBeTruthy()
+    expect(screen.queryByLabelText("New name for weekly")).toBeNull()
+  })
+
+  it("asks nothing of the backend when the name is left as it was", async () => {
+    stub()
+    render(<JobsRows persona="ada" personaName="Ada" onOpen={vi.fn()} />)
+    fireEvent.click(await screen.findByRole("button", { name: "Actions for weekly" }))
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Rename" }))
+    fireEvent.keyDown(await screen.findByLabelText("New name for weekly"), { key: "Enter" })
+    await waitFor(() => expect(screen.queryByLabelText("New name for weekly")).toBeNull())
+    expect(calls.some((c) => c.url.endsWith("/rename"))).toBe(false)
+  })
+
+  it("asks before deleting, then the row goes and the editor is told", async () => {
+    stub({ list: [job(), job({ name: "daily", file: "jobs/daily.md" })] })
+    const onRemoved = vi.fn()
+    render(<JobsRows persona="ada" personaName="Ada" onOpen={vi.fn()} onRemoved={onRemoved} />)
+    fireEvent.click(await screen.findByRole("button", { name: "Actions for weekly" }))
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Delete" }))
+    expect(confirmMock).toHaveBeenCalledTimes(1)
+    expect(calls.some((c) => c.init?.method === "DELETE")).toBe(false) // asked, not done
+
+    await confirmMock.mock.calls[0][0].onConfirm()
+
+    await waitFor(() => expect(screen.queryByText("weekly")).toBeNull())
+    expect(screen.getByText("daily")).toBeTruthy()
+    expect(calls.at(-1)).toMatchObject({ url: "/api/personas/ada/jobs/weekly", init: { method: "DELETE" } })
+    expect(onRemoved).toHaveBeenCalledExactlyOnceWith("jobs/weekly.md")
   })
 
   it("makes a new job from the template, lists it and opens it in the editor", async () => {

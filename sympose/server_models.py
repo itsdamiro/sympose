@@ -278,6 +278,12 @@ class SkillSwitch(BaseModel):
     enabled: bool
 
 
+class JobRename(BaseModel):
+    """Body of `POST /api/personas/{handle}/jobs/{name}/rename`: the job's new name."""
+
+    name: str
+
+
 class JobSwitch(BaseModel):
     """Body of `PUT /api/personas/{handle}/jobs/{name}`: switch a scheduled job on or off."""
 

@@ -277,6 +277,12 @@ export function AppShell() {
     fileEditor.open(name)
     panels.open("editor")
   }
+  // A job renamed or deleted from Settings: the editor does not go on holding the file that is no longer there.
+  const jobFileMoved = (name: string, next?: string) => {
+    if (fileEditor.current?.name !== name) return
+    if (next) fileEditor.open(next)
+    else fileEditor.close()
+  }
   const currentFileInfo = personaFiles.files.find((f) => f.name === fileEditor.current?.name)
   const personaFileChanged = () => {
     void personaFiles.refresh()
@@ -298,15 +304,20 @@ export function AppShell() {
     : fileEditor.file && fileEditor.current
       ? {
           ...fileEditor.file,
-          banner: (
-            <PersonaFileBanner
-              title={fileEditor.file.title}
-              handle={activePersona}
-              name={fileEditor.current.name}
-              info={currentFileInfo}
-              onChanged={personaFileChanged}
-            />
-          ),
+          // A job's file (docs/decisions/091) opens with its properties card alone, no strip above it.
+          ...(fileEditor.current.name.startsWith("jobs/")
+            ? { properties: true }
+            : {
+                banner: (
+                  <PersonaFileBanner
+                    title={fileEditor.file.title}
+                    handle={activePersona}
+                    name={fileEditor.current.name}
+                    info={currentFileInfo}
+                    onChanged={personaFileChanged}
+                  />
+                ),
+              }),
         }
       : undefined
   const {
@@ -586,6 +597,8 @@ export function AppShell() {
         personaName={activePersonaName}
         jobsVersion={jobsVersion}
         onOpenJob={openPersonaFile}
+        onJobRenamed={jobFileMoved}
+        onJobRemoved={(name) => jobFileMoved(name)}
         query={vaultSearchQuery}
       />
     ) : (

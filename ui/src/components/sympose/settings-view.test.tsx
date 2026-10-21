@@ -95,12 +95,13 @@ describe("SettingsView", () => {
     }
   })
 
-  it("opens a job's file in the editor through the shell, from the row's button", async () => {
+  it("opens a job's file in the editor through the shell, from the row's menu", async () => {
     const job = { name: "weekly", file: "jobs/weekly.md", schedule: "weekly sun 18:00", kind: "ask", mechanical: false, model: null, cloud: false, enabled: true, problem: null, paused: false, failures: 0, last_run: null, outcome: null, detail: "", session_id: null }
     vi.stubGlobal("fetch", vi.fn(async (url: string) => ({ ok: url.endsWith("/jobs"), json: async () => ({ jobs: [job] }) })))
     const onOpenJob = vi.fn()
     setup({ onOpenJob })
-    fireEvent.click(await screen.findByRole("button", { name: "Open weekly in the editor" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Actions for weekly" }))
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Open in the editor" }))
     expect(onOpenJob).toHaveBeenCalledExactlyOnceWith("jobs/weekly.md")
   })
 

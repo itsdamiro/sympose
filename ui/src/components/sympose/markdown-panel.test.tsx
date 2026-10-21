@@ -5,7 +5,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 const api = vi.hoisted(() => ({ fetchVaultNote: vi.fn(), saveVaultNote: vi.fn() }))
 
 vi.mock("@damiro/stylo", () => ({
-  splitFrontmatter: (text: string) => ({ frontmatter: "", body: text, prefix: "" }),
+  splitFrontmatter: (text: string) => {
+    const block = /^---\n([\s\S]*?)\n---\n/.exec(text)
+    return block ? { frontmatter: block[1], body: text.slice(block[0].length), prefix: block[0] } : { frontmatter: "", body: text, prefix: "" }
+  },
   Stylo: ({ value, onChange, mode }: { value: string; onChange: (v: string) => void; mode?: string }) => (
     <textarea aria-label="editor" data-mode={mode} value={value} onChange={(e) => onChange(e.target.value)} />
   ),
@@ -225,6 +228,24 @@ describe("MarkdownPanel leaving a note with unsaved edits", () => {
         await getUnsavedGuard()!.save()
       })
       expect(file.save.mock.calls[0][1]).toBe("She likes #focus and #rest")
+    })
+
+    it("a job's file shows its properties in the card, and saves them back as written", async () => {
+      const text = "---\nschedule: daily 08:00\nenabled: false\n---\nCheck the vault."
+      const file = { ...makeFile(), properties: true, load: vi.fn().mockResolvedValue({ content: text, mtime: 40 }) }
+      const view = render(<MarkdownPanel {...base} path="persona:samantha/jobs/daily.md" file={file} previewRequest={0} />)
+      const editor = (await screen.findByLabelText("editor")) as HTMLTextAreaElement
+      expect(editor.value).toBe("Check the vault.")
+      expect(screen.getByLabelText("Hide properties")).toBeTruthy()
+      view.rerender(<MarkdownPanel {...base} path="persona:samantha/jobs/daily.md" file={file} previewRequest={1} />)
+      expect(screen.getByText("daily 08:00")).toBeTruthy()
+      view.rerender(<MarkdownPanel {...base} path="persona:samantha/jobs/daily.md" file={file} previewRequest={2} />)
+      const typing = (await screen.findByLabelText("editor")) as HTMLTextAreaElement
+      fireEvent.change(typing, { target: { value: "Check the vault, and #rest." } })
+      await act(async () => {
+        await getUnsavedGuard()!.save()
+      })
+      expect(file.save.mock.calls[0][1]).toBe("---\nschedule: daily 08:00\nenabled: false\n---\nCheck the vault, and #rest.")
     })
 
     it("reads the file again when told to from outside, as after a reset or an accepted rewrite", async () => {

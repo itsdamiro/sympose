@@ -2,7 +2,7 @@ import { detailOf } from "@/lib/vault-note-api"
 
 /**
  * Client for `/api/personas/{handle}/jobs`: a persona's scheduled jobs (docs/decisions/091) listed with how each last ran,
- * one switched on or off, and a new one made from the template. A job's file is edited through the persona-file routes
+ * one switched on or off, a new one made from the template, one renamed and one deleted. A job's file is edited through the persona-file routes
  * (`file` names it there). The backend holds every rule; this only asks and reports.
  */
 export interface Job {
@@ -73,5 +73,31 @@ export async function switchJob(persona: string, name: string, enabled: boolean)
     return { ok: true, job: ((await res.json()) as { job: Job }).job }
   } catch {
     return { ok: false, error: `Couldn't change ${name}: ${BACKEND_DOWN}` }
+  }
+}
+
+/** `POST /api/personas/{handle}/jobs/{name}/rename`: the job under its new name (the backend makes it a file name). */
+export async function renameJob(persona: string, name: string, newName: string): Promise<JobResult> {
+  try {
+    const res = await fetch(`${base(persona)}/${encodeURIComponent(name)}/rename`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newName }),
+    })
+    if (!res.ok) return { ok: false, error: await failed(res, `rename ${name}`) }
+    return { ok: true, job: ((await res.json()) as { job: Job }).job }
+  } catch {
+    return { ok: false, error: `Couldn't rename ${name}: ${BACKEND_DOWN}` }
+  }
+}
+
+/** `DELETE /api/personas/{handle}/jobs/{name}`: the job goes; its file is kept beside the others as a backup. */
+export async function deleteJob(persona: string, name: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const res = await fetch(`${base(persona)}/${encodeURIComponent(name)}`, { method: "DELETE" })
+    if (!res.ok) return { ok: false, error: await failed(res, `delete ${name}`) }
+    return { ok: true }
+  } catch {
+    return { ok: false, error: `Couldn't delete ${name}: ${BACKEND_DOWN}` }
   }
 }

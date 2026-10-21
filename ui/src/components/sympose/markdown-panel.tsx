@@ -108,7 +108,8 @@ interface MarkdownPanelProps extends React.ComponentProps<"div"> {
   onCollapse?: () => void
   /**
    * A file that is not a vault note (a persona's own file, docs/decisions/061): its load and save in place of the
-   * vault's, and none of the note chrome (no actions menu, frontmatter card or links footer). `path` is then an
+   * vault's, and none of the note chrome (no actions menu or links footer, and a frontmatter card only when the file says
+   * it has `properties`). `path` is then an
    * opaque key the file's functions understand (never a vault path), `title` is shown where the vault path would be,
    * and `banner` sits at the top of the document with what is particular to this file.
    */
@@ -454,6 +455,7 @@ function MarkdownPanel({
     const { frontmatter, onWikiLinkClick, phone, frontmatterVisible, readOnly, banner, outdated, onDecline } =
       frontmatterCardStateRef.current
     // A persona's file has no frontmatter card; what is particular to it (docs/decisions/061) takes the place.
+    // A file with `properties` (a job's) has no banner and gets the card as a note does.
     if (banner) return <div className={cn("mt-2", phone ? "px-2" : "px-4 sm:px-6")}>{banner}</div>
     const outdatedStrip =
       outdated.length > 0 ? <OutdatedChanges proposals={outdated} onDecline={onDecline} className={cn("mt-2", phone ? "mx-2" : "mx-4 sm:mx-6")} /> : null

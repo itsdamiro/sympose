@@ -1,5 +1,5 @@
 """What Settings does with a persona's jobs (docs/decisions/091, slice 3): list them with how the last run went, switch
-one on or off, and start a new one from a template. Editing a job is the editor's (`persona_editable` serves
+one on or off, start a new one from a template, rename one and delete one. Editing a job is the editor's (`persona_editable` serves
 `jobs/<name>.md`); running one is `job_run`. A refusal is a `JobRefused` whose message is for the user."""
 
 import os
@@ -134,3 +134,77 @@ def create(handle: str) -> dict[str, Any]:
     if job is None:
         raise JobRefused("The job could not be made.")
     return _row(job, persona)
+
+
+def _clean_name(raw: str) -> str:
+    """What the user typed as a job name, as a file name: lower case, runs of spaces as one dash, `.md` dropped."""
+    name = re.sub(r"[\s]+", "-", raw.strip().lower())
+    return name[:-3] if name.endswith(".md") else name
+
+
+def _idle(job: jobs.Job) -> None:
+    """Refuse while a run of the job is going: its file and record are in use."""
+    with job_state.claim(job.handle, job.name) as free:
+        if not free:
+            raise JobRefused("This job is running now. Try again when it has finished.")
+
+
+def rename(handle: str, name: str, new_name: str) -> dict[str, Any]:
+    """Give a job another name: its file, its backup and its record (so a pause and the last run carry over) move together.
+    The new name is made a file name (`Weekly review` becomes `weekly-review`); one that is taken or not usable is refused."""
+    persona = _persona(handle)
+    job = jobs.load(persona["handle"], name)
+    if job is None:
+        raise JobMissing("There is no such job.")
+    target = _clean_name(new_name)
+    if not jobs.valid_name(target):
+        raise JobRefused("A job's name can use letters, numbers, dashes and underscores.")
+    if target == name:
+        return _row(job, persona)
+    folder = os.path.dirname(job.path)
+    with _LOCK:
+        if os.path.exists(os.path.join(folder, target + ".md")):
+            raise JobRefused(f"There is already a job called {target}.")
+        _idle(job)
+        try:
+            os.rename(job.path, os.path.join(folder, target + ".md"))
+            for parent, suffix in ((folder, ".md.bak"), (os.path.join(folder, job_state.STATE_FOLDER), ".json")):
+                if os.path.exists(os.path.join(parent, name + suffix)):
+                    os.replace(os.path.join(parent, name + suffix), os.path.join(parent, target + suffix))
+        except OSError:
+            raise JobRefused("The job could not be renamed.")
+        _forget_lock(persona["handle"], name)
+    renamed = jobs.load(persona["handle"], target)
+    if renamed is None:
+        raise JobRefused("The job could not be renamed.")
+    return _row(renamed, persona)
+
+
+def delete(handle: str, name: str) -> None:
+    """Take a job away. Its file stays beside the others as `<name>.md.bak` (the same backup a switch keeps), so the text is
+    not lost; its record goes."""
+    persona = _persona(handle)
+    job = jobs.load(persona["handle"], name)
+    if job is None:
+        raise JobMissing("There is no such job.")
+    with _LOCK:
+        _idle(job)
+        try:
+            os.replace(job.path, job.path + ".bak")
+        except OSError:
+            raise JobRefused("The job could not be deleted.")
+        _remove(os.path.join(os.path.dirname(job.path), job_state.STATE_FOLDER, name + ".json"))
+        _forget_lock(persona["handle"], name)
+
+
+def _remove(path: str) -> None:
+    try:
+        os.remove(path)
+    except OSError:
+        pass  # a record or lock that is already gone is what was wanted
+
+
+def _forget_lock(handle: str, name: str) -> None:
+    folder = jobs.jobs_dir(handle)
+    if folder is not None:
+        _remove(os.path.join(folder, job_state.STATE_FOLDER, name + ".lock"))

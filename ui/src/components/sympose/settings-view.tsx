@@ -55,6 +55,8 @@ export function SettingsView({
   personaName,
   jobsVersion,
   onOpenJob,
+  onJobRenamed,
+  onJobRemoved,
   query = "",
 }: {
   title: string
@@ -87,6 +89,9 @@ export function SettingsView({
   jobsVersion?: number
   /** Open a job's file in the editor, by the name the persona-file routes know it by (`jobs/<name>.md`). */
   onOpenJob: (file: string) => void
+  /** A job's file was renamed or deleted, so the editor does not go on holding the old one. */
+  onJobRenamed?: (file: string, newFile: string) => void
+  onJobRemoved?: (file: string) => void
   /** What the toolbar's search field holds (docs/decisions/065): rows and sections without a match are hidden. */
   query?: string
 }) {
@@ -135,7 +140,7 @@ export function SettingsView({
         />
         <EngineSettingsSections extras={{ Skills: <SkillsRows persona={persona} personaName={personaName} /> }} />
         <ControlSection title="Jobs">
-          <JobsRows persona={persona} personaName={personaName} version={jobsVersion} onOpen={onOpenJob} />
+          <JobsRows persona={persona} personaName={personaName} version={jobsVersion} onOpen={onOpenJob} onRenamed={onJobRenamed} onRemoved={onJobRemoved} />
         </ControlSection>
         {query.trim() !== "" && (
           // shown only while no row is visible and no section matched by its title (the page has no state of its own

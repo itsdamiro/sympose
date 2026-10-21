@@ -6,15 +6,21 @@ import {
   CheckmarkCircle01Icon,
   CloudIcon,
   ComputerIcon,
+  Delete02Icon,
   Edit01Icon,
+  MoreHorizontalIcon,
   PauseIcon,
+  PencilEdit01Icon,
 } from "@hugeicons/core-free-icons"
 
 import { Button } from "@/components/ui/button"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ControlRow } from "@/components/sympose/control-section"
 import { SegmentedControl } from "@/components/sympose/segmented-control"
 import { agoIso } from "@/lib/ago"
+import { confirm } from "@/lib/confirm-store"
 import type { Job } from "@/lib/jobs-api"
+import { getUnsavedGuard } from "@/lib/unsaved-guard"
 import { useJobs } from "@/lib/use-jobs"
 import { useSchedule } from "@/lib/use-schedule"
 
@@ -56,8 +62,136 @@ function JobStatus({ job }: { job: Job }) {
 }
 
 /**
+ * One job's row: the name (an inline field while it is being renamed: Enter commits, Esc or a click away cancels), the
+ * model's mark, a `⋯` menu (open the file, rename, delete) and the On/Off switch.
+ */
+function JobRow({
+  job,
+  onOpen,
+  onSwitch,
+  onRename,
+  onDelete,
+}: {
+  job: Job
+  onOpen: () => void
+  onSwitch: (on: boolean) => void
+  /** Rename it; the job under its new name, or `null` if refused. */
+  onRename: (name: string) => Promise<Job | null>
+  onDelete: () => Promise<boolean>
+}) {
+  const [renaming, setRenaming] = React.useState<string | null>(null)
+  const [pendingRename, setPendingRename] = React.useState(false)
+  const [busy, setBusy] = React.useState(false)
+  const inputRef = React.useRef<HTMLInputElement>(null)
+
+  React.useEffect(() => {
+    if (renaming === null) return
+    const id = requestAnimationFrame(() => {
+      inputRef.current?.focus()
+      inputRef.current?.select()
+    })
+    return () => cancelAnimationFrame(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the field opens, not on each keystroke
+  }, [renaming === null])
+
+  const commit = async () => {
+    const typed = (renaming ?? "").trim()
+    if (!typed || typed === job.name || busy) return setRenaming(null)
+    setBusy(true)
+    const renamed = await onRename(typed)
+    setBusy(false)
+    if (renamed) setRenaming(null)
+  }
+
+  const askToDelete = () =>
+    confirm({
+      message: `Delete “${job.name}”?`,
+      description: "A copy of its file stays in the jobs folder as a backup.",
+      confirmLabel: "Delete",
+      onConfirm: async () => {
+        await onDelete()
+      },
+    })
+
+  const label =
+    renaming === null ? (
+      job.name
+    ) : (
+      <input
+        ref={inputRef}
+        value={renaming}
+        disabled={busy}
+        aria-label={`New name for ${job.name}`}
+        onChange={(e) => setRenaming(e.target.value)}
+        onBlur={() => !busy && setRenaming(null)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") void commit()
+          else if (e.key === "Escape") setRenaming(null)
+        }}
+        className="h-7 w-44 rounded-md border border-border bg-background px-2 text-xs text-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-50"
+      />
+    )
+
+  return (
+    <ControlRow label={label} keywords={`${job.name} ${job.schedule} ${job.kind} ${job.model ?? ""}`} hint={<JobStatus job={job} />}>
+      <div className="flex items-center gap-2">
+        {job.model && (
+          <HugeiconsIcon
+            icon={job.cloud ? CloudIcon : ComputerIcon}
+            className={`size-3.5 shrink-0 ${job.cloud ? "text-fg-muted" : "text-ok"}`}
+            aria-label={job.cloud ? `Cloud model: ${job.model}` : `On your computer: ${job.model}`}
+          />
+        )}
+        <DropdownMenu
+          modal={false}
+          // Entering the field waits for the menu to finish closing: it hands focus back to the trigger, which would
+          // blur the new field at once and cancel the rename (as in the note's own menu).
+          onOpenChangeComplete={(open) => {
+            if (!open && pendingRename) {
+              setPendingRename(false)
+              setRenaming(job.name)
+            }
+          }}
+        >
+          <DropdownMenuTrigger
+            aria-label={`Actions for ${job.name}`}
+            className="grid size-6 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground data-popup-open:bg-accent data-popup-open:text-foreground"
+          >
+            <HugeiconsIcon icon={MoreHorizontalIcon} className="size-3.5" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="duration-thumb ease-snappy">
+            <DropdownMenuItem onClick={onOpen}>
+              <HugeiconsIcon icon={Edit01Icon} />
+              Open in the editor
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setPendingRename(true)}>
+              <HugeiconsIcon icon={PencilEdit01Icon} />
+              Rename
+            </DropdownMenuItem>
+            <DropdownMenuItem variant="destructive" onClick={askToDelete}>
+              <HugeiconsIcon icon={Delete02Icon} />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <SegmentedControl
+          size="sm"
+          aria-label={`Run ${job.name}`}
+          value={job.enabled && !job.paused ? "on" : "off"}
+          onValueChange={(v) => onSwitch(v === "on")}
+          options={[
+            { value: "on", label: "On" },
+            { value: "off", label: "Off" },
+          ]}
+        />
+      </div>
+    </ControlRow>
+  )
+}
+
+/**
  * Settings → Jobs (docs/decisions/091): one row for each of the persona's scheduled jobs, with its schedule, how the last
- * run went, the model's mark, a button that opens the job's file in the editor and a switch, and a button that makes a new
+ * run went, the model's mark, a menu (open the job's file in the editor, rename, delete) and a switch, and a button that makes a new
  * job from the template (off, and opened in the editor at once), and, on a Mac, the switch that has the operating system
  * run due jobs while the app is closed. A job that stopped itself after failing shows as off: the
  * switch turns it back on. The backend holds every rule: this only asks, and shows the reason when it refuses.
@@ -67,6 +201,8 @@ function JobsRows({
   personaName,
   version = 0,
   onOpen,
+  onRenamed,
+  onRemoved,
 }: {
   persona: string | null
   personaName: string
@@ -74,8 +210,12 @@ function JobsRows({
   version?: number
   /** Open a job's file (`jobs/<name>.md`) in the editor. */
   onOpen: (file: string) => void
+  /** A job's file was renamed: the editor holding the old one is pointed at the new. */
+  onRenamed?: (file: string, newFile: string) => void
+  /** A job's file was deleted: the editor holding it lets go. */
+  onRemoved?: (file: string) => void
 }) {
-  const { state, setEnabled, add } = useJobs(persona, version)
+  const { state, setEnabled, add, rename, remove } = useJobs(persona, version)
   const { schedule, busy: scheduleBusy, set: setSchedule } = useSchedule()
   const [adding, setAdding] = React.useState(false)
 
@@ -99,7 +239,8 @@ function JobsRows({
         hint={
           <p className="text-xs text-fg-muted">
             A job is something {personaName} does by itself on a schedule, such as a weekly review. What it writes
-            waits in Drafts for you to accept. A new job starts off.
+            waits in Drafts for you to accept. A new job starts off. In its file, the properties say when it runs and the
+            text says what to do.
           </p>
         }
       >
@@ -133,41 +274,24 @@ function JobsRows({
       )}
       {state.status === "error" && <p className="text-sm text-fg-muted">Couldn&apos;t load the jobs: {state.error}</p>}
       {jobs.map((job) => (
-        <ControlRow
+        <JobRow
           key={job.name}
-          label={job.name}
-          keywords={`${job.schedule} ${job.kind} ${job.model ?? ""}`}
-          hint={<JobStatus job={job} />}
-        >
-          <div className="flex items-center gap-2">
-            {job.model && (
-              <HugeiconsIcon
-                icon={job.cloud ? CloudIcon : ComputerIcon}
-                className={`size-3.5 shrink-0 ${job.cloud ? "text-fg-muted" : "text-ok"}`}
-                aria-label={job.cloud ? `Cloud model: ${job.model}` : `On your computer: ${job.model}`}
-              />
-            )}
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              aria-label={`Open ${job.name} in the editor`}
-              title="Open it in the editor"
-              onClick={() => onOpen(job.file)}
-            >
-              <HugeiconsIcon icon={Edit01Icon} />
-            </Button>
-            <SegmentedControl
-              size="sm"
-              aria-label={`Run ${job.name}`}
-              value={job.enabled && !job.paused ? "on" : "off"}
-              onValueChange={(v) => void setEnabled(job.name, v === "on")}
-              options={[
-                { value: "on", label: "On" },
-                { value: "off", label: "Off" },
-              ]}
-            />
-          </div>
-        </ControlRow>
+          job={job}
+          onOpen={() => onOpen(job.file)}
+          onSwitch={(on) => void setEnabled(job.name, on)}
+          onRename={async (name) => {
+            // Unsaved edits in the editor are saved to the file under its old name first, so a rename never loses them.
+            if (getUnsavedGuard() && !(await getUnsavedGuard()!.save())) return null
+            const renamed = await rename(job.name, name)
+            if (renamed) onRenamed?.(job.file, renamed.file)
+            return renamed
+          }}
+          onDelete={async () => {
+            const done = await remove(job.name)
+            if (done) onRemoved?.(job.file)
+            return done
+          }}
+        />
       ))}
     </>
   )

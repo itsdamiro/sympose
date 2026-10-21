@@ -159,3 +159,55 @@ def test_only_a_job_that_exists_and_has_a_plain_name_is_reachable(client, home):
     assert (home / "persona.yaml").read_text().startswith("name: Samantha")
     # the pending route for a real file keeps its own path
     assert client.get("/api/personas/samantha/files/profile.md/pending").status_code == 404
+
+
+def test_a_renamed_job_takes_its_file_backup_and_record_along(client, home):
+    from datetime import datetime
+
+    _write(home, "weekly", GOOD)
+    (home / "jobs" / "weekly.md.bak").write_text("older")
+    job_state.record("samantha", "weekly", datetime(2026, 10, 18, 18, 0), "s1")
+    reply = client.post("/api/personas/samantha/jobs/weekly/rename", json={"name": "  Weekly Review "})
+    assert reply.status_code == 200 and reply.json()["job"]["name"] == "weekly-review"
+    assert reply.json()["job"]["file"] == "jobs/weekly-review.md" and reply.json()["job"]["last_run"] == "2026-10-18T18:00:00"
+    assert (home / "jobs" / "weekly-review.md").read_text() == GOOD and (home / "jobs" / "weekly-review.md.bak").read_text() == "older"
+    assert not (home / "jobs" / "weekly.md").exists() and not (home / "jobs" / "weekly.md.bak").exists()
+    assert job_state.read("samantha", "weekly").last_run is None
+    assert [j["name"] for j in client.get("/api/personas/samantha/jobs").json()["jobs"]] == ["weekly-review"]
+
+
+def test_a_rename_that_cannot_be_done_changes_nothing(client, home):
+    _write(home, "weekly", GOOD)
+    _write(home, "daily", GOOD)
+    taken = client.post("/api/personas/samantha/jobs/weekly/rename", json={"name": "daily"})
+    assert taken.status_code == 422 and "already" in taken.json()["detail"]
+    for bad in ("", "a/b", "..", "weekly!", ".hidden"):
+        assert client.post("/api/personas/samantha/jobs/weekly/rename", json={"name": bad}).status_code == 422, bad
+    assert client.post("/api/personas/samantha/jobs/nope/rename", json={"name": "x"}).status_code == 404
+    assert (home / "jobs" / "weekly.md").read_text() == GOOD and (home / "jobs" / "daily.md").read_text() == GOOD
+    same = client.post("/api/personas/samantha/jobs/weekly/rename", json={"name": "weekly"})
+    assert same.status_code == 200 and same.json()["job"]["name"] == "weekly"
+
+
+def test_a_deleted_job_is_gone_from_the_list_but_its_text_is_kept(client, home):
+    from datetime import datetime
+
+    _write(home, "weekly", GOOD)
+    job_state.record("samantha", "weekly", datetime(2026, 10, 18, 18, 0), "s1")
+    assert client.delete("/api/personas/samantha/jobs/weekly").status_code == 200
+    assert client.get("/api/personas/samantha/jobs").json()["jobs"] == []
+    assert not (home / "jobs" / "weekly.md").exists() and (home / "jobs" / "weekly.md.bak").read_text() == GOOD
+    assert job_state.read("samantha", "weekly").last_run is None
+    assert client.delete("/api/personas/samantha/jobs/weekly").status_code == 404
+    assert client.delete("/api/personas/samantha/jobs/..%2Fpersona").status_code == 404
+    assert (home / "persona.yaml").exists()
+
+
+def test_a_job_that_is_running_is_neither_renamed_nor_deleted(client, home):
+    _write(home, "weekly", GOOD)
+    with job_state.claim("samantha", "weekly") as mine:
+        assert mine
+        renamed = client.post("/api/personas/samantha/jobs/weekly/rename", json={"name": "other"})
+        deleted = client.delete("/api/personas/samantha/jobs/weekly")
+    assert renamed.status_code == 422 and deleted.status_code == 422 and "running" in deleted.json()["detail"]
+    assert (home / "jobs" / "weekly.md").read_text() == GOOD

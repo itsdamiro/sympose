@@ -30,12 +30,6 @@ describe("PersonaFileBanner", () => {
     expect(screen.queryByRole("button", { name: "Reset to default" })).toBeNull()
   })
 
-  it("says what a scheduled job's file is, though the list of files knows nothing of it", () => {
-    render(<PersonaFileBanner title="Samantha · jobs/weekly.md" handle="samantha" name="jobs/weekly.md" info={undefined} onChanged={() => {}} />)
-    expect(screen.getByText("Samantha · jobs/weekly.md")).toBeTruthy()
-    expect(screen.getByText(/A scheduled job\./)).toBeTruthy()
-  })
-
   it("says the user's own soul is in use and offers to put the shipped one back, after asking", async () => {
     api.resetPersonaSoul.mockResolvedValue(true)
     const onChanged = vi.fn()

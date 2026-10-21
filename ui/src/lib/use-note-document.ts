@@ -15,6 +15,8 @@ export interface PanelFile {
   save: (path: string, text: string, mtime?: number) => Promise<SaveVaultNoteResult>
   title: string
   banner?: React.ReactNode
+  /** The file opens with a `---` properties block (a scheduled job's file, docs/decisions/091): the card shows it, as for a note. */
+  properties?: boolean
 }
 
 /**
@@ -117,7 +119,8 @@ export function useNoteDocument({
         setFetch({ status: "error" })
         return
       }
-      const split = fileRef.current ? null : splitFrontmatter(result.content) // a persona's file is all body
+      const open = fileRef.current
+      const split = open && !open.properties ? null : splitFrontmatter(result.content) // a persona's file is all body, but for a job's
       const fm = split ? split.frontmatter : null
       const bd = split ? split.body : result.content
       const prefix = split
@@ -182,7 +185,7 @@ export function useNoteDocument({
       // the way to `#css`); syncing there would permanently bake in the
       // half-typed fragment, since the merge is additive-only and never
       // removes a tag once added.
-      const synced = syncTags
+      const synced = syncTags && !fileRef.current // a #word in a persona's file is only text, never a property
         ? syncInlineTags(frontmatter, body)
         : { frontmatter, changed: false }
       if (synced.changed) {
