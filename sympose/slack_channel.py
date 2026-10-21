@@ -9,8 +9,9 @@ import logging
 import os
 from dataclasses import dataclass
 
+from sympose import note_changes
 from sympose import profile as profile_mod
-from sympose import settings_store, slack_sessions
+from sympose import settings_store, slack_drafts, slack_sessions
 from sympose.engine import model as model_mod
 from sympose.server_chat_locks import acquire, lock_for
 from sympose.slack_events import Incoming, conversation_key
@@ -77,7 +78,8 @@ def _turn(handle: str, profile: dict, message: Incoming, where: str | None) -> R
     if not acquire(lock, handle, session_id):
         return None
     try:
-        result = turn.run_turn(handle, message.text, session_id)
+        with note_changes.new_notes_made() as made:
+            result = turn.run_turn(handle, message.text, session_id, edits=True, in_slack=True)
     except turn.PersonaNotFoundError:
         return Reply(NO_PERSONA, where)
     except turn.EngineModelError as e:
@@ -90,7 +92,7 @@ def _turn(handle: str, profile: dict, message: Incoming, where: str | None) -> R
     text = to_mrkdwn(result.reply)
     if result.withheld:
         text += f"\n\n_Held back from the model: {', '.join(result.withheld)}._"
-    return Reply(text, where)
+    return Reply(slack_drafts.under(text, slack_drafts.waiting(handle, made)), where)
 
 
 def new_conversation(handle: str, message: Incoming) -> Reply | None:

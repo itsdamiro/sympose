@@ -34,6 +34,13 @@ UNATTENDED = (
     "line \"Drafted by a scheduled run from:\" followed by the paths of the notes it rests on."
 )
 
+# Said to the model on a turn that came from Slack (docs/decisions/093), in the model's text alone like `UNATTENDED`: the reply is
+# read in a chat window with no editor beside it, and a note it proposes is shown under the reply by the adapter.
+SLACK = (
+    "You are answering in Slack, not in the web app: keep the reply short, and know there is no editor and no open note. A note you "
+    "propose is shown to the user under your reply and waits in Drafts; only the user accepts it, in the web app, so never say it is saved."
+)
+
 
 class PersonaNotFoundError(Exception):
     """`resolve_profile(handle)` returned `None` — defensive-only today
@@ -57,13 +64,15 @@ def run_turn(
     files: tuple[media.File, ...] = (),
     unattended: bool = False,
     history_turns: int = session.HISTORY_TURNS,
+    in_slack: bool = False,
 ) -> TurnResult:
     """`open_note` is the note open in the editor, and `edits` says the caller can show a proposal at all (the web
     app); the terminal passes neither, so a persona there is never given the edit tool (docs/decisions/072).
     `attached` are the passages of the open note the user pointed at (docs/decisions/076). `files` are the PDFs, images,
     sounds and videos attached to the message, already checked by `media.check` (docs/decisions/089). `unattended` is a scheduled run
     (docs/decisions/091): the model is told nobody is there and to rest what it writes on notes it opened. `history_turns` is the most earlier turns sent
-    word for word (a job keeps its own, shorter, in `job_run`)."""
+    word for word (a job keeps its own, shorter, in `job_run`). `in_slack` is a message that came from Slack (docs/decisions/093): the model is
+    told so, and is given no tool that needs an editor (opening a note, proposing a persona or a setting), since nothing of that reaches the user there."""
     persona = profile_mod.resolve_profile(handle)
     if persona is None:
         raise PersonaNotFoundError(f"No persona named '{handle}' was found.")
@@ -85,7 +94,7 @@ def run_turn(
     # checked against what this model can actually do and, for `ask`, whether the persona has a
     # vault to look up at all -- see `persona_tools.resolve`.
     since = existing["turns"][-1].get("timestamp") if existing and existing.get("turns") else None  # when the previous turn was recorded
-    modes = persona_tools.resolve(persona, target_model, open_note, edits, since, attached, unattended)
+    modes = persona_tools.resolve(persona, target_model, open_note, edits, since, attached, unattended, editor=not in_slack)
     # Cleared in `finally`, not just on the normal path: an exception from `_run` (a raised
     # `EngineModelError`, or anything else) must not leave the busy indicator (docs/decisions/043)
     # showing a phase forever for a turn that's already over. `_run` narrows this further (searching,
@@ -95,7 +104,7 @@ def run_turn(
     turn_cancel.begin(handle, sid, named=session_id is not None)  # from here a stop request is heard (docs/decisions/054); cleared in `finally`
     try:
         try:
-            result = _run(persona, handle, user_message, sid, existing, history, target_model, modes, capped, files, unattended)
+            result = _run(persona, handle, user_message, sid, existing, history, target_model, modes, capped, files, unattended, in_slack)
         except lookup.ToolsRefused:
             # The model failed with the tools: the turn is run with none, and a model that does that twice in a
             # row while working without them is not given tools again (docs/decisions/040). `remember` falls
@@ -111,6 +120,7 @@ def run_turn(
                 capped,
                 files,
                 unattended,
+                in_slack,
             )
             tool_support.note_refusal(target_model)
             return result
@@ -135,6 +145,7 @@ def _run(
     capped: int = 0,
     files: tuple[media.File, ...] = (),
     unattended: bool = False,
+    in_slack: bool = False,
 ) -> TurnResult:
     # The prompt is sized to this model's window, not left to the runtime's
     # silent cut (docs/decisions/015); the follow-up rewrite shares that window.
@@ -152,6 +163,8 @@ def _run(
     asked = edit_turn.message(modes.edit, user_message) if modes.edit else user_message
     if unattended:
         asked = f"{UNATTENDED}\n\n{asked}"
+    if in_slack:
+        asked = f"{SLACK}\n\n{asked}"
     told = confirmations.outcomes(handle, sid) if modes.edit and modes.edit.proposes else []
     if told:
         asked = "\n".join(confirmations.lines(told)) + "\n\n" + asked

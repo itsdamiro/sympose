@@ -10,7 +10,7 @@ import pytest
 from sympose import note_changes as nc
 from sympose import note_changes_store as store
 from sympose.engine import edit_tools as et
-from sympose.engine import persona_tools, skills, unfiled
+from sympose.engine import edit_turn, persona_tools, skills, unfiled
 
 H = "samantha"
 PROFILE = {"handle": H, "vault_folders": ["*"]}
@@ -136,10 +136,7 @@ def test_it_is_a_tool_only_and_never_read_from_a_marker():
 
 
 def test_it_is_offered_with_no_note_open_and_a_skill_can_name_it():
-    class NoNote:
-        note = None
-
-    names = [t["function"]["name"] for t in persona_tools._edit_tools(NoNote())]
+    names = [t["function"]["name"] for t in persona_tools._edit_tools(edit_turn.Edit("manual", True))]
 
     assert "propose_folder_definition" in names and "propose_folder_definition" in skills.tools_of(False, True, True)
 

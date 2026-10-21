@@ -8,7 +8,7 @@ import pytest
 from helpers import write_persona
 from slack_shapes import BOT, OWNER, dm, mention
 
-from sympose import settings_store, slack_channel, slack_sessions
+from sympose import note_changes, settings_store, slack_channel, slack_drafts, slack_sessions
 from sympose.engine import turn
 from sympose.engine.turn_result import TurnResult
 from sympose.slack_events import parse
@@ -34,11 +34,19 @@ def turns(monkeypatch):
         fail = None
         reply = "A **short** answer."
         withheld: list[str] = []
+        proposes: list[tuple[str, str]] = []  # (title, text) of each new note the fake turn proposes
+        elsewhere: list[tuple[str, str]] = []  # the same, proposed on another thread while the turn runs
 
     seen = Turns()
 
     def fake(handle, message, session_id=None, **kwargs):
         seen.append((handle, message, session_id, kwargs))
+        for title, text in seen.proposes:
+            note_changes.propose_create(handle, note_changes.new_note_path(), text, say="", title=title)
+        for title, text in seen.elsewhere:
+            other = threading.Thread(target=note_changes.propose_create, args=(handle, note_changes.new_note_path(), text), kwargs={"say": "", "title": title})
+            other.start()
+            other.join()
         if seen.fail:
             raise seen.fail
         return TurnResult(reply=seen.reply, session_id=session_id, withheld=list(seen.withheld))
@@ -153,9 +161,57 @@ def test_slash_new_in_a_channel_says_to_use_a_thread(home, turns):
 
 
 # --- the turn -----------------------------------------------------------------------------------
-def test_the_turn_proposes_nothing_yet(home, turns):
+def test_the_turn_may_propose_notes_and_is_told_it_is_in_slack(home, turns):
     _answer(dm("hi"))
-    assert "edits" not in turns[0][3]  # no edit tools until the reply can show a proposal (slice 2)
+    assert turns[0][3] == {"edits": True, "in_slack": True}
+
+
+def test_a_note_the_turn_proposed_is_shown_under_the_reply_as_it_waits(home, turns):
+    turns.proposes = [("Seeds", "# Seeds\n\nSow in March.\n")]
+
+    text = _answer(dm("write it")).text
+
+    assert text.startswith("A *short* answer.\n\n*New note: Seeds*\n```\n# Seeds\n\nSow in March.\n```")
+    assert text.endswith(slack_drafts.FOOTER)
+    assert len(note_changes.drafts("samantha")) == 1  # shown, and still waiting for Accept in the web app
+
+
+def test_a_note_another_conversation_proposed_meanwhile_is_not_shown(home, turns):
+    turns.proposes = [("Mine", "# Mine\n\nAsked for here.\n")]
+    turns.elsewhere = [("Theirs", "# Theirs\n\nAsked for in the web app.\n")]
+
+    text = _answer(dm("write it")).text
+
+    assert "Mine" in text and "Theirs" not in text and "Asked for in the web app" not in text
+    assert len(note_changes.drafts("samantha")) == 2
+
+
+def test_a_reply_that_proposed_nothing_has_no_block(home, turns):
+    assert _answer(dm("hi")).text == "A *short* answer."
+
+
+def test_what_was_held_back_comes_before_what_was_proposed(home, turns):
+    turns.withheld = ["notes"]
+    turns.proposes = [("Seeds", "# Seeds\n")]
+
+    text = _answer(dm("hi")).text
+
+    assert text.index("_Held back from the model: notes._") < text.index("*New note: Seeds*")
+
+
+def test_a_turn_that_failed_shows_only_its_one_line_even_if_it_had_proposed_a_note(home, turns):
+    turns.proposes = [("Seeds", "# Seeds\n")]
+    turns.fail = turn.EngineModelError("down")
+
+    assert _answer(dm("hi")).text == slack_channel.NO_MODEL
+
+
+def test_the_next_message_does_not_show_the_note_of_the_one_before(home, turns):
+    turns.proposes = [("Seeds", "# Seeds\n")]
+    _answer(dm("one", event_id="E1"))
+    turns.proposes = []
+
+    assert "Seeds" not in _answer(dm("two", event_id="E2")).text
 
 
 def test_what_was_held_back_from_a_cloud_model_is_said(home, turns):

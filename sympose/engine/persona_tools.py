@@ -24,13 +24,14 @@ class Modes:
 
 def resolve(
     persona: dict[str, Any], target_model: str, open_note: edit_turn.OpenNote | None = None, edits: bool = False,
-    since: str | None = None, attached: list[edit_turn.Attached] | None = None, unattended: bool = False,
+    since: str | None = None, attached: list[edit_turn.Attached] | None = None, unattended: bool = False, editor: bool = True,
 ) -> Modes:
     """What this turn's `ask`/`remember` actually are, given `target_model`'s own tool-calling
     capability and a persona with or without a vault -- the one place `run_turn` needs to check
     both settings against the model before deciding whether to run the tool-calling loop at all.
     A scheduled run (`unattended`) looks in the notes itself whatever the setting says, on any model that can call tools:
-    its prompt is a fixed instruction, a poor search query, and nobody is there to check a draft (docs/decisions/091)."""
+    its prompt is a fixed instruction, a poor search query, and nobody is there to check a draft (docs/decisions/091).
+    Without an `editor` (a message from Slack, docs/decisions/093) she cannot open a note for the user or offer a persona or a setting."""
     has_vault = vault_paths.resolve_sandbox(persona) is not None
     chose_ask = (unattended or lookup.chooses_ask(target_model)) and has_vault
     # Asking whether the model can call tools may cost a network probe, so only when a tool could be used.
@@ -39,7 +40,7 @@ def resolve(
     can_call_tools = (chose_ask or chose_chats or wants_edit or memory.remember_enabled()) and tool_support.can_call_tools(target_model)
     edit = edit_turn.resolve(
         persona, can_call_tools, open_note, sharing.OPEN_NOTE in sharing.allowed(target_model),
-        persona.get("handle"), sharing.ANNOTATIONS in sharing.allowed(target_model), since, attached or (),
+        persona.get("handle"), sharing.ANNOTATIONS in sharing.allowed(target_model), since, attached or (), editor,
     ) if edits or open_note is not None else None
     return Modes(
         ask=chose_ask and can_call_tools,
@@ -100,5 +101,7 @@ def for_turn(
 
 
 def _edit_tools(edit: edit_turn.Edit) -> list[dict[str, Any]]:
-    """With no note open she is given only the three that need none: proposing a new note, showing one and proposing a folder's definition."""
-    return edit_tools.TOOLS if edit.note is not None else [t for t in edit_tools.TOOLS if t["function"]["name"] in (edit_tools.NOTE, edit_tools.SHOW, edit_tools.DEFINE)]
+    """With no note open she is given only the three that need none: proposing a new note, showing one and proposing a folder's definition.
+    Without an editor to show a note in, the second is left out."""
+    shown = [t for t in edit_tools.TOOLS if edit.shows or t["function"]["name"] != edit_tools.SHOW]
+    return shown if edit.note is not None else [t for t in shown if t["function"]["name"] in (edit_tools.NOTE, edit_tools.SHOW, edit_tools.DEFINE)]

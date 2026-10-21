@@ -7,11 +7,13 @@ a proposal is still pending, or outdated because its passage was rewritten, is w
 text each time and never stored. Nothing here writes the vault: accepting a proposal is a vault write done by the
 caller, through the ordinary note functions."""
 
+import contextlib
 import os
 import re
+import threading
 import uuid
 from datetime import datetime, timezone
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from typing import Any
 
 from sympose import note_changes_store as store
@@ -24,6 +26,7 @@ ATTACHED, DETACHED = "attached", "detached"
 OPEN, RESOLVED = "open", "resolved"
 ACCEPTED, DECLINED = "accepted", "declined"  # the user's verdict on one of her comments (docs/decisions/069)
 _NAME_WORDS = 5
+_WATCHING = threading.local()  # the list `new_notes_made` fills, on the thread that is inside its block
 
 
 class CannotAnchor(ValueError):
@@ -157,7 +160,27 @@ def propose_create(handle: str, note_path: str, text: str, *, say: str, title: s
     if waiting := _same_draft(handle, proposal):
         raise CannotAnchor(f"A new note called {waiting['name']} is already waiting among the drafts, so a second one was not made; the user decides it first.")
     store.update(handle, note_path, lambda entry: entry["proposals"].append(proposal))
+    if (watching := getattr(_WATCHING, "made", None)) is not None:
+        watching.append((note_path, proposal["id"]))
     return proposal
+
+
+@contextlib.contextmanager
+def new_notes_made() -> Iterator[list[tuple[str, str]]]:
+    """The new notes proposed on this thread inside the block, as `(draft path, proposal id)` in the order they were made.
+    Whatever filed them (a tool call, a marker, a folder's definition) went through `propose_create`, so this is exactly
+    one turn's drafts and never another conversation's, which a look at the pending files before and after would not be."""
+    before, made = getattr(_WATCHING, "made", None), []
+    _WATCHING.made = made
+    try:
+        yield made
+    finally:
+        _WATCHING.made = before
+
+
+def pending_new_note(handle: str, note_path: str, proposal_id: str) -> dict[str, Any] | None:
+    """The new-note proposal as it waits now (its text may have changed since it was made), or `None` once it is gone."""
+    return next((p for p in store.read(handle, note_path)["proposals"] if p.get("id") == proposal_id and p.get("kind") == "create"), None)
 
 
 def _same_draft(handle: str, proposal: dict[str, Any]) -> dict[str, Any] | None:

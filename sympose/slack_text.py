@@ -3,7 +3,8 @@ a table or a `[[wiki link]]` is passed through as text (how Slack shows them is 
 
 import re
 
-MAX_CHARS = 39_000  # Slack cuts a message at 40,000 characters; this leaves room for the line that says so
+LIMIT = 40_000  # Slack cuts a message here
+MAX_CHARS = 39_000  # a reply is cut here, which leaves room for the line that says so and for what was proposed (`slack_drafts`)
 CUT = "\n\n_The rest is cut: Slack takes no more in one message. Open the conversation in the web app to read it._"
 _CODE = re.compile(r"```.*?```|`[^`\n]+`", re.DOTALL)
 _BOLD = re.compile(r"\*\*(.+?)\*\*|__(.+?)__")

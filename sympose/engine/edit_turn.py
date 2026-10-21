@@ -43,6 +43,7 @@ class Edit:
     show_marker: bool = False  # a model without tools is told how to open a note for the user (the user's setting; it costs such a model edits)
     attached: int = 0  # how many passages of the note the user attached to this message (docs/decisions/076), for the record
     scope: tuple[tuple[int, int], ...] = ()  # the sections of `source` she was shown instead of the whole note: a change may be placed in one when its words are also found elsewhere
+    shows: bool = True  # she may open a note in the editor for the user (not from Slack, which has none, docs/decisions/093)
     proposes: bool = False  # she may propose a new persona or a setting change (docs/decisions/078, 080): the one that has the Sympose reference library, on a model that can call tools
 
     @property
@@ -117,24 +118,24 @@ def focus_text(note_text: str, attached: Sequence[Attached]) -> str | None:
 def resolve(
     persona: dict, can_call_tools: bool, open_note: OpenNote | None, may_see: bool = True,
     comments_from: str | None = None, may_see_comments: bool = True, since: str | None = None,
-    attached: Sequence[Attached] = (),
+    attached: Sequence[Attached] = (), editor: bool = True,
 ) -> Edit:
     """What this turn gives her. In `plan` she is given no tool and no note; otherwise the tool or the marker, and
-    the open note when there is one, cut to the cap."""
+    the open note when there is one, cut to the cap. Without an `editor` (Slack) she can neither open a note nor offer a persona or a setting."""
     mode = edit_mode.for_persona(persona)
     if mode == edit_mode.PLAN:
         return Edit(mode, False)
-    creates = bool(persona.get("sympose_reference")) and can_call_tools  # a model without tools cannot do it faithfully (docs/decisions/078)
+    creates = bool(persona.get("sympose_reference")) and can_call_tools and editor  # a model without tools cannot do it faithfully (docs/decisions/078)
     if open_note is None:
-        return Edit(mode, can_call_tools, show_marker=show_marker_enabled(), proposes=creates)
+        return Edit(mode, can_call_tools, show_marker=show_marker_enabled(), shows=editor, proposes=creates)
     if not may_see:
-        return Edit(mode, can_call_tools, withheld=True, show_marker=show_marker_enabled(), proposes=creates)
+        return Edit(mode, can_call_tools, withheld=True, show_marker=show_marker_enabled(), shows=editor, proposes=creates)
     focused = focus(open_note.text, attached) if attached and can_call_tools else None  # a model without tools cannot ask for the rest
     text, cut = _within(focused[0] if focused is not None else open_note.text, cap())
     found = open_comments.gather(comments_from, open_note, since) if comments_from else open_comments.Found()
     name = persona.get("name") or str(persona.get("handle") or "She").title()
     return Edit(
-        mode, can_call_tools, OpenNote(open_note.path, text), cut, show_marker=show_marker_enabled(),
+        mode, can_call_tools, OpenNote(open_note.path, text), cut, show_marker=show_marker_enabled(), shows=editor,
         comments=found.items if may_see_comments else (), comments_left_out=found.left_out if may_see_comments else 0,
         decided=found.decided if may_see_comments else (), settle=found.settle if may_see_comments else (),
         comments_withheld=0 if may_see_comments else len(found.items), persona_name=name, source=open_note,
@@ -213,7 +214,7 @@ def message(edit: Edit, user_message: str) -> str:
     if not edit.active:
         return f"{user_message}\n\n{_PLAN}"
     new_note = _NOTE_TOOL if edit.tool else _NOTE_MARKER
-    show = _SHOW_TOOL if edit.tool else (_SHOW_MARKER if edit.show_marker else "")
+    show = "" if not edit.shows else _SHOW_TOOL if edit.tool else (_SHOW_MARKER if edit.show_marker else "")
     persona = _PERSONA_TOOL if edit.proposes else ""
     if edit.note is None:
         held = f"{_WITHHELD} " if edit.withheld else ""
