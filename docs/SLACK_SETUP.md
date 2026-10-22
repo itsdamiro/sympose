@@ -2,7 +2,7 @@
 
 How to make a persona its own Slack user that you message like a teammate. Each persona is a Slack App of its own, so repeat the steps for every persona you want in Slack. The design is ADR 093 (`docs/decisions/093-*.md`).
 
-**Checked against the code, not against a real workspace.** Nothing has run against a real Slack workspace yet. The Slack side below is written from Slack's documented setup and its app manifest reference, and Slack may name or place a screen differently. If a step does not match what you see, trust the code's needs (the lists in step 2) over the wording here, and fix this note.
+**Tried once in a real workspace (direct messages).** The Slack side below is written from Slack's documented setup and its app manifest reference, and Slack may name or place a screen differently. If a step does not match what you see, trust the code's needs (the lists in step 2) over the wording here, and fix this note.
 
 ## What you need first
 
@@ -92,7 +92,7 @@ sympose slack
 ## What the persona can and cannot do in Slack
 
 - It can propose new notes and a folder's definition. It cannot change an existing note, comment on a passage, open a note in an editor, or propose a persona or a setting, because Slack has no editor or card to show them in.
-- A cloud model is held back from what the cloud approvals do not allow, as in the web chat, and a held-back notice is added under the reply.
+- A cloud model is held back from what the cloud approvals do not allow, as in the web chat. Slack replies do not say what was held back; the web chat's cloud icon does.
 - Files attached in Slack are not read.
 
 ## If it does not work
@@ -100,8 +100,10 @@ sympose slack
 - **Nothing happens when you message it:** run `sympose doctor`; check that you used your own user ID, that the Messages tab is on, and that `sympose slack` is still running and printed the persona as in Slack.
 - **"Slack is switched off in Sympose's settings":** step 7.
 - **`sympose slack` stops at once:** it names the missing piece: the owner ID in `.env`, Slack switched off, or no persona with both tokens.
+- **`sympose: command not found`:** the command lives in the project's virtual environment. Run `source .venv/bin/activate` in the project's folder first, or call `.venv/bin/sympose`.
 - **A persona is "not connected":** the pair is wrong, revoked, or from another App. Make the app token with `connections:write` and copy the bot token after installing.
 - **It does not answer in a channel:** invite the bot to the channel and mention it by name; other messages in the channel are ignored.
 - **The Slack dot is missing though it is connected:** the dot is read from a small file `sympose slack` refreshes every 20 seconds in the persona's folder, so it can lag by a minute; it only shows on the Persona page.
 - **A reply says Sympose could not reach the model:** start Ollama or check the cloud key, then ask again. A note it had already filed before the failure is shown under that line.
+- **A new display name or picture does not show:** both are set in Slack (Basic Information, Display Information, for the App icon; App Home, Your App's Presence in Slack, for the bot's Display Name). Reinstall the App (Install App, Reinstall to Workspace), restart the Slack app on your computer, which caches them, and if the bot token changed, copy it into `.env` and restart `sympose slack`.
 - **To stop a persona being in Slack:** remove one of its two tokens from `.env` and restart the command, or uninstall the App from the workspace. To lock a leaked token out, regenerate it in the App's settings.

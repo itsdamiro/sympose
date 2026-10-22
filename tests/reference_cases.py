@@ -347,6 +347,11 @@ REF_CASES: list[RefCase] = [
     RefCase("slack-connected", "how do I know a persona is connected to Slack?", find=("green dot",), first="Slack.md"),
     RefCase("slack-new-conversation", "what does /new do in Slack?", find=("/new",), first="Slack.md"),
     RefCase("slack-privacy", "are my notes sent to Slack's servers?", find=("Slack's servers",), first="Slack.md"),
+    RefCase("slack-no-answer", "the bot does not reply to my messages in Slack, what should I check?", find=("Messages tab",), first="Slack.md"),
+    RefCase("slack-name-icon", "how do I change the bot's display name and picture in Slack?", find=("App icon",), first="Slack.md"),
+    RefCase("slack-doctor", "sympose doctor says a persona is not connected in Slack, what does that mean?", find=("not connected",), first="Slack.md"),
+    RefCase("slack-stop", "how do I take a persona out of Slack, or lock out a leaked token?", find=("regenerate",), first="Slack.md"),
+    RefCase("command-not-found", "my terminal says sympose command not found", find=(".venv/bin/sympose",), first="Troubleshooting.md"),
     RefCase(
         "session-logs-review",
         "arent you supposed to review our session logs?",

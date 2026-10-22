@@ -4,6 +4,10 @@
 
 Make sure Ollama is running (open the Ollama app, or run `ollama serve`) and that the default model is pulled with `ollama pull gemma2:9b`. If Ollama runs at another address, set `OLLAMA_API_BASE` in `.env`. For a cloud model, check that its API key is set in `.env`.
 
+## The terminal says `sympose: command not found`
+
+The command lives in the project's virtual environment, so the terminal only finds it once that is active. In the project's folder run `source .venv/bin/activate`, or call it by its path as `.venv/bin/sympose`. Every `sympose` command works the same either way.
+
 ## Why is the first reply so slow?
 
 Ollama loads the model into memory on the first message, and again after it has sat idle for a while, so the first reply takes longer than the rest. A long or resumed conversation is also slow to start, because the whole conversation is read again.

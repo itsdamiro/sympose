@@ -93,6 +93,12 @@ _RAW = [
     ("sympose", "does what you say in Slack end up on Slack's servers?", True, "Slack.md"),
     ("sympose", "how can I tell whether a persona is connected to Slack?", True, "Slack.md"),
     ("sympose", "can other people in my Slack workspace talk to the bot?", True, "Slack.md"),
+    ("sympose", "the bot does not reply to my messages in Slack, what should I check?", True, "Slack.md"),
+    ("sympose", "I changed the bot's display name in Slack and it still shows the old one", True, "Slack.md"),
+    ("sympose", "how do I give the Slack bot a profile picture?", True, "Slack.md"),
+    ("sympose", "sympose doctor says my persona is not connected in Slack, what does that mean?", True, "Slack.md"),
+    ("sympose", "how do I take a persona out of Slack, or lock out a leaked Slack token?", True, "Slack.md"),
+    ("sympose", "my terminal says sympose command not found", True, "Troubleshooting.md"),
 ]
 
 _VAULT = [
