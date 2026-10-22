@@ -6,7 +6,6 @@ talk (the owner, before anything reaches the engine), the `slack` approval, whic
 that one persona answers one message at a time."""
 
 import logging
-import os
 from dataclasses import dataclass
 
 from sympose import note_changes
@@ -15,12 +14,12 @@ from sympose import slack_drafts, slack_sessions
 from sympose.engine import model as model_mod
 from sympose.server_chat_locks import acquire, lock_for
 from sympose.slack_approval import approved
+from sympose.slack_credentials import owner
 from sympose.slack_events import Incoming, conversation_key
 from sympose.slack_text import to_mrkdwn
 
 log = logging.getLogger(__name__)
 
-OWNER_VARIABLE = "SLACK_OWNER_USER_ID"
 SWITCHED_OFF = "Slack is switched off in Sympose's settings, so nothing is answered here. Switch it on there and ask again."
 NO_MODEL = "Sympose could not reach the model. Check that it is running, then ask again."
 NO_PERSONA = "Sympose could not find this persona any more. Run `sympose doctor` to see why."
@@ -30,18 +29,6 @@ NO_PERSONA = "Sympose could not find this persona any more. Run `sympose doctor`
 class Reply:
     text: str
     thread_ts: str | None  # the thread to answer in; a direct message is answered in the channel itself
-
-
-def owner() -> str | None:
-    """The one Slack user whose messages are answered."""
-    return (os.getenv(OWNER_VARIABLE) or "").strip() or None
-
-
-def tokens(handle: str) -> tuple[str, str] | None:
-    """The bot token and the app token of this persona's Slack App, or `None` when it has none (it is then not in Slack)."""
-    prefix = f"SLACK_{handle.upper().replace('-', '_')}_"
-    bot, app = (os.getenv(prefix + name, "").strip() for name in ("BOT_TOKEN", "APP_TOKEN"))
-    return (bot, app) if bot and app else None
 
 
 def _where(message: Incoming) -> str | None:

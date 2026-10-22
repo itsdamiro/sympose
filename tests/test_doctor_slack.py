@@ -5,7 +5,7 @@ import io
 import pytest
 from helpers import write_persona
 
-from sympose import doctor, doctor_slack, settings_store, slack_approval, slack_channel, slack_heartbeat
+from sympose import doctor, doctor_slack, settings_store, slack_approval, slack_credentials, slack_heartbeat
 
 TOKENS = ("BOT", "APP")
 
@@ -17,7 +17,7 @@ def home(tmp_path, monkeypatch):
     write_persona(base, "ada-lovelace", "name: Ada\n")
     monkeypatch.setenv("SYMPOSE_PROFILES_DIR", str(base))
     monkeypatch.setenv("SYMPOSE_SETTINGS_PATH", str(tmp_path / "settings.json"))
-    for name in ("SLACK_SAMANTHA_BOT_TOKEN", "SLACK_SAMANTHA_APP_TOKEN", "SLACK_ADA_LOVELACE_BOT_TOKEN", "SLACK_ADA_LOVELACE_APP_TOKEN", slack_channel.OWNER_VARIABLE):
+    for name in ("SLACK_SAMANTHA_BOT_TOKEN", "SLACK_SAMANTHA_APP_TOKEN", "SLACK_ADA_LOVELACE_BOT_TOKEN", "SLACK_ADA_LOVELACE_APP_TOKEN", slack_credentials.OWNER_VARIABLE):
         monkeypatch.delenv(name, raising=False)
     return base
 
@@ -29,7 +29,7 @@ def _pair(monkeypatch, key, which=TOKENS):
 
 def _all_set(monkeypatch):
     _pair(monkeypatch, "SAMANTHA")
-    monkeypatch.setenv(slack_channel.OWNER_VARIABLE, "U1")
+    monkeypatch.setenv(slack_credentials.OWNER_VARIABLE, "U1")
     settings_store.set(slack_approval.SETTING, True)
 
 
@@ -79,7 +79,7 @@ def test_a_pair_without_the_owner_or_the_approval_says_both(home, monkeypatch):
     _pair(monkeypatch, "SAMANTHA")
     found = doctor_slack.problems()
     assert len(found) == 2
-    assert slack_channel.OWNER_VARIABLE in found[0] and "switched off in Settings" in found[1]
+    assert slack_credentials.OWNER_VARIABLE in found[0] and "switched off in Settings" in found[1]
 
 
 def test_everything_in_place_is_no_problem(home, monkeypatch):

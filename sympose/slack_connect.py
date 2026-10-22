@@ -9,7 +9,7 @@ from collections.abc import Callable
 from typing import Any
 
 from sympose import profile as profile_mod
-from sympose import slack_channel, slack_heartbeat, slack_manifest, slack_sessions
+from sympose import slack_channel, slack_credentials, slack_heartbeat, slack_manifest, slack_sessions
 from sympose.slack_events import Incoming, parse
 
 log = logging.getLogger(__name__)
@@ -62,8 +62,8 @@ def connect(handle: str, bot_token: str, app_token: str) -> Any:
 
 def run() -> int:
     """`sympose slack`: connect every persona that has tokens and stay up until stopped."""
-    if slack_channel.owner() is None:
-        print(f"sympose slack: set {slack_channel.OWNER_VARIABLE} in .env to your Slack user ID, so only you are answered.", file=sys.stderr)
+    if slack_credentials.owner() is None:
+        print(f"sympose slack: set {slack_credentials.OWNER_VARIABLE} in .env to your Slack user ID, so only you are answered.", file=sys.stderr)
         return 1
     if not slack_channel.approved():
         print("sympose slack: Slack is switched off in Sympose's settings. Switch it on there, then run this again.", file=sys.stderr)
@@ -71,7 +71,7 @@ def run() -> int:
     handlers: dict[str, Any] = {}
     for persona in profile_mod.list_profiles():
         handle = persona["handle"]
-        found = slack_channel.tokens(handle)
+        found = slack_credentials.tokens(handle)
         if found is None:
             continue
         try:

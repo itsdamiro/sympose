@@ -7,7 +7,7 @@ import pytest
 from helpers import write_persona
 from slack_shapes import BOT, OWNER, dm, mention
 
-from sympose import settings_store, slack_approval, slack_channel, slack_connect, slack_heartbeat
+from sympose import settings_store, slack_approval, slack_channel, slack_connect, slack_credentials, slack_heartbeat
 from sympose.engine import turn
 from sympose.engine.turn_result import TurnResult
 
@@ -18,7 +18,7 @@ def home(tmp_path, monkeypatch):
     write_persona(base, "samantha", "name: Samantha\nmodel: ollama_chat/gemma4:e4b\n")
     monkeypatch.setenv("SYMPOSE_PROFILES_DIR", str(base))
     monkeypatch.setenv("SYMPOSE_SETTINGS_PATH", str(tmp_path / "settings.json"))
-    monkeypatch.setenv(slack_channel.OWNER_VARIABLE, OWNER)
+    monkeypatch.setenv(slack_credentials.OWNER_VARIABLE, OWNER)
     for name in ("SLACK_SAMANTHA_BOT_TOKEN", "SLACK_SAMANTHA_APP_TOKEN"):
         monkeypatch.delenv(name, raising=False)
     settings_store.set(slack_approval.SETTING, True)
@@ -193,10 +193,10 @@ def test_nothing_is_connected_while_slack_is_switched_off(home, monkeypatch, cap
 
 def test_nothing_is_connected_without_an_owner(home, monkeypatch, capsys):
     _both(monkeypatch, "samantha")
-    monkeypatch.delenv(slack_channel.OWNER_VARIABLE)
+    monkeypatch.delenv(slack_credentials.OWNER_VARIABLE)
     monkeypatch.setattr(slack_connect, "connect", lambda *_: pytest.fail("connected without an owner"))
     assert slack_connect.run() == 1
-    assert slack_channel.OWNER_VARIABLE in capsys.readouterr().err
+    assert slack_credentials.OWNER_VARIABLE in capsys.readouterr().err
 
 
 def test_no_persona_with_tokens_is_said(home, capsys):

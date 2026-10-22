@@ -15,13 +15,12 @@ from sympose.engine import session
 
 log = logging.getLogger(__name__)
 
-FOLDER = ".slack"
 FILE = "sessions.json"
 _GUARD = threading.Lock()
 
 
 def _path(handle: str) -> str:
-    return os.path.join(persona_files.persona_dir(handle), FOLDER, FILE)
+    return os.path.join(persona_files.persona_dir(handle), persona_files.SLACK_FOLDER, FILE)
 
 
 def _read(handle: str) -> dict[str, str]:

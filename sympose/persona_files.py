@@ -17,6 +17,8 @@ SOUL_FILENAME = "soul.md"
 # The user's own soul, saved from the web editor: untracked, read first, so the shipped file is never written
 # (docs/decisions/061, 046).
 SOUL_LOCAL_FILENAME = "soul.local.md"
+# What `sympose slack` keeps for a persona (its conversations, its heartbeat): out of the vault, not listed among its files.
+SLACK_FOLDER = ".slack"
 
 
 def profiles_dir() -> str:

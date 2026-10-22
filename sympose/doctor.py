@@ -12,7 +12,7 @@ from typing import Callable, TextIO
 
 import yaml
 
-from sympose import profile, settings_store, vault_registry
+from sympose import doctor_slack, profile, settings_store, vault_registry
 from sympose.persona_files import PERSONA_FILENAME, persona_dir, profiles_dir
 
 
@@ -166,8 +166,6 @@ def check_embedding_model() -> list[Finding]:
 
 
 def check_slack() -> list[Finding]:
-    from sympose import doctor_slack
-
     return [Finding(problem) for problem in doctor_slack.problems()]
 
 
@@ -212,7 +210,7 @@ def examine(fix: bool = False) -> list[Outcome]:
 
 def run(fix: bool = False, out: TextIO | None = None) -> int:
     """Prints the findings (and, with `fix`, applies what can be) and returns 0 when nothing is left wrong, else 1."""
-    from sympose import doctor_models, doctor_slack  # imported here: doctor_models brings in litellm, a few seconds
+    from sympose import doctor_models  # imported here: it brings in litellm, a few seconds
 
     out = out or sys.stdout
     print("\n".join(doctor_models.report()) + "\n", file=out)

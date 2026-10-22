@@ -8,7 +8,7 @@ import pytest
 from helpers import write_persona
 from slack_shapes import BOT, OWNER, dm, mention
 
-from sympose import note_changes, settings_store, slack_approval, slack_channel, slack_drafts, slack_sessions
+from sympose import note_changes, settings_store, slack_approval, slack_channel, slack_credentials, slack_drafts, slack_sessions
 from sympose.engine import turn
 from sympose.engine.turn_result import TurnResult
 from sympose.slack_events import parse
@@ -22,7 +22,7 @@ def home(tmp_path, monkeypatch):
     write_persona(base, "samantha", f"name: Samantha\nmodel: {LOCAL}\n")
     monkeypatch.setenv("SYMPOSE_PROFILES_DIR", str(base))
     monkeypatch.setenv("SYMPOSE_SETTINGS_PATH", str(tmp_path / "settings.json"))
-    monkeypatch.setenv(slack_channel.OWNER_VARIABLE, OWNER)
+    monkeypatch.setenv(slack_credentials.OWNER_VARIABLE, OWNER)
     settings_store.set(slack_approval.SETTING, True)
     return base
 
@@ -73,7 +73,7 @@ def test_anyone_else_is_dropped_before_the_engine(home, turns):
 
 
 def test_without_an_owner_nobody_is_answered(home, turns, monkeypatch):
-    monkeypatch.delenv(slack_channel.OWNER_VARIABLE)
+    monkeypatch.delenv(slack_credentials.OWNER_VARIABLE)
     assert _answer(dm("hi")) is None
     assert turns == []
 
@@ -286,20 +286,20 @@ def test_two_messages_to_one_persona_run_one_after_the_other(home, turns, monkey
 # --- the tokens ---------------------------------------------------------------------------------
 def test_a_persona_has_tokens_only_with_both(monkeypatch):
     monkeypatch.setenv("SLACK_SAMANTHA_BOT_TOKEN", "xoxb-1")
-    assert slack_channel.tokens("samantha") is None
+    assert slack_credentials.tokens("samantha") is None
     monkeypatch.setenv("SLACK_SAMANTHA_APP_TOKEN", " xapp-1 ")
-    assert slack_channel.tokens("samantha") == ("xoxb-1", "xapp-1")
+    assert slack_credentials.tokens("samantha") == ("xoxb-1", "xapp-1")
 
 
 def test_tokens_are_read_by_the_personas_handle_alone(monkeypatch):
     monkeypatch.setenv("SLACK_ARCHIA_BOT_TOKEN", "xoxb-a")
     monkeypatch.setenv("SLACK_ARCHIA_APP_TOKEN", "xapp-a")
     monkeypatch.delenv("SLACK_BOT_TOKEN", raising=False)
-    assert slack_channel.tokens("samantha") is None
-    assert slack_channel.tokens("archia") == ("xoxb-a", "xapp-a")
+    assert slack_credentials.tokens("samantha") is None
+    assert slack_credentials.tokens("archia") == ("xoxb-a", "xapp-a")
 
 
 def test_a_shared_token_pair_is_not_a_fallback(monkeypatch):
     monkeypatch.setenv("SLACK_BOT_TOKEN", "xoxb-shared")
     monkeypatch.setenv("SLACK_APP_TOKEN", "xapp-shared")
-    assert slack_channel.tokens("samantha") is None
+    assert slack_credentials.tokens("samantha") is None
