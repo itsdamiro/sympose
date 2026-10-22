@@ -27,6 +27,7 @@ export function useSlackConnected(persona: string | null | undefined, watching: 
     document.addEventListener("visibilitychange", read)
     return () => {
       cancelled = true
+      setSeen(null) // an answer from before the page was closed is not shown when it opens again
       window.clearInterval(timer)
       document.removeEventListener("visibilitychange", read)
     }

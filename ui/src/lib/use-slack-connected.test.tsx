@@ -54,6 +54,22 @@ describe("useSlackConnected", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
+  it("does not show the answer from before the page was closed while the new read is out", async () => {
+    let resolveSecond: (r: Response) => void = () => {}
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(json(true))
+      .mockReturnValueOnce(new Promise<Response>((r) => (resolveSecond = r)))
+    vi.stubGlobal("fetch", fetchMock)
+    const { result, rerender } = renderHook(({ on }) => useSlackConnected("samantha", on), { initialProps: { on: true } })
+    await waitFor(() => expect(result.current).toBe(true))
+    rerender({ on: false })
+    rerender({ on: true })
+    expect(result.current).toBe(false)
+    await act(async () => resolveSecond(json(true)))
+    await waitFor(() => expect(result.current).toBe(true))
+  })
+
   it("does not show one persona's dot for another while the new one is read", async () => {
     let resolveSecond: (r: Response) => void = () => {}
     const fetchMock = vi
