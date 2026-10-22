@@ -16,6 +16,8 @@ export interface Job {
   mechanical: boolean
   /** The model a run uses, `null` for a job that calls none. */
   model: string | null
+  /** The model written in the job's file, or `null` when it uses the persona's. */
+  own_model: string | null
   cloud: boolean
   enabled: boolean
   /** The first thing wrong with the file, else `null`: such a job never runs. */
@@ -73,6 +75,21 @@ export async function switchJob(persona: string, name: string, enabled: boolean)
     return { ok: true, job: ((await res.json()) as { job: Job }).job }
   } catch {
     return { ok: false, error: `Couldn't change ${name}: ${BACKEND_DOWN}` }
+  }
+}
+
+/** `PUT /api/personas/{handle}/jobs/{name}/model`: the job's own model, or `null` to use the persona's; answers with the job now. */
+export async function chooseJobModel(persona: string, name: string, model: string | null): Promise<JobResult> {
+  try {
+    const res = await fetch(`${base(persona)}/${encodeURIComponent(name)}/model`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model }),
+    })
+    if (!res.ok) return { ok: false, error: await failed(res, `change the model of ${name}`) }
+    return { ok: true, job: ((await res.json()) as { job: Job }).job }
+  } catch {
+    return { ok: false, error: `Couldn't change the model of ${name}: ${BACKEND_DOWN}` }
   }
 }
 

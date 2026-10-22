@@ -1,7 +1,7 @@
 import * as React from "react"
 
 import { notify } from "@/lib/notify"
-import { createJob, deleteJob, fetchJobs, renameJob, switchJob, type Job } from "@/lib/jobs-api"
+import { chooseJobModel, createJob, deleteJob, fetchJobs, renameJob, switchJob, type Job } from "@/lib/jobs-api"
 
 export type JobsState =
   | { status: "loading" }
@@ -12,7 +12,7 @@ const byName = (a: Job, b: Job) => a.name.localeCompare(b.name)
 
 /**
  * The persona's scheduled jobs (docs/decisions/091), read when the persona changes and again when `version` does (the
- * editor saved a job's file), one switched on or off, a new one made, one renamed and one deleted. A refusal is an error toast and the list
+ * editor saved a job's file), one switched on or off, given a model, a new one made, one renamed and one deleted. A refusal is an error toast and the list
  * keeps what the backend last said, so the screen never guesses; what a change answers replaces that job's row.
  */
 export function useJobs(persona: string | null | undefined, version = 0) {
@@ -45,6 +45,21 @@ export function useJobs(persona: string | null | undefined, version = 0) {
     async (name: string, enabled: boolean) => {
       if (!persona) return false
       const result = await switchJob(persona, name, enabled)
+      if (!result.ok) {
+        notify.error(result.error)
+        return false
+      }
+      replace(persona, result.job)
+      return true
+    },
+    [persona, replace]
+  )
+
+  /** Give a job its own model, or `null` for the persona's; `true` once saved. */
+  const setModel = React.useCallback(
+    async (name: string, model: string | null) => {
+      if (!persona) return false
+      const result = await chooseJobModel(persona, name, model)
       if (!result.ok) {
         notify.error(result.error)
         return false
@@ -107,5 +122,5 @@ export function useJobs(persona: string | null | undefined, version = 0) {
 
   // A state read for another persona is not this persona's until its own read arrives.
   const state: JobsState = loaded && loaded.persona === persona ? loaded.state : { status: "loading" }
-  return { state, setEnabled, add, rename, remove }
+  return { state, setEnabled, setModel, add, rename, remove }
 }

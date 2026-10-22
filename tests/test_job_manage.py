@@ -211,3 +211,65 @@ def test_a_job_that_is_running_is_neither_renamed_nor_deleted(client, home):
         deleted = client.delete("/api/personas/samantha/jobs/weekly")
     assert renamed.status_code == 422 and deleted.status_code == 422 and "running" in deleted.json()["detail"]
     assert (home / "jobs" / "weekly.md").read_text() == GOOD
+
+
+@pytest.mark.parametrize(
+    "before, model, after",
+    [
+        ("---\nschedule: daily 07:30\n---\nbody\n", "gpt-5", "---\nschedule: daily 07:30\nmodel: gpt-5\n---\nbody\n"),
+        ("---\nschedule: daily 07:30\nmodel: ollama/gemma4:e4b\nkind: ask\n---\nbody\n", "gpt-5", "---\nschedule: daily 07:30\nmodel: gpt-5\nkind: ask\n---\nbody\n"),
+        ("---\nschedule: daily 07:30\nmodel: ollama/gemma4:e4b\nkind: ask\n---\nbody\n", None, "---\nschedule: daily 07:30\nkind: ask\n---\nbody\n"),
+        ("---\r\nschedule: daily 07:30\r\n---\r\nbody\r\n", "gpt-5", "---\r\nschedule: daily 07:30\r\nmodel: gpt-5\r\n---\r\nbody\r\n"),
+        ("body only\n", "gpt-5", "---\nmodel: gpt-5\n---\nbody only\n"),
+    ],
+)
+def test_choosing_a_model_changes_one_property(home, before, model, after):
+    _write(home, "j", before)
+    row = job_manage.set_model("samantha", "j", model)
+    assert (home / "jobs" / "j.md").read_bytes().decode() == after
+    assert row["own_model"] == model
+    assert (home / "jobs" / "j.md.bak").read_bytes().decode() == before
+
+
+def test_clearing_a_model_the_job_never_had_writes_nothing(home):
+    _write(home, "j", "---\nschedule: daily 07:30\n---\nbody\n")
+    row = job_manage.set_model("samantha", "j", None)
+    assert row["own_model"] is None and not (home / "jobs" / "j.md.bak").exists()
+
+
+def test_a_model_with_a_line_break_is_refused_and_the_file_left_alone(home):
+    _write(home, "j", GOOD)
+    with pytest.raises(job_manage.JobRefused):
+        job_manage.set_model("samantha", "j", "gpt-5\nenabled: false")
+    assert (home / "jobs" / "j.md").read_text() == GOOD
+
+
+def test_an_unclosed_front_matter_is_refused_for_a_model_too(home):
+    _write(home, "j", "---\nschedule: daily 07:30\nbody\n")
+    with pytest.raises(job_manage.JobRefused):
+        job_manage.set_model("samantha", "j", "gpt-5")
+
+
+def test_a_mechanical_job_reports_no_own_model(home):
+    _write(home, "check", "---\nschedule: daily 07:30\nkind: health\nmodel: gpt-5\n---\n")
+    assert job_manage.listing("samantha")[0]["own_model"] is None
+
+
+def test_the_model_route_takes_a_listed_model_or_none(client, home):
+    from sympose.engine.model_options import MODEL_OPTIONS
+
+    _write(home, "weekly", GOOD)
+    listed = MODEL_OPTIONS[0].id
+    chosen = client.put("/api/personas/samantha/jobs/weekly/model", json={"model": listed})
+    assert chosen.status_code == 200 and chosen.json()["job"]["own_model"] == listed and f"model: {listed}\n" in (home / "jobs" / "weekly.md").read_text()
+    cleared = client.put("/api/personas/samantha/jobs/weekly/model", json={"model": None})
+    assert cleared.status_code == 200 and cleared.json()["job"]["own_model"] is None and "model:" not in (home / "jobs" / "weekly.md").read_text()
+
+
+def test_the_model_route_refuses_what_is_not_offered_and_what_is_not_there(client, home):
+    _write(home, "weekly", GOOD)
+    assert client.put("/api/personas/samantha/jobs/weekly/model", json={"model": "made-up/model"}).status_code == 422
+    assert (home / "jobs" / "weekly.md").read_text() == GOOD
+    assert client.put("/api/personas/samantha/jobs/nope/model", json={"model": None}).status_code == 404
+    assert client.put("/api/personas/nobody/jobs/weekly/model", json={"model": None}).status_code == 404
+    assert client.put("/api/personas/samantha/jobs/..%2Fpersona/model", json={"model": None}).status_code == 404

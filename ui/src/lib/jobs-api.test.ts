@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { createJob, fetchJobs, switchJob } from "./jobs-api"
+import { chooseJobModel, createJob, fetchJobs, switchJob } from "./jobs-api"
 
 const job = {
   name: "weekly", file: "jobs/weekly.md", schedule: "weekly sun 18:00", kind: "ask", mechanical: false, model: "ollama/gemma4:e4b",
@@ -56,5 +56,27 @@ describe("switchJob", () => {
   it("names the job when the backend is unreachable", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")))
     expect(await switchJob("ada", "weekly", true)).toEqual({ ok: false, error: `Couldn't change weekly: ${DOWN}` })
+  })
+})
+
+describe("chooseJobModel", () => {
+  it("puts the model (or null) on the job's model route, the names encoded", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(json({ job }))
+    vi.stubGlobal("fetch", fetchMock)
+    expect(await chooseJobModel("a b", "my job", "gpt-5")).toEqual({ ok: true, job })
+    expect(fetchMock).toHaveBeenCalledWith("/api/personas/a%20b/jobs/my%20job/model", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: "gpt-5" }),
+    })
+    await chooseJobModel("a", "j", null)
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ model: null })
+  })
+
+  it("gives the reason, or says the backend is unreachable", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json({ detail: "Pick a model from the list." }, false)))
+    expect(await chooseJobModel("a", "j", "x")).toEqual({ ok: false, error: "Pick a model from the list." })
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")))
+    expect(await chooseJobModel("a", "j", "x")).toEqual({ ok: false, error: `Couldn't change the model of j: ${DOWN}` })
   })
 })

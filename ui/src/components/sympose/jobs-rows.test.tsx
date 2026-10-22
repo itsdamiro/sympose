@@ -9,10 +9,17 @@ vi.mock("@/lib/confirm-store", () => ({ confirm: confirmMock }))
 import { JobsRows } from "./jobs-rows"
 
 const job = (over: Record<string, unknown> = {}) => ({
-  name: "weekly", file: "jobs/weekly.md", schedule: "weekly sun 18:00", kind: "ask", mechanical: false, model: "ollama/gemma4:e4b",
+  name: "weekly", file: "jobs/weekly.md", schedule: "weekly sun 18:00", kind: "ask", mechanical: false, model: "ollama/gemma4:e4b", own_model: "ollama/gemma4:e4b",
   cloud: false, enabled: true, problem: null, paused: false, failures: 0, last_run: null, outcome: null, detail: "", session_id: null,
   ...over,
 })
+const modelsState = {
+  models: [
+    { id: "ollama/gemma4:e4b", label: "Gemma 4 (on this computer)", short: "gemma4:e4b", cloud: false },
+    { id: "gemini/gemini-flash-latest", label: "Gemini Flash (cloud)", short: "gemini-flash", cloud: true },
+  ],
+  current: "ollama/gemma4:e4b", current_cloud: false, own: null, fallback: "ollama/gemma4:e4b", fallback_cloud: false,
+}
 const res = (body: unknown, ok = true, status = ok ? 200 : 422) => ({ ok, status, json: async () => body }) as Response
 
 let calls: { url: string; init?: RequestInit }[]
@@ -26,6 +33,7 @@ function stub(
     del?: Response
     schedule?: { supported: boolean; installed: boolean }
     putSchedule?: (installed: boolean) => Response
+    putModel?: (model: string | null) => Response
   } = {}
 ) {
   calls = []
@@ -35,6 +43,8 @@ function stub(
       if (init?.method === "PUT") return routes.putSchedule?.(JSON.parse(init.body as string).installed) ?? res(routes.schedule)
       return res(routes.schedule ?? { supported: false, installed: false })
     }
+    if (url.startsWith("/api/models")) return res(modelsState)
+    if (init?.method === "PUT" && url.endsWith("/model")) return routes.putModel?.(JSON.parse(init.body as string).model) ?? res({ job: job() })
     if (init?.method === "POST" && url.endsWith("/rename")) return routes.rename ?? res({ job: job() })
     if (init?.method === "DELETE") return routes.del ?? res({ deleted: "weekly" })
     if (init?.method === "POST") return routes.post ?? res({ job: job({ name: "new-job", file: "jobs/new-job.md", enabled: false }) })
@@ -87,17 +97,60 @@ describe("JobsRows", () => {
     stub({
       list: [
         job({ name: "a-local" }),
-        job({ name: "b-cloud", model: "gemini/x", cloud: true }),
-        job({ name: "c-check", kind: "health", mechanical: true, model: null }),
+        job({ name: "b-cloud", model: "gemini/gemini-flash-latest", cloud: true }),
+        job({ name: "c-check", kind: "health", mechanical: true, model: null, own_model: null }),
       ],
     })
     render(<JobsRows persona="ada" personaName="Ada" onOpen={vi.fn()} />)
     await screen.findByText("c-check")
-    expect(screen.getByLabelText("On your computer: ollama/gemma4:e4b")).toBeTruthy()
-    expect(screen.getByLabelText("Cloud model: gemini/x")).toBeTruthy()
-    expect(screen.getAllByLabelText(/model|computer/i)).toHaveLength(2)
-    const shape = (label: string) => screen.getByLabelText(label).querySelector("path")?.getAttribute("d")
-    expect(shape("On your computer: ollama/gemma4:e4b")).not.toBe(shape("Cloud model: gemini/x")) // not the same icon
+    const pickers = await screen.findAllByRole("button", { name: /^Model:/ })
+    expect(pickers.map((p) => p.getAttribute("data-tier"))).toEqual(["local", "cloud"])
+    expect(pickers.map((p) => p.textContent)).toEqual(["gemma4:e4b", "gemini-flash"])
+  })
+
+  it("shows the plain mark until the persona's models are known", async () => {
+    stub({ list: [job({ model: "gemini/x", cloud: true })] })
+    vi.mocked(fetch).mockImplementation(async (url: RequestInfo | URL) =>
+      String(url).startsWith("/api/models") ? res({ detail: "no" }, false, 500) : res({ jobs: [job({ model: "gemini/x", cloud: true })] })
+    )
+    render(<JobsRows persona="ada" personaName="Ada" onOpen={vi.fn()} />)
+    expect(await screen.findByLabelText("Cloud model: gemini/x")).toBeTruthy()
+  })
+
+  it("writes the model picked from a job's row, and the row shows it", async () => {
+    stub({ putModel: () => res({ job: job({ model: "gemini/gemini-flash-latest", own_model: "gemini/gemini-flash-latest", cloud: true }) }) })
+    render(<JobsRows persona="ada" personaName="Ada" onOpen={vi.fn()} />)
+    fireEvent.click(await screen.findByRole("button", { name: /^Model:/ }))
+    fireEvent.click(await screen.findByRole("menuitem", { name: /Gemini Flash/ }))
+    await waitFor(() => expect(screen.getByRole("button", { name: /^Model:/ }).getAttribute("data-tier")).toBe("cloud"))
+    const sent = calls.filter((c) => c.init?.method === "PUT" && c.url.endsWith("/jobs/weekly/model"))
+    expect(sent.map((c) => JSON.parse(c.init!.body as string))).toEqual([{ model: "gemini/gemini-flash-latest" }])
+  })
+
+  it("offers to go back to the persona's model only while the job has one of its own", async () => {
+    stub({
+      list: [job({ name: "a-own" }), job({ name: "b-persona's", own_model: null })],
+      putModel: () => res({ job: job({ own_model: null }) }),
+    })
+    render(<JobsRows persona="ada" personaName="Ada" onOpen={vi.fn()} />)
+    const [own, inherited] = await screen.findAllByRole("button", { name: /^Model:/ })
+    fireEvent.click(inherited)
+    await screen.findByRole("menuitem", { name: /Gemini Flash/ })
+    expect(screen.queryByRole("menuitem", { name: /Use the default/ })).toBeNull()
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" })
+    await waitFor(() => expect(screen.queryByRole("menuitem", { name: /Gemini Flash/ })).toBeNull())
+    fireEvent.click(own)
+    fireEvent.click(await screen.findByRole("menuitem", { name: /Use the default \(ollama\/gemma4:e4b\)/ }))
+    await waitFor(() => expect(calls.some((c) => c.init?.method === "PUT" && c.url.endsWith("/model") && JSON.parse(c.init.body as string).model === null)).toBe(true))
+  })
+
+  it("keeps the row as it was and says why when the model is refused", async () => {
+    stub({ putModel: () => res({ detail: "Pick a model from the list." }, false) })
+    render(<JobsRows persona="ada" personaName="Ada" onOpen={vi.fn()} />)
+    fireEvent.click(await screen.findByRole("button", { name: /^Model:/ }))
+    fireEvent.click(await screen.findByRole("menuitem", { name: /Gemini Flash/ }))
+    await waitFor(() => expect(notifyError).toHaveBeenCalledWith("Pick a model from the list."))
+    expect(screen.getByRole("button", { name: /^Model:/ }).getAttribute("data-tier")).toBe("local")
   })
 
   it("lists the jobs by name, a job just made among them", async () => {

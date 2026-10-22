@@ -16,12 +16,15 @@ import {
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ControlRow } from "@/components/sympose/control-section"
+import { ModelPicker } from "@/components/sympose/model-picker"
 import { SegmentedControl } from "@/components/sympose/segmented-control"
 import { agoIso } from "@/lib/ago"
 import { confirm } from "@/lib/confirm-store"
 import type { Job } from "@/lib/jobs-api"
+import type { ModelsState } from "@/lib/models-api"
 import { getUnsavedGuard } from "@/lib/unsaved-guard"
 import { useJobs } from "@/lib/use-jobs"
+import { useModels } from "@/lib/use-models"
 import { useSchedule } from "@/lib/use-schedule"
 
 /** One line under a job's name: its schedule, and how it last went (or what stops it), in the muted style of a hint. */
@@ -63,18 +66,23 @@ function JobStatus({ job }: { job: Job }) {
 
 /**
  * One job's row: the name (an inline field while it is being renamed: Enter commits, Esc or a click away cancels), the
- * model's mark, a `⋯` menu (open the file, rename, delete) and the On/Off switch.
+ * model's picker (its mark and name; a pick is written in the job's file), a `⋯` menu (open the file, rename, delete) and the On/Off switch.
  */
 function JobRow({
   job,
+  models,
   onOpen,
   onSwitch,
+  onModel,
   onRename,
   onDelete,
 }: {
   job: Job
+  /** The persona's models, which a job's picker offers and falls back to; `null` until known. */
+  models: ModelsState | null
   onOpen: () => void
   onSwitch: (on: boolean) => void
+  onModel: (model: string | null) => void
   /** Rename it; the job under its new name, or `null` if refused. */
   onRename: (name: string) => Promise<Job | null>
   onDelete: () => Promise<boolean>
@@ -135,13 +143,19 @@ function JobRow({
   return (
     <ControlRow label={label} keywords={`${job.name} ${job.schedule} ${job.kind} ${job.model ?? ""}`} hint={<JobStatus job={job} />}>
       <div className="flex items-center gap-2">
-        {job.model && (
+        {job.model && models ? (
+          <ModelPicker
+            side="bottom"
+            state={{ ...models, current: job.model, currentCloud: job.cloud, own: job.own_model, fallback: models.current, fallbackCloud: models.currentCloud }}
+            onChoose={onModel}
+          />
+        ) : job.model ? (
           <HugeiconsIcon
             icon={job.cloud ? CloudIcon : ComputerIcon}
             className={`size-3.5 shrink-0 ${job.cloud ? "text-fg-muted" : "text-ok"}`}
             aria-label={job.cloud ? `Cloud model: ${job.model}` : `On your computer: ${job.model}`}
           />
-        )}
+        ) : null}
         <DropdownMenu
           modal={false}
           // Entering the field waits for the menu to finish closing: it hands focus back to the trigger, which would
@@ -191,7 +205,7 @@ function JobRow({
 
 /**
  * Settings → Jobs (docs/decisions/091): one row for each of the persona's scheduled jobs, with its schedule, how the last
- * run went, the model's mark, a menu (open the job's file in the editor, rename, delete) and a switch, and a button that makes a new
+ * run went, the model's picker, a menu (open the job's file in the editor, rename, delete) and a switch, and a button that makes a new
  * job from the template (off, and opened in the editor at once), and, on a Mac, the switch that has the operating system
  * run due jobs while the app is closed. A job that stopped itself after failing shows as off: the
  * switch turns it back on. The backend holds every rule: this only asks, and shows the reason when it refuses.
@@ -215,7 +229,8 @@ function JobsRows({
   /** A job's file was deleted: the editor holding it lets go. */
   onRemoved?: (file: string) => void
 }) {
-  const { state, setEnabled, add, rename, remove } = useJobs(persona, version)
+  const { state, setEnabled, setModel, add, rename, remove } = useJobs(persona, version)
+  const { state: models } = useModels(persona)
   const { schedule, busy: scheduleBusy, set: setSchedule } = useSchedule()
   const [adding, setAdding] = React.useState(false)
 
@@ -277,8 +292,10 @@ function JobsRows({
         <JobRow
           key={job.name}
           job={job}
+          models={models}
           onOpen={() => onOpen(job.file)}
           onSwitch={(on) => void setEnabled(job.name, on)}
+          onModel={(model) => void setModel(job.name, model)}
           onRename={async (name) => {
             // Unsaved edits in the editor are saved to the file under its old name first, so a rename never loses them.
             if (getUnsavedGuard() && !(await getUnsavedGuard()!.save())) return null

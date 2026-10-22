@@ -5,7 +5,7 @@ one on or off, start a new one from a template, rename one and delete one. Editi
 import os
 import re
 import threading
-from typing import Any
+from typing import Any, Callable
 
 from sympose import job_state, jobs
 from sympose import profile as profile_mod
@@ -15,6 +15,7 @@ from sympose.engine import sharing
 
 _LOCK = threading.Lock()  # a switch reads the file and writes it back: two at once must not lose one
 _ENABLED = re.compile(r"^enabled[ \t]*:[^\r\n]*", re.MULTILINE)
+_MODEL = re.compile(r"^model[ \t]*:[^\r\n]*(\r?\n)?", re.MULTILINE)
 _OPEN = re.compile(r"\A---[ \t]*\r?\n")
 _CLOSE = re.compile(r"^---[ \t]*\r?$", re.MULTILINE)
 NEW_NAME = "new-job"
@@ -53,6 +54,7 @@ def _row(job: jobs.Job, persona: dict[str, Any]) -> dict[str, Any]:
         "kind": job.kind,
         "mechanical": job.mechanical,
         "model": None if job.mechanical else model,
+        "own_model": None if job.mechanical else job.model,
         "cloud": not job.mechanical and not sharing.is_local(model),
         "enabled": job.enabled,
         "problem": job.problem,
@@ -89,18 +91,34 @@ def _with_enabled(text: str, enabled: bool) -> str | None:
     return text[: opening.end()] + block + text[closing.start() :]
 
 
-def set_enabled(handle: str, name: str, enabled: bool) -> dict[str, Any]:
-    """Switch a job on or off. Switching it on also takes a pause off, so a job that stopped after failing is tried again."""
-    persona = _persona(handle)
-    job = jobs.load(persona["handle"], name)
-    if job is None:
-        raise JobMissing("There is no such job.")
+def _with_model(text: str, model: str | None) -> str | None:
+    """`text` with its `model:` property set to `model`, or taken out for `None`, the rest untouched; `None` when it opens a
+    front matter it never closes."""
+    opening = _OPEN.match(text)
+    if opening is None:
+        return text if model is None else f"---\nmodel: {model}\n---\n{text}"
+    closing = _CLOSE.search(text, opening.end())
+    if closing is None:
+        return None
+    newline = "\r\n" if opening.group(0).endswith("\r\n") else "\n"
+    block = text[opening.end() : closing.start()]
+    if model is None:
+        block = _MODEL.sub("", block, count=1)
+    elif _MODEL.search(block):
+        block = _MODEL.sub(lambda m: f"model: {model}{m.group(1) or ''}", block, count=1)
+    else:
+        block = block + ("" if block == "" or block.endswith("\n") else newline) + f"model: {model}{newline}"
+    return text[: opening.end()] + block + text[closing.start() :]
+
+
+def _edit(job: jobs.Job, change: Callable[[str], str | None]) -> None:
+    """Rewrite the job's file with `change` (its backup beside it first), writing nothing when the text stays as it is."""
     with _LOCK:
         try:
             with open(job.path, "r", encoding="utf-8", newline="") as f:
                 text = f.read()
             bom, text = ("\ufeff", text[1:]) if text.startswith("\ufeff") else ("", text)  # an editor's mark, kept as it was
-            changed = _with_enabled(text, enabled)
+            changed = change(text)
             if changed is None:
                 raise JobRefused("The properties at the top of that job are not closed with a line of three dashes. Fix them in the editor first.")
             if changed != text:
@@ -108,8 +126,32 @@ def set_enabled(handle: str, name: str, enabled: bool) -> dict[str, Any]:
                 write_atomic_text(job.path, bom + changed, newline="")
         except (OSError, UnicodeDecodeError):
             raise JobRefused("The job's file could not be saved.")
+
+
+def _load(handle: str, name: str) -> tuple[dict[str, Any], jobs.Job]:
+    persona = _persona(handle)
+    job = jobs.load(persona["handle"], name)
+    if job is None:
+        raise JobMissing("There is no such job.")
+    return persona, job
+
+
+def set_enabled(handle: str, name: str, enabled: bool) -> dict[str, Any]:
+    """Switch a job on or off. Switching it on also takes a pause off, so a job that stopped after failing is tried again."""
+    persona, job = _load(handle, name)
+    _edit(job, lambda text: _with_enabled(text, enabled))
     if enabled:
         job_state.resume(job.handle, name)
+    return _row(jobs.load(job.handle, name) or job, persona)
+
+
+def set_model(handle: str, name: str, model: str | None) -> dict[str, Any]:
+    """Give a job a model of its own, or take it off (`None`) so the job uses the persona's. Which models are allowed is the
+    route's rule; this only writes the one property."""
+    persona, job = _load(handle, name)
+    if model is not None and (not model.strip() or "\n" in model or "\r" in model):
+        raise JobRefused("Pick a model from the list.")
+    _edit(job, lambda text: _with_model(text, model))
     return _row(jobs.load(job.handle, name) or job, persona)
 
 

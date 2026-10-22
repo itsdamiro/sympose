@@ -44,7 +44,7 @@ from sympose import server_trash_handlers as th
 from sympose import server_vault_handlers as vh
 from sympose import vault_paths
 from sympose.server_change_models import AnnotationChange, AnnotationCreate, ChangesResolve, DraftText
-from sympose.server_models import ChatBinAction, ChatCancel, ChatCompact, ChatSessionArchive, ChatSessionStart, ChatSessionUpdate, ChatTurn, DefinitionsSwitch, EditModeChoice, FolderColor, FolderIcon, FolderMove, FolderMovePlan, FolderRename, FolderSettings, HiddenPath, JobRename, JobSwitch, ModelChoice, PersonaFileWrite, ScheduleSwitch, SettingChange, SharingChange, SkillAdd, SkillSwitch, TrashEmpty, TrashRestore, VaultActivate
+from sympose.server_models import ChatBinAction, ChatCancel, ChatCompact, ChatSessionArchive, ChatSessionStart, ChatSessionUpdate, ChatTurn, DefinitionsSwitch, EditModeChoice, FolderColor, FolderIcon, FolderMove, FolderMovePlan, FolderRename, FolderSettings, HiddenPath, JobModelChoice, JobRename, JobSwitch, ModelChoice, PersonaFileWrite, ScheduleSwitch, SettingChange, SharingChange, SkillAdd, SkillSwitch, TrashEmpty, TrashRestore, VaultActivate
 
 
 def create_app() -> FastAPI:
@@ -255,6 +255,10 @@ def create_app() -> FastAPI:
     @app.put("/api/personas/{handle}/jobs/{name}")
     def put_persona_job(handle: str, name: str, body: JobSwitch) -> dict[str, Any]:
         return jh.put_job(handle, name, body)
+
+    @app.put("/api/personas/{handle}/jobs/{name}/model")
+    def put_persona_job_model(handle: str, name: str, body: JobModelChoice) -> dict[str, Any]:
+        return jh.put_job_model(handle, name, body)
 
     @app.post("/api/personas/{handle}/jobs/{name}/rename")
     def rename_persona_job(handle: str, name: str, body: JobRename) -> dict[str, Any]:

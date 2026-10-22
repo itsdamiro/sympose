@@ -290,6 +290,12 @@ class JobSwitch(BaseModel):
     enabled: bool
 
 
+class JobModelChoice(BaseModel):
+    """Body of `PUT /api/personas/{handle}/jobs/{name}/model`: the job's own model, or `null` to use the persona's."""
+
+    model: str | None = None
+
+
 class ScheduleSwitch(BaseModel):
     """Body of `PUT /api/schedule`: have the operating system run due jobs while the web app is closed, or stop."""
 
