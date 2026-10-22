@@ -14,3 +14,10 @@ def mention(text=f"<@{BOT}> what is in my notes?", user=OWNER, ts="1700000002.00
     event = {"type": "app_mention", "channel": "C0CHAN", "user": user, "text": text, "ts": ts, "event_ts": ts,
              **({"thread_ts": thread_ts} if thread_ts else {})}
     return {"type": "event_callback", "event_id": event_id, "event": event}
+
+
+def shared(name="notes.pdf", size=2000, **more):
+    """One entry of an event's `files`, as Slack documents it."""
+    return {"id": "F1", "name": name, "mimetype": "application/pdf", "size": size,
+            "url_private": f"https://files.slack.com/files-pri/T1-F1/{name}",
+            "url_private_download": f"https://files.slack.com/files-pri/T1-F1/download/{name}", **more}

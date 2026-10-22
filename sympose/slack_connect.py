@@ -19,7 +19,7 @@ log = logging.getLogger(__name__)
 NEW_COMMAND = slack_manifest.NEW_COMMAND["command"]  # the manifest declares it, so the two cannot differ
 
 
-def listeners(handle: str, bot_user_id: str, seen: slack_sessions.Seen | None = None) -> tuple[Callable, Callable]:
+def listeners(handle: str, bot_user_id: str, seen: slack_sessions.Seen | None = None, bot_token: str = "") -> tuple[Callable, Callable]:
     """What `handle`'s Slack App does with a message (or a mention) and with `/new`. Each is called by Slack's library,
     which has already acknowledged the event; neither raises, since a failure here would only be lost in a thread."""
     seen = seen or slack_sessions.Seen()
@@ -31,7 +31,7 @@ def listeners(handle: str, bot_user_id: str, seen: slack_sessions.Seen | None = 
         note(handle, f"message received ({'direct' if message.direct else 'channel'})")
         started = time.monotonic()
         try:
-            reply = slack_channel.answer(handle, message, seen)
+            reply = slack_channel.answer(handle, message, seen, bot_token)
         except Exception as e:
             note(handle, f"the answer failed ({type(e).__name__}), see below")
             log.exception("Slack: the answer of %s failed", handle)
@@ -63,7 +63,7 @@ def connect(handle: str, bot_token: str, app_token: str) -> Any:
     from slack_bolt.adapter.socket_mode import SocketModeHandler
 
     app = App(token=bot_token)
-    on_event, on_new = listeners(handle, app.client.auth_test()["user_id"])
+    on_event, on_new = listeners(handle, app.client.auth_test()["user_id"], bot_token=bot_token)
     app.event("message")(on_event)
     app.event("app_mention")(on_event)
     app.command(NEW_COMMAND)(on_new)

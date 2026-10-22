@@ -5,9 +5,9 @@ from types import SimpleNamespace
 
 import pytest
 from helpers import write_persona
-from slack_shapes import BOT, OWNER, dm, mention
+from slack_shapes import BOT, OWNER, dm, mention, shared
 
-from sympose import settings_store, slack_approval, slack_channel, slack_connect, slack_credentials, slack_heartbeat
+from sympose import settings_store, slack_approval, slack_channel, slack_connect, slack_credentials, slack_files, slack_heartbeat
 from sympose.engine import turn
 from sympose.engine.turn_result import TurnResult
 
@@ -252,3 +252,43 @@ def test_a_message_that_gets_no_reply_has_the_line_of_its_reason_and_no_replied_
     on_event, _ = slack_connect.listeners("samantha", BOT)
     on_event(dm("hi", user="U0STRANGER"), Say())
     assert _lines(capsys) == ["samantha: message received (direct)", "samantha: ignored, not from the owner"]
+
+
+def test_the_personas_bot_token_downloads_the_files_of_its_messages(home, monkeypatch):
+    got = []
+    monkeypatch.setattr(slack_files, "fetch", lambda files, token: got.append(token) or ())
+    on_event, _ = slack_connect.listeners("samantha", BOT, bot_token="xoxb-samantha")
+    on_event(dm("read this", subtype="file_share", files=[shared()]), Say())
+    assert got == ["xoxb-samantha"]
+
+
+def test_connect_gives_the_listeners_the_bot_token_it_was_opened_with(home, monkeypatch):
+    pytest.importorskip("slack_bolt")
+    import slack_bolt
+    from slack_bolt.adapter import socket_mode
+
+    got, events = [], {}
+
+    class App:
+        def __init__(self, token):
+            self.client = SimpleNamespace(auth_test=lambda: {"user_id": BOT})
+
+        def event(self, name):
+            return lambda listener: events.setdefault(name, listener)
+
+        def command(self, name):
+            return lambda listener: listener
+
+    class Handler:
+        def __init__(self, app, token):
+            pass
+
+        def connect(self):
+            pass
+
+    monkeypatch.setattr(slack_bolt, "App", App)
+    monkeypatch.setattr(socket_mode, "SocketModeHandler", Handler)
+    monkeypatch.setattr(slack_files, "fetch", lambda files, token: got.append(token) or ())
+    slack_connect.connect("samantha", "xoxb-samantha", "xapp-samantha")
+    events["message"](dm("read this", subtype="file_share", files=[shared()]), Say())
+    assert got == ["xoxb-samantha"]

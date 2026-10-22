@@ -20,7 +20,7 @@ def home(tmp_path, monkeypatch):
 
 def test_the_manifest_asks_for_what_the_adapter_uses_and_no_more():
     m = slack_manifest.manifest("samantha", "Samantha")
-    assert m["oauth_config"]["scopes"]["bot"] == ["app_mentions:read", "chat:write", "commands", "im:history"]
+    assert m["oauth_config"]["scopes"]["bot"] == ["app_mentions:read", "chat:write", "commands", "files:read", "im:history"]
     assert m["settings"]["event_subscriptions"]["bot_events"] == ["app_mention", "message.im"]
     assert m["settings"]["socket_mode_enabled"] is True
     assert [c["command"] for c in m["features"]["slash_commands"]] == ["/new"]

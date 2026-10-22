@@ -6,10 +6,10 @@ import time
 
 import pytest
 from helpers import write_persona
-from slack_shapes import BOT, OWNER, dm, mention
+from slack_shapes import BOT, OWNER, dm, mention, shared
 
-from sympose import draft_limit, note_changes, settings_store, slack_approval, slack_channel, slack_credentials, slack_drafts, slack_sessions
-from sympose.engine import turn
+from sympose import draft_limit, note_changes, settings_store, slack_approval, slack_channel, slack_credentials, slack_drafts, slack_files, slack_sessions
+from sympose.engine import media, turn
 from sympose.engine.turn_result import TurnResult
 from sympose.slack_events import parse
 
@@ -55,8 +55,8 @@ def turns(monkeypatch):
     return seen
 
 
-def _answer(body, seen=None):
-    return slack_channel.answer("samantha", parse(body, BOT), seen or slack_sessions.Seen())
+def _answer(body, seen=None, token=""):
+    return slack_channel.answer("samantha", parse(body, BOT), seen or slack_sessions.Seen(), token)
 
 
 # --- who may talk -------------------------------------------------------------------------------
@@ -163,7 +163,7 @@ def test_slash_new_in_a_channel_says_to_use_a_thread(home, turns):
 # --- the turn -----------------------------------------------------------------------------------
 def test_the_turn_may_propose_notes_and_is_told_it_is_in_slack(home, turns):
     _answer(dm("hi"))
-    assert turns[0][3] == {"edits": True, "in_slack": True}
+    assert turns[0][3] == {"edits": True, "in_slack": True, "files": ()}
 
 
 def test_a_note_the_turn_proposed_is_shown_under_the_reply_as_it_waits(home, turns):
@@ -359,3 +359,100 @@ def test_a_message_stopped_before_it_ran_is_a_line_that_says_so(home, turns, cap
     assert _answer(dm("hi")) is None
     assert turns == []
     assert "samantha: stopped before it ran, no reply\n" in capsys.readouterr().out
+
+
+# --- files shared with the message (docs/decisions/093, "files attached in Slack") -------------------
+@pytest.fixture
+def fetched(monkeypatch):
+    """Every `slack_files.fetch` call as `(files, token)`; set `.refuse` to a message to refuse them."""
+    class Fetched(list):
+        refuse = None
+
+    calls = Fetched()
+
+    def fake(files, token):
+        calls.append((files, token))
+        if calls.refuse:
+            raise media.MediaRefused(calls.refuse)
+        return tuple(media.make(f.name, b"%PDF bytes") for f in files)
+
+    monkeypatch.setattr(slack_files, "fetch", fake)
+    return calls
+
+
+def _shared(text="read this", **more):
+    return dm(text, subtype="file_share", files=[shared("notes.pdf")], **more)
+
+
+def test_a_file_is_fetched_with_the_personas_token_and_given_to_the_turn_with_its_marker(home, turns, fetched):
+    _answer(_shared(), token="xoxb-samantha")
+
+    (files, token), = fetched
+    assert token == "xoxb-samantha" and [f.name for f in files] == ["notes.pdf"]
+    handle, message, _, kwargs = turns[0]
+    assert message == "read this\n[attached: notes.pdf]"
+    assert [f.name for f in kwargs["files"]] == ["notes.pdf"] and kwargs["files"][0].data == b"%PDF bytes"
+
+
+def test_a_message_with_no_words_is_only_the_markers(home, turns, fetched):
+    body = _shared()
+    body["event"]["text"] = ""
+    _answer(body)
+    assert turns[0][1] == "[attached: notes.pdf]"
+
+
+def test_a_message_without_files_fetches_nothing(home, turns, fetched):
+    _answer(dm("hi"))
+    assert fetched == [] and turns[0][1] == "hi"
+
+
+def test_a_strangers_file_is_never_fetched(home, turns, fetched):
+    assert _answer(_shared(user="U0STRANGER")) is None
+    assert fetched == [] and turns == []
+
+
+def test_a_file_is_not_fetched_when_slack_is_switched_off(home, turns, fetched):
+    settings_store.set(slack_approval.SETTING, False)
+    assert _answer(_shared()).text == slack_channel.SWITCHED_OFF
+    assert fetched == []
+
+
+def test_a_redelivered_event_fetches_the_file_once(home, turns, fetched):
+    seen = slack_sessions.Seen()
+    _answer(_shared(), seen)
+    assert _answer(_shared(), seen) is None
+    assert len(fetched) == 1 and len(turns) == 1
+
+
+def test_files_that_cannot_be_taken_are_said_and_no_turn_runs(home, turns, fetched):
+    fetched.refuse = "notes.pdf is empty."
+    reply = _answer(_shared())
+    assert reply.text == "notes.pdf is empty." and reply.thread_ts is None
+    assert turns == []
+
+
+def test_a_refusal_in_a_channel_is_answered_in_the_thread(home, turns, fetched):
+    fetched.refuse = "At most 3 files can go with one message."
+    body = mention(ts="5.5")
+    body["event"]["files"] = [shared()]
+    assert _answer(body).thread_ts == "5.5"
+
+
+def test_the_refusal_has_a_line_in_the_terminal_without_the_files(home, turns, fetched, capsys):
+    fetched.refuse = "secret-name.pdf is empty."
+    _answer(_shared())
+    out = capsys.readouterr().out
+    assert "the files could not be taken, said so" in out and "secret-name" not in out
+
+
+def test_the_files_are_fetched_with_the_conversations_lock_held(home, turns, monkeypatch):
+    """A slow download must not let a later message of the same conversation run first."""
+    inside = []
+
+    def fake(files, token):
+        inside.append(slack_channel.lock_for("samantha", None, LOCAL).locked())
+        return ()
+
+    monkeypatch.setattr(slack_files, "fetch", fake)
+    _answer(_shared())
+    assert inside == [True]

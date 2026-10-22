@@ -10,7 +10,8 @@ from dataclasses import dataclass
 
 from sympose import draft_limit, note_changes
 from sympose import profile as profile_mod
-from sympose import slack_drafts, slack_sessions
+from sympose import slack_drafts, slack_files, slack_sessions
+from sympose.engine import media
 from sympose.engine import model as model_mod
 from sympose.server_chat_locks import acquire, lock_for
 from sympose.slack_approval import approved
@@ -36,9 +37,11 @@ def _where(message: Incoming) -> str | None:
     return None if message.direct else message.thread_ts or message.ts
 
 
-def answer(handle: str, message: Incoming, seen: slack_sessions.Seen) -> Reply | None:
+def answer(handle: str, message: Incoming, seen: slack_sessions.Seen, bot_token: str = "") -> Reply | None:
     """What the persona says to `message`, or `None` when nothing is said: the sender is not the owner (dropped here,
-    with no reply and nothing about its text logged), the delivery was seen already, or the user stopped the turn."""
+    with no reply and nothing about its text logged), the delivery was seen already, or the user stopped the turn.
+    `bot_token` is the persona's, for downloading the files shared with the message: only after the checks above pass,
+    so a stranger's file is never fetched."""
     allowed = owner()
     if allowed is None or message.user != allowed:
         note(handle, "ignored, not from the owner")
@@ -55,10 +58,10 @@ def answer(handle: str, message: Incoming, seen: slack_sessions.Seen) -> Reply |
         note(handle, "the persona was not found, said so")
         return Reply(NO_PERSONA, where)
     handle = profile["handle"]
-    return _turn(handle, profile, message, where)
+    return _turn(handle, profile, message, where, bot_token)
 
 
-def _turn(handle: str, profile: dict, message: Incoming, where: str | None) -> Reply | None:
+def _turn(handle: str, profile: dict, message: Incoming, where: str | None, bot_token: str) -> Reply | None:
     from sympose.engine import turn  # imported here: it brings in litellm, a few seconds
 
     session_id = slack_sessions.session_for(handle, conversation_key(message))
@@ -67,8 +70,13 @@ def _turn(handle: str, profile: dict, message: Incoming, where: str | None) -> R
         note(handle, "stopped before it ran, no reply")
         return None
     try:
+        # The files are fetched with the conversation's lock held, so a slow download does not let a later message overtake this one.
+        files = slack_files.fetch(message.files, bot_token) if message.files else ()
         with note_changes.new_notes_made() as made, note_changes.from_source(draft_limit.SLACK):
-            result = turn.run_turn(handle, message.text, session_id, edits=True, in_slack=True)
+            result = turn.run_turn(handle, slack_files.with_markers(message.text, files), session_id, edits=True, in_slack=True, files=files)
+    except media.MediaRefused as e:
+        note(handle, "the files could not be taken, said so")
+        return Reply(str(e), where)
     except turn.PersonaNotFoundError:
         note(handle, "the persona was not found, said so")
         return Reply(NO_PERSONA, where)

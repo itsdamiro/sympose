@@ -70,12 +70,18 @@ def file_name(raw: str) -> str:
     return name[:120]
 
 
-def make(name: str, data: bytes) -> File:
-    """A `File` from its name and bytes; `MediaRefused` for an ending Google cannot read or for nothing at all."""
+def readable_name(name: str) -> tuple[str, tuple[str, str]]:
+    """The clean name and its (mime, kind), or `MediaRefused` for an ending Google cannot read: asked before a file is fetched."""
     clean = file_name(name)
     kind = _TYPES.get(PurePath(clean).suffix.lower())
     if not clean or kind is None:
         raise MediaRefused(f"Sympose cannot attach {clean or 'that'}: it reads PDFs, images, sounds and videos ({', '.join(EXTENSIONS)}).")
+    return clean, kind
+
+
+def make(name: str, data: bytes) -> File:
+    """A `File` from its name and bytes; `MediaRefused` for an ending Google cannot read or for nothing at all."""
+    clean, kind = readable_name(name)
     if not data:
         raise MediaRefused(f"{clean} is empty.")
     return File(clean, kind[0], kind[1], data)

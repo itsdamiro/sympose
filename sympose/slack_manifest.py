@@ -1,6 +1,6 @@
 """The Slack App manifest of one persona (docs/decisions/093): what `sympose slack manifest <handle>` prints, so making the
 App in Slack is a paste and not a form. It asks for exactly what the adapter uses and nothing more: direct messages to the bot,
-mentions of it, `/new`, Socket Mode (so no public address), no history, no files, no buttons.
+mentions of it, `/new`, the files shared with them (`files:read`), Socket Mode (so no public address), no history, no buttons.
 
 The field names and limits are Slack's app manifest reference; the manifest was not tried against a real workspace."""
 
@@ -12,7 +12,7 @@ from sympose import profile as profile_mod
 
 NAME_LIMIT = 35  # `display_information.name`
 BOT_NAME_LIMIT = 80  # `features.bot_user.display_name`, which takes lower case letters, digits, `-`, `_` and `.` only
-BOT_SCOPES = ["app_mentions:read", "chat:write", "commands", "im:history"]
+BOT_SCOPES = ["app_mentions:read", "chat:write", "commands", "files:read", "im:history"]
 BOT_EVENTS = ["app_mention", "message.im"]
 NEW_COMMAND = {"command": "/new", "description": "Start a new conversation", "should_escape": False}
 
