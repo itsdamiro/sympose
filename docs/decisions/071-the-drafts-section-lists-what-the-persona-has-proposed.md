@@ -81,6 +81,10 @@ When the Drafts section is shown the notes list under it is captioned ("Notes in
 
 The amendment above (only the drafts of the folder in view) hid every new note: a note she proposes is kept under a working path (`new/<id>`) until it is accepted, which is inside no folder, so it was listed nowhere and the user, who had asked her for one, could not find it. A new-note draft is now listed whichever folder is in view, and at the vault root.
 
+## Amendment (2026-10-23): a new note is listed in the folder it will be made in
+
+ADR 094 gave every new-note draft a destination folder (the persona's `Inbox` when nobody named one), so the reason for listing it everywhere is gone, and listing it in every folder contradicted the Inbox rule. A new-note draft is now listed only where the folder in view is its destination or above it (at any depth, like the drafts of notes that exist), and not at the vault root unless it was proposed for the root. A draft proposed before ADR 094, which carries no folder, is still listed everywhere, or it could not be found. Decided with damiro after he saw a note proposed from Slack listed under every folder.
+
 ## Amendment (2026-10-06): a row of a note that exists has the note's own menu
 
 The section's rows had no menu, on the reasoning that a draft is not a note until it is accepted. That holds for a new note a persona proposed (no file yet), but a row for a note that exists, with changes waiting or open comments, is that note. Right-click, long-press or the ⋯ button on such a row now gives the same menu as a row in the notes list or Pinned (rename, delete, pin, hide), from the same actions. A new-note row still has none. After a rename or a delete the drafts are read again, since the note's changes and comments move or go with it (ADR 070).

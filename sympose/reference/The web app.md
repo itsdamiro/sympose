@@ -68,7 +68,7 @@ Yes. Give her a note's name or path and the web app shows it in the editor panel
 
 At the top of the notes list, the Drafts section lists the notes in the folder you are viewing that a persona has proposed changes to, the new notes she has proposed, and the notes with an open comment. Choose one to open it. Right-click a note in it for the same menu as in the notes list, such as rename or delete.
 
-A new note she proposed has no file yet: it is listed here in whichever folder you are in, and it is created when you accept it, in the Inbox folder unless you named another.
+A new note she proposed has no file yet: it is listed here only in the folder it will be made in (the Inbox folder unless another was named), and it is created there when you accept it.
 
 ## How do I get back a note I deleted?
 

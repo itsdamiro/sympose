@@ -8,7 +8,7 @@ Ask her, for example "make a note for my reading list". She writes the note and 
 
 ## Where do I find a note she proposed?
 
-In the Drafts group at the top of the notes list. A new note is listed there, marked new, in whichever folder you are in. Choose it to read it. It opens in the editor with a bar above it that says it is not in your vault yet, with Decline and Accept.
+In the Drafts group at the top of the notes list. A new note is listed there, marked new, in the folder it will be made in: the Inbox unless a folder was named. Choose it to read it. It opens in the editor with a bar above it that says it is not in your vault yet, with Decline and Accept.
 
 You can change the draft's text before you accept. What you change is kept with the draft, not in your vault.
 
@@ -32,7 +32,7 @@ She picks a folder only when you asked for one; otherwise the note goes to Inbox
 
 ## Why can't I see the note I asked her to create?
 
-Look in the Drafts group of the folder you are in; a new note is listed in every folder. If it is not there, she may not have proposed one: say "please create it", and check that her reply says she proposed a note. A persona in plan mode only talks and proposes nothing.
+Look in the Drafts group of the folder it was proposed for, the Inbox unless you named one; a new note is listed only there. If it is not there, she may not have proposed one: say "please create it", and check that her reply says she proposed a note. A persona in plan mode only talks and proposes nothing.
 
 ## What happens if I ask her for the same note twice?
 

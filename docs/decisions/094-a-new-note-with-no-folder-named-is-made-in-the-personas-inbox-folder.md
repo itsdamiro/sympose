@@ -49,3 +49,6 @@ The review of Slack slice 2 (2026-10-22) hit it: a draft proposed from Slack has
 - The `propose_note` tool text says "Leave it out to make it in the Inbox folder." The reference pages say it: `Creating notes.md` has its own short entry, "Where does a new note go if I do not choose a folder?" (put in the folder entry, with "new" in its heading, a general request about a "new project" attached it, since that entry already holds `Projects/Sympose`; without "new" the plain question was not found), and `The web app.md` one clause; one reference case and one retrieval message. Retrieval `auto` 82/88 (81/87 before), the same six failures.
 - Checked: 12 new Python tests and 1 web test changed, 22 Python mutants (21 caught, 1 shown equivalent and then removed by tightening the Slack room estimate, whose 3 new mutants are caught) and 2 web mutants caught. The review's seven findings are in ADR 093's last amendment.
 
+## Amendment (2026-10-23): the Drafts list follows the folder
+
+The line above that says the Drafts list is unchanged ("a new note is still listed in every folder") is superseded: a new note is listed only in its destination folder (ADR 071 amendment of the same date), so a note proposed for the `Inbox` is found in the `Inbox`.
