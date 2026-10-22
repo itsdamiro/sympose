@@ -26,9 +26,15 @@ Slack gets what a persona says. A reply can quote your notes, and it is sent to 
 
 ## Can a persona make a note from Slack?
 
-A persona can make a note from Slack, as a proposal: the reply shows the whole text, the folder and a line saying it waits in Drafts. Nothing is saved from Slack; you Accept the note in the web app, on your computer. It cannot change a note, comment, open a note or propose a persona or a setting, and a file attached in Slack is not read.
+A persona can make a note from Slack, as a proposal: the reply shows the whole text, the folder and a line saying it waits in Drafts. Nothing is saved from Slack; you Accept the note in the web app, on your computer. It cannot change a note, comment, open a note or propose a persona or a setting.
 
 Once 10 notes made from Slack are waiting, it makes no more and says so in its reply. The `slack_waiting_drafts` setting changes the 10.
+
+## Can I send a file to a persona in Slack?
+
+Yes. Share a PDF, image, sound or video with your message and the persona reads it as in the web chat: the `media` approval, a model that can read files and the same limits (3 files, 50 MB together) apply, and the file is kept in memory only. A file Sympose cannot read is answered with one line saying why.
+
+If the line mentions `files:read`, the Slack App cannot download files. Add that bot scope under OAuth & Permissions, reinstall the App and send the file again.
 
 ## What does /new do in Slack?
 
@@ -61,6 +67,10 @@ If the reply says Sympose could not reach the model, start Ollama or check the c
 ## Did my Slack message arrive?
 
 `sympose slack` prints one line in its terminal for each message it receives, with the time and the persona, never the words. No line means Slack never delivered it. `ignored, not from the owner` means the user ID in `.env` is not yours. `the answer failed` or `the reply could not be sent` mean it arrived and failed.
+
+## Why did Slack refuse my file?
+
+`sympose slack` prints `the files could not be taken, said so` when a file you shared was refused, and the reply in Slack says why: a type it cannot read, too many or too large files, or the App missing the `files:read` permission.
 
 ## How do I change the Slack bot's display name or picture?
 

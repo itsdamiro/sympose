@@ -22,8 +22,9 @@ sympose slack manifest samantha
 ## 2. Make the Slack App from it
 
 - Open https://api.slack.com/apps, choose Create New App, then From a manifest, pick your workspace, paste the JSON and create the App.
-- What the manifest asks for, and all the code needs: the bot scopes `app_mentions:read`, `chat:write`, `commands` and `im:history`; the bot events `app_mention` and `message.im`; the slash command `/new`; Socket Mode on (Sympose connects out to Slack, so there is no public address and no request URL); the Messages tab of App Home on, with users allowed to message the bot.
-- It does not ask to read other channel messages, files or buttons, because Sympose answers only direct messages and mentions.
+- What the manifest asks for, and all the code needs: the bot scopes `app_mentions:read`, `chat:write`, `commands`, `files:read` and `im:history`; the bot events `app_mention` and `message.im`; the slash command `/new`; Socket Mode on (Sympose connects out to Slack, so there is no public address and no request URL); the Messages tab of App Home on, with users allowed to message the bot.
+- It does not ask to read other channel messages or buttons, because Sympose answers only direct messages and mentions. `files:read` is only so a file you share with a message to the persona can be downloaded.
+- An App made before files were supported: add `files:read` under OAuth & Permissions, reinstall the App (step 4), and copy the bot token again if it changed.
 - If Slack rejects the manifest, say which line and fix `sympose/slack_manifest.py` from what Slack says.
 
 ## 3. Make the app token
@@ -93,17 +94,18 @@ sympose slack
 
 - It can propose new notes and a folder's definition. It cannot change an existing note, comment on a passage, open a note in an editor, or propose a persona or a setting, because Slack has no editor or card to show them in.
 - A cloud model is held back from what the cloud approvals do not allow, as in the web chat. Slack replies do not say what was held back; the web chat's cloud icon does.
-- Files attached in Slack are not read.
+- A PDF, image, sound or video shared with a message is read like one attached in the web chat: the `media` approval, the models that can read files and the limits (3 files, 50 MB together) are the same, and the file is held in memory for the next few messages and kept nowhere else. A type it cannot read, too many or too large files, or a missing `files:read` permission is answered in one line and nothing else happens. A message with only a file and no words is answered too.
 
 ## If it does not work
 
-- **You are not sure whether a message arrived:** `sympose slack` prints one line in its terminal for each message it receives, with the time and the persona, never the words. No line means Slack never delivered it (a connection that dropped, a message in a place the bot is not in); `ignored, not from the owner` means the user ID in `.env` is not yours; `the reply could not be sent` or `the answer failed` mean it arrived and failed, and the lines under it say why.
+- **You are not sure whether a message arrived:** `sympose slack` prints one line in its terminal for each message it receives, with the time and the persona, never the words. No line means Slack never delivered it (a connection that dropped, a message in a place the bot is not in); `ignored, not from the owner` means the user ID in `.env` is not yours; `the files could not be taken, said so` means a file was refused (the reply in Slack says why); `the reply could not be sent` or `the answer failed` mean it arrived and failed, and the lines under it say why.
 - **Nothing happens when you message it:** run `sympose doctor`; check that you used your own user ID, that the Messages tab is on, and that `sympose slack` is still running and printed the persona as in Slack.
 - **"Slack is switched off in Sympose's settings":** step 7.
 - **`sympose slack` stops at once:** it names the missing piece: the owner ID in `.env`, Slack switched off, or no persona with both tokens.
 - **`sympose: command not found`:** the command lives in the project's virtual environment. Run `source .venv/bin/activate` in the project's folder first, or call `.venv/bin/sympose`.
 - **A persona is "not connected":** the pair is wrong, revoked, or from another App. Make the app token with `connections:write` and copy the bot token after installing.
 - **It does not answer in a channel:** invite the bot to the channel and mention it by name; other messages in the channel are ignored.
+- **A file gets a reply about `files:read`:** the App cannot download files. Add the `files:read` bot scope under OAuth & Permissions, reinstall the App, copy the bot token into `.env` if it changed, restart `sympose slack`, and send the file again.
 - **The Slack dot is missing though it is connected:** the dot is read from a small file `sympose slack` refreshes every 20 seconds in the persona's folder, so it can lag by a minute; it only shows on the Persona page.
 - **A reply says Sympose could not reach the model:** start Ollama or check the cloud key, then ask again. A note it had already filed before the failure is shown under that line.
 - **A new display name or picture does not show:** both are set in Slack (Basic Information, Display Information, for the App icon; App Home, Your App's Presence in Slack, for the bot's Display Name). Reinstall the App (Install App, Reinstall to Workspace), restart the Slack app on your computer, which caches them, and if the bot token changed, copy it into `.env` and restart `sympose slack`.

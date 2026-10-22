@@ -100,6 +100,8 @@ _RAW = [
     ("sympose", "how do I give the Slack bot a profile picture?", True, "Slack.md"),
     ("sympose", "sympose doctor says my persona is not connected in Slack, what does that mean?", True, "Slack.md"),
     ("sympose", "how do I take a persona out of Slack, or lock out a leaked Slack token?", True, "Slack.md"),
+    ("sympose", "can I send a PDF to the bot in Slack for it to read?", True, "Slack.md"),
+    ("sympose", "Slack says the App needs files:read when I share a file, what do I do?", True, "Slack.md"),
     ("sympose", "my terminal says sympose command not found", True, "Troubleshooting.md"),
 ]
 
