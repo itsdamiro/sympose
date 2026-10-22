@@ -58,6 +58,10 @@ In the App's settings the Messages tab of App Home must be on. In a channel, inv
 
 If the reply says Sympose could not reach the model, start Ollama or check the cloud key and ask again. If the App was reinstalled or a token regenerated, copy the fresh bot token into `.env` and restart `sympose slack`.
 
+## Did my Slack message arrive?
+
+`sympose slack` prints one line in its terminal for each message it receives, with the time and the persona, never the words. No line means Slack never delivered it. `ignored, not from the owner` means the user ID in `.env` is not yours. `the answer failed` or `the reply could not be sent` mean it arrived and failed.
+
 ## How do I change the Slack bot's display name or picture?
 
 The display name and the picture are set in Slack, not in Sympose, and Sympose never reads them back. At api.slack.com/apps open the App: Basic Information, then Display Information, holds the App icon (the picture: a square image, 512 to 2000 pixels). The display name shown on its messages is the bot name, under App Home, Your App's Presence in Slack, Display Name (Bot Name); save it there.

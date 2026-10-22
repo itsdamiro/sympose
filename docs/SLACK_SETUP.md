@@ -97,6 +97,7 @@ sympose slack
 
 ## If it does not work
 
+- **You are not sure whether a message arrived:** `sympose slack` prints one line in its terminal for each message it receives, with the time and the persona, never the words. No line means Slack never delivered it (a connection that dropped, a message in a place the bot is not in); `ignored, not from the owner` means the user ID in `.env` is not yours; `the reply could not be sent` or `the answer failed` mean it arrived and failed, and the lines under it say why.
 - **Nothing happens when you message it:** run `sympose doctor`; check that you used your own user ID, that the Messages tab is on, and that `sympose slack` is still running and printed the persona as in Slack.
 - **"Slack is switched off in Sympose's settings":** step 7.
 - **`sympose slack` stops at once:** it names the missing piece: the owner ID in `.env`, Slack switched off, or no persona with both tokens.
