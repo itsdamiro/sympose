@@ -79,4 +79,9 @@ describe("chooseJobModel", () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")))
     expect(await chooseJobModel("a", "j", "x")).toEqual({ ok: false, error: `Couldn't change the model of j: ${DOWN}` })
   })
+
+  it("names what failed when the answer has no reason", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json({}, false, 500)))
+    expect(await chooseJobModel("a", "j", "x")).toEqual({ ok: false, error: "Couldn't change the model of j (code 500). Try again." })
+  })
 })

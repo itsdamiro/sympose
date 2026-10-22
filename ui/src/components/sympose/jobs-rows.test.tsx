@@ -144,6 +144,21 @@ describe("JobsRows", () => {
     await waitFor(() => expect(calls.some((c) => c.init?.method === "PUT" && c.url.endsWith("/model") && JSON.parse(c.init.body as string).model === null)).toBe(true))
   })
 
+  it("offers the persona's model as the default, not the job's own", async () => {
+    stub({ list: [job({ model: "gemini/gemini-flash-latest", own_model: "gemini/gemini-flash-latest", cloud: true })] })
+    render(<JobsRows persona="ada" personaName="Ada" onOpen={vi.fn()} />)
+    fireEvent.click(await screen.findByRole("button", { name: /^Model:/ }))
+    expect(await screen.findByRole("menuitem", { name: "Use the default (ollama/gemma4:e4b)" })).toBeTruthy()
+  })
+
+  it("opens a job's model menu below its row", async () => {
+    stub()
+    render(<JobsRows persona="ada" personaName="Ada" onOpen={vi.fn()} />)
+    fireEvent.click(await screen.findByRole("button", { name: /^Model:/ }))
+    await screen.findByRole("menuitem", { name: /Gemini Flash/ })
+    expect(screen.getByRole("menu").getAttribute("data-side")).toBe("bottom")
+  })
+
   it("keeps the row as it was and says why when the model is refused", async () => {
     stub({ putModel: () => res({ detail: "Pick a model from the list." }, false) })
     render(<JobsRows persona="ada" personaName="Ada" onOpen={vi.fn()} />)

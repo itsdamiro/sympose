@@ -273,3 +273,29 @@ def test_the_model_route_refuses_what_is_not_offered_and_what_is_not_there(clien
     assert client.put("/api/personas/samantha/jobs/nope/model", json={"model": None}).status_code == 404
     assert client.put("/api/personas/nobody/jobs/weekly/model", json={"model": None}).status_code == 404
     assert client.put("/api/personas/samantha/jobs/..%2Fpersona/model", json={"model": None}).status_code == 404
+
+
+def test_a_line_that_only_ends_in_model_is_left_alone(home):
+    before = "---\nschedule: daily 07:30\nfallback_model: keep\n---\nbody\n"
+    _write(home, "j", before)
+    job_manage.set_model("samantha", "j", None)
+    assert (home / "jobs" / "j.md").read_text() == before
+    job_manage.set_model("samantha", "j", "gpt-5")
+    assert (home / "jobs" / "j.md").read_text() == "---\nschedule: daily 07:30\nfallback_model: keep\nmodel: gpt-5\n---\nbody\n"
+
+
+@pytest.mark.parametrize("model", ["", "   ", "gpt-5\renabled: false"])
+def test_an_empty_model_or_one_with_a_carriage_return_is_refused(home, model):
+    _write(home, "j", GOOD)
+    with pytest.raises(job_manage.JobRefused):
+        job_manage.set_model("samantha", "j", model)
+    assert (home / "jobs" / "j.md").read_text() == GOOD
+
+
+def test_the_model_route_also_takes_the_jobs_own_model_and_the_personas(client, home):
+    (home / "persona.yaml").write_text("name: Samantha\nvault_folders: '*'\nmodel: hand/persona-model\n", encoding="utf-8")
+    _write(home, "weekly", "---\nschedule: weekly sun 18:00\nmodel: hand/job-model\n---\nDraft a weekly note.\n")
+    for model in ("hand/job-model", "hand/persona-model"):
+        answer = client.put("/api/personas/samantha/jobs/weekly/model", json={"model": model})
+        assert answer.status_code == 200 and answer.json()["job"]["own_model"] == model
+    assert client.put("/api/personas/samantha/jobs/weekly/model", json={"model": "hand/other"}).status_code == 422
