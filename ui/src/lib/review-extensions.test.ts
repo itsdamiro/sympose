@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest"
-import { EditorState } from "@codemirror/state"
+import { Compartment, EditorState } from "@codemirror/state"
 import { EditorView } from "@codemirror/view"
 import { history, undo } from "@codemirror/commands"
 
@@ -482,6 +482,59 @@ describe("selectionTarget", () => {
 
   it("is nothing when nothing is selected", () => {
     expect(selectionTarget(mount(NO_REVIEW).view)).toBeNull()
+  })
+})
+
+describe("review extensions given to an editor that is already open", () => {
+  // A draft of a new note is opened without them; when it is accepted the same editor is given the note's. The panel
+  // can ask the editor about proposals before it holds them (a thrown error there took the whole app down), and the
+  // update that brings them is read by listeners whose fields the state before it did not have.
+  const bare = () => {
+    const slot = new Compartment()
+    const view = new EditorView({ state: EditorState.create({ doc: NOTE, extensions: [history(), slot.of([])] }), parent: document.body })
+    views.push(view)
+    return { slot, view }
+  }
+
+  it("answers 'nothing' to every question about her changes while it has none of the extensions", () => {
+    const { view } = bare()
+
+    expect(pendingIds(view.state)).toEqual([])
+    expect(appliedState(view.state)).toEqual({ ids: [], untouched: true })
+    expect(applyProposals(view, ["a"])).toEqual([])
+    expect(acceptChanges(view, ["a"])).toEqual([])
+    expect(clearApplied(view)).toEqual([])
+    expect(() => restoreAppliedMarks(view, [], ["a"], true)).not.toThrow()
+    expect(view.state.doc.toString()).toBe(NOTE)
+  })
+
+  it("is not broken by the update that brings them, and works after it", () => {
+    const { slot, view } = bare()
+    const onApplied = vi.fn()
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {})
+
+    view.dispatch({ effects: slot.reconfigure(reviewExtensions({ initial: () => ({ proposals: [edit("a", "three times", "four times")], annotations: [] }), onResolve: vi.fn(), onApplied })) })
+
+    expect(logged).not.toHaveBeenCalled() // CodeMirror logs, and does not throw, what a listener throws
+    logged.mockRestore()
+    expect(pendingIds(view.state)).toEqual(["a"])
+    expect(applyProposals(view, ["a"])).toEqual(["a"])
+    expect(onApplied).toHaveBeenLastCalledWith(["a"], true)
+  })
+
+  it("is not broken by the update that takes them away", () => {
+    const slot = new Compartment()
+    const view = new EditorView({
+      state: EditorState.create({ doc: NOTE, extensions: [history(), slot.of(reviewExtensions({ initial: () => NO_REVIEW, onResolve: vi.fn() }))] }),
+      parent: document.body,
+    })
+    views.push(view)
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {})
+
+    view.dispatch({ effects: slot.reconfigure([]) })
+
+    expect(logged).not.toHaveBeenCalled()
+    logged.mockRestore()
   })
 })
 

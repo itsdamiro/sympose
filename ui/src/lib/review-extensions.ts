@@ -225,9 +225,10 @@ const appliedFacet = Facet.define<(ids: string[], untouched: boolean) => void, (
 })
 
 const appliedListener = EditorView.updateListener.of((update) => {
-  const before = update.startState.field(appliedField)
-  const after = update.state.field(appliedField)
-  if (before === after) return
+  // The update that brings these extensions to an editor that was open without them (a draft accepted into a note) starts from a state that has no field.
+  const before = update.startState.field(appliedField, false)
+  const after = update.state.field(appliedField, false)
+  if (!before || !after || before === after) return
   const ended = update.transactions.some((tr) => tr.effects.some((e) => e.is(endApplied)))
   const gone = before.items.filter((b) => !after.items.some((a) => a.id === b.id)).map((i) => i.id)
   if (!ended && gone.length > 0) update.view.state.facet(resolveFacet)?.(gone) // undone or edited over: the proposal is forgotten
@@ -239,7 +240,7 @@ const appliedListener = EditorView.updateListener.of((update) => {
 
 /** The ids of her edits applied to the text now, and whether the user has left the note alone since. */
 export function appliedState(state: EditorState): { ids: string[]; untouched: boolean } {
-  const { items, untouched } = state.field(appliedField)
+  const { items, untouched } = state.field(appliedField, false) ?? { items: [], untouched: true }
   return { ids: items.map((i) => i.id), untouched }
 }
 
@@ -249,7 +250,7 @@ export function appliedState(state: EditorState): { ids: string[]; untouched: bo
  * words are undone or edited over. Two proposals on one passage: the earlier is applied, the other waits.
  */
 export function applyProposals(view: EditorView, ids: string[]): string[] {
-  const { placed } = classify(view.state.doc.toString(), view.state.field(reviewField).proposals)
+  const { placed } = classify(view.state.doc.toString(), view.state.field(reviewField, false)?.proposals ?? [])
   const chosen: Placed[] = []
   for (const p of placed) {
     if (!ids.includes(p.proposal.id)) continue
@@ -280,7 +281,8 @@ export function applyProposals(view: EditorView, ids: string[]): string[] {
  */
 export function restoreAppliedMarks(view: EditorView, proposals: Proposal[], ids: string[], untouched: boolean): void {
   const text = view.state.doc.toString()
-  const have = view.state.field(appliedField).items
+  const have = view.state.field(appliedField, false)?.items
+  if (!have) return
   const items: Applied[] = []
   for (const p of proposals) {
     if (!ids.includes(p.id) || p.kind !== "edit" || !p.replace || have.some((h) => h.id === p.id)) continue
@@ -292,7 +294,7 @@ export function restoreAppliedMarks(view: EditorView, proposals: Proposal[], ids
 
 /** The note was saved: the marks end and the text stays. Returns the ids that were applied, for the panel to forget. */
 export function clearApplied(view: EditorView): string[] {
-  const ids = view.state.field(appliedField).items.map((i) => i.id)
+  const ids = (view.state.field(appliedField, false)?.items ?? []).map((i) => i.id)
   if (ids.length > 0) view.dispatch({ effects: endApplied.of(null) })
   return ids
 }
@@ -429,7 +431,7 @@ const resolveFacet = Facet.define<(ids: string[], accepted?: boolean) => void, (
 
 /** Applies these proposals to the text, in one change the user can undo, and tells the panel to forget them. */
 export function acceptChanges(view: EditorView, ids: string[]): string[] {
-  const { placed } = classify(view.state.doc.toString(), view.state.field(reviewField).proposals)
+  const { placed } = classify(view.state.doc.toString(), view.state.field(reviewField, false)?.proposals ?? [])
   // Two proposals on one passage cannot both be applied: the earlier one is, the other stays waiting (ADR 070).
   const chosen: Placed[] = []
   for (const p of placed) {
@@ -449,9 +451,9 @@ export function declineChanges(view: EditorView, ids: string[]): void {
   view.state.facet(resolveFacet)?.(ids)
 }
 
-/** The proposals in the text now that can still be accepted. */
+/** The proposals in the text now that can still be accepted (none in an editor that does not hold the review extensions yet). */
 export function pendingIds(state: EditorState): string[] {
-  return classify(state.doc.toString(), state.field(reviewField).proposals).placed.map((p) => p.proposal.id)
+  return classify(state.doc.toString(), state.field(reviewField, false)?.proposals ?? []).placed.map((p) => p.proposal.id)
 }
 
 /** What the user has selected, for a new comment: the words, the text around them and where they are on screen. */

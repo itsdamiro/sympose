@@ -74,12 +74,30 @@ describe("draftsInFolder: the drafts of the folder in view", () => {
     expect(draftsInFolder(all, "Empty")).toEqual([])
   })
 
-  it("lists a new note she proposed in every folder and at the root, since it has no folder to be found in yet", () => {
-    const fresh = { ...draft("new/741e5dad7a59.md"), is_new: true, name: "Collaboration note" }
-    const withNew = [...all, fresh]
+  describe("a new note she proposed has no file yet, so it is listed by the folder it was proposed for", () => {
+    const fresh = (folder: string | null) => ({ ...draft("new/741e5dad7a59.md"), is_new: true, name: "Collaboration note", folder })
 
-    expect(draftsInFolder(withNew, "Notes").map((d) => d.path)).toEqual(["Notes/a.md", "Notes/Sub/b.md", "new/741e5dad7a59.md"])
-    expect(draftsInFolder(withNew, "Empty").map((d) => d.path)).toEqual(["new/741e5dad7a59.md"])
-    expect(draftsInFolder(withNew, undefined).map((d) => d.path)).toEqual(["root.md", "new/741e5dad7a59.md"])
+    it("is listed in its own folder and the folders above it, and nowhere else", () => {
+      const withNew = [...all, fresh("Inbox")]
+      expect(draftsInFolder(withNew, "Inbox").map((d) => d.path)).toEqual(["new/741e5dad7a59.md"])
+      expect(draftsInFolder(withNew, "Notes").map((d) => d.path)).toEqual(["Notes/a.md", "Notes/Sub/b.md"])
+      expect(draftsInFolder(withNew, undefined).map((d) => d.path)).toEqual(["root.md"])
+      const nested = [fresh("Notes/Inbox")]
+      expect(draftsInFolder(nested, "Notes")).toHaveLength(1)
+      expect(draftsInFolder(nested, "Notes/Inbox")).toHaveLength(1)
+      expect(draftsInFolder(nested, "Notes/Inb")).toEqual([])
+    })
+
+    it("is listed where the user asked for it, not in the Inbox", () => {
+      const withNew = [fresh("Daily")]
+      expect(draftsInFolder(withNew, "Daily")).toHaveLength(1)
+      expect(draftsInFolder(withNew, "Inbox")).toEqual([])
+    })
+
+    it("is listed everywhere when it was proposed with no folder, or it could not be found", () => {
+      const legacy = [...all, fresh(null)]
+      expect(draftsInFolder(legacy, "Empty").map((d) => d.path)).toEqual(["new/741e5dad7a59.md"])
+      expect(draftsInFolder(legacy, undefined).map((d) => d.path)).toEqual(["root.md", "new/741e5dad7a59.md"])
+    })
   })
 })

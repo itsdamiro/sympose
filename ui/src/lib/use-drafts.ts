@@ -43,16 +43,20 @@ export function useDrafts(persona: string, refreshKey: number) {
   return state.persona === persona ? state.drafts : []
 }
 
-/** A new note she proposed, still under its working path (`new/…`): it belongs to no folder yet. */
+/** A new note she proposed, still under its working path (`new/…`): it has no file yet, so it is placed by the folder it
+ *  was proposed for, not by its path. */
 const unplaced = (d: Draft) => d.is_new && d.path.startsWith("new/")
 
 /** The drafts that belong to the folder in view, at any depth (`Notes and Pets/` is not in `Notes/`), as Pinned is
  *  scoped to its root folder. With no folder in view (the vault's own root notes) only the drafts of notes outside
- *  every folder are listed. A new note she proposed is in every list. */
+ *  every folder are listed. A new note she proposed is listed where it will be made: the folder it was proposed for (the
+ *  persona's Inbox when nobody named one, docs/decisions/094), at any depth like the rest. A new note with no folder
+ *  (one that was already waiting before ADR 094) is in every list, or it could not be found at all. */
 export function draftsInFolder(drafts: Draft[], folder: string | undefined): Draft[] {
-  // A new note a persona proposed has no folder yet (it is kept under a working path until it is accepted): it is listed
-  // wherever the user is, or it could not be found at all.
-  if (folder === undefined) return drafts.filter((d) => unplaced(d) || !d.path.includes("/"))
-  const prefix = `${folder}/`
-  return drafts.filter((d) => unplaced(d) || d.path.startsWith(prefix))
+  const prefix = folder === undefined ? undefined : `${folder}/`
+  return drafts.filter((d) => {
+    if (unplaced(d) && !d.folder) return true
+    const where = unplaced(d) ? `${d.folder}/x` : d.path
+    return prefix === undefined ? !where.includes("/") : where.startsWith(prefix)
+  })
 }
