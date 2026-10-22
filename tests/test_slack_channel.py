@@ -190,15 +190,6 @@ def test_a_reply_that_proposed_nothing_has_no_block(home, turns):
     assert _answer(dm("hi")).text == "A *short* answer."
 
 
-def test_what_was_held_back_comes_before_what_was_proposed(home, turns):
-    turns.withheld = ["notes"]
-    turns.proposes = [("Seeds", "# Seeds\n")]
-
-    text = _answer(dm("hi")).text
-
-    assert text.index("_Held back from the model: notes._") < text.index("*New note: Seeds*")
-
-
 def test_a_turn_that_failed_after_it_proposed_a_note_says_so_and_still_shows_the_note(home, turns):
     turns.proposes = [("Seeds", "# Seeds\n\nSow in March.\n")]
     turns.fail = turn.EngineModelError("down")
@@ -232,9 +223,9 @@ def test_the_next_message_does_not_show_the_note_of_the_one_before(home, turns):
     assert "Seeds" not in _answer(dm("two", event_id="E2")).text
 
 
-def test_what_was_held_back_from_a_cloud_model_is_said(home, turns):
-    turns.withheld = ["notes", "recaps"]
-    assert _answer(dm("hi")).text.endswith("_Held back from the model: notes, recaps._")
+def test_what_was_held_back_from_a_cloud_model_is_not_added_to_the_reply(home, turns):
+    turns.withheld = ["notes", "memory"]
+    assert _answer(dm("hi")).text == "A *short* answer."
 
 
 @pytest.mark.parametrize("error, said", [

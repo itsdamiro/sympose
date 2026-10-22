@@ -70,10 +70,7 @@ def _turn(handle: str, profile: dict, message: Incoming, where: str | None) -> R
         return None
     finally:
         lock.release()
-    text = to_mrkdwn(result.reply)
-    if result.withheld:
-        text += f"\n\n_Held back from the model: {', '.join(result.withheld)}._"
-    return Reply(slack_drafts.under(text, slack_drafts.waiting(handle, made)), where)
+    return Reply(slack_drafts.under(to_mrkdwn(result.reply), slack_drafts.waiting(handle, made)), where)
 
 
 def new_conversation(handle: str, message: Incoming) -> Reply | None:
