@@ -112,6 +112,10 @@ In the job's one conversation. Every run of a job is added to it, so it is a sin
 
 In Settings, under Jobs, open the ⋯ menu on the job's row. Rename turns what you type into a file name (`Weekly review` becomes `weekly-review`) and keeps its last run. Delete asks first and keeps a copy of the file beside the others, with .bak added to its name. A job that is running right now has to finish first.
 
+## How do I give a job another model?
+
+In Settings, under Jobs, click the model on the job's row and pick another. The choice is written in the job's file as `model`, so it is the same as editing the file. "Use the default" takes it off, and the job follows the persona's model again. A job that uses no model, such as the notes check, has no picker. A cloud model still receives only what you allow in Settings.
+
 ## What goes in a job's file?
 
 Which schedules can you write for a job? The schedule of a job is one of `daily 07:30`, `weekdays 07:30`, `weekly sun 18:00`, `monthly 1 09:00` (a day from 1 to 28) and `every 6 hours` (1 to 168), on your own clock. No other schedule is understood, such as twice a day or every other week.
