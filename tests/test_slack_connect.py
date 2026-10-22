@@ -202,3 +202,53 @@ def test_nothing_is_connected_without_an_owner(home, monkeypatch, capsys):
 def test_no_persona_with_tokens_is_said(home, capsys):
     assert slack_connect.run() == 1
     assert "no persona has a Slack token pair" in capsys.readouterr().err
+
+
+# --- the line in the terminal for each message (slack_trace) ---------------------------------------
+def _lines(capsys):
+    return [line.split(" ", 1)[1] for line in capsys.readouterr().out.splitlines()]
+
+
+def test_a_message_that_is_answered_has_a_line_when_it_arrives_and_one_when_it_is_answered(home, capsys):
+    on_event, _ = slack_connect.listeners("samantha", BOT)
+    on_event(dm("a secret about the vault"), Say())
+    arrived, answered = _lines(capsys)
+    assert arrived == "samantha: message received (direct)"
+    assert answered.startswith("samantha: replied after ") and answered.endswith(" s")
+
+
+def test_a_mention_is_a_message_received_in_a_channel(home, capsys):
+    on_event, _ = slack_connect.listeners("samantha", BOT)
+    on_event(mention(), Say())
+    assert _lines(capsys)[0] == "samantha: message received (channel)"
+
+
+def test_an_event_that_is_not_a_message_has_no_line(home, capsys):
+    on_event, _ = slack_connect.listeners("samantha", BOT)
+    on_event({"event": {"type": "reaction_added"}}, Say())
+    assert capsys.readouterr().out == ""
+
+
+def test_a_failed_answer_is_a_line_and_not_a_reply_line(home, monkeypatch, capsys):
+    def broken(*_a, **_k):
+        raise RuntimeError("boom with a secret")
+
+    monkeypatch.setattr(slack_channel, "answer", broken)
+    on_event, _ = slack_connect.listeners("samantha", BOT)
+    on_event(dm("hi"), Say())
+    assert _lines(capsys) == ["samantha: message received (direct)", "samantha: the answer failed (RuntimeError), see below"]
+
+
+def test_a_reply_slack_would_not_take_is_a_line_and_does_not_escape(home, capsys):
+    def broken(**_k):
+        raise BrokenPipeError("pipe")
+
+    on_event, _ = slack_connect.listeners("samantha", BOT)
+    on_event(dm("hi"), broken)
+    assert _lines(capsys) == ["samantha: message received (direct)", "samantha: the reply could not be sent (BrokenPipeError), see below"]
+
+
+def test_a_message_that_gets_no_reply_has_the_line_of_its_reason_and_no_replied_line(home, capsys):
+    on_event, _ = slack_connect.listeners("samantha", BOT)
+    on_event(dm("hi", user="U0STRANGER"), Say())
+    assert _lines(capsys) == ["samantha: message received (direct)", "samantha: ignored, not from the owner"]

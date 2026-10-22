@@ -5,12 +5,14 @@ says what comes back; nothing else happens in this module. `slack-bolt` is impor
 import logging
 import sys
 import threading
+import time
 from collections.abc import Callable
 from typing import Any
 
 from sympose import profile as profile_mod
 from sympose import slack_channel, slack_credentials, slack_heartbeat, slack_manifest, slack_sessions
 from sympose.slack_events import Incoming, parse
+from sympose.slack_trace import note
 
 log = logging.getLogger(__name__)
 
@@ -26,13 +28,23 @@ def listeners(handle: str, bot_user_id: str, seen: slack_sessions.Seen | None = 
         message = parse(body, bot_user_id)
         if message is None:
             return
+        note(handle, f"message received ({'direct' if message.direct else 'channel'})")
+        started = time.monotonic()
         try:
             reply = slack_channel.answer(handle, message, seen)
-        except Exception:
+        except Exception as e:
+            note(handle, f"the answer failed ({type(e).__name__}), see below")
             log.exception("Slack: the answer of %s failed", handle)
             return
-        if reply is not None:
+        if reply is None:
+            return
+        try:
             say(text=reply.text, thread_ts=reply.thread_ts)
+        except Exception as e:
+            note(handle, f"the reply could not be sent ({type(e).__name__}), see below")
+            log.exception("Slack: the reply of %s could not be sent", handle)
+            return
+        note(handle, f"replied after {time.monotonic() - started:.0f} s")
 
     def on_new(ack: Callable[..., Any], command: dict[str, Any], respond: Callable[..., Any]) -> None:
         ack()

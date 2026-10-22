@@ -315,3 +315,47 @@ def test_a_shared_token_pair_is_not_a_fallback(monkeypatch):
     monkeypatch.setenv("SLACK_BOT_TOKEN", "xoxb-shared")
     monkeypatch.setenv("SLACK_APP_TOKEN", "xapp-shared")
     assert slack_credentials.tokens("samantha") is None
+
+
+# --- the line in the terminal for each message (slack_trace) ---------------------------------------
+@pytest.mark.parametrize("arrange, line", [
+    (lambda turns, home: None, None),
+    (lambda turns, home: setattr(turns, "fail", turn.EngineModelError("down")), "the model failed, said so"),
+    (lambda turns, home: setattr(turns, "fail", turn.PersonaNotFoundError("gone")), "the persona was not found, said so"),
+    (lambda turns, home: setattr(turns, "fail", turn.TurnCancelled()), "stopped while answering, no reply"),
+    (lambda turns, home: settings_store.set(slack_approval.SETTING, False), "Slack is switched off in settings, said so"),
+])
+def test_what_happened_to_a_message_is_one_line_with_no_words_of_it(home, turns, capsys, arrange, line):
+    arrange(turns, home)
+    turns.reply = "the private reply"
+    _answer(dm("a secret about the vault"))
+    out = capsys.readouterr().out
+    assert (line in out) if line else out == ""
+    assert "secret" not in out and "private" not in out
+    assert out.count("\n") == (1 if line else 0)
+    assert out == "" or out.split(" ", 1)[1].startswith("samantha: ")
+
+
+def test_a_message_from_anyone_else_is_a_line_that_says_so(home, turns, capsys):
+    _answer(dm("a secret", user="U0STRANGER"))
+    assert "samantha: ignored, not from the owner\n" in capsys.readouterr().out
+
+
+def test_a_redelivery_is_a_line_that_says_so(home, turns, capsys):
+    seen = slack_sessions.Seen()
+    _answer(dm("hi", event_id="E1"), seen)
+    capsys.readouterr()
+    _answer(dm("hi", event_id="E1"), seen)
+    assert "samantha: ignored, Slack delivered it again\n" in capsys.readouterr().out
+
+
+def test_a_persona_that_is_gone_is_a_line_that_says_so(home, turns, capsys):
+    slack_channel.answer("ghost", parse(dm("hi"), BOT), slack_sessions.Seen())
+    assert "ghost: the persona was not found, said so\n" in capsys.readouterr().out
+
+
+def test_a_message_stopped_before_it_ran_is_a_line_that_says_so(home, turns, capsys, monkeypatch):
+    monkeypatch.setattr(slack_channel, "acquire", lambda *_: False)
+    assert _answer(dm("hi")) is None
+    assert turns == []
+    assert "samantha: stopped before it ran, no reply\n" in capsys.readouterr().out

@@ -17,6 +17,7 @@ from sympose.slack_approval import approved
 from sympose.slack_credentials import owner
 from sympose.slack_events import Incoming, conversation_key
 from sympose.slack_text import to_mrkdwn
+from sympose.slack_trace import note
 
 log = logging.getLogger(__name__)
 
@@ -39,13 +40,19 @@ def answer(handle: str, message: Incoming, seen: slack_sessions.Seen) -> Reply |
     """What the persona says to `message`, or `None` when nothing is said: the sender is not the owner (dropped here,
     with no reply and nothing about its text logged), the delivery was seen already, or the user stopped the turn."""
     allowed = owner()
-    if allowed is None or message.user != allowed or not seen.first_time(message.event_id):
+    if allowed is None or message.user != allowed:
+        note(handle, "ignored, not from the owner")
+        return None
+    if not seen.first_time(message.event_id):
+        note(handle, "ignored, Slack delivered it again")
         return None
     where = _where(message)
     if not approved():
+        note(handle, "Slack is switched off in settings, said so")
         return Reply(SWITCHED_OFF, where)
     profile = profile_mod.resolve_profile(handle)
     if profile is None:
+        note(handle, "the persona was not found, said so")
         return Reply(NO_PERSONA, where)
     handle = profile["handle"]
     return _turn(handle, profile, message, where)
@@ -57,16 +64,20 @@ def _turn(handle: str, profile: dict, message: Incoming, where: str | None) -> R
     session_id = slack_sessions.session_for(handle, conversation_key(message))
     lock = lock_for(handle, session_id, model_mod.resolve_model(profile.get("model")))
     if not acquire(lock, handle, session_id):
+        note(handle, "stopped before it ran, no reply")
         return None
     try:
         with note_changes.new_notes_made() as made, note_changes.from_source(draft_limit.SLACK):
             result = turn.run_turn(handle, message.text, session_id, edits=True, in_slack=True)
     except turn.PersonaNotFoundError:
+        note(handle, "the persona was not found, said so")
         return Reply(NO_PERSONA, where)
     except turn.EngineModelError as e:
+        note(handle, "the model failed, said so")
         log.warning("Slack turn for %s failed: %s", handle, e)
         return Reply(slack_drafts.under(NO_MODEL, slack_drafts.waiting(handle, made)), where)  # a note filed before the failure still waits, so it is shown
     except turn.TurnCancelled:
+        note(handle, "stopped while answering, no reply")
         return None
     finally:
         lock.release()
