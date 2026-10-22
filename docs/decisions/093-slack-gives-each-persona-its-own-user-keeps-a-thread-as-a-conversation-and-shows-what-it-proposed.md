@@ -50,7 +50,7 @@ tags: [type/decision, status/accepted, project/sympose, topic/engine]
 
 - Easier: the engine and every guard (grounding, the cloud gate, proposals, the lock) are reused as they are; Slack adds only the adapter, the `slack` approval and one line of text for the model.
 - Easier: capture from a phone works as link now, Accept at the desk (ADR 089). The reply shows the proposed note, so the user knows what is waiting.
-- Harder: drafts can wait unattended until the user is at the Mac. The cap on waiting drafts that was offered for jobs applies here too, and is not built.
+- Harder: drafts can wait unattended until the user is at the Mac. The cap on waiting drafts is built (ADR 091 amendment of 2026-10-23, `slack_waiting_drafts`).
 - Harder: a reply in a channel is visible to every member of that channel. The bot answers only the owner, but what it says is not private. The owner decides which channels it joins; the reference entry says so.
 - Harder: one Slack App to make for each persona, and a token pair for each in the environment file, like the cloud keys, never in the vault or the settings file. The manifest command makes each a paste, not a form. A persona's name in Slack is the App's, so a rename in Sympose does not rename it in Slack.
 - Open: the exact limit of a Slack message and how Slack renders a table or a wiki link in the reply, to be measured against a real workspace when the adapter exists. Tests before that use recorded event shapes; the real check needs a Slack App that damiro creates once and cannot be made from here.
@@ -139,3 +139,7 @@ tags: [type/decision, status/accepted, project/sympose, topic/engine]
 - **A Slack reply no longer says what was held back.** Slice 1 added a line, "Held back from the model: …", under a reply whenever the cloud approvals kept something from the model. In the first real use it showed under every reply (the persona's memory is held back from a cloud model unless allowed) and the owner, who set that on purpose, found it noise. The gate is unchanged: what the approvals do not allow is still withheld. The web chat's cloud icon still shows what was sent and held back; Slack shows nothing.
 - **Troubleshooting is in the reference library**, so the persona can walk the owner through it: what to check when Slack does not answer, what the `doctor` lines mean, changing the bot's display name and picture (set in Slack, with a reinstall when they do not show), taking a persona out of Slack, and `sympose: command not found` (the command is in the project's virtual environment).
 - **Tests no longer read the machine's Slack variables** (`tests/conftest.py` clears every `SLACK_*`, and the doctor tests run from a temporary folder), because the owner's own `.env` now holds real tokens.
+
+## Amendment (2026-10-23): a cap on the drafts waiting from Slack
+
+A draft proposed from Slack is tagged `source: slack` and the persona stops filing new ones while `slack_waiting_drafts` (default 10, a setting in the Slack group) are waiting. The turn is not skipped, as a job's run is: the user wrote the message and a question still deserves its answer. Only the filing is refused, and the model says so in its reply ("10 drafts from Slack are waiting; decide some first"). The rule and the reasons are in ADR 091's amendment of the same date.

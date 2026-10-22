@@ -345,6 +345,8 @@ REF_CASES: list[RefCase] = [
     RefCase("slack-switched-off", "why does the persona say Slack is switched off?", find=("names the setting",), first="Slack.md"),
     RefCase("slack-what-it-can-do", "can I accept a note a persona proposes from Slack?", find=("Accept the note in the web app",), first="Slack.md"),
     RefCase("slack-connected", "how do I know a persona is connected to Slack?", find=("green dot",), first="Slack.md"),
+    RefCase("job-stopped-making-drafts", "my job has stopped making drafts, is it broken?", find=("skips its later runs",), first="The web app.md"),
+    RefCase("draft-limits", "how many drafts can Slack leave waiting for me?", find=("slack_waiting_drafts",), first="Settings.md"),
     RefCase("slack-new-conversation", "what does /new do in Slack?", find=("/new",), first="Slack.md"),
     RefCase("slack-privacy", "are my notes sent to Slack's servers?", find=("Slack's servers",), first="Slack.md"),
     RefCase("slack-no-answer", "the bot does not reply to my messages in Slack, what should I check?", find=("Messages tab",), first="Slack.md"),

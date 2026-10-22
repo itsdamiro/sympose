@@ -28,6 +28,8 @@ Slack gets what a persona says. A reply can quote your notes, and it is sent to 
 
 A persona can make a note from Slack, as a proposal: the reply shows the whole text, the folder and a line saying it waits in Drafts. Nothing is saved from Slack; you Accept the note in the web app, on your computer. It cannot change a note, comment, open a note or propose a persona or a setting, and a file attached in Slack is not read.
 
+Once 10 notes made from Slack are waiting, it makes no more and says so in its reply. The `slack_waiting_drafts` setting changes the 10.
+
 ## What does /new do in Slack?
 
 In a direct message to the persona, `/new` starts a fresh chat; until then a direct message is one long chat. In a channel, write in a new thread, because each thread is a chat of its own. Each one also shows in the web app's list, where you can open, rename or archive it.

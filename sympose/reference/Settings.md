@@ -262,6 +262,12 @@ The `slack` setting switches Slack on. It is off by default, for every persona a
 
 While it is off, `sympose slack` will not start and a message in Slack is answered with one line naming this setting. A persona cannot propose switching it on; only you can. See the Slack page.
 
+## job_waiting_drafts and slack_waiting_drafts
+
+A job or Slack that nobody watches could leave a pile of drafts. These two settings are how many each may leave waiting before it stops making new ones. `job_waiting_drafts` is for each scheduled job (5 unless you change it) and `slack_waiting_drafts` is for Slack as a whole (10). Each is a whole number from 1 to 100; set it in Settings, under Jobs or Slack.
+
+Accepting or declining a draft makes room again; nothing is deleted for you. A job's own file can set `max_waiting_drafts` for that job alone. A draft you asked for in the chat is never counted.
+
 ## How do the true or false settings work?
 
 Only an explicit `false` turns a setting off. Anything else leaves the default.

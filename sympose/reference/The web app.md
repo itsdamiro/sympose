@@ -122,13 +122,17 @@ Which schedules can you write for a job? The schedule of a job is one of `daily 
 
 A job's file has a few lines of properties, then what to write for the job to do. `schedule` is one of those, `kind` is `ask` (a turn with the persona's model, the usual), `health` or `refresh`, and `enabled` is true or false.
 
-`health` (the notes check) and `refresh` (rebuilds the search index) use no model and need no text below. Optional: `model`, for another model than the persona's, and `max_runs_per_day`, a whole number. A persona can write this file for you to paste in, and you switch the job on yourself.
+`health` (the notes check) and `refresh` (rebuilds the search index) use no model and need no text below. Optional: `model`, for another model than the persona's, and `max_runs_per_day` and `max_waiting_drafts`, each a whole number. A persona can write this file for you to paste in, and you switch the job on yourself.
 
 ## Do jobs run when Sympose is closed?
 
 While the web app is open, yes, and a time missed while it was closed runs when you next open it. On a Mac, switch on Run while Sympose is closed under Jobs in Settings, or run `sympose schedule install`, and the computer checks every 5 minutes with the app closed.
 
 `sympose schedule remove` takes that away. `sympose run --due` runs what is due now and `sympose run persona/job` runs one job now.
+
+## Why does a job stop making drafts?
+
+A job that already has 5 of its drafts waiting skips its later runs, so nothing piles up while you are away, and a skipped run costs nothing. Its row in Settings shows a draft icon with the number waiting, in red once it is full. Accept or decline some in Drafts and the next run goes ahead. The 5 is the `job_waiting_drafts` setting, and `max_waiting_drafts` in a job's file sets it for that job.
 
 ## Why did a job stop running?
 
