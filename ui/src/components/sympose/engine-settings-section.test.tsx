@@ -7,7 +7,7 @@ vi.mock("@/lib/notify", () => ({ notify: { error: notifyError } }))
 
 import { EngineSettingsSections } from "./engine-settings-section"
 
-const SECTIONS = ["memory", "context", "search", "note-lookup"]
+const SECTIONS = ["memory", "context", "search", "note-lookup", "jobs"]
 const row = (over: Record<string, unknown>) => ({
   key: "k", kind: "toggle", summary: "a thing", value: true, default: true, is_default: true,
   text: "on", choices: [], hint: "", whole: false, ...over,
@@ -148,5 +148,12 @@ describe("EngineSettingsSections", () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")))
     render(<EngineSettingsSections />)
     expect(await screen.findByText(/Couldn't load these. Sympose isn't responding/)).toBeTruthy()
+  })
+
+  it("still draws a page's own rows, each in a section of its name, when the settings could not be loaded", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")))
+    render(<EngineSettingsSections extras={{ Jobs: <p>a job row</p> }} />)
+    const row = await screen.findByText("a job row")
+    expect(row.closest("[data-slot=control-section]")?.textContent).toContain("Jobs")
   })
 })

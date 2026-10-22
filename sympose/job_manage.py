@@ -7,7 +7,7 @@ import re
 import threading
 from typing import Any, Callable
 
-from sympose import job_state, jobs
+from sympose import draft_limit, job_state, jobs
 from sympose import profile as profile_mod
 from sympose.atomic_write import write_atomic_text
 from sympose.engine import model as model_mod
@@ -46,6 +46,7 @@ def _persona(handle: str) -> dict[str, Any]:
 
 def _row(job: jobs.Job, persona: dict[str, Any]) -> dict[str, Any]:
     state = job_state.read(job.handle, job.name)
+    source = draft_limit.job_source(job.name)
     model = job.model or model_mod.resolve_model(persona.get("model"))
     return {
         "name": job.name,
@@ -64,6 +65,8 @@ def _row(job: jobs.Job, persona: dict[str, Any]) -> dict[str, Any]:
         "outcome": state.outcome,
         "detail": state.detail,
         "session_id": state.session_id,
+        "drafts": draft_limit.waiting(job.handle, source),
+        "draft_cap": draft_limit.limit(job.handle, source),
     }
 
 
@@ -192,7 +195,7 @@ def _idle(job: jobs.Job) -> None:
 
 
 def rename(handle: str, name: str, new_name: str) -> dict[str, Any]:
-    """Give a job another name: its file, its backup and its record (so a pause and the last run carry over) move together.
+    """Give a job another name: its file, its backup, its record (so a pause and the last run carry over) and the drafts it left waiting move together.
     The new name is made a file name (`Weekly review` becomes `weekly-review`); one that is taken or not usable is refused."""
     persona = _persona(handle)
     job = jobs.load(persona["handle"], name)
@@ -216,6 +219,7 @@ def rename(handle: str, name: str, new_name: str) -> dict[str, Any]:
         except OSError:
             raise JobRefused("The job could not be renamed.")
         _forget_lock(persona["handle"], name)
+    draft_limit.rename_job(persona["handle"], name, target)
     renamed = jobs.load(persona["handle"], target)
     if renamed is None:
         raise JobRefused("The job could not be renamed.")

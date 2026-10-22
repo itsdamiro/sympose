@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 import pytest
 from helpers import write_persona
 
-from sympose import job_run, job_state, jobs, note_changes
+from sympose import draft_limit, job_run, job_state, jobs, note_changes, settings_store
 from sympose.engine import semantic_refresh, session, turn
 from sympose.engine.turn_result import TurnResult
 
@@ -323,6 +323,95 @@ def test_a_run_another_process_finished_meanwhile_is_not_repeated(home, turns, m
     monkeypatch.setattr(job_state, "claim", other_got_there_first)
     outcome = job_run.run("samantha", "weekly", SUN_NIGHT)
     assert (outcome.status, outcome.detail) == (job_run.SKIPPED, "Not due.") and not turns
+
+
+# --- the drafts a job may leave waiting (docs/decisions/091, amended 2026-10-23) ---------------------
+def _waiting(home, name, n, handle="samantha"):
+    with note_changes.from_source(draft_limit.job_source(name)):
+        for i in range(n):
+            note_changes.propose_create(handle, f"new/{name}{i}", f"# {name} {i}\n\nWords {name} {i}.\n", say="")
+
+
+def test_a_job_with_its_limit_of_drafts_waiting_is_skipped_before_the_model_is_called(home, turns):
+    _job(home)
+    _waiting(home, "weekly", 5)
+    outcome = job_run.run("samantha", "weekly", SUN_NIGHT)
+    assert outcome.status == job_run.SKIPPED and "5 drafts from this job are waiting" in outcome.detail and not turns
+    assert job_state.read("samantha", "weekly").last_run is None  # a skip is not a run
+
+
+def test_a_manual_run_is_held_by_the_limit_too(home, turns):
+    _job(home)
+    _waiting(home, "weekly", 5)
+    assert job_run.run("samantha", "weekly", SUN_NIGHT, manual=True).status == job_run.SKIPPED and not turns
+
+
+def test_a_job_just_under_its_limit_runs(home, turns):
+    _job(home)
+    _waiting(home, "weekly", 4)
+    assert job_run.run("samantha", "weekly", SUN_NIGHT).status == job_run.RAN and len(turns) == 1
+
+
+def test_the_limit_comes_from_the_setting_and_the_jobs_own_file_wins(home, turns):
+    settings_store.set(draft_limit.JOB_SETTING, 2)
+    _job(home, "plain")
+    _job(home, "roomy", extra="max_waiting_drafts: 3\n")
+    _waiting(home, "plain", 2)
+    _waiting(home, "roomy", 2)
+    assert job_run.run("samantha", "plain", SUN_NIGHT).status == job_run.SKIPPED
+    assert job_run.run("samantha", "roomy", SUN_NIGHT).status == job_run.RAN
+
+
+def test_another_jobs_drafts_do_not_hold_this_one(home, turns):
+    _job(home, "mine")
+    _job(home, "other")
+    _waiting(home, "other", 5)
+    assert job_run.run("samantha", "mine", SUN_NIGHT).status == job_run.RAN
+
+
+def test_a_job_that_is_held_is_run_again_once_the_user_has_decided_some(home, turns):
+    _job(home)
+    _waiting(home, "weekly", 5)
+    assert job_run.run("samantha", "weekly", SUN_NIGHT).status == job_run.SKIPPED
+    entry = next(e for e in note_changes.store.entries("samantha") if e["proposals"])
+    note_changes.discard_proposal("samantha", entry["path"], entry["proposals"][0]["id"])
+    assert job_run.run("samantha", "weekly", SUN_NIGHT).status == job_run.RAN
+
+
+def test_a_drafts_a_job_turn_files_are_tagged_with_the_job_and_stop_at_the_limit(home, monkeypatch):
+    settings_store.set(draft_limit.JOB_SETTING, 1)
+    _job(home)
+    filed = []
+
+    def fake(handle, message, session_id=None, **_):
+        for i in range(2):
+            try:
+                note_changes.propose_create(handle, f"new/t{i}", f"# T {i}\n\nWords {i}.\n", say="")
+                filed.append(i)
+            except note_changes.CannotAnchor as e:
+                filed.append(str(e))
+        return TurnResult(reply="Done.", session_id=session_id)
+
+    monkeypatch.setattr(turn, "run_turn", fake)
+    assert job_run.run("samantha", "weekly", SUN_NIGHT).status == job_run.RAN
+    assert filed[0] == 0 and "1 draft from this job is waiting" in filed[1]
+    assert draft_limit.waiting("samantha", "job:weekly") == 1
+
+
+def test_a_full_health_job_is_skipped_but_a_refresh_job_never_is(home, monkeypatch):
+    _job(home, "upkeep", extra="kind: health\n")
+    _job(home, "reindex", extra="kind: refresh\n")
+    _waiting(home, "upkeep", 5)
+    _waiting(home, "reindex", 5)
+    monkeypatch.setattr(job_run.job_mechanical, "refresh", lambda persona: "Rebuilt.")
+    assert job_run.run("samantha", "upkeep", SUN_NIGHT).status == job_run.SKIPPED
+    assert job_run.run("samantha", "reindex", SUN_NIGHT).status == job_run.RAN
+
+
+def test_the_health_report_is_tagged_with_its_job(home):
+    _job(home, "upkeep", extra="kind: health\n")
+    job_run.run("samantha", "upkeep", SUN_NIGHT)
+    assert draft_limit.waiting("samantha", "job:upkeep") == 1
 
 
 # --- the jobs that call no model -------------------------------------------------------------------

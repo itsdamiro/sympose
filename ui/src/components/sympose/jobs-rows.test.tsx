@@ -10,7 +10,7 @@ import { JobsRows } from "./jobs-rows"
 
 const job = (over: Record<string, unknown> = {}) => ({
   name: "weekly", file: "jobs/weekly.md", schedule: "weekly sun 18:00", kind: "ask", mechanical: false, model: "ollama/gemma4:e4b", own_model: "ollama/gemma4:e4b",
-  cloud: false, enabled: true, problem: null, paused: false, failures: 0, last_run: null, outcome: null, detail: "", session_id: null,
+  cloud: false, enabled: true, problem: null, paused: false, failures: 0, last_run: null, outcome: null, detail: "", session_id: null, drafts: 0, draft_cap: 5,
   ...over,
 })
 const modelsState = {
@@ -91,6 +91,18 @@ describe("JobsRows", () => {
     expect(screen.getByLabelText("Ran")).toBeTruthy()
     expect(screen.getByText("1h ago: model offline")).toBeTruthy()
     expect(screen.getByLabelText("Failed")).toBeTruthy()
+  })
+
+  it("shows how many drafts of a job wait, only while some do, and in the alert colour once it has stopped filing more", async () => {
+    stub({ list: [job({ name: "none" }), job({ name: "some", drafts: 2, draft_cap: 5 }), job({ name: "one", drafts: 1, draft_cap: 5 }), job({ name: "full", drafts: 5, draft_cap: 5 })] })
+    render(<JobsRows persona="ada" personaName="Ada" onOpen={vi.fn()} />)
+    await screen.findByText("full")
+    expect(screen.getAllByLabelText(/drafts? from this job/)).toHaveLength(3)
+    expect(screen.getByLabelText("2 drafts from this job waiting").textContent).toBe("2")
+    expect(screen.getByLabelText("1 draft from this job waiting").textContent).toBe("1")
+    const full = screen.getByLabelText("5 drafts from this job are waiting; it files no more until you decide some")
+    expect(full.parentElement?.className).toContain("text-destructive")
+    expect(screen.getByLabelText("2 drafts from this job waiting").parentElement?.className).not.toContain("text-destructive")
   })
 
   it("marks the model as on this computer or in the cloud, and a mechanical job has none", async () => {

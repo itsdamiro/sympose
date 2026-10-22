@@ -6,7 +6,7 @@ channel's own (the terminal's are in `cli/display_settings.py`)."""
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from sympose import slack_approval
+from sympose import draft_limit, slack_approval
 from sympose.engine import budget, compaction, edit_mode, edit_turn, open_comments, embeddings, followup, history_cap, lookup, memory, memory_refresh, model_wait, parallel, past_chats, recap, related, semantic, skills, web_access
 
 TOGGLE, CHOICE, NUMBER = "toggle", "choice", "number"
@@ -33,10 +33,10 @@ def toggle(key: str, summary: str, current: Callable[[], bool], default: bool = 
     return Setting(key, TOGGLE, summary, current, lambda: default, group=group)
 
 
-CONTEXT, SEARCH, LOOKUP, MEMORY, CONVERSATIONS, EDITING, SKILLS, WEB, SLACK = (
-    "Conversation memory", "Search", "Searching notes", "Memory", "Conversations", "Editing", "Skills", "Links", "Slack",
+CONTEXT, SEARCH, LOOKUP, MEMORY, CONVERSATIONS, EDITING, SKILLS, WEB, SLACK, JOBS = (
+    "Conversation memory", "Search", "Searching notes", "Memory", "Conversations", "Editing", "Skills", "Links", "Slack", "Jobs",
 )
-GROUPS = (CONTEXT, SEARCH, LOOKUP, MEMORY, CONVERSATIONS, EDITING, SKILLS, WEB, SLACK)
+GROUPS = (CONTEXT, SEARCH, LOOKUP, MEMORY, CONVERSATIONS, EDITING, SKILLS, WEB, SLACK, JOBS)
 
 SETTINGS: list[Setting] = [
     Setting(
@@ -164,6 +164,14 @@ SETTINGS: list[Setting] = [
     toggle(
         slack_approval.SETTING, "answering in Slack (replies leave this computer)",
         slack_approval.approved, default=False, group=SLACK,
+    ),
+    Setting(
+        draft_limit.SLACK_SETTING, NUMBER, "drafts from Slack that may wait", draft_limit.slack_limit,
+        lambda: draft_limit.DEFAULT_SLACK, hint=f"a whole number, {draft_limit.RANGE[0]} to {draft_limit.RANGE[1]}; more are not filed until you decide some", whole=True, group=SLACK,
+    ),
+    Setting(
+        draft_limit.JOB_SETTING, NUMBER, "drafts a job may leave waiting", draft_limit.job_default,
+        lambda: draft_limit.DEFAULT_JOB, hint=f"a whole number, {draft_limit.RANGE[0]} to {draft_limit.RANGE[1]}; a job's own file can set its own", whole=True, group=JOBS,
     ),
 ]
 

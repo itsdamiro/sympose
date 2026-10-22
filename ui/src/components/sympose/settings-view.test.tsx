@@ -14,8 +14,9 @@ const setShowDefinitionNotes = vi.fn()
 vi.mock("@/lib/vault-hidden-api", () => ({ setShowDefinitionNotes: (...a: unknown[]) => setShowDefinitionNotes(...a) }))
 
 const OPEN = ["hidden-from-view", "cloud-models", "recent-notes", "workspace", "jobs"]
+const SETTINGS = { ok: true, json: async () => ({ groups: [{ name: "Jobs", settings: [] }] }) }
 beforeEach(() => {
-  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, json: async () => ({}) }))
+  vi.stubGlobal("fetch", vi.fn(async (url: string) => (url === "/api/settings" ? SETTINGS : { ok: false, json: async () => ({}) })))
   for (const k of OPEN) document.cookie = `sympose:pref.section.${k}=1`
 })
 afterEach(() => {
@@ -88,16 +89,17 @@ describe("SettingsView", () => {
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Settings")
   })
 
-  it("lists every group of preferences", () => {
+  it("lists every group of preferences", async () => {
     setup()
-    for (const name of ["Workspace", "Markdown editor", "Notifications", "Knowledge Nebula", "Recent notes", "Hidden from view", "Chat", "Cloud models", "Jobs"]) {
+    for (const name of ["Workspace", "Markdown editor", "Notifications", "Knowledge Nebula", "Recent notes", "Hidden from view", "Chat", "Cloud models"]) {
       expect(screen.getAllByText(name).length, name).toBeGreaterThan(0)
     }
+    expect((await screen.findAllByText("Jobs")).length).toBeGreaterThan(0)  // the jobs are the rows of the engine settings' Jobs group
   })
 
   it("opens a job's file in the editor through the shell, from the row's menu", async () => {
-    const job = { name: "weekly", file: "jobs/weekly.md", schedule: "weekly sun 18:00", kind: "ask", mechanical: false, model: null, cloud: false, enabled: true, problem: null, paused: false, failures: 0, last_run: null, outcome: null, detail: "", session_id: null }
-    vi.stubGlobal("fetch", vi.fn(async (url: string) => ({ ok: url.endsWith("/jobs"), json: async () => ({ jobs: [job] }) })))
+    const job = { name: "weekly", file: "jobs/weekly.md", schedule: "weekly sun 18:00", kind: "ask", mechanical: false, model: null, cloud: false, enabled: true, problem: null, paused: false, failures: 0, last_run: null, outcome: null, detail: "", session_id: null, drafts: 0, draft_cap: 5 }
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => (url === "/api/settings" ? SETTINGS : { ok: url.endsWith("/jobs"), json: async () => ({ jobs: [job] }) })))
     const onOpenJob = vi.fn()
     setup({ onOpenJob })
     fireEvent.click(await screen.findByRole("button", { name: "Actions for weekly" }))

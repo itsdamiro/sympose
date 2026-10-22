@@ -6,7 +6,6 @@ import {
   ChatDisplaySection,
   CollapseAllButton,
   ControlSearchProvider,
-  ControlSection,
   ControlSectionsProvider,
   EditorPreferencesSection,
   EngineSettingsSections,
@@ -138,10 +137,12 @@ export function SettingsView({
           noticeOpen={cloudNotice.open}
           onNoticeOpenChange={(open) => (open ? cloudNotice.reopen() : cloudNotice.close())}
         />
-        <EngineSettingsSections extras={{ Skills: <SkillsRows persona={persona} personaName={personaName} /> }} />
-        <ControlSection title="Jobs">
-          <JobsRows persona={persona} personaName={personaName} version={jobsVersion} onOpen={onOpenJob} onRenamed={onJobRenamed} onRemoved={onJobRemoved} />
-        </ControlSection>
+        <EngineSettingsSections
+          extras={{
+            Skills: <SkillsRows persona={persona} personaName={personaName} />,
+            Jobs: <JobsRows persona={persona} personaName={personaName} version={jobsVersion} onOpen={onOpenJob} onRenamed={onJobRenamed} onRemoved={onJobRemoved} />,
+          }}
+        />
         {query.trim() !== "" && (
           // shown only while no row is visible and no section matched by its title (the page has no state of its own
           // about that: the rows and sections hide themselves)

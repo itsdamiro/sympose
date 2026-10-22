@@ -113,7 +113,7 @@ function Control({ setting, change }: { setting: EngineSetting; change: Change }
  * Settings → the engine settings, one section per group (docs/decisions/044). The same list the terminal's
  * `/settings` shows, described by the backend, which also decides what a value may be: this only draws each
  * row as a switch, a set of choices or a number field, and shows the reason when a value is refused. `extras` adds rows
- * of the page's own under a group by its name (the skills, which belong to the persona that is open).
+ * of the page's own under a group by its name (the skills and the jobs, which belong to the persona that is open); they are drawn in a section of their own when the settings cannot be loaded.
  */
 function EngineSettingsSections({ extras = {} }: { extras?: Record<string, React.ReactNode> }) {
   const { state, change } = useEngineSettings()
@@ -121,11 +121,18 @@ function EngineSettingsSections({ extras = {} }: { extras?: Record<string, React
   if (state.status === "loading") return null
   if (state.status === "error") {
     return (
-      <ControlSection title="Advanced" defaultOpen>
-        <p className="text-sm text-fg-muted">
-          Couldn&apos;t load these: {state.error}.
-        </p>
-      </ControlSection>
+      <>
+        <ControlSection title="Advanced" defaultOpen>
+          <p className="text-sm text-fg-muted">
+            Couldn&apos;t load these: {state.error}.
+          </p>
+        </ControlSection>
+        {Object.entries(extras).map(([name, rows]) => (
+          <ControlSection key={name} title={name}>
+            {rows}
+          </ControlSection>
+        ))}
+      </>
     )
   }
   return (

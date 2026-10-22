@@ -32,6 +32,9 @@ export interface Job {
   detail: string
   /** The conversation the last run opened. */
   session_id: string | null
+  /** How many drafts of this job wait for the user, and the most it may leave waiting before it stops. */
+  drafts: number
+  draft_cap: number
 }
 
 export type JobsResult = { ok: true; jobs: Job[] } | { ok: false; error: string }

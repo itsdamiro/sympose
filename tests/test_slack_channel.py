@@ -8,7 +8,7 @@ import pytest
 from helpers import write_persona
 from slack_shapes import BOT, OWNER, dm, mention
 
-from sympose import note_changes, settings_store, slack_approval, slack_channel, slack_credentials, slack_drafts, slack_sessions
+from sympose import draft_limit, note_changes, settings_store, slack_approval, slack_channel, slack_credentials, slack_drafts, slack_sessions
 from sympose.engine import turn
 from sympose.engine.turn_result import TurnResult
 from sympose.slack_events import parse
@@ -174,6 +174,27 @@ def test_a_note_the_turn_proposed_is_shown_under_the_reply_as_it_waits(home, tur
     assert text.startswith("A *short* answer.\n\n*New note: Seeds*\n```\n# Seeds\n\nSow in March.\n```")
     assert text.endswith(slack_drafts.FOOTER)
     assert len(note_changes.drafts("samantha")) == 1  # shown, and still waiting for Accept in the web app
+
+
+def test_a_note_proposed_from_slack_counts_against_slacks_limit_and_the_web_chats_does_not(home, turns):
+    turns.proposes = [("Mine", "# Mine\n\nAsked for here.\n")]
+    turns.elsewhere = [("Theirs", "# Theirs\n\nAsked for in the web app.\n")]
+
+    _answer(dm("write it"))
+
+    assert draft_limit.waiting("samantha", draft_limit.SLACK) == 1 and len(note_changes.drafts("samantha")) == 2
+
+
+def test_a_turn_at_slacks_limit_is_refused_the_note_but_not_the_turn(home, turns):
+    settings_store.set(draft_limit.SLACK_SETTING, 1)
+    turns.proposes = [("One", "# One\n\nFirst.\n")]
+    _answer(dm("write it"))
+    turns.proposes = [("Two", "# Two\n\nSecond.\n")]
+
+    with pytest.raises(note_changes.CannotAnchor, match="1 draft from Slack is waiting"):  # the fake turn does not catch what the real tool does
+        _answer(dm("write another"))
+
+    assert draft_limit.waiting("samantha", draft_limit.SLACK) == 1
 
 
 def test_a_note_another_conversation_proposed_meanwhile_is_not_shown(home, turns):

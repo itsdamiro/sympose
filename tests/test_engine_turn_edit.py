@@ -118,6 +118,22 @@ def test_edits_on_with_no_note_open_offers_a_new_note_only(monkeypatch):
     assert note_changes.drafts("samantha")[0]["name"] == "Seeds"
 
 
+def test_a_note_a_real_turn_proposes_inside_a_source_is_tagged_and_the_one_past_its_limit_is_refused(monkeypatch):
+    from sympose import draft_limit
+
+    settings_store.set(draft_limit.SLACK_SETTING, 1)
+    first = '<!-- propose_note: {"text": "# Seeds", "title": "Seeds", "say": "s"} -->'
+    second = '<!-- propose_note: {"text": "# Beds", "title": "Beds", "say": "s"} -->'
+    model_that(monkeypatch, ModelReply("Here.\n" + first, 5), ModelReply("Again.\n" + second, 5))
+
+    with note_changes.from_source(draft_limit.SLACK):
+        turn.run_turn("samantha", "write a seed note", model=LOCAL, edits=True)
+        refused = turn.run_turn("samantha", "and a beds note", model=LOCAL, edits=True)
+
+    assert draft_limit.waiting("samantha", draft_limit.SLACK) == 1 and [d["name"] for d in note_changes.drafts("samantha")] == ["Seeds"]
+    assert "1 draft from Slack is waiting" in refused.reply
+
+
 def test_when_the_tools_are_refused_the_turn_is_retried_with_the_marker(monkeypatch):
     sharing.set_approved(sharing.OPEN_NOTE, True)
     from sympose.engine import lookup

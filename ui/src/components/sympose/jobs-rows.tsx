@@ -8,6 +8,7 @@ import {
   ComputerIcon,
   Delete02Icon,
   Edit01Icon,
+  File02Icon,
   MoreHorizontalIcon,
   PauseIcon,
   PencilEdit01Icon,
@@ -26,6 +27,20 @@ import { getUnsavedGuard } from "@/lib/unsaved-guard"
 import { useJobs } from "@/lib/use-jobs"
 import { useModels } from "@/lib/use-models"
 import { useSchedule } from "@/lib/use-schedule"
+
+/** The drafts of a job that wait for the user: the number, in the alert colour once the job has stopped filing more. */
+function DraftsWaiting({ job }: { job: Job }) {
+  const full = job.drafts >= job.draft_cap
+  const label = full
+    ? `${job.drafts} drafts from this job are waiting; it files no more until you decide some`
+    : `${job.drafts} draft${job.drafts === 1 ? "" : "s"} from this job waiting`
+  return (
+    <span className={`flex items-center gap-1 ${full ? "text-destructive" : ""}`} title={label}>
+      <HugeiconsIcon icon={File02Icon} className="size-3 shrink-0" aria-hidden />
+      <span aria-label={label}>{job.drafts}</span>
+    </span>
+  )
+}
 
 /** One line under a job's name: its schedule, and how it last went (or what stops it), in the muted style of a hint. */
 function JobStatus({ job }: { job: Job }) {
@@ -60,6 +75,7 @@ function JobStatus({ job }: { job: Job }) {
       ) : (
         <span>not run yet</span>
       )}
+      {job.drafts > 0 && <DraftsWaiting job={job} />}
     </p>
   )
 }

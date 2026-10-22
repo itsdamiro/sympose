@@ -8,7 +8,7 @@ that one persona answers one message at a time."""
 import logging
 from dataclasses import dataclass
 
-from sympose import note_changes
+from sympose import draft_limit, note_changes
 from sympose import profile as profile_mod
 from sympose import slack_drafts, slack_sessions
 from sympose.engine import model as model_mod
@@ -59,7 +59,7 @@ def _turn(handle: str, profile: dict, message: Incoming, where: str | None) -> R
     if not acquire(lock, handle, session_id):
         return None
     try:
-        with note_changes.new_notes_made() as made:
+        with note_changes.new_notes_made() as made, note_changes.from_source(draft_limit.SLACK):
             result = turn.run_turn(handle, message.text, session_id, edits=True, in_slack=True)
     except turn.PersonaNotFoundError:
         return Reply(NO_PERSONA, where)

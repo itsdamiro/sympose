@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 from collections.abc import Callable, Iterator, Sequence
 from typing import Any
 
+from sympose import draft_limit
 from sympose import note_changes_store as store
 from sympose import passage_finder as finder
 from sympose import table_spans
@@ -28,6 +29,7 @@ ACCEPTED, DECLINED = "accepted", "declined"  # the user's verdict on one of her 
 _NAME_WORDS = 5
 INBOX = "Inbox"  # where a new note is made when nobody named a folder, in the first folder of the persona's scope (docs/decisions/094)
 _WATCHING = threading.local()  # the list `new_notes_made` fills, on the thread that is inside its block
+_SOURCE = threading.local()  # what `from_source` says made the drafts, on the thread that is inside its block
 
 
 class CannotAnchor(ValueError):
@@ -156,6 +158,10 @@ def propose_create(handle: str, note_path: str, text: str, *, say: str, title: s
     """A new note she proposes. `folder` is where she was asked to make it (a vault path such as `Projects/Sympose`; made when
     the user accepts, with the folder if it is not there yet): without one (only a draft older than docs/decisions/094) it is made in her main folder."""
     proposal = {"id": _id(), "time": _now(), "kind": "create", "text": text, "name": working_name(text, title), "say": say}
+    if source := getattr(_SOURCE, "name", None):
+        if full := draft_limit.refusal(handle, source):
+            raise CannotAnchor(full)
+        proposal["source"] = source
     if cleaned := clean_folder(folder):
         proposal["folder"] = cleaned
     if waiting := _same_draft(handle, proposal):
@@ -180,6 +186,19 @@ def new_notes_made() -> Iterator[list[tuple[str, str]]]:
         _WATCHING.made = before
         if before is not None:
             before.extend(made)  # a block inside another is part of it
+
+
+@contextlib.contextmanager
+def from_source(source: str) -> Iterator[None]:
+    """Inside the block, the new notes proposed on this thread are tagged as made by `source` (`draft_limit.job_source(name)` or
+    `draft_limit.SLACK`): they count against its limit of drafts waiting, and one past the limit is refused (docs/decisions/091,
+    amended 2026-10-23). A draft made outside any block, the web chat's, is not counted and never refused."""
+    before = getattr(_SOURCE, "name", None)
+    _SOURCE.name = source
+    try:
+        yield
+    finally:
+        _SOURCE.name = before
 
 
 def pending_new_note(handle: str, note_path: str, proposal_id: str) -> dict[str, Any] | None:

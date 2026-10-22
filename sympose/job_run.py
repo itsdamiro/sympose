@@ -9,7 +9,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-from sympose import job_mechanical, job_state, jobs
+from sympose import draft_limit, job_mechanical, job_state, jobs, note_changes
 from sympose import profile as profile_mod
 from sympose.engine import model as model_mod
 from sympose.engine import session, sharing
@@ -87,7 +87,11 @@ def run(handle: str, name: str, now: datetime | None = None, *, manual: bool = F
         cap = daily_cap(job, persona)
         if cap is not None and job_state.read(job.handle, name).runs_on(now) >= cap:
             return Outcome(key, SKIPPED, f"It has already run {cap} time{'s' if cap != 1 else ''} today, its limit.")
-        return _execute(job, persona, now)
+        source = draft_limit.job_source(name)
+        if job.kind != jobs.REFRESH and (full := draft_limit.refusal(job.handle, source)):  # a full job costs no model call
+            return Outcome(key, SKIPPED, full)
+        with note_changes.from_source(source):
+            return _execute(job, persona, now)
 
 
 def _execute(job: jobs.Job, persona: dict, now: datetime) -> Outcome:

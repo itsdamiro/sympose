@@ -4,7 +4,7 @@ import { chooseJobModel, createJob, fetchJobs, switchJob } from "./jobs-api"
 
 const job = {
   name: "weekly", file: "jobs/weekly.md", schedule: "weekly sun 18:00", kind: "ask", mechanical: false, model: "ollama/gemma4:e4b",
-  cloud: false, enabled: true, problem: null, paused: false, failures: 0, last_run: null, outcome: null, detail: "", session_id: null,
+  cloud: false, enabled: true, problem: null, paused: false, failures: 0, last_run: null, outcome: null, detail: "", session_id: null, drafts: 0, draft_cap: 5,
 }
 const json = (body: unknown, ok = true, status = ok ? 200 : 422) =>
   ({ ok, status, json: () => Promise.resolve(body) }) as Response

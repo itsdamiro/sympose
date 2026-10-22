@@ -35,6 +35,7 @@ class Job:
     model: str | None  # `None`: the persona's own
     enabled: bool
     max_runs_per_day: int | None  # `None`: the default for the model the run resolves (docs/decisions/091)
+    max_waiting_drafts: int | None  # `None`: the `job_waiting_drafts` setting (docs/decisions/091, amended 2026-10-23)
     prompt: str
     changed: datetime  # when the file was last changed: where "due" counts from for a job that never ran
     problem: str | None = None
@@ -62,7 +63,7 @@ def valid_name(name: str) -> bool:
 
 def _settings(meta: dict[str, Any], body: str) -> tuple[dict[str, Any], str | None]:
     """The fields of a job and the first thing wrong with them."""
-    found: dict[str, Any] = {"schedule_text": "", "schedule": None, "kind": ASK, "model": None, "enabled": True, "max_runs_per_day": None}
+    found: dict[str, Any] = {"schedule_text": "", "schedule": None, "kind": ASK, "model": None, "enabled": True, "max_runs_per_day": None, "max_waiting_drafts": None}
     text = meta.get("schedule")
     found["schedule_text"] = "" if text is None else str(text).strip()
     kind = str(meta.get("kind", ASK)).strip().lower()
@@ -87,6 +88,12 @@ def _settings(meta: dict[str, Any], body: str) -> tuple[dict[str, Any], str | No
             found["max_runs_per_day"] = cap
         else:
             problem = problem or "'max_runs_per_day' is a whole number of 1 or more."
+    waiting = meta.get("max_waiting_drafts")
+    if waiting is not None:
+        if isinstance(waiting, int) and not isinstance(waiting, bool) and waiting >= 1:
+            found["max_waiting_drafts"] = waiting
+        else:
+            problem = problem or "'max_waiting_drafts' is a whole number of 1 or more."
     if kind == ASK and not body.strip():
         problem = problem or "There is no prompt: write what the persona should do under the properties."
     return found, problem
@@ -106,7 +113,7 @@ def load(handle: str, name: str) -> Job | None:
         return None
     except (OSError, UnicodeDecodeError) as e:
         log.warning("Couldn't read the job %s: %s", path, e)
-        return Job(handle.lower(), name, path, "", None, ASK, None, False, None, "", datetime.now(), f"The file could not be read ({e}).")
+        return Job(handle.lower(), name, path, "", None, ASK, None, False, None, None, "", datetime.now(), f"The file could not be read ({e}).")
     meta, body = parse_frontmatter(text)
     fields, problem = _settings(meta, body)
     return Job(handle.lower(), name, path, prompt=body.strip(), changed=changed, problem=problem, **fields)
