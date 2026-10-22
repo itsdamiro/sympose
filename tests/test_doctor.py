@@ -16,6 +16,7 @@ def base(tmp_path, monkeypatch):
     profiles.mkdir()
     monkeypatch.setenv("SYMPOSE_PROFILES_DIR", str(profiles))
     monkeypatch.setenv("SYMPOSE_SETTINGS_PATH", str(tmp_path / "settings.json"))
+    monkeypatch.chdir(tmp_path)  # the command loads the `.env` of the folder it runs in: not the maintainer's, with real tokens
     return profiles
 
 

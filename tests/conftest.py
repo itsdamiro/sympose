@@ -60,3 +60,13 @@ def _no_ollama_capability_lookup(monkeypatch):
         monkeypatch.setattr(tool_support, state, {})
     monkeypatch.setattr(tool_support, "_UNABLE", set())
     monkeypatch.setattr(tool_support, "_OLLAMA_SLOW", set())
+
+
+@pytest.fixture(autouse=True)
+def _no_slack_credentials_from_the_machine(monkeypatch):
+    """The maintainer's own `.env` holds real Slack tokens and the owner's user ID, which loading it puts in the
+    environment: a test starts with none, and sets the ones it needs."""
+    import os
+
+    for name in [n for n in os.environ if n.startswith("SLACK_")]:
+        monkeypatch.delenv(name)
