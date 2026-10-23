@@ -1,18 +1,22 @@
 """Route handlers for a persona's pending changes and the user's annotations on a note (docs/decisions/070).
 
-Nothing here writes the vault: the editor applies an accepted proposal to its own text and the note is saved by the
-ordinary save, so these routes list, read and forget. A proposal's status (pending, or outdated because its passage
+Nothing here writes the vault but `accept_draft`, which makes a new note out of a draft the user accepts (through `draft_accept`,
+as Slack's Accept does): the editor applies an accepted edit to its own text and the note is saved by the ordinary save, so the
+other routes list, read and forget. A proposal's status (pending, or outdated because its passage
 was rewritten) and an annotation's (attached, or detached) are worked out against the note as it is on disk now."""
 
 from typing import Any
 
 from fastapi import HTTPException
 
-from sympose import draft_decisions
+from sympose import draft_accept, draft_decisions
 from sympose import note_changes as nc
 from sympose import note_changes_store as store
-from sympose.server_change_models import AnnotationChange, AnnotationCreate, ChangesResolve, DraftText
+from sympose.server_change_models import AnnotationChange, AnnotationCreate, ChangesResolve, DraftAccept, DraftText
 from sympose.server_handlers import read_note, require_profile
+
+
+NO_DRAFT = "That draft no longer exists, so no note was created."
 
 
 def _handle(persona: str | None) -> str:
@@ -93,6 +97,21 @@ def resolve_changes(body: ChangesResolve) -> dict[str, Any]:
     if not body.all and not gone and body.ids:
         raise HTTPException(status_code=404, detail="No such pending change.")
     return {"path": path, "resolved": gone}
+
+
+def accept_draft(body: DraftAccept) -> dict[str, Any]:
+    handle = _handle(body.persona)
+    path = _key(body.path)
+    waiting = next((p for p in store.read(handle, path)["proposals"] if p.get("kind") == "create"), None)
+    if waiting is None:
+        raise HTTPException(status_code=404, detail=NO_DRAFT)
+    try:
+        done = draft_accept.accept(handle, path, waiting["id"])
+    except draft_accept.Gone:
+        raise HTTPException(status_code=404, detail=NO_DRAFT) from None
+    except draft_accept.Refused as error:
+        raise HTTPException(status_code=409, detail=str(error)) from None
+    return {"path": done.path, "name": done.name}
 
 
 def save_draft(body: DraftText) -> dict[str, Any]:

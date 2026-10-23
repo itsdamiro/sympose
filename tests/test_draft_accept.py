@@ -44,7 +44,7 @@ def waiting() -> int:
     ("///", "Untitled"),
     ("x" * 200, "x" * 80),
 ])
-def test_a_title_becomes_a_file_name_as_the_web_app_makes_it(title, name):
+def test_a_title_becomes_a_file_name(title, name):
     assert draft_accept.file_name(title) == name
 
 
@@ -142,13 +142,25 @@ def test_a_wrong_proposal_id_is_gone_not_another_drafts_note(vault):
     assert waiting() == 2 and other_path != path
 
 
-def test_only_a_draft_that_has_no_file_yet_is_accepted_here(vault):
-    proposal = note_changes.propose_create(H, "Garden/Real", "# Real\n", say="", title="Real", folder="Inbox")
+def test_a_draft_that_already_has_a_real_path_is_made_there_and_never_numbered(vault):
+    (vault / "Garden").mkdir()
+    proposal = note_changes.propose_create(H, "Garden/Real.md", "# Real\n", say="", title="Real", folder="Inbox")
 
-    with pytest.raises(draft_accept.Refused, match="not a draft of a new note"):
-        draft_accept.accept(H, "Garden/Real", proposal["id"])
+    done = draft_accept.accept(H, "Garden/Real.md", proposal["id"])
 
+    assert done.path == "Garden/Real.md" and (vault / "Garden" / "Real.md").read_text() == "# Real\n"
     assert not (vault / "Inbox").exists()
+
+
+def test_a_draft_with_a_real_path_that_is_taken_is_refused_and_waits(vault):
+    (vault / "Garden").mkdir()
+    (vault / "Garden" / "Real.md").write_text("mine")
+    proposal = note_changes.propose_create(H, "Garden/Real.md", "# Real\n", say="", title="Real")
+
+    with pytest.raises(draft_accept.Refused, match="a note already exists at Garden/Real"):
+        draft_accept.accept(H, "Garden/Real.md", proposal["id"])
+
+    assert (vault / "Garden" / "Real.md").read_text() == "mine" and waiting() == 1
 
 
 def test_a_persona_that_is_gone_is_refused_and_the_draft_waits(vault, monkeypatch):
@@ -301,3 +313,27 @@ def test_a_decision_that_cannot_be_recorded_does_not_undo_the_accept_or_the_decl
     done = getattr(draft_accept, act)(H, path, proposal_id)
 
     assert waiting() == 0 and (done.path is not None) == (act == "accept")
+
+
+# --- one at a time, between programs -----------------------------------------------------------------
+def test_an_accept_waits_for_another_program_that_is_accepting(vault):
+    """The web app and `sympose slack` are two programs: a lock on a file in the persona's folder makes a press that reaches both
+    wait for the first, which has then forgotten the draft, so the second finds it gone and no numbered copy is made."""
+    import fcntl
+
+    from sympose import persona_files
+
+    path, proposal_id = draft()
+    outcome = []
+    os.makedirs(os.path.dirname(persona_files.slack_path(H, draft_accept.LOCK)), exist_ok=True)
+    other = open(persona_files.slack_path(H, draft_accept.LOCK), "a")  # what the other program holds while it works
+    fcntl.flock(other, fcntl.LOCK_EX)
+    worker = threading.Thread(target=lambda: outcome.append(draft_accept.accept(H, path, proposal_id)))
+    worker.start()
+    worker.join(0.5)
+    assert worker.is_alive() and not (vault / "Inbox" / "Seeds.md").exists()
+
+    other.close()
+    worker.join(5)
+
+    assert outcome == [draft_accept.Decided("Seeds", "Inbox/Seeds.md")]

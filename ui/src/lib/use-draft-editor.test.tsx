@@ -2,12 +2,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { act, cleanup, renderHook } from "@testing-library/react"
 
-const changes = vi.hoisted(() => ({ fetchChanges: vi.fn(), resolveChanges: vi.fn(), saveDraftText: vi.fn() }))
-const vault = vi.hoisted(() => ({ createVaultNote: vi.fn(), saveVaultNote: vi.fn() }))
+const changes = vi.hoisted(() => ({ acceptDraft: vi.fn(), fetchChanges: vi.fn(), resolveChanges: vi.fn(), saveDraftText: vi.fn() }))
 const notify = vi.hoisted(() => ({ notify: { error: vi.fn(), success: vi.fn() } }))
 const guard = vi.hoisted(() => ({ getUnsavedGuard: vi.fn() }))
 vi.mock("@/lib/persona-changes-api", () => changes)
-vi.mock("@/lib/vault-note-api", () => vault)
 vi.mock("@/lib/notify", () => notify)
 vi.mock("@/lib/unsaved-guard", () => guard)
 
@@ -25,8 +23,7 @@ function setup(onAccepted = vi.fn()) {
   changes.fetchChanges.mockResolvedValue({ proposals: [proposal] })
   changes.resolveChanges.mockResolvedValue({ ok: true, resolved: ["p"] })
   changes.saveDraftText.mockResolvedValue({ ok: true })
-  vault.createVaultNote.mockResolvedValue({ ok: true, path: "Ideas/New plan" })
-  vault.saveVaultNote.mockResolvedValue({ ok: true })
+  changes.acceptDraft.mockResolvedValue({ ok: true, path: "Ideas/New plan.md" })
   guard.getUnsavedGuard.mockReturnValue(null)
   const hook = renderHook(() => useDraftEditor({ handle: "samantha", personaName: "Samantha", onAccepted }))
   act(() => hook.result.current.open(PATH))
@@ -63,8 +60,7 @@ describe("useDraftEditor", () => {
     const { result } = setup()
     expect(await result.current.file!.save("x", "# New plan\n\nEdited\n")).toEqual({ ok: true })
     expect(changes.saveDraftText).toHaveBeenCalledWith(PATH, "samantha", "# New plan\n\nEdited\n")
-    expect(vault.createVaultNote).not.toHaveBeenCalled()
-    expect(vault.saveVaultNote).not.toHaveBeenCalled()
+    expect(changes.acceptDraft).not.toHaveBeenCalled()
     expect(await result.current.file!.load("x")).toEqual({ content: "# New plan\n\nEdited\n" })
   })
 
@@ -77,122 +73,67 @@ describe("useDraftEditor", () => {
     expect(await result.current.file!.load("x")).toEqual({ content: proposal.text }) // the proposal's own text, not the failed edit
   })
 
-  it("accepts: creates the file, writes the text, forgets the proposal, and says the path, in that order", async () => {
+  it("accepts: the editor is flushed, the server makes the note, the list and the editor are told, and the path is said", async () => {
     const order: string[] = []
     const { result, onAccepted } = setup()
-    vault.createVaultNote.mockImplementation(async () => (order.push("create"), { ok: true, path: "x" }))
-    vault.saveVaultNote.mockImplementation(async () => (order.push("write"), { ok: true }))
-    changes.resolveChanges.mockImplementation(async () => (order.push("forget"), { ok: true, resolved: [] }))
+    guard.getUnsavedGuard.mockReturnValue({ save: async () => (order.push("flush"), true) })
+    changes.acceptDraft.mockImplementation(async () => (order.push("accept"), { ok: true, path: "Ideas/New plan.md" }))
+    window.addEventListener("sympose:drafts-changed", () => order.push("announced"), { once: true })
     onAccepted.mockImplementation(() => order.push("opened"))
 
     await act(async () => result.current.accept())
 
-    expect(order).toEqual(["create", "write", "forget", "opened"])
-    expect(vault.createVaultNote).toHaveBeenCalledWith("Ideas/New plan", "samantha")
-    expect(vault.saveVaultNote).toHaveBeenCalledWith(PATH, proposal.text, "samantha")
-    expect(changes.resolveChanges).toHaveBeenCalledWith(PATH, "samantha", "all")
-    expect(onAccepted).toHaveBeenCalledWith(PATH)
+    expect(order).toEqual(["flush", "accept", "announced", "opened"])
+    expect(changes.acceptDraft).toHaveBeenCalledWith(PATH, "samantha")
+    expect(onAccepted).toHaveBeenCalledWith("Ideas/New plan.md")
+    expect(notify.notify.success).toHaveBeenCalledWith("Draft accepted")
     expect(result.current.current).toBeNull()
   })
 
-  describe("a new note she proposed, which has only a working path", () => {
-    const WORKING = "new/741e5dad7a59.md"
-    function fresh(folder?: string) {
-      const onAccepted = vi.fn()
-      changes.fetchChanges.mockResolvedValue({ proposals: [{ ...proposal, name: "Collaboration: note / ideas", ...(folder ? { folder } : {}) }] })
-      changes.resolveChanges.mockResolvedValue({ ok: true, resolved: ["p"] })
-      vault.createVaultNote.mockResolvedValue({ ok: true, path: "x" })
-      vault.saveVaultNote.mockResolvedValue({ ok: true })
-      guard.getUnsavedGuard.mockReturnValue(null)
-      const hook = renderHook(() => useDraftEditor({ handle: "samantha", personaName: "Samantha", onAccepted }))
-      act(() => hook.result.current.open(WORKING))
-      return { ...hook, onAccepted }
-    }
+  it("asks for the draft by its working path, and opens the note the server made, wherever it put it", async () => {
+    const { result, onAccepted } = setup()
+    act(() => result.current.open("new/741e5dad7a59.md"))
+    changes.acceptDraft.mockResolvedValue({ ok: true, path: "Garden/Collaboration note ideas (3).md" })
 
-    it("is made in the folder its proposal names, by its title, not under the working path", async () => {
-      const { result, onAccepted } = fresh("Garden")
+    await act(async () => result.current.accept())
 
-      await act(async () => result.current.accept())
-
-      expect(vault.createVaultNote).toHaveBeenCalledWith("Garden/Collaboration note ideas", "samantha")
-      expect(vault.saveVaultNote).toHaveBeenCalledWith("Garden/Collaboration note ideas.md", proposal.text, "samantha")
-      expect(changes.resolveChanges).toHaveBeenCalledWith(WORKING, "samantha", "all") // the proposal under its working path is the one forgotten
-      expect(onAccepted).toHaveBeenCalledWith("Garden/Collaboration note ideas.md")
-    })
-
-    it("is made in the folder she was asked for, even a new one, instead of the one the draft was given", async () => {
-      const { result, onAccepted } = fresh("Garden")
-      changes.fetchChanges.mockResolvedValue({ proposals: [{ ...proposal, name: "Plan", folder: "Projects/Sympose" }] })
-
-      await act(async () => result.current.accept())
-
-      expect(vault.createVaultNote).toHaveBeenCalledWith("Projects/Sympose/Plan", "samantha")
-      expect(onAccepted).toHaveBeenCalledWith("Projects/Sympose/Plan.md")
-    })
-
-    it("is made with no folder when an older draft has none, whatever folder the user is in", async () => {
-      const { result } = fresh(undefined)
-      await act(async () => result.current.accept())
-      expect(vault.createVaultNote).toHaveBeenCalledWith("Collaboration note ideas", "samantha")
-    })
-
-    it("takes the next number when a note of that name exists, and says so only when they all do", async () => {
-      const { result, onAccepted } = fresh("Garden")
-      vault.createVaultNote
-        .mockResolvedValueOnce({ ok: false, error: "A note with that name already exists." })
-        .mockResolvedValueOnce({ ok: false, error: "A note with that name already exists." })
-        .mockResolvedValueOnce({ ok: true, path: "x" })
-
-      await act(async () => result.current.accept())
-
-      expect(vault.createVaultNote.mock.calls.map((c) => c[0])).toEqual(["Garden/Collaboration note ideas", "Garden/Collaboration note ideas (2)", "Garden/Collaboration note ideas (3)"])
-      expect(onAccepted).toHaveBeenCalledWith("Garden/Collaboration note ideas (3).md")
-    })
-
-    it("stops at an error that is not a name taken, and keeps the draft", async () => {
-      const { result, onAccepted } = fresh("Garden")
-      vault.createVaultNote.mockResolvedValue({ ok: false, error: "That folder is outside this persona's reach." })
-
-      await act(async () => result.current.accept())
-
-      expect(vault.createVaultNote).toHaveBeenCalledTimes(1)
-      expect(notify.notify.error).toHaveBeenCalledWith("That folder is outside this persona's reach.")
-      expect(onAccepted).not.toHaveBeenCalled()
-    })
+    expect(changes.acceptDraft).toHaveBeenCalledWith("new/741e5dad7a59.md", "samantha")
+    expect(onAccepted).toHaveBeenCalledWith("Garden/Collaboration note ideas (3).md")
   })
 
-  it("accepts the text as the user edited it, flushing the editor first", async () => {
+  it("keeps the edit the user typed last by flushing the editor before asking the server", async () => {
     const { result } = setup()
     guard.getUnsavedGuard.mockReturnValue({ save: async () => (await result.current.file!.save("x", "typed just now"), true) })
     await act(async () => result.current.accept())
-    expect(vault.saveVaultNote).toHaveBeenCalledWith(PATH, "typed just now", "samantha")
+    expect(changes.saveDraftText.mock.invocationCallOrder[0]).toBeLessThan(changes.acceptDraft.mock.invocationCallOrder[0])
+    expect(changes.saveDraftText).toHaveBeenCalledWith(PATH, "samantha", "typed just now")
   })
 
-  it("keeps the draft and says why when a note of that name exists", async () => {
+  it("does not make the note from older words when the editor could not keep the latest", async () => {
     const { result, onAccepted } = setup()
-    vault.createVaultNote.mockResolvedValue({ ok: false, error: "A note with that name already exists." })
+    guard.getUnsavedGuard.mockReturnValue({ save: async () => false })
     await act(async () => result.current.accept())
-    expect(notify.notify.error).toHaveBeenCalledWith("A note with that name already exists.")
-    expect(vault.saveVaultNote).not.toHaveBeenCalled()
-    expect(changes.resolveChanges).not.toHaveBeenCalled()
+    expect(changes.acceptDraft).not.toHaveBeenCalled()
+    expect(notify.notify.error).toHaveBeenCalledWith(expect.stringContaining("could not be kept"))
     expect(onAccepted).not.toHaveBeenCalled()
     expect(result.current.current).not.toBeNull()
   })
 
-  it("keeps the draft when the text could not be written after the file was made", async () => {
+  it("keeps the draft and says why when the server cannot make the note", async () => {
     const { result, onAccepted } = setup()
-    vault.saveVaultNote.mockResolvedValue({ ok: false, error: "disk full" })
+    changes.acceptDraft.mockResolvedValue({ ok: false, error: "Seeds could not be saved: its folder is outside what this persona may write to." })
     await act(async () => result.current.accept())
-    expect(notify.notify.error).toHaveBeenCalledWith(expect.stringContaining("disk full"))
-    expect(changes.resolveChanges).not.toHaveBeenCalled()
+    expect(notify.notify.error).toHaveBeenCalledWith("Seeds could not be saved: its folder is outside what this persona may write to.")
     expect(onAccepted).not.toHaveBeenCalled()
+    expect(notify.notify.success).not.toHaveBeenCalled()
+    expect(result.current.current).not.toBeNull()
   })
 
   it("declines: forgets the proposal, creates nothing, and closes", async () => {
     const { result, onAccepted } = setup()
     await act(async () => result.current.decline())
     expect(changes.resolveChanges).toHaveBeenCalledWith(PATH, "samantha", "all")
-    expect(vault.createVaultNote).not.toHaveBeenCalled()
+    expect(changes.acceptDraft).not.toHaveBeenCalled()
     expect(onAccepted).not.toHaveBeenCalled()
     expect(result.current.current).toBeNull()
   })

@@ -43,6 +43,14 @@ class AnnotationChange(BaseModel):
     persona: str | None = None
 
 
+class DraftAccept(BaseModel):
+    """Body of `POST /api/vault/changes/accept` — make the note the new-note draft at `path` proposes, with the text the
+    draft holds (the editor saves its text there first), and forget the draft."""
+
+    path: str = Field(..., min_length=1)
+    persona: str | None = None
+
+
 class DraftText(BaseModel):
     """Body of `PATCH /api/vault/changes/draft` — the user saved the new-note draft at `path` in the editor; `text` is
     what the editor now holds. Kept in the persona's folder, never written to the vault."""

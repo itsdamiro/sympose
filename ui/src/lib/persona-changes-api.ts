@@ -129,6 +129,24 @@ export async function saveDraftText(path: string, persona: string, text: string)
   }
 }
 
+export type AcceptDraftResult = { ok: true; path: string } | { ok: false; error: string }
+
+/** `POST /api/vault/changes/accept`: the server makes the note the new-note draft proposes, from the text it holds (the editor
+ *  saves its text there first), named and placed by its proposal, and forgets the draft. `path` is the note that was made. */
+export async function acceptDraft(path: string, persona: string): Promise<AcceptDraftResult> {
+  try {
+    const res = await fetch("/api/vault/changes/accept", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path, persona }),
+    })
+    if (!res.ok) return { ok: false, error: (await detailOf(res)) || `Something failed on Sympose's side (code ${res.status}). Try again.` }
+    return { ok: true, path: ((await res.json()) as { path: string }).path }
+  } catch {
+    return { ok: false, error: "Sympose isn't responding. Check that it's still running, then try again." }
+  }
+}
+
 export type CommentResult = { ok: true; comment?: Annotation } | { ok: false; error: string }
 
 async function sendComment(method: "POST" | "PATCH", body: Record<string, unknown>): Promise<CommentResult> {

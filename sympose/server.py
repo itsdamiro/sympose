@@ -43,7 +43,7 @@ from sympose import server_skill_handlers as skh
 from sympose import server_trash_handlers as th
 from sympose import server_vault_handlers as vh
 from sympose import vault_paths
-from sympose.server_change_models import AnnotationChange, AnnotationCreate, ChangesResolve, DraftText
+from sympose.server_change_models import AnnotationChange, AnnotationCreate, ChangesResolve, DraftAccept, DraftText
 from sympose.server_models import ChatBinAction, ChatCancel, ChatCompact, ChatSessionArchive, ChatSessionStart, ChatSessionUpdate, ChatTurn, DefinitionsSwitch, EditModeChoice, FolderColor, FolderIcon, FolderMove, FolderMovePlan, FolderRename, FolderSettings, HiddenPath, JobModelChoice, JobRename, JobSwitch, ModelChoice, PersonaFileWrite, ScheduleSwitch, SettingChange, SharingChange, SkillAdd, SkillSwitch, TrashEmpty, TrashRestore, VaultActivate
 
 
@@ -432,6 +432,10 @@ def create_app() -> FastAPI:
     @app.post("/api/vault/changes/resolve")
     def resolve_changes(body: ChangesResolve) -> dict[str, Any]:
         return chg.resolve_changes(body)
+
+    @app.post("/api/vault/changes/accept")
+    def accept_draft(body: DraftAccept) -> dict[str, Any]:
+        return chg.accept_draft(body)
 
     @app.patch("/api/vault/changes/draft")
     def save_draft(body: DraftText) -> dict[str, Any]:

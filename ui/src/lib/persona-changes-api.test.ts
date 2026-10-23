@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { fetchChanges, fetchDrafts, resolveChanges, saveDraftText } from "./persona-changes-api"
+import { acceptDraft, fetchChanges, fetchDrafts, resolveChanges, saveDraftText } from "./persona-changes-api"
 
 const json = (body: unknown, ok = true, status = ok ? 200 : 500) =>
   ({ ok, status, json: () => Promise.resolve(body) }) as Response
@@ -125,5 +125,24 @@ describe("saveDraftText", () => {
 
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("down")))
     expect(await saveDraftText("N.md", "samantha", "x")).toEqual({ ok: false, error: "Sympose isn't responding. Check that it's still running, then try again." })
+  })
+})
+
+describe("acceptDraft", () => {
+  it("asks the server to make the note of the draft for the persona, and says where it was made", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(json({ path: "Inbox/Seeds (2).md", name: "Seeds" }))
+    vi.stubGlobal("fetch", fetchMock)
+
+    expect(await acceptDraft("new/abc.md", "samantha")).toEqual({ ok: true, path: "Inbox/Seeds (2).md" })
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/vault/changes/accept", expect.objectContaining({ method: "POST", body: JSON.stringify({ path: "new/abc.md", persona: "samantha" }) }))
+  })
+
+  it("gives the server's reason when it refuses, and a plain one when it cannot be reached", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json({ detail: "That draft no longer exists, so no note was created." }, false, 404)))
+    expect(await acceptDraft("new/abc.md", "samantha")).toEqual({ ok: false, error: "That draft no longer exists, so no note was created." })
+
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("down")))
+    expect(await acceptDraft("new/abc.md", "samantha")).toEqual({ ok: false, error: "Sympose isn't responding. Check that it's still running, then try again." })
   })
 })

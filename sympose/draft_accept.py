@@ -1,23 +1,41 @@
-"""Accepting or declining a persona's new-note draft without the web app (docs/decisions/093, "Accept and Decline in Slack").
-
-In the web app Accept is the editor's: it makes the note, saves the text and forgets the proposal. This is the same act for a
-caller with no browser. The note is made with `vault_write_create.create_note` (the sandbox, the lock and the refusal to
-overwrite the routes have), named by its title in the draft's folder, and only then is the proposal forgotten. Nothing here runs
-unless the user pressed Accept."""
+"""Accepting or declining a persona's new-note draft (docs/decisions/093, "Accept and Decline in Slack"; the web app's Accept goes
+through here too, `POST /api/vault/changes/accept`): the one place a draft becomes a note. The note is made with
+`vault_write_create.create_note` (the sandbox, the lock and the refusal to overwrite the routes have), named by its title in the
+draft's folder, and only then is the proposal forgotten. Nothing here runs unless the user pressed Accept."""
 
 import contextlib
+import os
 import re
 import threading
+from collections.abc import Iterator
 from dataclasses import dataclass
 
-from sympose import draft_decisions, note_changes, profile as profile_mod, vault_write_create
+from sympose import draft_decisions, note_changes, persona_files, profile as profile_mod, vault_write_create
 from sympose.vault_write_status import NOTE_DENIED, NOTE_EXISTS
 
 NAME_LIMIT = 80
 TRIES = 20  # the name, then the name with (2) to (20)
 _UNFIT = re.compile(r'[\\/:*?"<>|#^\[\]]')  # what a file name or a link cannot hold
 _MADE = re.compile(r"`(.+)`")  # the path in "Created note: `Folder/Name.md`"
-_lock = threading.Lock()  # a note is made and its proposal forgotten as one step, so a double press makes one note
+LOCK = "accept.lock"
+_lock = threading.Lock()
+
+
+@contextlib.contextmanager
+def _one_at_a_time(handle: str) -> Iterator[None]:
+    """A note is made and its proposal forgotten as one step, so a double press makes one note: in this program by a lock, and
+    between programs (the web app and `sympose slack` are two, and a press can reach both) by a lock on a file in the persona's
+    own folder. Where the system has no file locks the first alone stands."""
+    with _lock, contextlib.ExitStack() as stack:
+        try:
+            import fcntl
+
+            path = persona_files.slack_path(handle, LOCK)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            fcntl.flock(stack.enter_context(open(path, "a")), fcntl.LOCK_EX)
+        except (ImportError, OSError):
+            pass
+        yield
 
 
 class Gone(Exception):
@@ -35,7 +53,7 @@ class Decided:
 
 
 def file_name(title: str | None) -> str:
-    """A title as a file name, as the web app's `fileNameOf` makes it: no characters a file name or a link cannot hold, no
+    """A title as a file name: no characters a file name or a link cannot hold, no
     runs of spaces, at most 80 characters, `Untitled` when nothing is left."""
     return " ".join(_UNFIT.sub(" ", title or "").split())[:NAME_LIMIT] or "Untitled"
 
@@ -49,17 +67,21 @@ def _waiting(handle: str, path: str, proposal_id: str) -> dict:
 
 def accept(handle: str, path: str, proposal_id: str) -> Decided:
     """Make the note the draft `proposal_id` under `path` proposes, with the text it holds now, and forget the draft."""
-    with _lock:
+    with _one_at_a_time(handle):
         proposal = _waiting(handle, path, proposal_id)
         name = str(proposal.get("name") or "Untitled")
         profile = profile_mod.resolve_profile(handle)
         if profile is None:
             raise Refused(f"{name} could not be saved: this persona was not found.")
-        if not path.startswith("new/"):
-            raise Refused(f"{name} could not be saved: it is not a draft of a new note.")
-        base = "/".join(part for part in (proposal.get("folder"), file_name(name)) if part)
-        for n in range(1, TRIES + 1):
-            result = vault_write_create.create_note(profile, base if n == 1 else f"{base} ({n})", str(proposal.get("text") or ""))
+        # A draft under a working path (`new/<id>.md`) is named by its title in its folder, and numbered when that name is taken. One
+        # that already has a real path (older than the working paths) is made there, and only there.
+        if path.startswith("new/"):
+            base = "/".join(part for part in (proposal.get("folder"), file_name(name)) if part)
+            names = [base if n == 1 else f"{base} ({n})" for n in range(1, TRIES + 1)]
+        else:
+            names = [path]  # `create_note` takes the path with its `.md`
+        for target in names:
+            result = vault_write_create.create_note(profile, target, str(proposal.get("text") or ""))
             if result == NOTE_EXISTS:
                 continue
             if result == NOTE_DENIED:
@@ -75,12 +97,13 @@ def accept(handle: str, path: str, proposal_id: str) -> Decided:
             except KeyError:
                 pass  # forgotten at the same moment elsewhere: the note is made all the same
             return Decided(name, made.group(1))
-        raise Refused(f"{name} could not be saved: a note with that name exists, and so do the numbered ones. Rename one and try again.")
+        taken = "a note with that name exists, and so do the numbered ones" if len(names) > 1 else f"a note already exists at {names[0]}"
+        raise Refused(f"{name} could not be saved: {taken}. Rename one and try again.")
 
 
 def decline(handle: str, path: str, proposal_id: str) -> Decided:
     """Forget the draft; nothing is written."""
-    with _lock:
+    with _one_at_a_time(handle):
         name = str(_waiting(handle, path, proposal_id).get("name") or "Untitled")
         try:
             note_changes.discard_proposal(handle, path, proposal_id)

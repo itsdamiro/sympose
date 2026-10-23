@@ -649,3 +649,46 @@ def test_a_draft_still_waiting_or_a_note_or_an_unknown_draft_says_nothing_was_de
     assert changes_for(client, path)["decided"] is None
     assert changes_for(client, "Garden plan.md")["decided"] is None
     assert changes_for(client, "new/unknown.md")["decided"] is None
+
+
+# --- Accept through the server (docs/decisions/093, amended: the web app's Accept is the server's) ----------------
+def _draft(title="Seeds", text="# Seeds\n\nSow in March.\n", folder="Inbox"):
+    proposal = nc.propose_create("samantha", nc.new_note_path(), text, say="", title=title, folder=folder)
+    (path,) = [e["path"] for e in nc.store.entries("samantha") if any(p["id"] == proposal["id"] for p in e["proposals"])]
+    return path
+
+
+def test_accepting_a_draft_through_the_route_makes_the_note_with_the_text_the_draft_holds_and_forgets_it(env):
+    client, vault = env
+    path = _draft()
+    client.patch("/api/vault/changes/draft", json={"path": path, "persona": "samantha", "text": "# Seeds\n\nEdited.\n"})
+
+    res = client.post("/api/vault/changes/accept", json={"path": path, "persona": "samantha"})
+
+    assert res.status_code == 200 and res.json() == {"path": "Inbox/Seeds.md", "name": "Seeds"}
+    assert (vault / "Inbox" / "Seeds.md").read_text() == "# Seeds\n\nEdited.\n"
+    assert nc.drafts("samantha") == [] and changes_for(client, path)["decided"] == {"state": "accepted", "path": "Inbox/Seeds.md"}
+
+
+def test_accepting_a_draft_that_is_gone_is_a_404_and_makes_nothing(env):
+    client, vault = env
+    path = _draft()
+    nc.forget("samantha", path)
+
+    res = client.post("/api/vault/changes/accept", json={"path": path, "persona": "samantha"})
+
+    assert res.status_code == 404 and "no longer exists" in res.json()["detail"]
+    assert not (vault / "Inbox").exists()
+
+
+def test_a_draft_that_cannot_be_made_into_a_note_says_why_and_waits(env):
+    client, vault = env
+    (vault / "Inbox").mkdir()
+    for n in range(1, 21):
+        (vault / "Inbox" / (f"Seeds ({n}).md" if n > 1 else "Seeds.md")).write_text("x")
+    path = _draft()
+
+    res = client.post("/api/vault/changes/accept", json={"path": path, "persona": "samantha"})
+
+    assert res.status_code == 409 and "Seeds could not be saved" in res.json()["detail"]
+    assert len(nc.drafts("samantha")) == 1

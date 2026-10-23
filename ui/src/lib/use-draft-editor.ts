@@ -1,27 +1,20 @@
 import * as React from "react"
 
 import { notify } from "@/lib/notify"
-import { fetchChanges, resolveChanges, saveDraftText } from "@/lib/persona-changes-api"
+import { acceptDraft, fetchChanges, resolveChanges, saveDraftText } from "@/lib/persona-changes-api"
 import { getUnsavedGuard } from "@/lib/unsaved-guard"
 import { announceDraftsChanged } from "@/lib/use-drafts"
 import { useOnWindowFocus } from "@/lib/use-on-window-focus"
-import { createVaultNote, saveVaultNote } from "@/lib/vault-note-api"
 import type { PanelFile } from "@/lib/use-note-document"
 
 /**
  * The draft of a new note open in the editor (docs/decisions/071): a note the persona proposed that has no file yet.
  * It is shown through the editor's `file` seam, like a persona's own file, with its text from the proposal. Saving
  * (the button, `⌘/Ctrl-S`, autosave, leaving the draft) keeps the user's edits in the proposal in the persona's folder
- * (never the vault; amended 2026-10-05): the file is made by `accept`, the one deliberate act, and `decline` forgets
- * the proposal. `path` is the key the editor is
+ * (never the vault; amended 2026-10-05): the file is made by `accept`, the one deliberate act (the server makes it, as for
+ * Slack's Accept, docs/decisions/093), and `decline` forgets the proposal. `path` is the key the editor is
  * given, `draft:<handle>/<note path>`, never a vault path.
  */
-/** A proposed note's title as a file name: no characters a file name or a link cannot hold, no runs of spaces, not empty. */
-function fileNameOf(title: string | null | undefined): string {
-  const name = (title ?? "").replace(/[\\/:*?"<>|#^[\]]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80)
-  return name || "Untitled"
-}
-
 export function useDraftEditor({
   handle,
   personaName,
@@ -79,37 +72,16 @@ export function useDraftEditor({
 
   const accept = React.useCallback(async () => {
     if (!notePath) return
-    await getUnsavedGuard()?.save() // what is in the editor right now reaches `texts`
-    const proposed = (await fetchChanges(notePath, handle))?.proposals.find((p) => p.kind === "create")
-    const text = texts.current.get(`${handle}:${notePath}`) ?? proposed?.text
-    if (text === undefined) return notify.error("That draft no longer exists, so no note was created.")
-    // A note she proposed lives under a working path (`new/<id>.md`) that is nothing to keep: it is made in the folder its
-    // proposal names (the persona's Inbox unless she was asked for another, docs/decisions/094), named by its title, and under another number when that name is taken. A draft that already has a real path keeps it.
-    let target = notePath.replace(/\.md$/, "")
-    if (notePath.startsWith("new/")) {
-      // A draft made before the Inbox (docs/decisions/094) has no folder: it is made in the persona's main folder.
-      const base = [proposed?.folder, fileNameOf(proposed?.name)].filter(Boolean).join("/")
-      let made = false
-      for (let n = 1; n <= 20 && !made; n++) {
-        const candidate = n === 1 ? base : `${base} (${n})`
-        const created = await createVaultNote(candidate, handle)
-        if (created.ok) {
-          target = candidate
-          made = true
-        } else if (!/already exists/i.test(created.error)) return notify.error(created.error)
-      }
-      if (!made) return notify.error("A note with that name already exists, and so do the numbered ones. Rename one and try again.")
-    } else {
-      const created = await createVaultNote(target, handle)
-      if (!created.ok) return notify.error(created.error) // a note of that name exists: the draft stays
-    }
-    const path = `${target}.md`
-    const written = await saveVaultNote(path, text, handle)
-    if (!written.ok) return notify.error(`The note was created but its text couldn't be saved. Open it and try again. (${written.error})`)
-    await forget(notePath)
+    // What is in the editor right now reaches the draft the server holds; if it cannot be kept, the note is not made from older words.
+    if ((await getUnsavedGuard()?.save()) === false) return notify.error("Your latest words could not be kept, so the note was not made. Try again.")
+    const made = await acceptDraft(notePath, handle)
+    if (!made.ok) return notify.error(made.error)
+    texts.current.delete(`${handle}:${notePath}`)
+    announceDraftsChanged()
+    close()
     notify.success("Draft accepted")
-    onAccepted(path)
-  }, [notePath, handle, forget, onAccepted])
+    onAccepted(made.path)
+  }, [notePath, handle, close, onAccepted])
 
   // A new-note draft decided in another program (Slack's Accept or Decline, docs/decisions/093) is not waiting any more: when the
   // window comes back into focus the editor asks, and opens the note it became or, if it was declined, closes. Never polled, no notice.
