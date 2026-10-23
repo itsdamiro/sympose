@@ -1,6 +1,6 @@
 """The Slack App manifest of one persona (docs/decisions/093): what `sympose slack manifest <handle>` prints, so making the
 App in Slack is a paste and not a form. It asks for exactly what the adapter uses and nothing more: direct messages to the bot,
-mentions of it, `/new`, the files shared with them (`files:read`), Socket Mode (so no public address), no history, no buttons.
+mentions of it, `/new`, the files shared with them (`files:read`), Socket Mode (so no public address), the buttons Accept and Decline under a draft (interactivity), no history.
 
 The field names and limits are Slack's app manifest reference; the manifest was not tried against a real workspace."""
 
@@ -34,7 +34,7 @@ def manifest(handle: str, name: str) -> dict[str, Any]:
         "oauth_config": {"scopes": {"bot": list(BOT_SCOPES)}},
         "settings": {
             "event_subscriptions": {"bot_events": list(BOT_EVENTS)},
-            "interactivity": {"is_enabled": False},
+            "interactivity": {"is_enabled": True},
             "org_deploy_enabled": False,
             "socket_mode_enabled": True,
             "token_rotation_enabled": False,

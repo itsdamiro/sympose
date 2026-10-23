@@ -3,6 +3,7 @@ by looking at the roster, so no persona is named here. Each connection hands a m
 says what comes back; nothing else happens in this module. `slack-bolt` is imported when a connection is made."""
 
 import logging
+import re
 import sys
 import threading
 import time
@@ -10,18 +11,20 @@ from collections.abc import Callable
 from typing import Any
 
 from sympose import profile as profile_mod
-from sympose import slack_channel, slack_credentials, slack_heartbeat, slack_manifest, slack_sessions
+from sympose import slack_channel, slack_credentials, slack_drafts, slack_heartbeat, slack_manifest, slack_sessions
 from sympose.slack_events import Incoming, parse
 from sympose.slack_trace import note
 
 log = logging.getLogger(__name__)
 
 NEW_COMMAND = slack_manifest.NEW_COMMAND["command"]  # the manifest declares it, so the two cannot differ
+BUTTONS = re.compile(f"^({slack_drafts.ACCEPT}|{slack_drafts.DECLINE})$")
+PRESS_FAILED = "Sympose could not do that. Its terminal says why."
 
 
-def listeners(handle: str, bot_user_id: str, seen: slack_sessions.Seen | None = None, bot_token: str = "") -> tuple[Callable, Callable]:
-    """What `handle`'s Slack App does with a message (or a mention) and with `/new`. Each is called by Slack's library,
-    which has already acknowledged the event; neither raises, since a failure here would only be lost in a thread."""
+def listeners(handle: str, bot_user_id: str, seen: slack_sessions.Seen | None = None, bot_token: str = "") -> tuple[Callable, Callable, Callable]:
+    """What `handle`'s Slack App does with a message (or a mention), with `/new` and with a press of Accept or Decline under a
+    draft. Each is called by Slack's library; none raises, since a failure here would only be lost in a thread."""
     seen = seen or slack_sessions.Seen()
 
     def on_event(body: dict[str, Any], say: Callable[..., Any]) -> None:
@@ -45,6 +48,13 @@ def listeners(handle: str, bot_user_id: str, seen: slack_sessions.Seen | None = 
             log.exception("Slack: the reply of %s could not be sent", handle)
             return
         note(handle, f"replied after {time.monotonic() - started:.0f} s")
+        for prompt in reply.prompts:
+            try:
+                say(thread_ts=reply.thread_ts, **prompt)
+            except Exception as e:  # the reply stands, and the draft can still be decided in the web app
+                note(handle, f"the buttons could not be sent ({type(e).__name__}), see below")
+                log.exception("Slack: the buttons of %s could not be sent", handle)
+                return
 
     def on_new(ack: Callable[..., Any], command: dict[str, Any], respond: Callable[..., Any]) -> None:
         ack()
@@ -54,7 +64,26 @@ def listeners(handle: str, bot_user_id: str, seen: slack_sessions.Seen | None = 
         if reply is not None:
             respond(reply.text)
 
-    return on_event, on_new
+    def on_press(ack: Callable[..., Any], body: dict[str, Any], respond: Callable[..., Any]) -> None:
+        ack()
+        pressed = next(iter(body.get("actions") or []), {})
+        try:
+            decision = slack_channel.decide(handle, (body.get("user") or {}).get("id") or "", pressed.get("action_id") or "", pressed.get("value") or "")
+            if decision is None:
+                return
+            if decision.final:
+                respond(replace_original=True, **slack_drafts.outcome(decision.text))
+            else:
+                respond(text=decision.text, response_type="ephemeral", replace_original=False)
+        except Exception as e:
+            note(handle, f"the press failed ({type(e).__name__}), see below")
+            log.exception("Slack: a press for %s failed", handle)
+            try:
+                respond(text=PRESS_FAILED, response_type="ephemeral", replace_original=False)
+            except Exception:
+                pass
+
+    return on_event, on_new, on_press
 
 
 def connect(handle: str, bot_token: str, app_token: str) -> Any:
@@ -63,10 +92,11 @@ def connect(handle: str, bot_token: str, app_token: str) -> Any:
     from slack_bolt.adapter.socket_mode import SocketModeHandler
 
     app = App(token=bot_token)
-    on_event, on_new = listeners(handle, app.client.auth_test()["user_id"], bot_token=bot_token)
+    on_event, on_new, on_press = listeners(handle, app.client.auth_test()["user_id"], bot_token=bot_token)
     app.event("message")(on_event)
     app.event("app_mention")(on_event)
     app.command(NEW_COMMAND)(on_new)
+    app.action(BUTTONS)(on_press)
     handler = SocketModeHandler(app, app_token)
     handler.connect()
     return handler

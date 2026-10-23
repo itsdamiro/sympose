@@ -38,7 +38,7 @@ UNATTENDED = (
 # read in a chat window with no editor beside it, and a note it proposes is shown under the reply by the adapter.
 SLACK = (
     "You are answering in Slack, not in the web app: keep the reply short, and know there is no editor and no open note. A note you "
-    "propose is shown to the user under your reply and waits in Drafts; only the user accepts it, in the web app, so never say it is saved."
+    "propose is shown to the user under your reply and waits in Drafts; only the user accepts it (with the buttons Slack may show under your reply, or in the web app), so never say it is saved."
 )
 
 

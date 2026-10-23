@@ -26,7 +26,7 @@ def test_the_manifest_asks_for_what_the_adapter_uses_and_no_more():
     assert [c["command"] for c in m["features"]["slash_commands"]] == ["/new"]
     assert "url" not in m["features"]["slash_commands"][0]  # Socket Mode needs no address
     assert "request_url" not in m["settings"]["event_subscriptions"]
-    assert m["settings"]["interactivity"] == {"is_enabled": False}
+    assert m["settings"]["interactivity"] == {"is_enabled": True}
 
 
 def test_a_person_can_message_the_bot_from_its_home():

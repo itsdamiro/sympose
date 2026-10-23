@@ -1,6 +1,7 @@
 """A Slack message reaching a persona (docs/decisions/093): who may talk, the `slack` approval, the conversation a message
 belongs to, one turn at a time, and what is said when the turn fails. The turn and the model are fakes."""
 
+import json
 import threading
 import time
 
@@ -34,15 +35,15 @@ def turns(monkeypatch):
         fail = None
         reply = "A **short** answer."
         withheld: list[str] = []
-        proposes: list[tuple[str, str]] = []  # (title, text) of each new note the fake turn proposes
+        proposes: list[tuple] = []  # (title, text) or (title, text, folder) of each new note the fake turn proposes
         elsewhere: list[tuple[str, str]] = []  # the same, proposed on another thread while the turn runs
 
     seen = Turns()
 
     def fake(handle, message, session_id=None, **kwargs):
         seen.append((handle, message, session_id, kwargs))
-        for title, text in seen.proposes:
-            note_changes.propose_create(handle, note_changes.new_note_path(), text, say="", title=title)
+        for title, text, *folder in seen.proposes:
+            note_changes.propose_create(handle, note_changes.new_note_path(), text, say="", title=title, folder=folder[0] if folder else None)
         for title, text in seen.elsewhere:
             other = threading.Thread(target=note_changes.propose_create, args=(handle, note_changes.new_note_path(), text), kwargs={"say": "", "title": title})
             other.start()
@@ -456,3 +457,200 @@ def test_the_files_are_fetched_with_the_conversations_lock_held(home, turns, mon
     monkeypatch.setattr(slack_files, "fetch", fake)
     _answer(_shared())
     assert inside == [True]
+
+
+# --- buttons under a draft, and what a press does (ADR 093, amendment of 2026-10-23) -----------------
+@pytest.fixture
+def vault(home, tmp_path, monkeypatch):
+    root = tmp_path / "vault"
+    root.mkdir()
+    write_persona(home, "samantha", f"name: Samantha\nmodel: {LOCAL}\nvault_folders: '*'\n")
+    monkeypatch.setenv("VAULT_PATHS", str(root))
+    return root
+
+
+def _filed(turns, title="Seeds", text="# Seeds\n\nSow in March.\n"):
+    """A reply that proposed one note, and the value its buttons carry."""
+    turns.proposes = [(title, text, "Inbox")]
+    reply = _answer(dm("write it", event_id=f"E-{title}"))
+    return reply, reply.prompts[0]["blocks"][1]["elements"][0]["value"]
+
+
+def _press(action, value, user=OWNER):
+    return slack_channel.decide("samantha", user, action, value)
+
+
+def test_a_note_shown_whole_is_offered_one_message_of_buttons_in_the_same_place(home, turns):
+    turns.proposes = [("Seeds", "# Seeds\n\nSow in March.\n", "Inbox"), ("Roots", "# Roots\n", "Inbox")]
+
+    reply = _answer(mention(ts="5.5"))
+
+    assert [p["text"] for p in reply.prompts] == ["Save *Seeds* to Inbox?", "Save *Roots* to Inbox?"] and reply.thread_ts == "5.5"
+
+
+def test_a_reply_that_proposed_nothing_is_offered_no_buttons(home, turns):
+    assert _answer(dm("hi")).prompts == ()
+
+
+def test_a_note_that_was_cut_is_offered_no_buttons(home, turns):
+    turns.proposes = [("Long", "word " * 20000)]
+
+    reply = _answer(dm("write it"))
+
+    assert "Cut here" in reply.text and reply.prompts == ()
+
+
+def test_a_turn_that_failed_after_it_proposed_a_note_still_offers_its_buttons(home, turns):
+    turns.proposes = [("Seeds", "# Seeds\n\nSow in March.\n", "Inbox")]
+    turns.fail = turn.EngineModelError("down")
+
+    assert [p["text"] for p in _answer(dm("hi")).prompts] == ["Save *Seeds* to Inbox?"]
+
+
+def test_pressing_accept_makes_the_note_replaces_the_buttons_and_frees_the_room(vault, turns):
+    settings_store.set(draft_limit.SLACK_SETTING, 1)
+    _, value = _filed(turns)
+
+    decision = _press(slack_drafts.ACCEPT, value)
+
+    assert decision == slack_channel.Decision("Saved *Seeds* as `Inbox/Seeds.md`.", True)
+    assert (vault / "Inbox" / "Seeds.md").read_text() == "# Seeds\n\nSow in March.\n"
+    assert note_changes.drafts("samantha") == [] and draft_limit.waiting("samantha", draft_limit.SLACK) == 0
+
+
+def test_pressing_decline_forgets_the_draft_and_writes_nothing(vault, turns):
+    _, value = _filed(turns)
+
+    decision = _press(slack_drafts.DECLINE, value)
+
+    assert decision == slack_channel.Decision("Declined *Seeds*; nothing was saved.", True)
+    assert not (vault / "Inbox").exists() and note_changes.drafts("samantha") == []
+
+
+def test_a_second_press_says_the_draft_is_not_waiting_and_writes_nothing_more(vault, turns):
+    _, value = _filed(turns)
+    _press(slack_drafts.ACCEPT, value)
+
+    again = _press(slack_drafts.ACCEPT, value)
+
+    assert again == slack_channel.Decision(slack_channel.NOT_WAITING, True)
+    assert sorted(p.name for p in (vault / "Inbox").iterdir()) == ["Seeds.md"]
+
+
+def test_a_press_after_the_draft_was_declined_in_the_web_app_says_it_is_not_waiting(vault, turns):
+    _, value = _filed(turns)
+    note_changes.forget("samantha", json.loads(value)[0])
+
+    assert _press(slack_drafts.ACCEPT, value) == slack_channel.Decision(slack_channel.NOT_WAITING, True)
+
+
+def test_a_press_from_anyone_else_changes_nothing_and_says_nothing(vault, turns):
+    _, value = _filed(turns)
+
+    assert _press(slack_drafts.ACCEPT, value, user="U0STRANGER") is None
+    assert _press(slack_drafts.DECLINE, value, user="U0STRANGER") is None
+
+    assert not (vault / "Inbox").exists() and len(note_changes.drafts("samantha")) == 1
+
+
+def test_without_an_owner_nobody_may_press(vault, turns, monkeypatch):
+    _, value = _filed(turns)
+    monkeypatch.delenv(slack_credentials.OWNER_VARIABLE)
+
+    assert _press(slack_drafts.ACCEPT, value) is None and len(note_changes.drafts("samantha")) == 1
+
+
+def test_a_press_with_slack_switched_off_is_answered_to_the_owner_alone_and_writes_nothing(vault, turns):
+    _, value = _filed(turns)
+    settings_store.set(slack_approval.SETTING, False)
+
+    assert _press(slack_drafts.ACCEPT, value) == slack_channel.Decision(slack_channel.SWITCHED_OFF, False)
+    assert not (vault / "Inbox").exists() and len(note_changes.drafts("samantha")) == 1
+
+
+def test_a_press_for_a_persona_that_is_gone_is_answered_to_the_owner_alone(vault, turns, monkeypatch):
+    _, value = _filed(turns)
+    monkeypatch.setattr(slack_channel.profile_mod, "resolve_profile", lambda handle: None)
+
+    assert _press(slack_drafts.ACCEPT, value) == slack_channel.Decision(slack_channel.NO_PERSONA, False)
+
+
+def test_a_refused_note_keeps_its_buttons_and_the_reason_goes_to_the_owner_alone(vault, turns):
+    _, value = _filed(turns)
+    (vault / "Inbox").mkdir()
+    for n in range(1, 21):
+        (vault / "Inbox" / (f"Seeds ({n}).md" if n > 1 else "Seeds.md")).write_text("x")
+
+    decision = _press(slack_drafts.ACCEPT, value)
+
+    assert decision.final is False and decision.text.startswith("Seeds could not be saved") and len(note_changes.drafts("samantha")) == 1
+
+
+@pytest.mark.parametrize("value", ["", "not json", "{}", "[]", '["only one"]', '["a", "b", "c"]', "[1, 2]", '[null, "x"]', "7"])
+def test_a_value_that_is_not_ours_is_ignored(vault, turns, value):
+    _filed(turns)
+
+    assert _press(slack_drafts.ACCEPT, value) is None and len(note_changes.drafts("samantha")) == 1
+
+
+def test_a_value_naming_another_drafts_id_does_not_save_the_draft_it_names_a_path_for(vault, turns):
+    _, value = _filed(turns)
+    path, _ = json.loads(value)
+
+    assert _press(slack_drafts.ACCEPT, json.dumps([path, "not-its-id"])) == slack_channel.Decision(slack_channel.NOT_WAITING, True)
+
+
+@pytest.mark.parametrize("action, line", [
+    (slack_drafts.ACCEPT, "samantha: button pressed (accept)\n"),
+    (slack_drafts.DECLINE, "samantha: button pressed (decline)\n"),
+])
+def test_a_press_is_a_line_in_the_terminal(vault, turns, capsys, action, line):
+    _, value = _filed(turns)
+    capsys.readouterr()
+
+    _press(action, value)
+
+    assert line in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("action, line", [
+    (slack_drafts.ACCEPT, "saved"), (slack_drafts.DECLINE, "declined"),
+])
+def test_what_became_of_a_press_is_a_line_with_no_name_or_path_in_it(vault, turns, capsys, action, line):
+    _, value = _filed(turns)
+    capsys.readouterr()
+
+    _press(action, value)
+
+    out = capsys.readouterr().out
+    assert f"samantha: {line}\n" in out and "Seeds" not in out and "Inbox" not in out
+
+
+def test_the_other_ways_a_press_ends_are_lines_too(vault, turns, capsys, monkeypatch):
+    _, value = _filed(turns)
+    capsys.readouterr()
+    _press(slack_drafts.ACCEPT, value, user="U0STRANGER")
+    _press(slack_drafts.ACCEPT, "nonsense")
+    settings_store.set(slack_approval.SETTING, False)
+    _press(slack_drafts.ACCEPT, value)
+    settings_store.set(slack_approval.SETTING, True)
+    _press(slack_drafts.ACCEPT, json.dumps(["new/none", "x"]))
+    monkeypatch.setattr(slack_channel.profile_mod, "resolve_profile", lambda handle: None)
+    _press(slack_drafts.ACCEPT, value)
+
+    out = capsys.readouterr().out
+    for line in ("ignored, not from the owner", "ignored, not a button of ours", "Slack is switched off in settings, said so",
+                 "no longer waiting, said so", "the persona was not found, said so"):
+        assert f"samantha: {line}\n" in out
+
+
+def test_a_refusal_is_a_line_that_says_so(vault, turns, capsys):
+    _, value = _filed(turns)
+    (vault / "Inbox").mkdir()
+    for n in range(1, 21):
+        (vault / "Inbox" / (f"Seeds ({n}).md" if n > 1 else "Seeds.md")).write_text("x")
+    capsys.readouterr()
+
+    _press(slack_drafts.ACCEPT, value)
+
+    assert "samantha: could not be saved, said so\n" in capsys.readouterr().out
