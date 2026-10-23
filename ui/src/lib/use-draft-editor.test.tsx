@@ -240,4 +240,77 @@ describe("useDraftEditor", () => {
     expect(heard).toHaveBeenCalledTimes(2)
     window.removeEventListener("sympose:drafts-changed", heard)
   })
+
+  describe("a draft decided in another program (docs/decisions/093)", () => {
+    const NEW = "new/abc123.md"
+    const focus = () => act(async () => void window.dispatchEvent(new Event("focus")))
+    function setupNew() {
+      const hook = setup()
+      act(() => hook.result.current.open(NEW))
+      changes.fetchChanges.mockClear()
+      return hook
+    }
+
+    it("opens the note it became, with the vault refreshed by the caller, when the window comes back and the draft is gone", async () => {
+      const { result, onAccepted } = setupNew()
+      changes.fetchChanges.mockResolvedValue({ proposals: [], decided: { state: "accepted", path: "Inbox/Seeds.md" } })
+      await focus()
+      expect(changes.fetchChanges).toHaveBeenCalledWith(NEW, "samantha")
+      expect(onAccepted).toHaveBeenCalledWith("Inbox/Seeds.md")
+      expect(result.current.current).toBeNull()
+      expect(notify.notify.success).not.toHaveBeenCalled() // no notice
+    })
+
+    it("closes the editor, with no notice, when it was declined or nothing is known", async () => {
+      for (const decided of [{ state: "declined", path: null }, null, undefined]) {
+        const { result, onAccepted } = setupNew()
+        changes.fetchChanges.mockResolvedValue({ proposals: [], decided })
+        await focus()
+        expect(result.current.current).toBeNull()
+        expect(onAccepted).not.toHaveBeenCalled()
+        expect(notify.notify.success).not.toHaveBeenCalled()
+        cleanup()
+      }
+    })
+
+    it("tells the Drafts list so its row goes", async () => {
+      const heard = vi.fn()
+      window.addEventListener("sympose:drafts-changed", heard)
+      setupNew()
+      changes.fetchChanges.mockResolvedValue({ proposals: [], decided: { state: "declined", path: null } })
+      await focus()
+      expect(heard).toHaveBeenCalledTimes(1)
+      window.removeEventListener("sympose:drafts-changed", heard)
+    })
+
+    it("leaves the draft open while it is still waiting, or when the server cannot be reached", async () => {
+      const { result, onAccepted } = setupNew()
+      changes.fetchChanges.mockResolvedValue({ proposals: [proposal], decided: null })
+      await focus()
+      changes.fetchChanges.mockResolvedValue(null)
+      await focus()
+      expect(result.current.current).not.toBeNull()
+      expect(onAccepted).not.toHaveBeenCalled()
+    })
+
+    it("does nothing with an answer that arrives after the draft was closed", async () => {
+      const { result, onAccepted } = setupNew()
+      let answer: (value: unknown) => void = () => {}
+      changes.fetchChanges.mockReturnValue(new Promise((resolve) => (answer = resolve)))
+      await focus()
+      act(() => result.current.close())
+      await act(async () => answer({ proposals: [], decided: { state: "accepted", path: "Inbox/Seeds.md" } }))
+      expect(onAccepted).not.toHaveBeenCalled()
+    })
+
+    it("does not look for a draft that already has a real path, or when no draft is open, or after it is closed", async () => {
+      const { result } = setup() // PATH is a real path
+      changes.fetchChanges.mockClear()
+      await focus()
+      act(() => result.current.open(NEW))
+      act(() => result.current.close())
+      await focus()
+      expect(changes.fetchChanges).not.toHaveBeenCalled()
+    })
+  })
 })

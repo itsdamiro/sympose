@@ -1,13 +1,14 @@
 """Accepting or declining a new-note draft without the web app (docs/decisions/093, "Accept and Decline in Slack"): the note
 made, where and under what name, what is refused, and that nothing is written until it is asked for."""
 
+import json
 import os
 import threading
 
 import pytest
 from helpers import write_persona
 
-from sympose import draft_accept, note_changes
+from sympose import draft_accept, draft_decisions, note_changes
 
 H = "samantha"
 
@@ -213,3 +214,90 @@ def test_declining_a_draft_forgotten_between_the_look_and_the_forgetting_says_so
 
     with pytest.raises(draft_accept.Gone):
         draft_accept.decline(H, path, proposal_id)
+
+
+# --- what was decided, for a web app that still has the draft open ---------------------------------
+def test_accepting_records_the_note_it_became_under_the_draft(vault):
+    path, proposal_id = draft()
+
+    draft_accept.accept(H, path, proposal_id)
+
+    assert draft_decisions.read(H, path) == {"state": "accepted", "path": "Inbox/Seeds.md"}
+
+
+def test_declining_records_that_it_was_declined(vault):
+    path, proposal_id = draft()
+
+    draft_accept.decline(H, path, proposal_id)
+
+    assert draft_decisions.read(H, path) == {"state": "declined", "path": None}
+
+
+def test_a_refused_accept_and_a_draft_that_is_gone_record_nothing(vault, tmp_path):
+    write_persona(tmp_path / "profiles", "narrow", "name: Narrow\nvault_folders: Garden\n")
+    proposal = note_changes.propose_create("narrow", note_changes.new_note_path(), "# Seeds\n", say="", title="Seeds", folder="Elsewhere")
+    (path,) = [e["path"] for e in note_changes.store.entries("narrow")]
+    with pytest.raises(draft_accept.Refused):
+        draft_accept.accept("narrow", path, proposal["id"])
+    other, other_id = draft(title="Other", text="# Other\n")
+    note_changes.forget(H, other)
+    with pytest.raises(draft_accept.Gone):
+        draft_accept.decline(H, other, other_id)
+
+    assert draft_decisions.read("narrow", path) is None and draft_decisions.read(H, other) is None
+
+
+def test_only_the_latest_decisions_are_kept_and_a_repeat_stays(vault):
+    for n in range(draft_decisions.KEPT + 3):
+        draft_decisions.record(H, f"new/{n}.md", "declined", None)
+    draft_decisions.record(H, "new/10.md", "accepted", "Inbox/X.md")  # the oldest still kept, now the newest
+
+    assert draft_decisions.read(H, "new/0.md") is None and draft_decisions.read(H, "new/2.md") is None
+    assert draft_decisions.read(H, "new/3.md") is not None
+    assert draft_decisions.read(H, "new/10.md") == {"state": "accepted", "path": "Inbox/X.md"}
+    assert len(json.loads((vault.parent / "profiles" / H / ".slack" / "decided.json").read_text())) == draft_decisions.KEPT
+
+    for n in range(100, 100 + draft_decisions.KEPT - 5):  # the repeat is among the newest now, so it outlasts older ones
+        draft_decisions.record(H, f"new/{n}.md", "declined", None)
+    assert draft_decisions.read(H, "new/10.md") is not None and draft_decisions.read(H, "new/11.md") is None
+
+
+@pytest.mark.parametrize("damaged", ["{not json", "[1, 2]", '{"new/a.md": 5}'])
+def test_a_damaged_record_reads_as_nothing_and_is_replaced_by_the_next(vault, damaged):
+    folder = vault.parent / "profiles" / H / ".slack"
+    folder.mkdir()
+    (folder / "decided.json").write_text(damaged)
+
+    assert draft_decisions.read(H, "new/a.md") is None
+    draft_decisions.record(H, "new/a.md", "declined", None)
+    assert draft_decisions.read(H, "new/a.md") == {"state": "declined", "path": None}
+
+
+def test_the_decision_is_recorded_before_the_draft_is_forgotten(vault, monkeypatch):
+    path, proposal_id = draft()
+    seen = []
+    forget = draft_accept.note_changes.discard_proposal
+
+    def look_then_forget(*args):
+        seen.append(draft_decisions.read(H, path))  # an editor looking now
+        forget(*args)
+
+    monkeypatch.setattr(draft_accept.note_changes, "discard_proposal", look_then_forget)
+
+    draft_accept.accept(H, path, proposal_id)
+
+    assert seen == [{"state": "accepted", "path": "Inbox/Seeds.md"}]
+
+
+@pytest.mark.parametrize("act", ["accept", "decline"])
+def test_a_decision_that_cannot_be_recorded_does_not_undo_the_accept_or_the_decline(vault, monkeypatch, act):
+    path, proposal_id = draft()
+
+    def full(*args):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(draft_decisions, "record", full)
+
+    done = getattr(draft_accept, act)(H, path, proposal_id)
+
+    assert waiting() == 0 and (done.path is not None) == (act == "accept")

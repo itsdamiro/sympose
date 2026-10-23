@@ -5,11 +5,12 @@ caller with no browser. The note is made with `vault_write_create.create_note` (
 overwrite the routes have), named by its title in the draft's folder, and only then is the proposal forgotten. Nothing here runs
 unless the user pressed Accept."""
 
+import contextlib
 import re
 import threading
 from dataclasses import dataclass
 
-from sympose import note_changes, profile as profile_mod, vault_write_create
+from sympose import draft_decisions, note_changes, profile as profile_mod, vault_write_create
 from sympose.vault_write_status import NOTE_DENIED, NOTE_EXISTS
 
 NAME_LIMIT = 80
@@ -65,6 +66,10 @@ def accept(handle: str, path: str, proposal_id: str) -> Decided:
                 raise Refused(f"{name} could not be saved: its folder is outside what this persona may write to.")
             if not (made := _MADE.search(result)):
                 raise Refused(f"{name} could not be saved: the vault could not be written.")
+            # Told before the draft is forgotten, so an editor that looks in between never finds a gone draft with no answer. The
+            # note is made: a record that cannot be written costs the editor its jump to the note, never the Accept.
+            with contextlib.suppress(OSError):
+                draft_decisions.record(handle, path, "accepted", made.group(1))
             try:
                 note_changes.discard_proposal(handle, path, proposal_id)
             except KeyError:
@@ -81,4 +86,6 @@ def decline(handle: str, path: str, proposal_id: str) -> Decided:
             note_changes.discard_proposal(handle, path, proposal_id)
         except KeyError:
             raise Gone(proposal_id) from None
+        with contextlib.suppress(OSError):
+            draft_decisions.record(handle, path, "declined", None)
         return Decided(name, None)

@@ -110,6 +110,29 @@ export function useDraftEditor({
     onAccepted(path)
   }, [notePath, handle, forget, onAccepted])
 
+  // A new-note draft decided in another program (Slack's Accept or Decline, docs/decisions/093) is not waiting any more: when the
+  // window comes back into focus the editor asks, and opens the note it became or, if it was declined, closes. Never polled, no notice.
+  const accepted = React.useRef(onAccepted)
+  React.useEffect(() => {
+    accepted.current = onAccepted
+  })
+  React.useEffect(() => {
+    if (!notePath?.startsWith("new/")) return
+    let open = true
+    const look = async () => {
+      const found = await fetchChanges(notePath, handle)
+      if (!open || !found || found.proposals.some((p) => p.kind === "create")) return
+      close()
+      announceDraftsChanged()
+      if (found.decided?.state === "accepted" && found.decided.path) accepted.current(found.decided.path)
+    }
+    window.addEventListener("focus", look)
+    return () => {
+      open = false
+      window.removeEventListener("focus", look)
+    }
+  }, [notePath, handle, close])
+
   const decline = React.useCallback(async () => {
     if (!notePath) return
     await forget(notePath)
