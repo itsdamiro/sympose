@@ -26,9 +26,19 @@ Slack gets what a persona says. A reply can quote your notes, and it is sent to 
 
 ## Can a persona make a note from Slack?
 
-A persona can make a note from Slack, as a proposal: the reply shows the whole text, the folder and a line saying it waits in Drafts. Nothing is saved from Slack; you Accept the note in the web app, on your computer. It cannot change a note, comment, open a note or propose a persona or a setting.
+A persona can make a note from Slack, as a proposal: the reply shows the whole text, the folder and a line saying it waits in Drafts. Nothing is saved until you accept it, with the buttons under it in Slack or in the web app. It cannot change a note, comment, open a note or propose a persona or a setting.
 
 Once 10 notes made from Slack are waiting, it makes no more and says so in its reply. The `slack_waiting_drafts` setting changes the 10.
+
+## How do I accept or decline a note in Slack?
+
+Under a note shown in full, a short message asks to save it, with Accept and Decline. Accept saves it in the folder named, under its title; Decline forgets it. Either way the message becomes one line saying which. Only you can press them, even in a channel.
+
+A note that was cut, or only named, has no buttons: read and accept it in the web app, under Drafts.
+
+## Pressing Accept in Slack does nothing, why?
+
+If Slack warns that the app is not configured, the App was made before the buttons. Switch Interactivity on under Interactivity & Shortcuts in the App's settings, or paste the manifest again, then press once more. If the line says the draft is not waiting any more, it was decided already, in the web app or by an earlier press.
 
 ## Can I send a file to a persona in Slack?
 
@@ -66,7 +76,7 @@ If the reply says Sympose could not reach the model, start Ollama or check the c
 
 ## Did my Slack message arrive?
 
-`sympose slack` prints one line in its terminal for each message it receives, with the time and the persona, never the words. No line means Slack never delivered it. `ignored, not from the owner` means the user ID in `.env` is not yours. `the answer failed` or `the reply could not be sent` mean it arrived and failed.
+`sympose slack` prints one line in its terminal for each message it receives, with the time and the persona, never the words. No line means Slack never delivered it, and a press of Accept or Decline has its own lines. `ignored, not from the owner` means the user ID in `.env` is not yours. `the answer failed` or `the reply could not be sent` mean it arrived and failed.
 
 ## Why did Slack refuse my file?
 

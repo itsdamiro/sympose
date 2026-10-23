@@ -23,8 +23,9 @@ sympose slack manifest samantha
 
 - Open https://api.slack.com/apps, choose Create New App, then From a manifest, pick your workspace, paste the JSON and create the App.
 - What the manifest asks for, and all the code needs: the bot scopes `app_mentions:read`, `chat:write`, `commands`, `files:read` and `im:history`; the bot events `app_mention` and `message.im`; the slash command `/new`; Socket Mode on (Sympose connects out to Slack, so there is no public address and no request URL); the Messages tab of App Home on, with users allowed to message the bot.
-- It does not ask to read other channel messages or buttons, because Sympose answers only direct messages and mentions. `files:read` is only so a file you share with a message to the persona can be downloaded.
+- It does not ask to read other channel messages, because Sympose answers only direct messages and mentions. `files:read` is only so a file you share with a message to the persona can be downloaded. Interactivity is on (no request URL is needed in Socket Mode) so the Accept and Decline buttons under a proposed note work.
 - An App made before files were supported: add `files:read` under OAuth & Permissions, reinstall the App (step 4), and copy the bot token again if it changed.
+- An App made before the Accept and Decline buttons: switch Interactivity on under Interactivity & Shortcuts in the App's settings (Socket Mode needs no request URL), or paste the new manifest. Until then a press gets Slack's own "not configured" warning and nothing is saved.
 - If Slack rejects the manifest, say which line and fix `sympose/slack_manifest.py` from what Slack says.
 
 ## 3. Make the app token
@@ -88,7 +89,8 @@ sympose slack
 - In Slack, find the persona under Apps (or search its name) and send it a direct message. A reply is a conversation like any other: it shows in the web app's conversation list and can be opened and renamed there. `/new` in a direct message starts another conversation.
 - In a channel, invite the bot first, then mention it. Each thread is one conversation; start a new thread for a new one. Anyone in the channel can read the reply, though only you are answered.
 - Ask for a note, for example "write me a short note on sowing seeds". The reply shows the proposed text under it, the folder it will go to (`Inbox` in the persona's first folder unless you named one), and a line saying it waits in Drafts.
-- Nothing is saved to your vault from Slack. Open the web app, find the note in Drafts, and Accept it there.
+- Under a note shown in full, a short message asks `Save <name> to <folder>?` with Accept and Decline. Accept saves the note in that folder, named by its title (numbered if the name is taken); Decline forgets it; the message then becomes one line saying which. Only you can press them, even in a channel. A note that was cut, or only named, has no buttons: read and accept it in the web app under Drafts.
+- Nothing is saved to your vault until you accept: a note proposed from Slack waits in Drafts until you press Accept here or in the web app.
 
 ## What the persona can and cannot do in Slack
 
@@ -98,7 +100,7 @@ sympose slack
 
 ## If it does not work
 
-- **You are not sure whether a message arrived:** `sympose slack` prints one line in its terminal for each message it receives, with the time and the persona, never the words. No line means Slack never delivered it (a connection that dropped, a message in a place the bot is not in); `ignored, not from the owner` means the user ID in `.env` is not yours; `the files could not be taken, said so` means a file was refused (the reply in Slack says why); `the reply could not be sent` or `the answer failed` mean it arrived and failed, and the lines under it say why.
+- **You are not sure whether a message arrived:** `sympose slack` prints one line in its terminal for each message it receives, with the time and the persona, never the words. No line means Slack never delivered it (a connection that dropped, a message in a place the bot is not in); a press of Accept or Decline under a note has lines too: `button pressed (accept)`, then `saved`, `declined`, `no longer waiting, said so` or `could not be saved, said so`, and with no line at all Slack never sent the press (Interactivity off); `ignored, not from the owner` means the user ID in `.env` is not yours; `the files could not be taken, said so` means a file was refused (the reply in Slack says why); `the reply could not be sent` or `the answer failed` mean it arrived and failed, and the lines under it say why.
 - **Nothing happens when you message it:** run `sympose doctor`; check that you used your own user ID, that the Messages tab is on, and that `sympose slack` is still running and printed the persona as in Slack.
 - **"Slack is switched off in Sympose's settings":** step 7.
 - **`sympose slack` stops at once:** it names the missing piece: the owner ID in `.env`, Slack switched off, or no persona with both tokens.
