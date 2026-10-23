@@ -84,7 +84,8 @@ export function useDraftEditor({
   }, [notePath, handle, close, onAccepted])
 
   // A new-note draft decided in another program (Slack's Accept or Decline, docs/decisions/093) is not waiting any more: when the
-  // window comes back into focus the editor asks, and opens the note it became or, if it was declined, closes. Never polled, no notice.
+  // window comes back into focus the editor asks, and closes if the draft is gone (the notes list reads again on focus, so an accepted
+  // note is there). Never polled, no notice.
   const shown = `${handle}:${notePath}`
   const looking = React.useRef(shown)
   React.useEffect(() => {
@@ -96,7 +97,6 @@ export function useDraftEditor({
       if (looking.current !== shown || !found || found.proposals.some((p) => p.kind === "create")) return // another draft is open now, or this one still waits
       close()
       announceDraftsChanged()
-      if (found.decided?.state === "accepted" && found.decided.path) onAccepted(found.decided.path)
     })
   })
 

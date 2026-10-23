@@ -9,7 +9,7 @@ from typing import Any
 
 from fastapi import HTTPException
 
-from sympose import draft_accept, draft_decisions
+from sympose import draft_accept
 from sympose import note_changes as nc
 from sympose import note_changes_store as store
 from sympose.server_change_models import AnnotationChange, AnnotationCreate, ChangesResolve, DraftAccept, DraftText
@@ -65,16 +65,12 @@ def get_changes(path: str, persona: str | None) -> dict[str, Any]:
     if exists:
         nc.prune(handle, path, text, mtime)
     entry = store.read(handle, path)
-    # A new-note draft that is gone: what the server decided about it (accepted as which note, or declined), for an editor that
-    # still has it open (docs/decisions/093, "the web app follows a draft decided in Slack").
-    gone = path.startswith("new/") and not entry["proposals"]
     return {
         "path": path,
         "exists": exists,
         "mtime": mtime,
         "proposals": [{**p, "status": nc.status(p, text)} for p in entry["proposals"]],
         "annotations": [{**a, "status": nc.annotation_status(a, text)} for a in entry["annotations"]],
-        "decided": draft_decisions.read(handle, path) if gone else None,
     }
 
 

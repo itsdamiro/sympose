@@ -622,35 +622,6 @@ def test_the_route_refuses_a_verdict_on_the_users_own_comment_and_an_unknown_ver
     assert "Only the persona's comments" in on_mine.json()["detail"]
 
 
-# --- a new-note draft decided elsewhere (docs/decisions/093, "the web app follows a draft decided in Slack") -----
-def test_a_draft_that_is_gone_says_what_was_decided_about_it(env):
-    client, vault = env
-    from sympose import draft_accept
-
-    accepted = nc.propose_create("samantha", nc.new_note_path(), "# Seeds\n", say="", title="Seeds", folder="Inbox")
-    declined = nc.propose_create("samantha", nc.new_note_path(), "# Pots\n", say="", title="Pots", folder="Inbox")
-    paths = {p["id"]: e["path"] for e in nc.store.entries("samantha") for p in e["proposals"]}
-    draft_accept.accept("samantha", paths[accepted["id"]], accepted["id"])
-    draft_accept.decline("samantha", paths[declined["id"]], declined["id"])
-
-    assert changes_for(client, paths[accepted["id"]])["decided"] == {"state": "accepted", "path": "Inbox/Seeds.md"}
-    assert changes_for(client, paths[declined["id"]])["decided"] == {"state": "declined", "path": None}
-
-
-def test_a_draft_still_waiting_or_a_note_or_an_unknown_draft_says_nothing_was_decided(env):
-    client, vault = env
-    from sympose import draft_decisions
-
-    waiting = nc.propose_create("samantha", nc.new_note_path(), "# Seeds\n", say="", title="Seeds", folder="Inbox")
-    (path,) = [e["path"] for e in nc.store.entries("samantha") if any(p["id"] == waiting["id"] for p in e["proposals"])]
-    draft_decisions.record("samantha", path, "declined", None)  # a stale record under a draft that is back: not shown
-    draft_decisions.record("samantha", "Garden plan.md", "accepted", "Garden plan.md")
-
-    assert changes_for(client, path)["decided"] is None
-    assert changes_for(client, "Garden plan.md")["decided"] is None
-    assert changes_for(client, "new/unknown.md")["decided"] is None
-
-
 # --- Accept through the server (docs/decisions/093, amended: the web app's Accept is the server's) ----------------
 def _draft(title="Seeds", text="# Seeds\n\nSow in March.\n", folder="Inbox"):
     proposal = nc.propose_create("samantha", nc.new_note_path(), text, say="", title=title, folder=folder)
@@ -667,7 +638,7 @@ def test_accepting_a_draft_through_the_route_makes_the_note_with_the_text_the_dr
 
     assert res.status_code == 200 and res.json() == {"path": "Inbox/Seeds.md", "name": "Seeds"}
     assert (vault / "Inbox" / "Seeds.md").read_text() == "# Seeds\n\nEdited.\n"
-    assert nc.drafts("samantha") == [] and changes_for(client, path)["decided"] == {"state": "accepted", "path": "Inbox/Seeds.md"}
+    assert nc.drafts("samantha") == []
 
 
 def test_accepting_a_draft_that_is_gone_is_a_404_and_makes_nothing(env):

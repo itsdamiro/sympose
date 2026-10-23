@@ -47,8 +47,6 @@ export interface NoteChanges {
   mtime: number | null
   proposals: Proposal[]
   annotations: Annotation[]
-  /** A new-note draft that is gone: what another program decided about it (`path` is the note it became), `null` when nothing is known. */
-  decided?: { state: "accepted" | "declined"; path: string | null } | null
 }
 
 export interface Draft {
