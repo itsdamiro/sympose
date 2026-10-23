@@ -119,3 +119,15 @@ def test_a_show_note_marker_in_a_slack_reply_is_removed_and_opens_nothing(monkey
 
     assert result.reply == "Here you go."
     assert [(r["tool"], r["saved"]) for r in result.lookups] == [("show_note", False)]
+
+
+def test_a_turn_from_slack_is_recorded_as_coming_from_it_and_no_other_turn_is(monkeypatch):
+    model_that(monkeypatch, ModelReply("Hi", 5), ModelReply("Hi", 5), ModelReply("Hi", 5))
+
+    from_slack = turn.run_turn("samantha", ASK, model=LOCAL, edits=True, in_slack=True)
+    web = turn.run_turn("samantha", ASK, model=LOCAL, edits=True)
+    job = turn.run_turn("samantha", ASK, model=LOCAL, edits=True, unattended=True)
+
+    assert session.load_session("samantha", from_slack.session_id)["turns"][0]["source"] == "slack"
+    assert "source" not in session.load_session("samantha", web.session_id)["turns"][0]
+    assert "source" not in session.load_session("samantha", job.session_id)["turns"][0]

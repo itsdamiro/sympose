@@ -320,7 +320,7 @@ function ChatPanel({
                   {turn.body}
                 </ChatSystemLine>
               ) : turn.role === "user" ? (
-                <ChatMessage key={turn.id} role="user" timestamp={turn.timestamp} attached={turn.attached}>
+                <ChatMessage key={turn.id} role="user" timestamp={turn.timestamp} attached={turn.attached} slack={turn.slack}>
                   {turn.body}
                 </ChatMessage>
               ) : (

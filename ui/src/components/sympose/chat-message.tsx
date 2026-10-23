@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Attachment01Icon } from "@hugeicons/core-free-icons"
+import { Attachment01Icon, SlackIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 
 import { cn } from "@/lib/utils"
@@ -7,6 +7,7 @@ import { resolvePersonaVisuals } from "@/lib/personas"
 import type { ChatAction } from "@/lib/chat-types"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { ActionBadge } from "@/components/sympose/action-badge"
+import { chipClass } from "@/components/sympose/model-chip"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 /** A blinking caret at the tail of a mid-stream persona reply. */
@@ -32,6 +33,8 @@ interface ChatMessageProps extends React.ComponentProps<"div"> {
   timestamp?: string
   /** How many passages of the open note were attached to this message, shown as a paperclip beside the time — `role: "user"` only. */
   attached?: number
+  /** The message was written in Slack (ADR 093): its mark shows before the time — `role: "user"` only. */
+  slack?: boolean
   /** How long the model took to start answering (time to first token), as "0.82s" — `role: "persona"` only, shown before the time. */
   latency?: string
   streaming?: boolean
@@ -53,6 +56,7 @@ function ChatMessage({
   indicator,
   timestamp,
   attached,
+  slack,
   latency,
   streaming = false,
   actions,
@@ -71,8 +75,19 @@ function ChatMessage({
         <div className="max-w-[80%] rounded-tl-lg rounded-br-lg rounded-bl-lg bg-panel px-4 py-3 text-sm leading-relaxed text-muted-foreground">
           {children}
         </div>
-        {(timestamp || attached) && (
+        {(timestamp || attached || slack) && (
           <span className="flex items-center gap-1.5 font-mono text-xs text-fg-muted tabular-nums">
+            {slack && (
+              <span
+                role="img"
+                data-slot="slack-mark"
+                className={cn(chipClass, "text-fg-muted")}
+                aria-label="Sent from Slack"
+                title="Sent from Slack"
+              >
+                <HugeiconsIcon icon={SlackIcon} aria-hidden />
+              </span>
+            )}
             {attached ? (
               <span
                 role="img"

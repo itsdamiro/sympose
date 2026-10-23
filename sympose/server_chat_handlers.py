@@ -213,6 +213,7 @@ def get_session(persona: str | None, session_id: str | None, before: int | None,
                 "ttft_ms": t.get("ttft_ms"),
                 "truncated": t.get("truncated") is True,
                 "sent": t.get("sent"),
+                "source": t.get("source"),
             }
             for offset, t in enumerate(all_turns[start:end])
         ],

@@ -149,6 +149,8 @@ export interface SessionTurn {
   model: string | null
   ttft_ms: number | null
   truncated: boolean
+  /** `slack` when the message came from Slack (ADR 093), else `null`. */
+  source?: string | null
   /** What reached the model besides the messages (ADR 025); the grounded view reads it. */
   sent: SentRecord | null
 }

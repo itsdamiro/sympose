@@ -213,6 +213,12 @@ def test_the_turns_carry_what_the_grounded_view_needs(client):
     assert (turn_["ttft_ms"], turn_["model"], turn_["sent"], turn_["truncated"]) == (610, "m", {"notes": []}, False)
 
 
+def test_a_turn_says_where_it_came_from_only_when_it_came_from_slack(client):
+    session.append_turn("samantha", "20260930T100000-bbbbbbbb", "from the web", "hello")
+    session.append_turn("samantha", "20260930T100000-bbbbbbbb", "from slack", "hello", source="slack")
+    assert [t["source"] for t in page(client)["turns"]] == [None, "slack"]
+
+
 def test_an_unknown_or_unsafe_session_id_is_404(client):
     for sid in ("20260930T100000-nothere", "../../etc/passwd"):
         response = client.get("/api/chat/session", params={"persona": "samantha", "session_id": sid})

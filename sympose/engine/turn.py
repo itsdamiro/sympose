@@ -284,6 +284,7 @@ def _run(
         model=target_model,
         sent=sent,
         truncated=reply.truncated,
+        source="slack" if in_slack else None,
     )
     context_used = prompt_tokens + _reply_tokens(reply_text, target_model) if limits else None
     if saved:  # a long conversation is condensed in the background, for the turns after this one (docs/decisions/055)

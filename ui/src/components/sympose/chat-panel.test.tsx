@@ -538,3 +538,17 @@ describe("ChatPanel", () => {
     expect(screen.queryByText(/Based on/)).toBeNull()
   })
 })
+
+describe("ChatPanel messages from Slack", () => {
+  it("marks a message written in Slack and no other", () => {
+    setup({
+      turns: [
+        { id: "a", role: "user", body: "from the web", timestamp: "2:03 PM" },
+        { id: "b", role: "user", body: "from my phone", timestamp: "2:04 PM", slack: true },
+      ] as ChatTurn[],
+    })
+    expect(screen.getAllByRole("img", { name: "Sent from Slack" })).toHaveLength(1)
+    expect(screen.getByText("from my phone").parentElement?.textContent).toContain("2:04 PM")
+  })
+})
+

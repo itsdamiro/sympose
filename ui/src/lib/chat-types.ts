@@ -83,6 +83,8 @@ export interface ChatTurn {
   timestamp?: string
   /** `role: "user"` only: how many passages of the open note were attached to this message (ADR 076). */
   attached?: number
+  /** `role: "user"` only: the message was written in Slack (ADR 093). */
+  slack?: boolean
   /** The model that made this reply — `role: "persona"` only; each reply keeps its own, so an old one does not take
    *  on a model chosen later. */
   model?: string

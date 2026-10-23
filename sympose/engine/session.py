@@ -148,6 +148,7 @@ def append_turn(
     model: str | None = None,
     sent: dict[str, Any] | None = None,
     truncated: bool = False,
+    source: str | None = None,
 ) -> bool:
     """`existing` lets a caller that's already loaded the session (e.g.
     `turn.run_turn`, which loads it to build history) pass it straight
@@ -162,7 +163,8 @@ def append_turn(
     lack the keys, and nothing reading a session depends on them. `sent`
     (docs/decisions/025) is what reached the model besides the messages: kept on
     the record for diagnosis and never read back into a prompt. `truncated` marks a reply that stopped at
-    the reply limit (docs/decisions/015); only then is the key written, and history says so.
+    the reply limit (docs/decisions/015); only then is the key written, and history says so. `source` names the channel a message
+    came from when it was not the web app, the terminal or a job (`slack`, docs/decisions/093); no other turn carries the key.
 
     `True` when the session file was written. `False` (and a warning in the log) when it was not: the
     disk refused it, or the file exists and cannot be read, which is never overwritten with a session
@@ -184,6 +186,7 @@ def append_turn(
         "model": model,
         **({"sent": sent} if sent is not None else {}),
         **({"truncated": True} if truncated else {}),
+        **({"source": source} if source else {}),
     }
     lines: list[dict[str, Any]] = []
     if session is None:

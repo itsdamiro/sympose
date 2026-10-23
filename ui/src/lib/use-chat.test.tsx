@@ -367,6 +367,13 @@ describe("useChat resuming", () => {
     expect(result.current.hasMore).toBe(true)
   })
 
+  it("marks the message written in Slack, and no other message nor any reply", async () => {
+    api.fetchChatSession.mockResolvedValue(pageOf([saved(0, { source: "slack" }), saved(1)], 0, false))
+    const { result } = renderHook(() => useChat("samantha"))
+    await waitFor(() => expect(result.current.turns).toHaveLength(4))
+    expect(result.current.turns.map((t) => t.slack)).toEqual([true, undefined, undefined, undefined])
+  })
+
   it("continues the resumed conversation, not a new one, when the user replies", async () => {
     api.fetchChatSession.mockResolvedValue(pageOf([saved(0)], 0, false, "s7"))
     api.sendChatTurn.mockResolvedValue(ok("next", "s7"))

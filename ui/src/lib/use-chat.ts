@@ -87,7 +87,7 @@ function turnsFromPage(handle: string, page: SessionPage): ChatTurn[] {
         : []
     return [
       ...marker,
-      { id: `saved-${page.session_id}-${saved.index}-user`, role: "user" as const, body: saved.user, timestamp: at, attached: saved.sent?.attached },
+      { id: `saved-${page.session_id}-${saved.index}-user`, role: "user" as const, body: saved.user, timestamp: at, attached: saved.sent?.attached, slack: saved.source === "slack" || undefined },
       {
         id: `saved-${page.session_id}-${saved.index}-reply`,
         role: "persona" as const,
