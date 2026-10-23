@@ -52,7 +52,7 @@ If the line mentions `files:read`, the Slack App cannot download files. Add that
 
 ## What does /new do in Slack?
 
-In a direct message to the persona, `/new` starts a fresh chat; until then a direct message is one long chat. In a channel, write in a new thread, because each thread is a chat of its own. Each one also shows in the web app's list, where you can open, rename or archive it.
+In a direct message to the persona, `/new` starts a fresh chat; until then a direct message is one long chat. In a channel, write in a new thread, because each thread is a chat of its own. Each one also shows in the web app's list, where you can open, rename or archive it. A message you wrote in Slack shows a small Slack mark before its time there.
 
 ## How do I know a persona is connected to Slack?
 

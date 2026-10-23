@@ -189,3 +189,13 @@ Found in his first real Accept: the note was saved, but the editor kept the old 
 - **`GET /api/vault/changes` says it.** For a `new/…` path with no proposal left, the answer carries `decided: {state, path}` when a record exists, `null` otherwise. A path that is not a draft, or a draft still waiting, never carries it.
 - **The editor looks when the window comes into focus**, and only while a new-note draft is open (no polling; a window kept in focus beside Slack does not update, as with the notes list, ADR 071). If the draft is no longer waiting: `accepted` opens the note (the same `onAccepted` the in-app Accept runs: the vault refreshed, the note selected, the editor shown); `declined`, or no record (decided somewhere that left none), closes the editor. No notice in either case (the notice would be a new surface; the note opening is the answer).
 - **Known limit:** words typed in the editor and not yet kept (the autosave had not run) when the other program decided are not in the note; what Accept saved is the draft as the server held it.
+
+
+## Amendment (2026-10-23): a mark on a message that came from Slack
+
+His ask: the Slack direct message is the same conversation as the web chat's, so a message that was written in Slack carries a pill before its time. My design, to be corrected by his first look.
+
+- **The turn records where it came from.** `session.append_turn` takes `source` and writes `"source": "slack"` on the turn record only when the message came from Slack (the same way `truncated` is written only when true); a turn written by the web app, the terminal or a job has no key, so every earlier record reads as it did. `turn.run_turn` passes it from `in_slack`. The session page (`GET /api/chat/session`, `GET /api/chat/sessions/{id}`) carries `source` on each turn.
+- **The mark is the user's message only.** The message is what came from Slack; the persona's reply is made for it and keeps its model chip and time as they are.
+- **It is the Slack icon in the chip look** (`chipClass`, the size of the model chip and the Slack dot), with "Sent from Slack" as its tooltip and accessible name, placed before the time on the message, beside the paperclip when there is one. No word, no new row: it sits in the line the time is already in.
+- **Limit:** the web chat reads a conversation when it is opened and not again, so a message written in Slack while that conversation is open in the web app shows, with its mark, once the page is reloaded or the conversation opened again. Nothing new polls.
