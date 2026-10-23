@@ -15,8 +15,6 @@ from sympose.engine import model as model_mod
 from sympose.engine import sharing
 
 _LOCK = threading.Lock()  # a switch reads the file and writes it back: two at once must not lose one
-_ENABLED = re.compile(r"^enabled[ \t]*:[^\r\n]*", re.MULTILINE)
-_MODEL = re.compile(r"^model[ \t]*:[^\r\n]*(\r?\n)?", re.MULTILINE)
 _OPEN = re.compile(r"\A---[ \t]*\r?\n")
 _CLOSE = re.compile(r"^---[ \t]*\r?$", re.MULTILINE)
 NEW_NAME = "new-job"
@@ -77,42 +75,26 @@ def listing(handle: str) -> list[dict[str, Any]]:
     return [_row(job, persona, waiting) for job in jobs.list_jobs(persona["handle"])]
 
 
-def _with_enabled(text: str, enabled: bool) -> str | None:
-    """`text` with its `enabled:` property set, the rest untouched (a job with none is on, so switching it on writes nothing);
-    `None` when it opens a front matter it never closes."""
-    value = "true" if enabled else "false"
+def _with_property(text: str, key: str, value: str | None, *, add: bool = True) -> str | None:
+    """`text` with its `key:` property set to `value`, the rest untouched; `None` for `value` takes the property out. With `add`
+    false a property that is not there is left out (`enabled` is on when absent, so switching it on writes nothing). `None`
+    comes back when the text opens a front matter it never closes."""
+    absent = value is None or not add
     opening = _OPEN.match(text)
     if opening is None:
-        return text if enabled else f"---\nenabled: {value}\n---\n{text}"
+        return text if absent else f"---\n{key}: {value}\n---\n{text}"
     closing = _CLOSE.search(text, opening.end())
     if closing is None:
         return None
     newline = "\r\n" if opening.group(0).endswith("\r\n") else "\n"
     block = text[opening.end() : closing.start()]
-    if _ENABLED.search(block):
-        block = _ENABLED.sub(lambda m: f"enabled: {value}", block, count=1)
-    elif not enabled:
-        block = block + ("" if block == "" or block.endswith("\n") else newline) + f"enabled: {value}{newline}"
-    return text[: opening.end()] + block + text[closing.start() :]
-
-
-def _with_model(text: str, model: str | None) -> str | None:
-    """`text` with its `model:` property set to `model`, or taken out for `None`, the rest untouched; `None` when it opens a
-    front matter it never closes."""
-    opening = _OPEN.match(text)
-    if opening is None:
-        return text if model is None else f"---\nmodel: {model}\n---\n{text}"
-    closing = _CLOSE.search(text, opening.end())
-    if closing is None:
-        return None
-    newline = "\r\n" if opening.group(0).endswith("\r\n") else "\n"
-    block = text[opening.end() : closing.start()]
-    if model is None:
-        block = _MODEL.sub("", block, count=1)
-    elif _MODEL.search(block):
-        block = _MODEL.sub(lambda m: f"model: {model}{m.group(1) or ''}", block, count=1)
-    else:
-        block = block + ("" if block == "" or block.endswith("\n") else newline) + f"model: {model}{newline}"
+    line = re.compile(rf"^{re.escape(key)}[ \t]*:[^\r\n]*(\r?\n)?", re.MULTILINE)
+    if value is None:
+        block = line.sub("", block, count=1)
+    elif line.search(block):
+        block = line.sub(lambda m: f"{key}: {value}{m.group(1) or ''}", block, count=1)
+    elif add:
+        block = block + ("" if block == "" or block.endswith("\n") else newline) + f"{key}: {value}{newline}"
     return text[: opening.end()] + block + text[closing.start() :]
 
 
@@ -144,7 +126,7 @@ def _load(handle: str, name: str) -> tuple[dict[str, Any], jobs.Job]:
 def set_enabled(handle: str, name: str, enabled: bool) -> dict[str, Any]:
     """Switch a job on or off. Switching it on also takes a pause off, so a job that stopped after failing is tried again."""
     persona, job = _load(handle, name)
-    _edit(job, lambda text: _with_enabled(text, enabled))
+    _edit(job, lambda text: _with_property(text, "enabled", "true" if enabled else "false", add=not enabled))
     if enabled:
         job_state.resume(job.handle, name)
     return _row(jobs.load(job.handle, name) or job, persona)
@@ -156,7 +138,7 @@ def set_model(handle: str, name: str, model: str | None) -> dict[str, Any]:
     persona, job = _load(handle, name)
     if model is not None and (not model.strip() or "\n" in model or "\r" in model):
         raise JobRefused("Pick a model from the list.")
-    _edit(job, lambda text: _with_model(text, model))
+    _edit(job, lambda text: _with_property(text, "model", model))
     return _row(jobs.load(job.handle, name) or job, persona)
 
 
