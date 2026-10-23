@@ -4,6 +4,7 @@ import { fetchEditMode, saveEditMode, type EditModeId, type EditModeInfo } from 
 import { notify } from "@/lib/notify"
 import { askBeforeEditMode } from "@/lib/edit-mode-ask"
 import { SETTINGS_CHANGED } from "@/lib/settings-changed"
+import { useOnWindowFocus } from "@/lib/use-on-window-focus"
 
 const CHANGED = "sympose:edit-mode-changed"
 
@@ -37,14 +38,13 @@ export function useEditMode(handle: string, personaName: string) {
     const read = () => setAgain((n) => n + 1)
     const changed = (e: Event) => (e as CustomEvent).detail !== me.current && read()
     window.addEventListener(CHANGED, changed)
-    window.addEventListener("focus", read)
     window.addEventListener(SETTINGS_CHANGED, read)
     return () => {
       window.removeEventListener(CHANGED, changed)
-      window.removeEventListener("focus", read)
       window.removeEventListener(SETTINGS_CHANGED, read)
     }
   }, [])
+  useOnWindowFocus(() => setAgain((n) => n + 1))
 
   const apply = React.useCallback(
     async (mode: EditModeId | null) => {

@@ -183,3 +183,23 @@ def test_a_job_file_can_set_its_own_limit_and_a_bad_value_is_a_problem(home):
         assert "max_waiting_drafts" in jobs.load(H, "bad").problem
     _job(home, "plain")
     assert jobs.load(H, "plain").max_waiting_drafts is None
+
+
+def test_two_turns_filing_at_once_cannot_both_pass_the_limit():
+    settings_store.set(draft_limit.SLACK_SETTING, 1)
+    made, refused = [], []
+    barrier = threading.Barrier(8)
+
+    def file(i: int) -> None:
+        barrier.wait()
+        try:
+            made.append(_note(i, "slack"))
+        except nc.CannotAnchor:
+            refused.append(i)
+
+    threads = [threading.Thread(target=file, args=(i,)) for i in range(8)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert (len(made), len(refused), draft_limit.waiting(H, "slack")) == (1, 7, 1)

@@ -4,6 +4,7 @@ import { notify } from "@/lib/notify"
 import { fetchChanges, resolveChanges, saveDraftText } from "@/lib/persona-changes-api"
 import { getUnsavedGuard } from "@/lib/unsaved-guard"
 import { announceDraftsChanged } from "@/lib/use-drafts"
+import { useOnWindowFocus } from "@/lib/use-on-window-focus"
 import { createVaultNote, saveVaultNote } from "@/lib/vault-note-api"
 import type { PanelFile } from "@/lib/use-note-document"
 
@@ -112,26 +113,20 @@ export function useDraftEditor({
 
   // A new-note draft decided in another program (Slack's Accept or Decline, docs/decisions/093) is not waiting any more: when the
   // window comes back into focus the editor asks, and opens the note it became or, if it was declined, closes. Never polled, no notice.
-  const accepted = React.useRef(onAccepted)
+  const shown = `${handle}:${notePath}`
+  const looking = React.useRef(shown)
   React.useEffect(() => {
-    accepted.current = onAccepted
+    looking.current = shown
   })
-  React.useEffect(() => {
+  useOnWindowFocus(() => {
     if (!notePath?.startsWith("new/")) return
-    let open = true
-    const look = async () => {
-      const found = await fetchChanges(notePath, handle)
-      if (!open || !found || found.proposals.some((p) => p.kind === "create")) return
+    void fetchChanges(notePath, handle).then((found) => {
+      if (looking.current !== shown || !found || found.proposals.some((p) => p.kind === "create")) return // another draft is open now, or this one still waits
       close()
       announceDraftsChanged()
-      if (found.decided?.state === "accepted" && found.decided.path) accepted.current(found.decided.path)
-    }
-    window.addEventListener("focus", look)
-    return () => {
-      open = false
-      window.removeEventListener("focus", look)
-    }
-  }, [notePath, handle, close])
+      if (found.decided?.state === "accepted" && found.decided.path) onAccepted(found.decided.path)
+    })
+  })
 
   const decline = React.useCallback(async () => {
     if (!notePath) return

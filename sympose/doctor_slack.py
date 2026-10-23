@@ -24,10 +24,6 @@ def _named_in_env() -> dict[str, set[str]]:
     return found
 
 
-def _pair(handle: str) -> tuple[bool, bool]:
-    return _set(f"SLACK_{slack_credentials.env_key(handle)}_BOT_TOKEN"), _set(f"SLACK_{slack_credentials.env_key(handle)}_APP_TOKEN")
-
-
 def in_slack() -> list[str]:
     """The handles that have both tokens, so would be put in Slack by `sympose slack`."""
     return [p["handle"] for p in profile.list_profiles() if slack_credentials.tokens(p["handle"])]
@@ -39,10 +35,10 @@ def problems() -> list[str]:
     named = _named_in_env()
     found = []
     for handle in sorted(roster):
-        bot, app = _pair(handle)
+        bot, app = (bool(token) for token in slack_credentials.pair(handle))
         if bot != app:
             have, lack = ("bot", "app") if bot else ("app", "bot")
-            found.append(f"the persona {handle!r} has its Slack {have} token but not its {lack} token (SLACK_{slack_credentials.env_key(handle)}_{lack.upper()}_TOKEN in .env), so it is not in Slack")
+            found.append(f"the persona {handle!r} has its Slack {have} token but not its {lack} token ({slack_credentials.variable(handle, lack)} in .env), so it is not in Slack")
     for key in sorted(set(named) - {slack_credentials.env_key(h) for h in roster}):
         found.append(f"SLACK_{key}_BOT_TOKEN or SLACK_{key}_APP_TOKEN is set in .env, but no persona has that handle, so it is ignored")
     if in_slack():

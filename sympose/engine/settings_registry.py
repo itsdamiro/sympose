@@ -24,13 +24,14 @@ class Setting:
     hint: str = ""  # a number: what to type, said in the prompt and when a value is refused
     whole: bool = False  # a number: whole numbers only
     group: str = ""  # the section a screen lists it under
+    user_only: bool = False  # only the user changes it, in Settings: a persona may not even ask (docs/decisions/093)
 
 
-def toggle(key: str, summary: str, current: Callable[[], bool], default: bool = True, group: str = "") -> Setting:
+def toggle(key: str, summary: str, current: Callable[[], bool], default: bool = True, group: str = "", user_only: bool = False) -> Setting:
     """A true or false setting. Ships on unless `default=False` is passed (memory_remember: the user's
     own call to trust a model with even a safe write, docs/decisions/041), so flipping back to the
     default removes the key rather than writing it explicitly."""
-    return Setting(key, TOGGLE, summary, current, lambda: default, group=group)
+    return Setting(key, TOGGLE, summary, current, lambda: default, group=group, user_only=user_only)
 
 
 CONTEXT, SEARCH, LOOKUP, MEMORY, CONVERSATIONS, EDITING, SKILLS, WEB, SLACK, JOBS = (
@@ -163,7 +164,7 @@ SETTINGS: list[Setting] = [
     ),
     toggle(
         slack_approval.SETTING, "answering in Slack (replies leave this computer)",
-        slack_approval.approved, default=False, group=SLACK,
+        slack_approval.approved, default=False, group=SLACK, user_only=True,
     ),
     Setting(
         draft_limit.SLACK_SETTING, NUMBER, "drafts from Slack that may wait", draft_limit.slack_limit,

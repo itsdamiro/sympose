@@ -38,3 +38,18 @@ def test_a_long_reply_is_cut_and_says_so():
 
 def test_a_reply_at_the_limit_is_not_cut():
     assert to_mrkdwn("x" * slack_text.MAX_CHARS) == "x" * slack_text.MAX_CHARS
+
+
+def test_a_cut_inside_a_code_block_leaves_no_open_fence():
+    out = to_mrkdwn("```\n" + "x" * slack_text.MAX_CHARS + "\n```")
+    assert out.count("```") % 2 == 0 and out.endswith(slack_text.CUT)
+
+
+def test_a_fence_the_model_left_open_is_marked_so_it_cannot_pair_with_what_follows():
+    out = to_mrkdwn("see ```\ncode with no end")
+    assert out.count("```") == 0 and "`​``" in out
+
+
+def test_a_cut_does_not_leave_half_an_escape():
+    out = to_mrkdwn("x" * (slack_text.MAX_CHARS - 1) + "&" + "tail")
+    assert out == "x" * (slack_text.MAX_CHARS - 1) + slack_text.CUT

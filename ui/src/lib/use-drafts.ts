@@ -1,6 +1,7 @@
 import * as React from "react"
 
 import { fetchDrafts, type Draft } from "@/lib/persona-changes-api"
+import { useOnWindowFocus } from "@/lib/use-on-window-focus"
 
 const CHANGED = "sympose:drafts-changed"
 
@@ -29,14 +30,11 @@ export function useDrafts(persona: string, refreshKey: number) {
     }
   }, [persona, refreshKey, again])
 
+  useOnWindowFocus(() => setAgain((n) => n + 1))
   React.useEffect(() => {
     const read = () => setAgain((n) => n + 1)
-    window.addEventListener("focus", read)
     window.addEventListener(CHANGED, read)
-    return () => {
-      window.removeEventListener("focus", read)
-      window.removeEventListener(CHANGED, read)
-    }
+    return () => window.removeEventListener(CHANGED, read)
   }, [])
 
   // Another persona's drafts are never shown while this one's are on their way.

@@ -28,6 +28,7 @@ OPEN, RESOLVED = "open", "resolved"
 ACCEPTED, DECLINED = "accepted", "declined"  # the user's verdict on one of her comments (docs/decisions/069)
 _NAME_WORDS = 5
 INBOX = "Inbox"  # where a new note is made when nobody named a folder, in the first folder of the persona's scope (docs/decisions/094)
+_PROPOSING = threading.Lock()  # held while a new note is checked against the others and filed (within this program)
 _WATCHING = threading.local()  # the list `new_notes_made` fills, on the thread that is inside its block
 _SOURCE = threading.local()  # what `from_source` says made the drafts, on the thread that is inside its block
 
@@ -158,15 +159,17 @@ def propose_create(handle: str, note_path: str, text: str, *, say: str, title: s
     """A new note she proposes. `folder` is where she was asked to make it (a vault path such as `Projects/Sympose`; made when
     the user accepts, with the folder if it is not there yet): without one (only a draft older than docs/decisions/094) it is made in her main folder."""
     proposal = {"id": _id(), "time": _now(), "kind": "create", "text": text, "name": working_name(text, title), "say": say}
-    if source := getattr(_SOURCE, "name", None):
-        if full := draft_limit.refusal(handle, source):
-            raise CannotAnchor(full)
-        proposal["source"] = source
     if cleaned := clean_folder(folder):
         proposal["folder"] = cleaned
-    if waiting := _same_draft(handle, proposal):
-        raise CannotAnchor(f"A new note called {waiting['name']} is already waiting among the drafts, so a second one was not made; the user decides it first.")
-    store.update(handle, note_path, lambda entry: entry["proposals"].append(proposal))
+    with _PROPOSING:  # the checks and the filing are one step, so two turns at once cannot both pass a limit or file the same draft
+        found = store.entries(handle)
+        if source := getattr(_SOURCE, "name", None):
+            if full := draft_limit.refusal(handle, source, found):
+                raise CannotAnchor(full)
+            proposal["source"] = source
+        if waiting := _same_draft(found, proposal):
+            raise CannotAnchor(f"A new note called {waiting['name']} is already waiting among the drafts, so a second one was not made; the user decides it first.")
+        store.update(handle, note_path, lambda entry: entry["proposals"].append(proposal))
     if (watching := getattr(_WATCHING, "made", None)) is not None:
         watching.append((note_path, proposal["id"]))
     return proposal
@@ -206,12 +209,12 @@ def pending_new_note(handle: str, note_path: str, proposal_id: str) -> dict[str,
     return next((p for p in store.read(handle, note_path)["proposals"] if p.get("id") == proposal_id and p.get("kind") == "create"), None)
 
 
-def _same_draft(handle: str, proposal: dict[str, Any]) -> dict[str, Any] | None:
+def _same_draft(found: list[dict[str, Any]], proposal: dict[str, Any]) -> dict[str, Any] | None:
     """A new note already waiting that this one would only repeat: the same name to be made in the same folder (accepting both
     could not work, the name would be in use), or the same words whatever it is called. Only exact repeats, so a second, different
     note is never refused."""
     flat = lambda text: " ".join(text.split()).casefold()  # noqa: E731
-    for entry in store.entries(handle):
+    for entry in found:
         for waiting in entry["proposals"]:
             if waiting.get("kind") != "create":
                 continue

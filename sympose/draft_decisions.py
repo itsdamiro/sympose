@@ -11,7 +11,7 @@ import threading
 from typing import Any
 
 from sympose.atomic_write import write_atomic_text
-from sympose.persona_files import SLACK_FOLDER, persona_dir
+from sympose.persona_files import slack_path
 
 FILE = "decided.json"
 KEPT = 50  # the latest decisions; an editor asks soon after, so older ones are no use
@@ -19,7 +19,7 @@ _lock = threading.Lock()
 
 
 def _file(handle: str) -> str:
-    return os.path.join(persona_dir(handle), SLACK_FOLDER, FILE)
+    return slack_path(handle, FILE)
 
 
 def _load(handle: str) -> dict[str, dict[str, Any]]:

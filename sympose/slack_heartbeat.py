@@ -21,7 +21,7 @@ FRESH_SECONDS = 3 * EVERY_SECONDS  # two missed beats are forgiven
 
 
 def _path(handle: str) -> str:
-    return os.path.join(persona_files.persona_dir(handle), persona_files.SLACK_FOLDER, FILE)
+    return persona_files.slack_path(handle, FILE)
 
 
 def beat(handle: str) -> None:

@@ -4,6 +4,8 @@ A job runs and a Slack message arrives with nobody at the Mac, and whatever they
 Each such draft is tagged with its `source` (`job:<name>` or `slack`); a source with its limit already waiting files no more
 until some are decided. A draft counts while it is in Drafts, so Accept and Decline free the room and nothing else is kept."""
 
+from collections import Counter
+
 from sympose import jobs, settings_store
 from sympose import note_changes_store as store
 
@@ -44,9 +46,15 @@ def limit(handle: str, source: str) -> int | None:
     return None
 
 
-def waiting(handle: str, source: str) -> int:
+def counts(handle: str, entries: list[dict] | None = None) -> Counter[str]:
+    """How many new-note drafts wait now from each source. `entries` is the store as already read, when the caller has it."""
+    found = store.entries(handle) if entries is None else entries
+    return Counter(p["source"] for entry in found for p in entry["proposals"] if p.get("source"))
+
+
+def waiting(handle: str, source: str, entries: list[dict] | None = None) -> int:
     """How many new-note drafts from `source` wait now."""
-    return sum(1 for entry in store.entries(handle) for p in entry["proposals"] if p.get("source") == source)
+    return counts(handle, entries)[source]
 
 
 def rename_job(handle: str, old: str, new: str) -> None:
@@ -61,10 +69,10 @@ def rename_job(handle: str, old: str, new: str) -> None:
             store.update(handle, entry["path"], retag)
 
 
-def refusal(handle: str, source: str) -> str | None:
+def refusal(handle: str, source: str, entries: list[dict] | None = None) -> str | None:
     """Why `source` may not file another draft, or `None` when it may."""
     cap = limit(handle, source)
-    if cap is None or (count := waiting(handle, source)) < cap:
+    if cap is None or (count := waiting(handle, source, entries)) < cap:
         return None
     whose = "from Slack" if source == SLACK else "from this job"
     many = count != 1

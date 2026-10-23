@@ -10,6 +10,7 @@ import re
 from typing import Any
 
 from sympose import note_changes
+from sympose import slack_text
 from sympose.slack_text import LIMIT
 
 FOOTER = "_Waiting in Drafts: nothing is saved until you accept it, with the buttons below or in the web app._"
@@ -40,7 +41,7 @@ def waiting(handle: str, made: list[tuple[str, str]]) -> list[dict[str, Any]]:
 
 def _escape(text: str) -> str:
     """Slack reads `&`, `<` and `>` as its own marks even inside code, and a fence inside the text would close ours."""
-    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace(_FENCE, _BROKEN_FENCE)
+    return slack_text.escape(text).replace(_FENCE, _BROKEN_FENCE)
 
 
 def _label(text: str) -> str:

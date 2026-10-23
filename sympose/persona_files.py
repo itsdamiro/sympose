@@ -38,6 +38,11 @@ def persona_dir(handle: str) -> str:
     return os.path.join(profiles_dir(), handle)
 
 
+def slack_path(handle: str, name: str) -> str:
+    """`name` inside the persona's `.slack` folder (`SLACK_FOLDER`), where `sympose slack` keeps what it needs."""
+    return os.path.join(persona_dir(handle), SLACK_FOLDER, name)
+
+
 def _read_soul(handle: str, filename: str) -> str | None:
     try:
         path = os.path.join(persona_dir(handle), filename)

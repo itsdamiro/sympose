@@ -3,6 +3,7 @@ import * as React from "react"
 import { notify } from "@/lib/notify"
 import { fetchChanges, resolveChanges, type NoteChanges } from "@/lib/persona-changes-api"
 import { announceDraftsChanged } from "@/lib/use-drafts"
+import { useOnWindowFocus } from "@/lib/use-on-window-focus"
 
 const ACTED = "sympose:persona-acted"
 
@@ -35,14 +36,11 @@ export function usePersonaChanges({ path, persona, enabled = true }: { path?: st
     }
   }, [path, persona, enabled, reloadKey])
 
+  useOnWindowFocus(() => setReloadKey((k) => k + 1))
   React.useEffect(() => {
     const again = () => setReloadKey((k) => k + 1)
-    window.addEventListener("focus", again)
     window.addEventListener(ACTED, again)
-    return () => {
-      window.removeEventListener("focus", again)
-      window.removeEventListener(ACTED, again)
-    }
+    return () => window.removeEventListener(ACTED, again)
   }, [])
 
   // Another note's changes are never shown while this one's are on their way.

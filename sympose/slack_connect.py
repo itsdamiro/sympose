@@ -11,7 +11,7 @@ from collections.abc import Callable
 from typing import Any
 
 from sympose import profile as profile_mod
-from sympose import slack_channel, slack_credentials, slack_drafts, slack_heartbeat, slack_manifest, slack_sessions
+from sympose import slack_approval, slack_channel, slack_credentials, slack_drafts, slack_heartbeat, slack_manifest, slack_sessions
 from sympose.slack_events import Incoming, parse
 from sympose.slack_trace import note
 
@@ -107,7 +107,7 @@ def run() -> int:
     if slack_credentials.owner() is None:
         print(f"sympose slack: set {slack_credentials.OWNER_VARIABLE} in .env to your Slack user ID, so only you are answered.", file=sys.stderr)
         return 1
-    if not slack_channel.approved():
+    if not slack_approval.approved():
         print("sympose slack: Slack is switched off in Sympose's settings. Switch it on there, then run this again.", file=sys.stderr)
         return 1
     handlers: dict[str, Any] = {}

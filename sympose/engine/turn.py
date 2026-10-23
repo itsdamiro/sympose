@@ -11,7 +11,7 @@ import contextlib
 from dataclasses import replace
 from typing import Any
 
-from sympose import note_changes
+from sympose import draft_limit, note_changes
 from sympose import profile as profile_mod
 from sympose.engine import (
     budget, compaction, confirmations, edit_tools, edit_turn, history_cap, lookup, media, memory, memory_tools, past_chats, persona_tools, reference, session, session_compaction, sharing, tool_support, turn_cancel, turn_evidence, turn_status, unfiled, watch_call as watch_call_mod, web_sources,
@@ -284,7 +284,7 @@ def _run(
         model=target_model,
         sent=sent,
         truncated=reply.truncated,
-        source="slack" if in_slack else None,
+        source=draft_limit.SLACK if in_slack else None,
     )
     context_used = prompt_tokens + _reply_tokens(reply_text, target_model) if limits else None
     if saved:  # a long conversation is condensed in the background, for the turns after this one (docs/decisions/055)

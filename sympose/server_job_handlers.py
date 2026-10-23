@@ -6,7 +6,7 @@ from typing import Any
 
 from fastapi import HTTPException
 
-from sympose import job_manage
+from sympose import job_manage, jobs
 from sympose import profile as profile_mod
 from sympose.engine import model as model_mod
 from sympose.engine.model_options import offered
@@ -41,11 +41,11 @@ def put_job(handle: str, name: str, body: JobSwitch) -> dict[str, Any]:
 def put_job_model(handle: str, name: str, body: JobModelChoice) -> dict[str, Any]:
     """Only a listed model is accepted (as for a persona's, ADR 044), or the one the job already has or the persona's own."""
     try:
-        row = next((r for r in job_manage.listing(handle) if r["name"] == name), None)
-        if row is None:
+        job = jobs.load(handle, name)
+        if job is None:
             raise job_manage.JobMissing("There is no such job.")
         own = (profile_mod.resolve_profile(handle) or {}).get("model") or None
-        in_use = [model_mod.resolve_model(own), row["own_model"]]
+        in_use = [model_mod.resolve_model(own), job.model]
         if body.model is not None and body.model not in {m.id for m in offered(*in_use)}:
             raise job_manage.JobRefused("Pick a model from the list.")
         return {"job": job_manage.set_model(handle, name, body.model)}

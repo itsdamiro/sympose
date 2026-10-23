@@ -5,6 +5,7 @@ one on or off, start a new one from a template, rename one and delete one. Editi
 import os
 import re
 import threading
+from collections import Counter
 from typing import Any, Callable
 
 from sympose import draft_limit, job_state, jobs
@@ -44,7 +45,7 @@ def _persona(handle: str) -> dict[str, Any]:
     return persona
 
 
-def _row(job: jobs.Job, persona: dict[str, Any]) -> dict[str, Any]:
+def _row(job: jobs.Job, persona: dict[str, Any], waiting: Counter[str] | None = None) -> dict[str, Any]:
     state = job_state.read(job.handle, job.name)
     source = draft_limit.job_source(job.name)
     model = job.model or model_mod.resolve_model(persona.get("model"))
@@ -65,14 +66,15 @@ def _row(job: jobs.Job, persona: dict[str, Any]) -> dict[str, Any]:
         "outcome": state.outcome,
         "detail": state.detail,
         "session_id": state.session_id,
-        "drafts": draft_limit.waiting(job.handle, source),
-        "draft_cap": draft_limit.limit(job.handle, source),
+        "drafts": (draft_limit.counts(job.handle) if waiting is None else waiting)[source],
+        "draft_cap": job.max_waiting_drafts or draft_limit.job_default(),
     }
 
 
 def listing(handle: str) -> list[dict[str, Any]]:
     persona = _persona(handle)
-    return [_row(job, persona) for job in jobs.list_jobs(persona["handle"])]
+    waiting = draft_limit.counts(persona["handle"])
+    return [_row(job, persona, waiting) for job in jobs.list_jobs(persona["handle"])]
 
 
 def _with_enabled(text: str, enabled: bool) -> str | None:

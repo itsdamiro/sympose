@@ -3,6 +3,7 @@ import * as React from "react"
 import type { VaultNode } from "@/components/sympose"
 import { notify } from "@/lib/notify"
 import { isHiddenByUser, pruneHidden } from "@/lib/prune-hidden"
+import { useOnWindowFocus } from "@/lib/use-on-window-focus"
 import { fetchVaultTree } from "@/lib/vault-tree-api"
 import {
   NO_HIDDEN,
@@ -83,19 +84,11 @@ export function useVaultTree({
   React.useEffect(() => {
     shown.current = fullTree
   }, [fullTree])
-  React.useEffect(() => {
-    let alive = true
-    const check = () => {
-      void fetchVaultTree(activePersona).then((result) => {
-        if (alive && result && JSON.stringify(result.tree) !== JSON.stringify(shown.current)) refreshVault()
-      })
-    }
-    window.addEventListener("focus", check)
-    return () => {
-      alive = false
-      window.removeEventListener("focus", check)
-    }
-  }, [activePersona, refreshVault])
+  useOnWindowFocus(() => {
+    void fetchVaultTree(activePersona).then((result) => {
+      if (result && JSON.stringify(result.tree) !== JSON.stringify(shown.current)) refreshVault()
+    })
+  })
   React.useEffect(() => {
     let alive = true
     fetchHidden().then((state) => {
