@@ -2,7 +2,7 @@
 
 How to make a persona its own Slack user that you message like a teammate. Each persona is a Slack App of its own, so repeat the steps for every persona you want in Slack. The design is ADR 093 (`docs/decisions/093-*.md`).
 
-**Tried once in a real workspace (direct messages).** The Slack side below is written from Slack's documented setup and its app manifest reference, and Slack may name or place a screen differently. If a step does not match what you see, trust the code's needs (the lists in step 2) over the wording here, and fix this note.
+**Tried in a real workspace:** direct messages, a channel mention, a PDF in a direct message and in a channel mention, a Word file refused, and a proposed note with Accept pressed. Decline and a press by someone else are not tried yet. The Slack side below is written from Slack's documented setup and its app manifest reference, and Slack may name or place a screen differently. If a step does not match what you see, trust the code's needs (the lists in step 2) over the wording here, and fix this note.
 
 ## What you need first
 
