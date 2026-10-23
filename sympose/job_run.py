@@ -9,7 +9,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-from sympose import draft_limit, job_mechanical, job_state, jobs, note_changes
+from sympose import draft_limit, job_mechanical, job_state, jobs
 from sympose import profile as profile_mod
 from sympose.engine import model as model_mod
 from sympose.engine import session, sharing
@@ -90,17 +90,16 @@ def run(handle: str, name: str, now: datetime | None = None, *, manual: bool = F
         source = draft_limit.job_source(name)
         if job.kind != jobs.REFRESH and (full := draft_limit.refusal(job.handle, source)):  # a full job costs no model call
             return Outcome(key, SKIPPED, full)
-        with note_changes.from_source(source):
-            return _execute(job, persona, now)
+        return _execute(job, persona, now, draft_limit.Filing(source))
 
 
-def _execute(job: jobs.Job, persona: dict, now: datetime) -> Outcome:
+def _execute(job: jobs.Job, persona: dict, now: datetime, filing: draft_limit.Filing) -> Outcome:
     key = f"{job.handle}/{job.name}"
     session_id = None
     held: list[str] = []
     try:
         if job.kind == jobs.HEALTH:
-            detail = job_mechanical.health(persona, now.date())
+            detail = job_mechanical.health(persona, now.date(), filing)
         elif job.kind == jobs.REFRESH:
             detail = job_mechanical.refresh(persona)
         else:
@@ -110,7 +109,7 @@ def _execute(job: jobs.Job, persona: dict, now: datetime) -> Outcome:
             if session_id is None:
                 raise job_mechanical.NothingToDo("The conversation could not be started.")
             result = turn.run_turn(
-                job.handle, job.prompt, session_id, model=job.model, edits=True, unattended=True, history_turns=HISTORY_TURNS,
+                job.handle, job.prompt, session_id, model=job.model, edits=True, unattended=True, history_turns=HISTORY_TURNS, filing=filing,
             )
             held = list(result.withheld)
             detail = "Held back from the model: " + ", ".join(held) + "." if held else "Done."

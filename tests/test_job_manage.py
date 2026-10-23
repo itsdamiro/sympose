@@ -44,28 +44,26 @@ def test_the_list_has_each_job_with_its_last_run(home):
     assert rows["broken"]["problem"] and rows["broken"]["last_run"] is None
 
 
-def test_a_row_says_how_many_drafts_of_the_job_wait_and_its_limit(home):
-    from sympose import draft_limit, note_changes
+def test_a_row_says_how_many_drafts_of_the_job_wait_and_the_limit(home):
+    from sympose import draft_limit, note_changes, settings_store
 
     _write(home, "weekly", GOOD)
-    _write(home, "tight", "---\nschedule: weekly sun 18:00\nmax_waiting_drafts: 2\n---\nDo it.\n")
-    with note_changes.from_source(draft_limit.job_source("weekly")):
-        note_changes.propose_create("samantha", "new/1", "# One\n\nOne.\n", say="")
-        note_changes.propose_create("samantha", "new/2", "# Two\n\nTwo.\n", say="")
+    weekly = draft_limit.Filing(draft_limit.job_source("weekly"))
+    note_changes.propose_create("samantha", "new/1", "# One\n\nOne.\n", say="", filing=weekly)
+    note_changes.propose_create("samantha", "new/2", "# Two\n\nTwo.\n", say="", filing=weekly)
     note_changes.propose_create("samantha", "new/3", "# Three\n\nThree.\n", say="")
     rows = {r["name"]: r for r in job_manage.listing("samantha")}
     assert (rows["weekly"]["drafts"], rows["weekly"]["draft_cap"]) == (2, 5)
-    assert (rows["tight"]["drafts"], rows["tight"]["draft_cap"]) == (0, 2)
+    settings_store.set(draft_limit.SETTING, 3)
+    assert job_manage.listing("samantha")[0]["draft_cap"] == 3
 
 
 def test_a_renamed_job_keeps_the_drafts_it_left_waiting(home):
     from sympose import draft_limit, note_changes
 
     _write(home, "weekly", GOOD)
-    with note_changes.from_source(draft_limit.job_source("weekly")):
-        note_changes.propose_create("samantha", "new/1", "# One\n\nOne.\n", say="")
-    with note_changes.from_source(draft_limit.job_source("other")):
-        note_changes.propose_create("samantha", "new/2", "# Two\n\nTwo.\n", say="")
+    note_changes.propose_create("samantha", "new/1", "# One\n\nOne.\n", say="", filing=draft_limit.Filing(draft_limit.job_source("weekly")))
+    note_changes.propose_create("samantha", "new/2", "# Two\n\nTwo.\n", say="", filing=draft_limit.Filing(draft_limit.job_source("other")))
     row = job_manage.rename("samantha", "weekly", "review")
     assert (row["drafts"], draft_limit.waiting("samantha", "job:weekly"), draft_limit.waiting("samantha", "job:other")) == (1, 0, 1)
 
@@ -75,8 +73,7 @@ def test_a_rename_retags_only_its_own_drafts_even_in_one_note_entry(home):
 
     _write(home, "weekly", GOOD)
     for job, text in (("weekly", "# One\n\nOne.\n"), ("other", "# Two\n\nTwo.\n")):
-        with note_changes.from_source(draft_limit.job_source(job)):
-            note_changes.propose_create("samantha", "new/shared", text, say="")
+        note_changes.propose_create("samantha", "new/shared", text, say="", filing=draft_limit.Filing(draft_limit.job_source(job)))
     job_manage.rename("samantha", "weekly", "review")
     assert (draft_limit.waiting("samantha", "job:review"), draft_limit.waiting("samantha", "job:other")) == (1, 1)
 

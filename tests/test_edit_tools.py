@@ -8,6 +8,7 @@ import pytest
 
 from sympose import note_changes as nc
 from sympose import note_changes_store as store
+from sympose.draft_limit import Filing
 from sympose.engine import edit_tools as et
 from sympose.engine import web_sources
 
@@ -121,6 +122,15 @@ def test_a_tool_call_to_propose_a_note_files_a_draft():
     result = et.run(H, None, None, "propose_note", {"text": "# Seeds\n\nSow.", "title": "Seeds", "say": "s"})
 
     assert result.lookup["saved"] is True and nc.drafts(H)[0]["name"] == "Seeds"
+
+
+def test_a_tool_call_to_propose_a_note_files_it_for_the_source_of_its_filing_and_lists_it():
+    filing = Filing("slack")
+
+    et.run(H, None, None, "propose_note", {"text": "# Seeds\n\nSow.", "title": "Seeds", "say": "s"}, filing=filing)
+
+    ((path, proposal_id),) = filing.made
+    assert nc.pending_new_note(H, path, proposal_id)["source"] == "slack" and len(nc.drafts(H)) == 1
 
 
 def test_another_tool_name_is_not_ours():

@@ -189,6 +189,23 @@ def test_the_tool_capability_is_not_probed_when_no_tool_could_be_used(tmp_path, 
     assert (modes.ask, modes.chose_ask, modes.remember) == (False, False, None)
 
 
+def test_a_new_note_the_dispatcher_files_is_filed_for_the_source_of_its_filing_and_listed(tmp_path, monkeypatch):
+    from sympose import note_changes
+    from sympose.draft_limit import Filing
+    from sympose.engine import edit_turn
+
+    _settings(tmp_path, monkeypatch)
+    _vault(tmp_path, monkeypatch)
+    persona = {"handle": "samantha", "vault_folders": ["*"]}
+    filing = Filing("slack")
+
+    tools, run = persona_tools.for_turn(ask=False, remember=False, edit=edit_turn.Edit("manual", True), persona=persona, filing=filing)
+    run(persona, CLOUD, "propose_note", {"text": "# Seeds\n\nSow.", "title": "Seeds", "say": "s"})
+
+    ((path, proposal_id),) = filing.made
+    assert note_changes.pending_new_note("samantha", path, proposal_id)["source"] == "slack" and len(note_changes.drafts("samantha")) == 1
+
+
 def test_a_call_to_show_a_note_is_refused_when_there_is_no_editor_even_if_the_model_makes_it_up(tmp_path, monkeypatch):
     from sympose.engine import edit_turn
 

@@ -9,6 +9,7 @@ import pytest
 
 from sympose import note_changes as nc
 from sympose import note_changes_store as store
+from sympose.draft_limit import Filing
 from sympose.engine import edit_tools as et
 from sympose.engine import edit_turn, persona_tools, skills, unfiled
 
@@ -43,8 +44,17 @@ def text_of(draft):
     return next(p for p in store.read(H, draft["path"])["proposals"] if p["kind"] == "create")["text"]
 
 
-def call(**args):
-    return et.run(H, None, None, "propose_folder_definition", {"folder": "People", "purpose": PURPOSE, "say": "Defined People.", **args}, PROFILE)
+def call(filing=None, **args):
+    return et.run(H, None, None, "propose_folder_definition", {"folder": "People", "purpose": PURPOSE, "say": "Defined People.", **args}, PROFILE, filing=filing)
+
+
+def test_a_definition_is_filed_for_the_source_of_its_filing_and_listed(vault):
+    filing = Filing("job:weekly")
+
+    result = call(filing=filing)
+
+    ((path, proposal_id),) = filing.made
+    assert result.lookup["saved"] and nc.pending_new_note(H, path, proposal_id)["source"] == "job:weekly" and len(nc.drafts(H)) == 1
 
 
 def test_a_definition_is_filed_as_a_draft_at_the_folders_own_name(vault):

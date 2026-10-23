@@ -43,7 +43,7 @@ def turns(monkeypatch):
     def fake(handle, message, session_id=None, **kwargs):
         seen.append((handle, message, session_id, kwargs))
         for title, text, *folder in seen.proposes:
-            note_changes.propose_create(handle, note_changes.new_note_path(), text, say="", title=title, folder=folder[0] if folder else None)
+            note_changes.propose_create(handle, note_changes.new_note_path(), text, say="", title=title, folder=folder[0] if folder else None, filing=kwargs.get("filing"))
         for title, text in seen.elsewhere:
             other = threading.Thread(target=note_changes.propose_create, args=(handle, note_changes.new_note_path(), text), kwargs={"say": "", "title": title})
             other.start()
@@ -164,7 +164,7 @@ def test_slash_new_in_a_channel_says_to_use_a_thread(home, turns):
 # --- the turn -----------------------------------------------------------------------------------
 def test_the_turn_may_propose_notes_and_is_told_it_is_in_slack(home, turns):
     _answer(dm("hi"))
-    assert turns[0][3] == {"edits": True, "in_slack": True, "files": ()}
+    assert turns[0][3] == {"edits": True, "in_slack": True, "files": (), "filing": draft_limit.Filing(draft_limit.SLACK)}
 
 
 def test_a_note_the_turn_proposed_is_shown_under_the_reply_as_it_waits(home, turns):
@@ -187,7 +187,7 @@ def test_a_note_proposed_from_slack_counts_against_slacks_limit_and_the_web_chat
 
 
 def test_a_turn_at_slacks_limit_is_refused_the_note_but_not_the_turn(home, turns):
-    settings_store.set(draft_limit.SLACK_SETTING, 1)
+    settings_store.set(draft_limit.SETTING, 1)
     turns.proposes = [("One", "# One\n\nFirst.\n")]
     _answer(dm("write it"))
     turns.proposes = [("Two", "# Two\n\nSecond.\n")]
@@ -492,12 +492,12 @@ def test_a_reply_that_proposed_nothing_is_offered_no_buttons(home, turns):
     assert _answer(dm("hi")).prompts == ()
 
 
-def test_a_note_that_was_cut_is_offered_no_buttons(home, turns):
+def test_a_note_too_long_to_show_is_offered_no_buttons(home, turns):
     turns.proposes = [("Long", "word " * 20000)]
 
     reply = _answer(dm("write it"))
 
-    assert "Cut here" in reply.text and reply.prompts == ()
+    assert "Too long to show here" in reply.text and reply.prompts == ()
 
 
 def test_a_turn_that_failed_after_it_proposed_a_note_still_offers_its_buttons(home, turns):
@@ -508,7 +508,7 @@ def test_a_turn_that_failed_after_it_proposed_a_note_still_offers_its_buttons(ho
 
 
 def test_pressing_accept_makes_the_note_replaces_the_buttons_and_frees_the_room(vault, turns):
-    settings_store.set(draft_limit.SLACK_SETTING, 1)
+    settings_store.set(draft_limit.SETTING, 1)
     _, value = _filed(turns)
 
     decision = _press(slack_drafts.ACCEPT, value)

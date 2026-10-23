@@ -65,7 +65,7 @@ def _row(job: jobs.Job, persona: dict[str, Any], waiting: Counter[str] | None = 
         "detail": state.detail,
         "session_id": state.session_id,
         "drafts": (draft_limit.counts(job.handle) if waiting is None else waiting)[source],
-        "draft_cap": job.max_waiting_drafts or draft_limit.job_default(),
+        "draft_cap": draft_limit.limit(),
     }
 
 

@@ -10,7 +10,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any
 
-from sympose import draft_accept, draft_limit, note_changes
+from sympose import draft_accept, draft_limit
 from sympose import profile as profile_mod
 from sympose import slack_drafts, slack_files, slack_sessions
 from sympose.engine import media
@@ -79,11 +79,11 @@ def _turn(handle: str, profile: dict, message: Incoming, where: str | None, bot_
     if not acquire(lock, handle, session_id):
         note(handle, "stopped before it ran, no reply")
         return None
+    filing = draft_limit.Filing(draft_limit.SLACK)  # what the turn's drafts are filed as, and where they are listed as they are made
     try:
         # The files are fetched with the conversation's lock held, so a slow download does not let a later message overtake this one.
         files = slack_files.fetch(message.files, bot_token) if message.files else ()
-        with note_changes.new_notes_made() as made, note_changes.from_source(draft_limit.SLACK):
-            result = turn.run_turn(handle, slack_files.with_markers(message.text, files), session_id, edits=True, in_slack=True, files=files)
+        result = turn.run_turn(handle, slack_files.with_markers(message.text, files), session_id, edits=True, in_slack=True, files=files, filing=filing)
     except media.MediaRefused as e:
         note(handle, "the files could not be taken, said so")
         return Reply(str(e), where)
@@ -93,13 +93,13 @@ def _turn(handle: str, profile: dict, message: Incoming, where: str | None, bot_
     except turn.EngineModelError as e:
         note(handle, "the model failed, said so")
         log.warning("Slack turn for %s failed: %s", handle, e)
-        return _with_drafts(NO_MODEL, slack_drafts.waiting(handle, made), where)  # a note filed before the failure still waits, so it is shown
+        return _with_drafts(NO_MODEL, slack_drafts.waiting(handle, filing.made), where)  # a note filed before the failure still waits, so it is shown
     except turn.TurnCancelled:
         note(handle, "stopped while answering, no reply")
         return None
     finally:
         lock.release()
-    return _with_drafts(to_mrkdwn(result.reply), slack_drafts.waiting(handle, made), where)
+    return _with_drafts(to_mrkdwn(result.reply), slack_drafts.waiting(handle, filing.made), where)
 
 
 def _with_drafts(reply: str, drafts: list[dict[str, Any]], where: str | None) -> Reply:

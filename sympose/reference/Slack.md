@@ -26,15 +26,15 @@ Slack gets what a persona says. A reply can quote your notes, and it is sent to 
 
 ## Can a persona make a note from Slack?
 
-A persona can make a note from Slack, as a proposal: the reply shows the whole text, the folder and a line saying it waits in Drafts. Nothing is saved until you accept it, with the buttons under it in Slack or in the web app. It cannot change a note, comment, open a note or propose a persona or a setting.
+A persona can make a note from Slack, as a proposal: the reply shows the text, the folder and a line saying it waits in Drafts (a note too long for Slack is only named). Nothing is saved until you accept it, with the buttons under it in Slack or in the web app. It cannot change a note, comment, open a note or propose a persona or a setting.
 
-Once 10 notes made from Slack are waiting, it makes no more and says so in its reply. The `slack_waiting_drafts` setting changes the 10.
+Once 5 notes made from Slack are waiting, it makes no more and says so in its reply. The `waiting_drafts` setting changes the 5.
 
 ## How do I accept or decline a note in Slack?
 
 Under a note shown in full, a short message asks to save it, with Accept and Decline. Accept saves it in the folder named, under its title; Decline forgets it. Either way the message becomes one line saying which. Only you can press them, even in a channel.
 
-A note that was cut, or only named, has no buttons: read and accept it in the web app, under Drafts.
+A note too long to show here is only named, with no buttons: read and accept it in the web app, under Drafts.
 
 ## I pressed Accept in Slack but the note is not in the web app
 

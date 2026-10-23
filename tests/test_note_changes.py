@@ -10,6 +10,7 @@ import pytest
 
 from sympose import note_changes as nc
 from sympose import note_changes_store as store
+from sympose.draft_limit import Filing
 from sympose.persona_files import persona_dir
 
 NOTE = "I run three times a week. The beds are raised.\n\n- Pack charger\n- Phone\n\n- Pack charger\n"
@@ -940,62 +941,29 @@ def test_once_the_user_has_decided_a_draft_the_same_note_can_be_proposed_again()
 
 
 # --- the new notes one piece of work made (docs/decisions/093) ----------------------------------
-def test_the_new_notes_made_inside_the_block_are_listed_in_order_with_their_ids():
-    new_note(0, "# Before\n\nBefore the block.\n", title="Before")
-    with nc.new_notes_made() as made:
-        first = new_note(1, "# One\n\nFirst.\n", title="One")
-        second = new_note(2, "# Two\n\nSecond.\n", title="Two")
-    new_note(3, "# After\n\nAfter the block.\n", title="After")
+def test_the_new_notes_filed_with_a_filing_are_listed_in_order_with_their_ids_and_no_others():
+    new_note(0, "# Before\n\nFiled with no filing.\n", title="Before")
+    filing = Filing()
+    first = new_note(1, "# One\n\nFirst.\n", title="One", filing=filing)
+    second = new_note(2, "# Two\n\nSecond.\n", title="Two", filing=filing)
+    new_note(3, "# After\n\nAlso none.\n", title="After")
 
-    assert made == [("new/1", first["id"]), ("new/2", second["id"])]
-
-
-def test_a_change_to_a_note_is_not_a_new_note():
-    with nc.new_notes_made() as made:
-        nc.propose_edit(H, "Garden plan.md", NOTE, find="three times", replace="four times", say="s")
-
-    assert made == []
+    assert filing.made == [("new/1", first["id"]), ("new/2", second["id"])]
 
 
 def test_a_new_note_that_could_not_be_filed_is_not_listed():
     new_note(1)
-    with nc.new_notes_made() as made, pytest.raises(nc.CannotAnchor):
-        new_note(2)  # the same words are waiting
+    filing = Filing()
+    with pytest.raises(nc.CannotAnchor):
+        new_note(2, filing=filing)  # the same words are waiting
 
-    assert made == []
-
-
-def test_another_thread_does_not_add_to_the_list():
-    with nc.new_notes_made() as made:
-        worker = threading.Thread(target=new_note, args=(1,))
-        worker.start()
-        worker.join()
-
-    assert made == [] and len(nc.drafts(H)) == 1
-
-
-def test_a_block_inside_a_block_lists_its_notes_in_its_own_list_and_in_the_outer_one_in_order():
-    with nc.new_notes_made() as outer:
-        new_note(1, "# One\n\nFirst.\n", title="One")
-        with nc.new_notes_made() as inner:
-            new_note(2, "# Two\n\nSecond.\n", title="Two")
-        new_note(3, "# Three\n\nThird.\n", title="Three")
-
-    assert [path for path, _ in outer] == ["new/1", "new/2", "new/3"] and [path for path, _ in inner] == ["new/2"]
-
-
-def test_nothing_is_listed_once_the_block_has_ended_even_after_an_error():
-    with pytest.raises(RuntimeError), nc.new_notes_made() as made:
-        raise RuntimeError("the turn failed")
-    new_note(1)
-
-    assert made == []
+    assert filing.made == []
 
 
 def test_a_new_note_is_read_back_as_it_waits_now_and_not_once_it_is_gone():
-    with nc.new_notes_made() as made:
-        new_note(1)
-    ((path, proposal_id),) = made
+    filing = Filing()
+    new_note(1, filing=filing)
+    ((path, proposal_id),) = filing.made
 
     nc.edit_draft(H, path, "# Seeds\n\nThe user's own words.\n")
     assert nc.pending_new_note(H, path, proposal_id)["text"] == "# Seeds\n\nThe user's own words.\n"
@@ -1006,11 +974,11 @@ def test_a_new_note_is_read_back_as_it_waits_now_and_not_once_it_is_gone():
 
 
 def test_only_the_new_note_asked_for_is_read_back_not_another_proposal_or_another_new_note():
-    with nc.new_notes_made() as made:
-        new_note(1, "# One\n\nFirst.\n", title="One")
-        new_note(2, "# Two\n\nSecond.\n", title="Two")
+    filing = Filing()
+    new_note(1, "# One\n\nFirst.\n", title="One", filing=filing)
+    new_note(2, "# Two\n\nSecond.\n", title="Two", filing=filing)
     edit = nc.propose_edit(H, "Garden plan.md", NOTE, find="three times", replace="four times", say="s")
-    (_, first), (_, second) = made
+    (_, first), (_, second) = filing.made
 
     assert nc.pending_new_note(H, "Garden plan.md", edit["id"]) is None  # a change to a note
     assert nc.pending_new_note(H, "new/1", second) is None  # the id of another draft

@@ -7,13 +7,12 @@ a proposal is still pending, or outdated because its passage was rewritten, is w
 text each time and never stored. Nothing here writes the vault: accepting a proposal is a vault write done by the
 caller, through the ordinary note functions."""
 
-import contextlib
 import os
 import re
 import threading
 import uuid
 from datetime import datetime, timezone
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Sequence
 from typing import Any
 
 from sympose import draft_limit
@@ -29,8 +28,6 @@ ACCEPTED, DECLINED = "accepted", "declined"  # the user's verdict on one of her 
 _NAME_WORDS = 5
 INBOX = "Inbox"  # where a new note is made when nobody named a folder, in the first folder of the persona's scope (docs/decisions/094)
 _PROPOSING = threading.Lock()  # held while a new note is checked against the others and filed (within this program)
-_WATCHING = threading.local()  # the list `new_notes_made` fills, on the thread that is inside its block
-_SOURCE = threading.local()  # what `from_source` says made the drafts, on the thread that is inside its block
 
 
 class CannotAnchor(ValueError):
@@ -155,53 +152,28 @@ def clean_folder(folder: str | None) -> str | None:
     return "/".join(parts)
 
 
-def propose_create(handle: str, note_path: str, text: str, *, say: str, title: str | None = None, folder: str | None = None) -> dict[str, Any]:
+def propose_create(
+    handle: str, note_path: str, text: str, *, say: str, title: str | None = None, folder: str | None = None, filing: draft_limit.Filing | None = None,
+) -> dict[str, Any]:
     """A new note she proposes. `folder` is where she was asked to make it (a vault path such as `Projects/Sympose`; made when
-    the user accepts, with the folder if it is not there yet): without one (only a draft older than docs/decisions/094) it is made in her main folder."""
+    the user accepts, with the folder if it is not there yet): without one (only a draft older than docs/decisions/094) it is made in her main folder.
+    `filing` is what the turn files its drafts as (`draft_limit.Filing`): a draft tagged with its `source` counts against that source's limit and
+    is refused past it (docs/decisions/091, amended 2026-10-23); one with no `filing`, or none with a source, is not counted and never refused."""
     proposal = {"id": _id(), "time": _now(), "kind": "create", "text": text, "name": working_name(text, title), "say": say}
     if cleaned := clean_folder(folder):
         proposal["folder"] = cleaned
     with _PROPOSING:  # the checks and the filing are one step, so two turns at once cannot both pass a limit or file the same draft
         found = store.entries(handle)
-        if source := getattr(_SOURCE, "name", None):
-            if full := draft_limit.refusal(handle, source, found):
+        if filing is not None and filing.source:
+            if full := draft_limit.refusal(handle, filing.source, found):
                 raise CannotAnchor(full)
-            proposal["source"] = source
+            proposal["source"] = filing.source
         if waiting := _same_draft(found, proposal):
             raise CannotAnchor(f"A new note called {waiting['name']} is already waiting among the drafts, so a second one was not made; the user decides it first.")
         store.update(handle, note_path, lambda entry: entry["proposals"].append(proposal))
-    if (watching := getattr(_WATCHING, "made", None)) is not None:
-        watching.append((note_path, proposal["id"]))
+    if filing is not None:
+        filing.made.append((note_path, proposal["id"]))
     return proposal
-
-
-@contextlib.contextmanager
-def new_notes_made() -> Iterator[list[tuple[str, str]]]:
-    """The new notes proposed on this thread inside the block, as `(draft path, proposal id)` in the order they were made.
-    Whatever filed them (a tool call, a marker, a folder's definition) went through `propose_create`, so this is exactly
-    one turn's drafts and never another conversation's, which a look at the pending files before and after would not be.
-    A block inside another is listed in both. A note filed on another thread (a tool that ran off it) is not listed: the turn runs its tools on its own thread."""
-    before, made = getattr(_WATCHING, "made", None), []
-    _WATCHING.made = made
-    try:
-        yield made
-    finally:
-        _WATCHING.made = before
-        if before is not None:
-            before.extend(made)  # a block inside another is part of it
-
-
-@contextlib.contextmanager
-def from_source(source: str) -> Iterator[None]:
-    """Inside the block, the new notes proposed on this thread are tagged as made by `source` (`draft_limit.job_source(name)` or
-    `draft_limit.SLACK`): they count against its limit of drafts waiting, and one past the limit is refused (docs/decisions/091,
-    amended 2026-10-23). A draft made outside any block, the web chat's, is not counted and never refused."""
-    before = getattr(_SOURCE, "name", None)
-    _SOURCE.name = source
-    try:
-        yield
-    finally:
-        _SOURCE.name = before
 
 
 def pending_new_note(handle: str, note_path: str, proposal_id: str) -> dict[str, Any] | None:

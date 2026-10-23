@@ -5,7 +5,7 @@
 from datetime import date
 from typing import Any
 
-from sympose import note_changes, vault_health, vault_health_report, vault_paths
+from sympose import draft_limit, note_changes, vault_health, vault_health_report, vault_paths
 from sympose.engine import semantic_refresh
 
 FOLDER = "Jobs"
@@ -23,7 +23,7 @@ def _folder(profile: dict[str, Any]) -> str:
     return folder
 
 
-def health(profile: dict[str, Any], today: date) -> str:
+def health(profile: dict[str, Any], today: date, filing: draft_limit.Filing | None = None) -> str:
     scanned = vault_health.scan(profile)
     if scanned is None:
         raise NothingToDo("The persona has no vault to look at.")
@@ -32,7 +32,7 @@ def health(profile: dict[str, Any], today: date) -> str:
     report = "\n".join(vault_health_report.render(scope, results))
     text = f"---\ntype: report\ndate: {today.isoformat()}\n---\n\n# {name}\n\n```text\n{report}\n```\n"
     try:
-        note_changes.propose_create(profile["handle"], note_changes.new_note_path(), text, say="The vault health report, from a scheduled run.", title=name, folder=_folder(profile))
+        note_changes.propose_create(profile["handle"], note_changes.new_note_path(), text, say="The vault health report, from a scheduled run.", title=name, folder=_folder(profile), filing=filing)
     except note_changes.CannotAnchor as e:
         raise NothingToDo(str(e)) from e
     return f"Drafted {name}."

@@ -19,7 +19,7 @@ import json
 import re
 from typing import Any
 
-from sympose import note_changes, vault_paths
+from sympose import draft_limit, note_changes, vault_paths
 from sympose.engine import folder_definition_tool, lookup_scope, video_stamps, web_sources
 from sympose.engine.lookup_result import Result
 
@@ -128,10 +128,11 @@ def _arguments(name: str, raw: str | dict[str, Any] | None) -> dict[str, str] | 
 def _propose(
     handle: str, path: str | None, text: str | None, name: str, raw: str | dict[str, Any] | None, scope: tuple[tuple[int, int], ...] = (),
     videos: tuple[str, ...] = (), trail: web_sources.Trail | None = None, profile: dict[str, Any] | None = None,
+    filing: draft_limit.Filing | None = None,
 ) -> tuple[bool, str]:
     """`(saved, what happened)`: the one place a tool call and a marker both end. `videos` are the ones this turn watched:
     a new note's bare timestamps become links to the moment (`video_stamps`). `trail` is what the turn's web search rested
-    on: a new note's `source:` is those pages (`web_sources.attribute`)."""
+    on: a new note's `source:` is those pages (`web_sources.attribute`). `filing` is what the turn's drafts are filed as (`draft_limit.Filing`)."""
     args = _arguments(name, raw)
     if args is None:
         return False, _BAD.format(name=name, fields=", ".join(_FIELDS[name]))
@@ -141,11 +142,11 @@ def _propose(
                 return False, _NO_NOTE
             note_changes.comment_on(handle, path, text, quote=args["find"], text=args["text"], author="persona", within=scope)
         elif name == DEFINE:
-            return folder_definition_tool.propose(handle, profile, args["folder"], args["purpose"], args["say"])
+            return folder_definition_tool.propose(handle, profile, args["folder"], args["purpose"], args["say"], filing)
         elif name == NOTE:
             written, made = video_stamps.link(fenced(args["text"]), videos), note_changes.new_note_path()
             folder = note_changes.clean_folder(args["folder"]) or (vault_paths.folder_in_scope(profile, note_changes.INBOX) if profile is not None else None)
-            proposal = note_changes.propose_create(handle, made, web_sources.attribute(written, trail) if trail else written, say=args["say"], title=args["title"] or None, folder=folder)
+            proposal = note_changes.propose_create(handle, made, web_sources.attribute(written, trail) if trail else written, say=args["say"], title=args["title"] or None, folder=folder, filing=filing)
             if trail:
                 trail.drafts.append((made, proposal["id"]))
         elif path is None or text is None:
@@ -171,7 +172,7 @@ def _show(profile: dict[str, Any] | None, raw: str | dict[str, Any] | None) -> t
 def run(
     handle: str, note_path: str | None, note_text: str | None, name: str, raw: str | dict[str, Any] | None,
     profile: dict[str, Any] | None = None, scope: tuple[tuple[int, int], ...] = (), videos: tuple[str, ...] = (),
-    trail: web_sources.Trail | None = None, shows: bool = True,
+    trail: web_sources.Trail | None = None, shows: bool = True, filing: draft_limit.Filing | None = None,
 ) -> Result | None:
     """The tool's result, or `None` for a name that is not ours so it composes in `persona_tools`. Without an editor to show
     a note in (`shows` false, Slack) `show_note` is refused, whether or not it was offered."""
@@ -182,13 +183,13 @@ def run(
     if name == SHOW:
         opened, said, path = _show(profile, raw)
         return Result(said if opened else said + _ASK_WHICH, lookup={"tool": name, "saved": opened, **({"path": path} if path else {})})
-    saved, said = _propose(handle, note_path, note_text, name, raw, scope, videos, trail, profile)
+    saved, said = _propose(handle, note_path, note_text, name, raw, scope, videos, trail, profile, filing)
     return Result(said, lookup={"tool": name, "saved": saved})
 
 
 def apply_marker(
     handle: str, note_path: str | None, note_text: str | None, reply: str, profile: dict[str, Any] | None = None,
-    videos: tuple[str, ...] = (), shows: bool = True,
+    videos: tuple[str, ...] = (), shows: bool = True, filing: draft_limit.Filing | None = None,
 ) -> tuple[str, list[dict[str, Any]]]:
     """`reply` with every marker removed and filed as a proposal, and a record per marker (the same shape a tool
     call leaves). A marker that could not be placed adds one line saying so to what is shown. A reply with no marker
@@ -206,7 +207,7 @@ def apply_marker(
             saved, said, shown_path = _show(profile, found.group(2))
             record: dict[str, Any] = {"tool": name, "saved": saved, **({"path": shown_path} if shown_path else {})}
         else:
-            saved, said = _propose(handle, note_path, note_text, name, found.group(2), videos=videos, profile=profile)
+            saved, said = _propose(handle, note_path, note_text, name, found.group(2), videos=videos, profile=profile, filing=filing)
             record = {"tool": name, "saved": saved}
         if not saved:
             record["reason"] = said

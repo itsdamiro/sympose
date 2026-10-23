@@ -167,12 +167,8 @@ SETTINGS: list[Setting] = [
         slack_approval.approved, default=False, group=SLACK, user_only=True,
     ),
     Setting(
-        draft_limit.SLACK_SETTING, NUMBER, "drafts from Slack that may wait", draft_limit.slack_limit,
-        lambda: draft_limit.DEFAULT_SLACK, hint=f"a whole number, {draft_limit.RANGE[0]} to {draft_limit.RANGE[1]}; more are not filed until you decide some", whole=True, group=SLACK,
-    ),
-    Setting(
-        draft_limit.JOB_SETTING, NUMBER, "drafts a job may leave waiting", draft_limit.job_default,
-        lambda: draft_limit.DEFAULT_JOB, hint=f"a whole number, {draft_limit.RANGE[0]} to {draft_limit.RANGE[1]}; a job's own file can set its own", whole=True, group=JOBS,
+        draft_limit.SETTING, NUMBER, "drafts a job or Slack may leave waiting", draft_limit.limit,
+        lambda: draft_limit.DEFAULT, hint=f"a whole number, {draft_limit.RANGE[0]} to {draft_limit.RANGE[1]}; more are not filed until you decide some", whole=True, group=JOBS,
     ),
 ]
 

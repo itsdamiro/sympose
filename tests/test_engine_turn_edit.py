@@ -118,20 +118,34 @@ def test_edits_on_with_no_note_open_offers_a_new_note_only(monkeypatch):
     assert note_changes.drafts("samantha")[0]["name"] == "Seeds"
 
 
-def test_a_note_a_real_turn_proposes_inside_a_source_is_tagged_and_the_one_past_its_limit_is_refused(monkeypatch):
+def test_a_note_a_real_turn_proposes_for_a_source_is_tagged_and_the_one_past_its_limit_is_refused(monkeypatch):
     from sympose import draft_limit
 
-    settings_store.set(draft_limit.SLACK_SETTING, 1)
+    settings_store.set(draft_limit.SETTING, 1)
     first = '<!-- propose_note: {"text": "# Seeds", "title": "Seeds", "say": "s"} -->'
     second = '<!-- propose_note: {"text": "# Beds", "title": "Beds", "say": "s"} -->'
     model_that(monkeypatch, ModelReply("Here.\n" + first, 5), ModelReply("Again.\n" + second, 5))
 
-    with note_changes.from_source(draft_limit.SLACK):
-        turn.run_turn("samantha", "write a seed note", model=LOCAL, edits=True)
-        refused = turn.run_turn("samantha", "and a beds note", model=LOCAL, edits=True)
+    filing = draft_limit.Filing(draft_limit.SLACK)
+    turn.run_turn("samantha", "write a seed note", model=LOCAL, edits=True, filing=filing)
+    refused = turn.run_turn("samantha", "and a beds note", model=LOCAL, edits=True, filing=filing)
 
     assert draft_limit.waiting("samantha", draft_limit.SLACK) == 1 and [d["name"] for d in note_changes.drafts("samantha")] == ["Seeds"]
     assert "1 draft from Slack is waiting" in refused.reply
+
+
+def test_a_note_a_tool_call_proposes_in_a_turn_is_tagged_and_listed_by_the_turns_filing(monkeypatch):
+    from sympose import draft_limit
+
+    sharing.set_approved(sharing.OPEN_NOTE, True)
+    call = ToolCall("c1", "propose_note", '{"text": "# Seeds", "title": "Seeds", "say": "s"}')
+    model_that(monkeypatch, ModelReply("", None, tool_calls=(call,)), ModelReply("Proposed it.", 5))
+    filing = draft_limit.Filing(draft_limit.SLACK)
+
+    turn.run_turn("samantha", "write a seed note", model=CLOUD, edits=True, filing=filing)
+
+    ((path, proposal_id),) = filing.made
+    assert note_changes.pending_new_note("samantha", path, proposal_id)["source"] == draft_limit.SLACK and len(note_changes.drafts("samantha")) == 1
 
 
 def test_when_the_tools_are_refused_the_turn_is_retried_with_the_marker(monkeypatch):
@@ -151,6 +165,28 @@ def test_when_the_tools_are_refused_the_turn_is_retried_with_the_marker(monkeypa
     result = turn.run_turn("samantha", "make it four", model=CLOUD, open_note=NOTE)
 
     assert len(waiting()) == 1 and result.reply == "ok"
+
+
+def test_the_retry_with_the_marker_files_for_the_same_source(monkeypatch):
+    from sympose import draft_limit
+    from sympose.engine import lookup
+
+    sharing.set_approved(sharing.OPEN_NOTE, True)
+    note = '<!-- propose_note: {"text": "# Seeds", "title": "Seeds", "say": "s"} -->'
+
+    def call_model(messages, model=None, **kwargs):
+        if kwargs.get("tools"):
+            raise lookup.ToolsRefused("no")
+        return ModelReply(f"ok\n{note}", 5)
+
+    monkeypatch.setattr(turn.model_mod, "call_model", call_model)
+    monkeypatch.setattr(lookup.model_mod, "call_model", call_model, raising=False)
+    filing = draft_limit.Filing(draft_limit.SLACK)
+
+    turn.run_turn("samantha", "write a seed note", model=CLOUD, edits=True, filing=filing)
+
+    ((path, proposal_id),) = filing.made
+    assert note_changes.pending_new_note("samantha", path, proposal_id)["source"] == draft_limit.SLACK and len(note_changes.drafts("samantha")) == 1
 
 
 def test_a_cloud_model_is_not_sent_the_open_note_until_the_user_approves_it(monkeypatch):

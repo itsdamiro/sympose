@@ -60,15 +60,14 @@ def test_a_toggle_refuses_a_non_boolean(client):
     assert client.put("/api/settings/memory_remember", json={"value": "yes"}).status_code == 422
 
 
-def test_the_draft_limits_are_numbers_in_the_slack_and_jobs_groups_with_their_defaults(client):
+def test_the_draft_limit_is_one_number_in_the_jobs_group_with_its_default(client):
     groups = {g["name"]: [s["key"] for s in g["settings"]] for g in client.get("/api/settings").json()["groups"]}
-    assert "slack_waiting_drafts" in groups["Slack"] and groups["Jobs"] == ["job_waiting_drafts"]
-    slack, job = rows(client)["slack_waiting_drafts"], rows(client)["job_waiting_drafts"]
-    assert (slack["kind"], slack["value"], slack["default"], slack["is_default"]) == ("number", 10, 10, True)
-    assert (job["kind"], job["value"], job["default"], job["is_default"]) == ("number", 5, 5, True)
-    assert client.put("/api/settings/job_waiting_drafts", json={"value": 3}).json()["setting"]["value"] == 3
-    assert client.put("/api/settings/slack_waiting_drafts", json={"value": 0}).status_code == 422
-    assert rows(client)["slack_waiting_drafts"]["value"] == 10
+    assert groups["Jobs"] == ["waiting_drafts"] and "waiting_drafts" not in groups["Slack"]
+    limit = rows(client)["waiting_drafts"]
+    assert (limit["kind"], limit["value"], limit["default"], limit["is_default"]) == ("number", 5, 5, True)
+    assert client.put("/api/settings/waiting_drafts", json={"value": 3}).json()["setting"]["value"] == 3
+    assert client.put("/api/settings/waiting_drafts", json={"value": 0}).status_code == 422
+    assert rows(client)["waiting_drafts"]["value"] == 3
 
 
 def test_a_number_is_saved_and_a_value_the_module_refuses_is_left_as_it_was(client):

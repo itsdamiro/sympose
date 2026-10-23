@@ -46,6 +46,12 @@ def test_the_settings_have_defaults(home):
     assert (job.model, job.kind, job.enabled, job.max_runs_per_day) == (None, "ask", True, None)
 
 
+def test_a_job_file_with_the_old_per_job_draft_limit_is_still_a_job_and_the_line_is_ignored(home):
+    _job(home, "old", "---\nschedule: daily 02:00\nmax_waiting_drafts: 2\n---\nDo it.\n")
+    job = jobs.load("samantha", "old")
+    assert job.problem is None and job.runnable()
+
+
 def test_a_mechanical_job_needs_no_prompt(home):
     _job(home, "upkeep", "---\nschedule: monthly 1 09:00\nkind: health\n---\n")
     job = jobs.load("samantha", "upkeep")

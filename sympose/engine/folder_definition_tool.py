@@ -9,7 +9,7 @@ from typing import Any
 
 from sympose import folder_definitions as defs
 from sympose import folder_definitions_write as write_defs
-from sympose import note_changes, vault_paths
+from sympose import draft_limit, note_changes, vault_paths
 
 _NOT_FOLDER = "{folder!r} is not a folder of the user's notes that can have a definition, so nothing was proposed."
 _NO_NOTES = "{folder} holds no notes yet, so there is nothing to count a template from. Nothing was proposed."
@@ -17,7 +17,7 @@ _EXISTS = "{folder} already has a definition note, so nothing was proposed; the 
 _NO_PROFILE = "No vault is open, so nothing was proposed."
 
 
-def propose(handle: str, profile: dict[str, Any] | None, folder: str, purpose: str, say: str) -> tuple[bool, str]:
+def propose(handle: str, profile: dict[str, Any] | None, folder: str, purpose: str, say: str, filing: draft_limit.Filing | None = None) -> tuple[bool, str]:
     """`(filed, what happened)`: the definition of `folder` as a draft the user accepts or declines."""
     scope = vault_paths.resolve_sandbox(profile) if profile is not None else None
     if scope is None:
@@ -34,7 +34,7 @@ def propose(handle: str, profile: dict[str, Any] | None, folder: str, purpose: s
     if made is None:
         return False, _NO_NOTES.format(folder=name)
     try:
-        note_changes.propose_create(handle, note_changes.new_note_path(), made.text, say=say, title=name, folder=name)
+        note_changes.propose_create(handle, note_changes.new_note_path(), made.text, say=say, title=name, folder=name, filing=filing)
     except note_changes.CannotAnchor as error:
         return False, str(error)
     counted = "the property lines of the user's own Templates file" if made.from_templates_file else f"counted from {made.notes} of its notes"

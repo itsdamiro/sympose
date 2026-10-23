@@ -8,7 +8,7 @@ call belongs to."""
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from sympose import vault_paths
+from sympose import draft_limit, vault_paths
 from sympose.engine import chat_tools, edit_mode, edit_tools, edit_turn, lookup, lookup_tools, memory, memory_tools, past_chats, persona_proposal, setting_proposal, sharing, tool_support, web_sources
 
 
@@ -58,11 +58,11 @@ _UNKNOWN_TOOL = "There is no tool called {name}."
 def for_turn(
     ask: bool, remember: bool, chats: bool = False, session_id: str | None = None, edit: edit_turn.Edit | None = None,
     persona: dict[str, Any] | None = None, share_folders: bool = True, videos: tuple[str, ...] = (),
-    trail: web_sources.Trail | None = None,
+    trail: web_sources.Trail | None = None, filing: draft_limit.Filing | None = None,
 ) -> tuple[list[dict[str, Any]], Callable[..., Any]] | None:
     """`(tools, run)` for a turn that gets `ask`'s vault tools, `remember`'s memory tool, `chats`' tools for
     earlier conversations (`session_id` is the one in progress, never searched), or any mix; `None` when none applies, so the caller knows the tool-calling loop does not need
-    to run at all this turn. `videos` are the ones the turn watched (a new note's timestamps link to them) and `trail` the pages its web search rested on (a new note's source). `run` only ever reaches `lookup_tools` when `ask` is true: a vault
+    to run at all this turn. `videos` are the ones the turn watched (a new note's timestamps link to them), `trail` the pages its web search rested on (a new note's source) and `filing` what its drafts are filed as. `run` only ever reaches `lookup_tools` when `ask` is true: a vault
     tool must never run just because a model calls it by name -- a persona given only `remember`
     (`ask` off) must not be able to search or open notes by guessing `search_notes`/`open_note`."""
     giving_edit = edit is not None and edit.active and edit.tool
@@ -82,7 +82,7 @@ def for_turn(
                 return result
         if giving_edit:
             opened = edit.source
-            result = edit_tools.run(persona["handle"], opened.path if opened else None, opened.text if opened else None, name, raw_arguments, persona, edit.scope, videos, trail, edit.shows)
+            result = edit_tools.run(persona["handle"], opened.path if opened else None, opened.text if opened else None, name, raw_arguments, persona, edit.scope, videos, trail, edit.shows, filing)
             if result is not None:
                 return result
         if giving_persona:

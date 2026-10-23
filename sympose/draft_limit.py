@@ -1,16 +1,18 @@
 """How many new-note drafts one unattended source may leave waiting (docs/decisions/091 and 093, amended 2026-10-23).
 
 A job runs and a Slack message arrives with nobody at the Mac, and whatever they propose waits in Drafts for the user's Accept.
-Each such draft is tagged with its `source` (`job:<name>` or `slack`); a source with its limit already waiting files no more
-until some are decided. A draft counts while it is in Drafts, so Accept and Decline free the room and nothing else is kept."""
+Each such draft is tagged with its `source` (`job:<name>` or `slack`); a source with the limit already waiting files no more
+until some are decided. The limit is one setting, `waiting_drafts`, for each job and for Slack alike. A draft counts while it is in
+Drafts, so Accept and Decline free the room and nothing else is kept."""
 
 from collections import Counter
+from dataclasses import dataclass, field
 
-from sympose import jobs, settings_store
+from sympose import settings_store
 from sympose import note_changes_store as store
 
-JOB_SETTING, SLACK_SETTING = "job_waiting_drafts", "slack_waiting_drafts"
-DEFAULT_JOB, DEFAULT_SLACK = 5, 10
+SETTING = "waiting_drafts"
+DEFAULT = 5
 RANGE = (1, 100)
 SLACK = "slack"
 _JOB = "job:"
@@ -20,30 +22,21 @@ def job_source(name: str) -> str:
     return _JOB + name
 
 
-def _whole(key: str, default: int) -> int:
-    value = settings_store.get(key)
+@dataclass
+class Filing:
+    """What one turn's drafts are filed as, passed down to whatever files them: `source` is `SLACK` or `job_source(name)`, `None`
+    for the web chat's, which is never counted or refused; `made` fills with `(draft path, proposal id)` for each new note filed, in
+    the order they were made, so it is exactly this turn's drafts and never another conversation's."""
+
+    source: str | None = None
+    made: list[tuple[str, str]] = field(default_factory=list)
+
+
+def limit() -> int:
+    """The drafts one source may leave waiting (`waiting_drafts`, 1 to 100, default 5)."""
+    value = settings_store.get(SETTING)
     ok = isinstance(value, int) and not isinstance(value, bool) and RANGE[0] <= value <= RANGE[1]
-    return value if ok else default
-
-
-def job_default() -> int:
-    """The drafts a job may leave waiting unless its own file says otherwise (`job_waiting_drafts`, 1 to 100, default 5)."""
-    return _whole(JOB_SETTING, DEFAULT_JOB)
-
-
-def slack_limit() -> int:
-    """The drafts from Slack that may wait, all together (`slack_waiting_drafts`, 1 to 100, default 10)."""
-    return _whole(SLACK_SETTING, DEFAULT_SLACK)
-
-
-def limit(handle: str, source: str) -> int | None:
-    """The most drafts `source` may leave waiting; `None` for a source with no limit."""
-    if source == SLACK:
-        return slack_limit()
-    if source.startswith(_JOB):
-        job = jobs.load(handle, source[len(_JOB):])
-        return (job.max_waiting_drafts if job is not None else None) or job_default()
-    return None
+    return value if ok else DEFAULT
 
 
 def counts(handle: str, entries: list[dict] | None = None) -> Counter[str]:
@@ -71,8 +64,7 @@ def rename_job(handle: str, old: str, new: str) -> None:
 
 def refusal(handle: str, source: str, entries: list[dict] | None = None) -> str | None:
     """Why `source` may not file another draft, or `None` when it may."""
-    cap = limit(handle, source)
-    if cap is None or (count := waiting(handle, source, entries)) < cap:
+    if (count := waiting(handle, source, entries)) < limit():
         return None
     whose = "from Slack" if source == SLACK else "from this job"
     many = count != 1

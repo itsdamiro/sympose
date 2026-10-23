@@ -1,10 +1,11 @@
 """What a persona proposed, shown under its Slack reply (docs/decisions/093): built from the draft as it waits, escaped for Slack,
-cut at a limit worked out from the room the reply leaves, and never past what Slack takes in one message."""
+shown whole or only named, and never past what Slack takes in one message."""
 
 import pytest
 
 from sympose import note_changes, slack_drafts
-from sympose.slack_text import LIMIT, MAX_CHARS, to_mrkdwn
+from sympose.draft_limit import Filing
+from sympose.slack_text import LIMIT, MAX_CHARS
 
 H = "samantha"
 FENCE = "```"
@@ -70,71 +71,55 @@ def test_an_untitled_draft_is_called_so():
     assert "*New note: Untitled*" in under("ok", [{"kind": "create", "text": "x"}])
 
 
-def test_a_note_too_long_for_the_room_is_cut_at_a_line_and_says_how_much_was_left_and_where_to_read_it():
-    lines = [f"Line {i} of the note." for i in range(3000)]
-    text = "\n".join(lines)
-    reply = "ok"
+def test_a_note_too_long_for_the_room_is_named_not_cut_and_says_where_to_read_it():
+    text = "\n".join(f"Line {i} of the note." for i in range(3000))
 
-    shown = under(reply, [draft(text=text)])
+    shown = under("ok", [draft("Long", text)])
 
-    kept = shown.split(f"{FENCE}\n", 1)[1].split(f"\n{FENCE}", 1)[0]
-    assert len(shown) <= LIMIT and len(shown) > LIMIT - 1500  # it uses the room, not a made-up figure
-    assert kept.splitlines()[-1] in lines and text.startswith(kept)  # a whole line, from the start
-    assert f"Cut here: {len(text) - len(kept)} more characters" in shown and "Drafts in the web app" in shown
+    assert len(shown) <= LIMIT and "Line 0 of" not in shown
+    assert "Too long to show here" in shown and "Long" in shown and "Drafts in the web app" in shown
     assert shown.endswith(slack_drafts.FOOTER_WEB)
 
 
-def test_the_room_is_what_the_reply_leaves_so_a_longer_reply_shows_less_of_the_note():
-    text = "\n".join(f"Line {i} of the note." for i in range(3000))
+def test_the_room_is_what_the_reply_leaves_so_a_longer_reply_names_a_note_a_shorter_one_shows():
+    text = "Line of the note.\n" * 1000
 
     short_reply = under("ok", [draft(text=text)])
-    long_reply = under("word " * 4000, [draft(text=text)])
+    long_reply = under("word " * 7000, [draft(text=text)])
 
-    assert len(long_reply) <= LIMIT and len(short_reply) <= LIMIT
-    assert long_reply.count("Line ") < short_reply.count("Line ") - 500
-
-
-def test_one_long_line_is_cut_inside_the_line_when_there_is_no_line_to_cut_at():
-    text = "a" * (LIMIT * 2)
-
-    shown = under("ok", [draft(text=text)])
-
-    assert len(shown) <= LIMIT and "a" * 30000 in shown and "more characters" in shown
+    assert "Line of the note." in short_reply and "Too long to show here" not in short_reply
+    assert "Line of the note." not in long_reply and "Too long to show here" in long_reply and len(long_reply) <= LIMIT
 
 
-def test_an_early_line_end_is_not_a_place_to_cut_when_the_next_line_runs_on():
-    text = "A short first line.\n" + "b" * (LIMIT * 2)
+def test_a_note_that_fills_the_room_exactly_is_shown_and_one_character_more_is_named():
+    reply = "ok"
+    room = LIMIT - len(reply) - len(slack_drafts.FOOTER) - 2 * len(slack_drafts._GAP) - slack_drafts._RESERVED
+    overhead = len(slack_drafts._show(draft(text=""), LIMIT))
 
-    shown = under("ok", [draft(text=text)])
+    fits = under(reply, [draft(text="y" * (room - overhead))])
+    over = under(reply, [draft(text="y" * (room - overhead + 1))])
 
-    assert len(shown) <= LIMIT and "b" * 30000 in shown
-
-
-def test_a_cut_never_splits_an_escaped_mark():
-    text = "&" * (LIMIT * 2)
-
-    shown = under("ok", [draft(text=text)])
-    body = shown.split(f"{FENCE}\n", 1)[1].split(f"\n{FENCE}", 1)[0]
-
-    assert len(shown) <= LIMIT and body.replace("&amp;", "") == ""
+    assert "y" * (room - overhead) in fits and "Too long to show here" not in fits
+    assert "yyy" not in over and "Too long to show here" in over
 
 
-def test_a_reply_at_its_own_cap_still_leaves_room_for_a_short_look_at_the_note():
-    reply = to_mrkdwn("word " * 20000)
+def test_the_blank_line_between_two_notes_is_counted_in_the_room():
+    room = LIMIT - len("ok") - len(slack_drafts.FOOTER) - 2 * len(slack_drafts._GAP) - slack_drafts._RESERVED
+    first = draft("One", "y" * 100)
+    left = room - len(slack_drafts._show(first, LIMIT)) - len(slack_drafts._GAP)
+    second = lambda size: draft("Two", "z" * size)  # noqa: E731
+    fits_at = left - len(slack_drafts._show(second(0), LIMIT))
 
-    shown = under(reply, [draft(text="Some words " * 300)])
+    fits, over = under("ok", [first, second(fits_at)]), under("ok", [first, second(fits_at + 1)])
 
-    assert len(shown) <= LIMIT and shown.startswith(reply) and "Some words" in shown and "more characters" in shown
+    assert "z" * fits_at in fits and "Too long to show here" not in fits
+    assert "zzz" not in over and "Too long to show here" in over
 
 
-def test_a_note_after_a_long_one_is_named_not_squeezed_in():
-    text = "\n".join(f"Line {i} of the note." for i in range(3000))
+def test_a_mark_in_a_note_that_is_shown_is_escaped_whole():
+    shown = under("ok", [draft(text="&" * 1000)])
 
-    shown = under("ok", [draft("Long", text), draft("Second one", "Short.")])
-
-    assert len(shown) <= LIMIT
-    assert "*New note: Second one*" not in shown and "Short." not in shown
-    assert "Too long to show here" in shown and "Second one" in shown
+    assert shown.split(f"{FENCE}\n", 1)[1].split(f"\n{FENCE}", 1)[0] == "&amp;" * 1000
 
 
 def test_a_note_too_long_to_show_is_named_and_a_short_one_after_it_is_still_shown():
@@ -144,7 +129,7 @@ def test_a_note_too_long_to_show_is_named_and_a_short_one_after_it_is_still_show
 
 
 def test_when_the_reply_leaves_too_little_room_every_note_is_named_and_the_message_still_fits():
-    reply = "r" * 39_500  # a reply close to what Slack takes leaves under what a cut note needs
+    reply = "r" * 39_500  # a reply close to what Slack takes leaves no room for a note of this size
 
     shown = under(reply, [draft("First", "Some words " * 300), draft("Second", "More words " * 300)])
 
@@ -173,24 +158,24 @@ def test_whatever_the_sizes_the_message_fits_in_one_slack_message_and_the_reply_
 
 
 def test_a_draft_that_is_waiting_is_read_from_the_store_as_it_is_now_not_as_it_was_filed():
-    with note_changes.new_notes_made() as made:
-        note_changes.propose_create(H, "new/1", "# Seeds\n\nFirst words.\n", say="", title="Seeds", folder="Garden")
-    ((path, proposal_id),) = made
+    made = Filing()
+    note_changes.propose_create(H, "new/1", "# Seeds\n\nFirst words.\n", say="", title="Seeds", folder="Garden", filing=made)
+    ((path, proposal_id),) = made.made
     note_changes.edit_draft(H, path, "# Seeds\n\nSettled words.\n")  # e.g. a source added at the end of the turn
 
-    (found,) = slack_drafts.waiting(H, made)
+    (found,) = slack_drafts.waiting(H, made.made)
 
     assert found["text"] == "# Seeds\n\nSettled words.\n" and found["name"] == "Seeds" and found["folder"] == "Garden"
     assert proposal_id == found["id"]
 
 
 def test_a_draft_that_is_gone_by_the_time_the_reply_is_built_is_not_shown():
-    with note_changes.new_notes_made() as made:
-        note_changes.propose_create(H, "new/1", "# One\n\nFirst.\n", say="", title="One")
-        note_changes.propose_create(H, "new/2", "# Two\n\nSecond.\n", say="", title="Two")
+    made = Filing()
+    note_changes.propose_create(H, "new/1", "# One\n\nFirst.\n", say="", title="One", filing=made)
+    note_changes.propose_create(H, "new/2", "# Two\n\nSecond.\n", say="", title="Two", filing=made)
     note_changes.forget(H, "new/1")
 
-    assert [p["name"] for p in slack_drafts.waiting(H, made)] == ["Two"]
+    assert [p["name"] for p in slack_drafts.waiting(H, made.made)] == ["Two"]
 
 
 def test_nothing_made_shows_nothing():
@@ -214,11 +199,14 @@ def test_the_note_about_a_marked_code_block_sits_under_that_note_and_not_the_oth
 
 
 def test_the_marked_block_note_is_counted_in_the_room():
-    text = (f"{FENCE}\n" + "code\n" * 50 + f"{FENCE}\n") * 1000
+    room = LIMIT - len("ok") - len(slack_drafts.FOOTER) - 2 * len(slack_drafts._GAP) - slack_drafts._RESERVED
+    fenced = lambda size: draft(text=f"{FENCE}\n" + "y" * size + f"\n{FENCE}")  # noqa: E731
+    fits_at = room - len(slack_drafts._show(fenced(0), LIMIT))
 
-    shown = under("ok", [draft(text=text)])
+    fits, over = under("ok", [fenced(fits_at)]), under("ok", [fenced(fits_at + 1)])
 
-    assert len(shown) <= LIMIT and slack_drafts.MARKED_FENCE in shown and shown.endswith(slack_drafts.FOOTER_WEB)
+    assert len(fits) <= LIMIT and slack_drafts.MARKED_FENCE in fits and fits.endswith(slack_drafts.FOOTER)
+    assert slack_drafts.MARKED_FENCE not in over and over.endswith(slack_drafts.FOOTER_WEB)
 
 
 @pytest.mark.parametrize("mark", ["*", "_", "~", "`"])
@@ -245,10 +233,13 @@ def test_the_whole_message_never_passes_the_limit_whatever_is_proposed(reply_len
 
 
 @pytest.mark.parametrize("reply_length", [MAX_CHARS - 150, MAX_CHARS - 100, MAX_CHARS - 1, MAX_CHARS, MAX_CHARS + 49])
-def test_a_block_that_fills_its_room_exactly_leaves_the_message_within_the_limit_with_the_line_of_names(reply_length):
+@pytest.mark.parametrize("beyond", [-2, -1, 0, 1, 2])
+def test_a_block_that_fills_its_room_to_the_character_leaves_the_message_within_the_limit_with_the_line_of_names(reply_length, beyond):
     # The footer's own blank line was not reserved: a block filling the room to the character, followed by the line naming a
     # thousand drafts left out (a longer count than the room reserved for in the sweep above), went over by up to two characters.
-    drafts = [draft("N" * 70 + str(i), "y" * 20000) for i in range(1000)]  # one line, no escapes, five digits left out: the first block is cut to the character
+    room = LIMIT - reply_length - len(slack_drafts.FOOTER) - 2 * len(slack_drafts._GAP) - slack_drafts._RESERVED
+    size = room - len(slack_drafts._show(draft("N" * 70 + "0"), LIMIT)) + beyond
+    drafts = [draft("N" * 70 + str(i), "y" * max(size, 0)) for i in range(1000)]  # one line, no escapes: the first block is at the room's edge
 
     assert len(under("r" * reply_length, drafts)) <= LIMIT
 
@@ -259,40 +250,40 @@ def waiting_draft(name="Seeds", text="# Seeds\n\nSow in March.\n", folder="Inbox
 
 
 def test_a_waiting_draft_carries_the_path_it_waits_under():
-    with note_changes.new_notes_made() as made:
-        note_changes.propose_create(H, "new/1", "# One\n\nFirst.\n", say="", title="One")
-    ((path, _),) = made
+    made = Filing()
+    note_changes.propose_create(H, "new/1", "# One\n\nFirst.\n", say="", title="One", filing=made)
+    ((path, _),) = made.made
 
-    assert [p["path"] for p in slack_drafts.waiting(H, made)] == [path]
+    assert [p["path"] for p in slack_drafts.waiting(H, made.made)] == [path]
 
 
 def test_the_footer_says_where_a_draft_can_be_accepted():
     assert "buttons" in slack_drafts.FOOTER and "web app" in slack_drafts.FOOTER
 
 
-def test_a_draft_shown_whole_is_offered_buttons_and_one_that_was_cut_is_not():
-    short, cut = waiting_draft("Short", "Sow in March."), waiting_draft("Long", "word " * 20000)
+def test_a_draft_shown_is_offered_buttons_and_one_only_named_is_not():
+    short, long = waiting_draft("Short", "Sow in March."), waiting_draft("Long", "word " * 20000)
 
-    text, whole = slack_drafts.compose("ok", [short, cut])
+    text, shown = slack_drafts.compose("ok", [short, long])
 
-    assert whole == [short] and "Cut here" in text
+    assert shown == [short] and "Too long to show here" in text
 
 
 def test_a_draft_that_cannot_be_shown_is_named_and_not_offered_buttons():
-    text, whole = slack_drafts.compose("r" * 39_500, [waiting_draft("Big", "Some words " * 300)])
+    text, shown = slack_drafts.compose("r" * 39_500, [waiting_draft("Big", "Some words " * 300)])
 
-    assert whole == [] and "Too long to show here" in text and "Big" in text
+    assert shown == [] and "Too long to show here" in text and "Big" in text
 
 
 def test_a_reply_that_proposed_nothing_is_offered_no_buttons():
     assert slack_drafts.compose("Just talking.", []) == ("Just talking.", [])
 
 
-def test_the_footer_promises_buttons_only_when_a_draft_is_shown_in_full():
-    whole, cut = waiting_draft("Short", "Sow in March."), waiting_draft("Long", "word " * 20000)
+def test_the_footer_promises_buttons_only_when_a_draft_is_shown():
+    short, long = waiting_draft("Short", "Sow in March."), waiting_draft("Long", "word " * 20000)
 
-    assert slack_drafts.compose("ok", [whole, cut])[0].endswith(slack_drafts.FOOTER)
-    assert slack_drafts.compose("ok", [cut])[0].endswith(slack_drafts.FOOTER_WEB)
+    assert slack_drafts.compose("ok", [short, long])[0].endswith(slack_drafts.FOOTER)
+    assert slack_drafts.compose("ok", [long])[0].endswith(slack_drafts.FOOTER_WEB)
     assert slack_drafts.compose("r" * 39_500, [waiting_draft("Big", "Some words " * 300)])[0].endswith(slack_drafts.FOOTER_WEB)
     assert "buttons" not in slack_drafts.FOOTER_WEB and "web app" in slack_drafts.FOOTER_WEB
 

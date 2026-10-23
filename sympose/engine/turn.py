@@ -65,6 +65,7 @@ def run_turn(
     unattended: bool = False,
     history_turns: int = session.HISTORY_TURNS,
     in_slack: bool = False,
+    filing: draft_limit.Filing | None = None,
 ) -> TurnResult:
     """`open_note` is the note open in the editor, and `edits` says the caller can show a proposal at all (the web
     app); the terminal passes neither, so a persona there is never given the edit tool (docs/decisions/072).
@@ -72,7 +73,7 @@ def run_turn(
     sounds and videos attached to the message, already checked by `media.check` (docs/decisions/089). `unattended` is a scheduled run
     (docs/decisions/091): the model is told nobody is there and to rest what it writes on notes it opened. `history_turns` is the most earlier turns sent
     word for word (a job keeps its own, shorter, in `job_run`). `in_slack` is a message that came from Slack (docs/decisions/093): the model is
-    told so, and is given no tool that needs an editor (opening a note, proposing a persona or a setting), since nothing of that reaches the user there."""
+    told so, and is given no tool that needs an editor (opening a note, proposing a persona or a setting), since nothing of that reaches the user there. `filing` is what the turn's new-note drafts are filed as (a job's or Slack's, which count against a limit, ADR 091) and where they are listed as they are made."""
     persona = profile_mod.resolve_profile(handle)
     if persona is None:
         raise PersonaNotFoundError(f"No persona named '{handle}' was found.")
@@ -104,7 +105,7 @@ def run_turn(
     turn_cancel.begin(handle, sid, named=session_id is not None)  # from here a stop request is heard (docs/decisions/054); cleared in `finally`
     try:
         try:
-            result = _run(persona, handle, user_message, sid, existing, history, target_model, modes, capped, files, unattended, in_slack)
+            result = _run(persona, handle, user_message, sid, existing, history, target_model, modes, capped, files, unattended, in_slack, filing)
         except lookup.ToolsRefused:
             # The model failed with the tools: the turn is run with none, and a model that does that twice in a
             # row while working without them is not given tools again (docs/decisions/040). `remember` falls
@@ -121,6 +122,7 @@ def run_turn(
                 files,
                 unattended,
                 in_slack,
+                filing,
             )
             tool_support.note_refusal(target_model)
             return result
@@ -146,6 +148,7 @@ def _run(
     files: tuple[media.File, ...] = (),
     unattended: bool = False,
     in_slack: bool = False,
+    filing: draft_limit.Filing | None = None,
 ) -> TurnResult:
     # The prompt is sized to this model's window, not left to the runtime's
     # silent cut (docs/decisions/015); the follow-up rewrite shares that window.
@@ -198,7 +201,7 @@ def _run(
         watch_call_mod.for_links(found.watch.links, found.watch.server_tools, found.watch.asked, web_opened, web_searched, found.files.files, trail)
         if found.watch.direct or found.files.files else None
     )
-    tools = persona_tools.for_turn(ask, remember == memory.TOOL, modes.chats, sid, modes.edit, persona, found.map_allowed, found.watch.links, trail)
+    tools = persona_tools.for_turn(ask, remember == memory.TOOL, modes.chats, sid, modes.edit, persona, found.map_allowed, found.watch.links, trail, filing)
     if tools:
         tool_list, run_tool = tools
         if remember == memory.TOOL and outside:
@@ -246,7 +249,7 @@ def _run(
     if modes.edit and modes.edit.active and not modes.edit.tool:  # the same for a proposal (docs/decisions/072)
         opened = modes.edit.source
         reply_text, edit_lookups = edit_tools.apply_marker(
-            handle, opened.path if opened else None, opened.text if opened else None, reply_text, persona, found.watch.links, modes.edit.shows,
+            handle, opened.path if opened else None, opened.text if opened else None, reply_text, persona, found.watch.links, modes.edit.shows, filing,
         )
         lookups += edit_lookups
     if modes.edit and modes.edit.active and unfiled.said_but_not_filed(reply_text, lookups):  # a draft that was said and not filed (docs/decisions/082)
