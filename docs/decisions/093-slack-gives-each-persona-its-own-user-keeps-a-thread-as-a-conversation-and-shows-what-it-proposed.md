@@ -211,3 +211,12 @@ Found by `/code-review high` and `/simplify` over the whole Slack feature: Accep
 - **A draft that already has a real path** (older than the working paths, `new/<id>.md`) is made at that path and never numbered, as the web app did; if a note is there, it is refused and the draft stays. Slack never has one, since it only shows drafts from its own turn.
 - **One Accept at a time, across programs.** The make-and-forget step now also holds an exclusive lock on `<persona>/.slack/accept.lock` (`flock`), so a press that reaches `sympose web` and `sympose slack` at once makes one note and the second finds the draft gone, not a numbered copy. Where the system has no file locks the in-process lock stands alone.
 - **Unchanged:** Decline (the web app's still forgets the proposal through `resolve`), the focus-time follow of a draft decided elsewhere, the cap on drafts waiting.
+
+## Amendment (2026-10-23): the web app no longer jumps to a note decided in Slack
+
+Item 12 of the review list: the record of what the server decided (`decided.json`, `draft_decisions.py`), the `decided` field of `GET /api/vault/changes` and the editor's opening of the accepted note existed for one case, the editor open on a draft that Slack decides, and nothing else read them. They are gone (this replaces the first three bullets of the amendment "the web app follows a draft decided in Slack").
+
+- **The editor only closes.** On window focus, while a new-note draft is open, the editor still asks the server; when the draft is not waiting any more (accepted or declined, here or in Slack) it closes and tells the Drafts list, with no notice. It does not open the note: the notes list reads the tree on focus too (ADR 071), so an accepted note is in its folder.
+- **Cost, his to reverse:** after a press in Slack the user lands on the list, not on the note. Reversing it needs the record back.
+- **Unchanged:** the known limit on words not yet kept, the focus-time look, no polling.
+
