@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { act, renderHook, waitFor } from "@testing-library/react"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import type { VaultNode } from "@/components/sympose"
 import type { HiddenResult } from "./vault-hidden-api"
@@ -30,6 +30,8 @@ function setup(initial = { activePersona: "samantha", vaultRefreshKey: 0 }) {
   const hook = renderHook((p) => useVaultTree({ ...p, refreshVault }), { initialProps: initial })
   return { refreshVault, ...hook }
 }
+
+afterEach(cleanup)
 
 beforeEach(() => {
   vi.resetAllMocks()
@@ -138,6 +140,57 @@ describe("useVaultTree: a switch and then a failure", () => {
     await waitFor(() => expect(result.current.hiddenState.hidden).toEqual(["Newer"]))
     await act(async () => release(state(["Stale"])))
     expect(result.current.hiddenState.hidden).toEqual(["Newer"])
+  })
+})
+
+describe("useVaultTree: another program saved into the vault", () => {
+  const focus = () => act(async () => void window.dispatchEvent(new Event("focus")))
+
+  it("refreshes the vault when the window comes back and the tree is not what it shows", async () => {
+    const { result, refreshVault } = setup()
+    await waitFor(() => expect(result.current.vaultName).toBe("My vault"))
+    fetchVaultTree.mockResolvedValue({ tree: [note("a.md"), note("Inbox/b.md")], vaultName: "My vault" })
+    await focus()
+    await waitFor(() => expect(refreshVault).toHaveBeenCalledTimes(1))
+  })
+
+  it("rebuilds nothing when the tree is the same", async () => {
+    const { result, refreshVault } = setup()
+    await waitFor(() => expect(result.current.vaultName).toBe("My vault"))
+    await focus()
+    await waitFor(() => expect(fetchVaultTree).toHaveBeenCalledTimes(2))
+    expect(refreshVault).not.toHaveBeenCalled()
+  })
+
+  it("says nothing and keeps the tree when the read fails", async () => {
+    const { result, refreshVault } = setup()
+    await waitFor(() => expect(result.current.vaultName).toBe("My vault"))
+    fetchVaultTree.mockResolvedValue(null)
+    const unhandled: unknown[] = []
+    const listen = (reason: unknown) => unhandled.push(reason)
+    process.on("unhandledRejection", listen)
+    await focus()
+    await waitFor(() => expect(fetchVaultTree).toHaveBeenCalledTimes(2))
+    await new Promise((r) => setTimeout(r, 20))
+    process.off("unhandledRejection", listen)
+    expect(unhandled).toEqual([])
+    expect(refreshVault).not.toHaveBeenCalled()
+    expect(notify.error).not.toHaveBeenCalled()
+    expect(result.current.vaultTree.map((n) => n.path)).toEqual(["a.md"])
+  })
+
+  it("reads the tree of the persona in use, and stops listening when it unmounts", async () => {
+    const { result, rerender, unmount, refreshVault } = setup()
+    await waitFor(() => expect(result.current.vaultName).toBe("My vault"))
+    rerender({ activePersona: "other", vaultRefreshKey: 0 })
+    await waitFor(() => expect(fetchVaultTree).toHaveBeenCalledTimes(2))
+    await focus()
+    await waitFor(() => expect(fetchVaultTree).toHaveBeenCalledTimes(3))
+    expect(fetchVaultTree).toHaveBeenLastCalledWith("other")
+    unmount()
+    await focus()
+    expect(fetchVaultTree).toHaveBeenCalledTimes(3)
+    expect(refreshVault).not.toHaveBeenCalled()
   })
 })
 

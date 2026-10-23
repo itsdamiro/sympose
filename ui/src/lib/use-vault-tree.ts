@@ -32,6 +32,9 @@ import {
  *   hidden state; then everything scoped to the vault is re-pulled through
  *   `refreshVault`, since the server does the marking.
  *
+ * The tree is also read when the window comes back into focus, for what another program saved into the vault; the
+ * vault is refreshed only when that tree differs from the one shown.
+ *
  * A failed tree fetch is not an empty vault. A refresh keeps the tree that is
  * shown; after a persona switch the old tree is another persona's, so it goes.
  * Either way the user gets one notice, not a stack.
@@ -73,6 +76,26 @@ export function useVaultTree({
       alive = false
     }
   }, [activePersona, vaultRefreshKey])
+  // Another program saves into the vault (Slack's Accept, Obsidian, an editor in another project): the tree is
+  // read again when the window comes back into focus, and the rest of the vault only when the tree is not what it
+  // shows, so a visit with no change rebuilds nothing. A failed read here says nothing; the next one will try again.
+  const shown = React.useRef(fullTree)
+  React.useEffect(() => {
+    shown.current = fullTree
+  }, [fullTree])
+  React.useEffect(() => {
+    let alive = true
+    const check = () => {
+      void fetchVaultTree(activePersona).then((result) => {
+        if (alive && result && JSON.stringify(result.tree) !== JSON.stringify(shown.current)) refreshVault()
+      })
+    }
+    window.addEventListener("focus", check)
+    return () => {
+      alive = false
+      window.removeEventListener("focus", check)
+    }
+  }, [activePersona, refreshVault])
   React.useEffect(() => {
     let alive = true
     fetchHidden().then((state) => {
