@@ -243,6 +243,137 @@ export function appliedState(state: EditorState): { ids: string[]; untouched: bo
   return { ids: items.map((i) => i.id), untouched }
 }
 
+// A change that is applied is shown, not swapped (docs/decisions/072, amendment 2026-10-24): the words it replaced are drawn for a
+// moment and shrink away, then the new words are typed in. The text is final from the first frame; only what is drawn is staged,
+// so undo, the applied marks and the save see one change, and a frame that changes no text is not reported as an edit.
+
+/** One applied change being shown: where its new words are now, and the words they replaced. */
+interface Reveal {
+  from: number
+  to: number
+  old: string
+}
+
+interface RevealState {
+  items: Reveal[]
+  /** The time of the first frame, `null` until it comes. */
+  startedAt: number | null
+  now: number
+}
+
+const REMOVE_MS = 4 // per character taken away
+const TYPE_MS = 10 // per character typed in
+const REVEAL_MAX_MS = 900 // a long change is sped up to fit
+
+const startReveal = StateEffect.define<Reveal[]>()
+/** One frame of the reveal, at this time in milliseconds (`performance.now()`). */
+export const tickReveal = StateEffect.define<number>()
+
+/** How much of the old words is left and how much of the new is typed at `elapsed` ms, or `null` when the change is shown. */
+function revealProgress(item: Reveal, elapsed: number): { oldLeft: number; typed: number } | null {
+  const removing = item.old.length * REMOVE_MS
+  const full = removing + (item.to - item.from) * TYPE_MS
+  const t = elapsed * Math.max(1, full / REVEAL_MAX_MS)
+  if (t >= full) return null
+  if (t < removing) return { oldLeft: item.old.length - Math.floor(t / REMOVE_MS), typed: 0 }
+  return { oldLeft: 0, typed: Math.floor((t - removing) / TYPE_MS) }
+}
+
+const NO_REVEAL: RevealState = { items: [], startedAt: null, now: 0 }
+
+const revealField = StateField.define<RevealState>({
+  create: () => NO_REVEAL,
+  update(value, tr) {
+    for (const effect of tr.effects) if (effect.is(startReveal)) return { items: effect.value, startedAt: null, now: 0 }
+    if (tr.docChanged) return NO_REVEAL // the text was changed some other way (typing, undo): never draw over it
+    for (const effect of tr.effects) {
+      if (!effect.is(tickReveal)) continue
+      const startedAt = value.startedAt ?? effect.value
+      const items = value.items.filter((item) => revealProgress(item, effect.value - startedAt) !== null)
+      return { items, startedAt, now: effect.value }
+    }
+    return value
+  },
+})
+
+class RemovedWidget extends WidgetType {
+  readonly text: string
+
+  constructor(text: string) {
+    super()
+    this.text = text
+  }
+
+  eq(other: RemovedWidget): boolean {
+    return other.text === this.text
+  }
+
+  toDOM(): HTMLElement {
+    const gone = document.createElement("span")
+    gone.className = "sy-change-del sy-reveal-old" // struck through like the words of a tracked change
+    gone.textContent = this.text
+    return gone
+  }
+
+  ignoreEvent(): boolean {
+    return true
+  }
+}
+
+function revealDecorations(state: EditorState): DecorationSet {
+  const { items, startedAt, now } = state.field(revealField)
+  const ranges: Range<Decoration>[] = []
+  for (const item of items) {
+    const progress = revealProgress(item, startedAt === null ? 0 : now - startedAt)
+    if (!progress) continue
+    if (progress.oldLeft > 0) ranges.push(Decoration.widget({ widget: new RemovedWidget(item.old.slice(0, progress.oldLeft)), side: -1 }).range(item.from))
+    if (progress.typed > 0) ranges.push(Decoration.mark({ class: "sy-reveal-new" }).range(item.from, item.from + progress.typed))
+    if (item.from + progress.typed < item.to) ranges.push(Decoration.replace({}).range(item.from + progress.typed, item.to))
+  }
+  return Decoration.set(ranges, true)
+}
+
+// Sends a frame while a reveal is on; the frames change no text. One frame is asked for at a time: the update that a frame
+// causes asks for the next.
+const revealFrames = ViewPlugin.define((view) => {
+  let frame = 0
+  const step = (time: number) => {
+    frame = 0
+    view.dispatch({ effects: tickReveal.of(time) })
+  }
+  return {
+    update(update) {
+      if (frame === 0 && update.state.field(revealField).items.length > 0) frame = requestAnimationFrame(step)
+    },
+    destroy() {
+      cancelAnimationFrame(frame)
+    },
+  }
+})
+
+/** Where each of these changes (sorted, none overlapping) lands in the new text once all are applied. */
+function landing(chosen: Placed[]): { proposal: Proposal; from: number; to: number }[] {
+  let shift = 0
+  return chosen.map(({ proposal, from, to }) => {
+    const replace = proposal.replace ?? ""
+    const start = from + shift
+    shift += replace.length - (to - from)
+    return { proposal, from: start, to: start + replace.length }
+  })
+}
+
+/** The effect that shows these applied changes as they go in; it shows none when the user asked for less motion. A change of a
+ *  whole table is not shown (it is drawn in the table's source, and a rendered table cannot hide half a row). */
+function revealing(landed: { proposal: Proposal; from: number; to: number }[]): StateEffect<Reveal[]> {
+  if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return startReveal.of([])
+  return startReveal.of(
+    landed.flatMap(({ proposal, from, to }) => {
+      const old = proposal.find ?? ""
+      return old === (proposal.replace ?? "") || isTableChange(proposal) ? [] : [{ from, to, old }]
+    })
+  )
+}
+
 /**
  * Applies these proposals to the text (`accept` mode, docs/decisions/072) as one undoable change, marks the new words,
  * and keeps the proposals pending on the server: they are forgotten when the note is saved (`clearApplied`) or when the
@@ -257,16 +388,11 @@ export function applyProposals(view: EditorView, ids: string[]): string[] {
   }
   if (chosen.length === 0) return []
   chosen.sort((a, b) => a.from - b.from)
-  let shift = 0
-  const items = chosen.map((p) => {
-    const replace = p.proposal.replace ?? ""
-    const from = p.from + shift
-    shift += replace.length - (p.to - p.from)
-    return { id: p.proposal.id, from, to: from + replace.length, find: p.proposal.find ?? "", say: p.proposal.say }
-  })
+  const landed = landing(chosen)
+  const items = landed.map(({ proposal, from, to }) => ({ id: proposal.id, from, to, find: proposal.find ?? "", say: proposal.say }))
   view.dispatch({
     changes: chosen.map((p) => ({ from: p.from, to: p.to, insert: p.proposal.replace ?? "" })),
-    effects: addApplied.of(items),
+    effects: [addApplied.of(items), revealing(landed)],
     userEvent: "input.apply",
   })
   return items.map((i) => i.id)
@@ -436,8 +562,10 @@ export function acceptChanges(view: EditorView, ids: string[]): string[] {
     if (ids.includes(p.proposal.id) && !chosen.some((c) => p.from < c.to && c.from < p.to)) chosen.push(p)
   }
   if (chosen.length === 0) return []
+  chosen.sort((a, b) => a.from - b.from)
   view.dispatch({
     changes: chosen.map((p) => ({ from: p.from, to: p.to, insert: p.proposal.replace ?? "" })),
+    effects: revealing(landing(chosen)),
     userEvent: "input.accept",
   })
   const done = chosen.map((p) => p.proposal.id)
@@ -580,9 +708,10 @@ const theme = EditorView.baseTheme({
     textDecoration: "line-through",
     backgroundColor: "color-mix(in srgb, var(--danger) 16%, transparent)",
   },
-  ".sy-change-add": {
+  ".sy-change-add, .sy-reveal-new": {
     backgroundColor: "color-mix(in srgb, var(--ok) 20%, transparent)",
   },
+  ".sy-reveal-old": { whiteSpace: "pre-wrap" },
   ".sy-change": { whiteSpace: "pre-wrap", position: "relative" },
   ".sy-anchor": { position: "relative" },
   // The tab with the buttons, above the words it is about: a short line joins it to them.
@@ -705,6 +834,9 @@ export function reviewExtensions({ initial, onResolve, onOpenComment, onAttach, 
   return [
     reviewField.init(() => initial()),
     decorations,
+    revealField,
+    EditorView.decorations.compute([revealField], revealDecorations),
+    revealFrames,
     theme,
     resolveFacet.of(onResolve),
     appliedField,

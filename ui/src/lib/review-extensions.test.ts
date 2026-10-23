@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest"
-import { EditorState } from "@codemirror/state"
+import { EditorState, StateEffect } from "@codemirror/state"
 import { EditorView } from "@codemirror/view"
 import { history, undo } from "@codemirror/commands"
 
@@ -26,6 +26,7 @@ import {
   reviewExtensions,
   selectionTarget,
   setReviewData,
+  tickReveal,
   type ReviewData,
 } from "./review-extensions"
 
@@ -71,6 +72,11 @@ function mount(
 afterEach(() => {
   views.splice(0).forEach((v) => v.destroy())
 })
+/** Runs an applied change's reveal to its end, so the editor draws the words as they are in the text. */
+function settle(view: EditorView) {
+  view.dispatch({ effects: tickReveal.of(0) })
+  view.dispatch({ effects: tickReveal.of(1_000_000) })
+}
 
 describe("classify", () => {
   it("places a proposal whose passage is there once and lists the others as outdated", () => {
@@ -510,6 +516,7 @@ describe("applying her edits in accept mode (docs/decisions/072)", () => {
     const { view, onResolve } = mount(data(edit("a", "three times", "four times")))
 
     expect(applyProposals(view, ["a"])).toEqual(["a"])
+    settle(view)
 
     expect(view.state.doc.toString()).toBe(NOTE.replace("three times", "four times"))
     expect(view.dom.querySelector(".sy-applied")?.textContent).toBe("four times")
@@ -521,6 +528,7 @@ describe("applying her edits in accept mode (docs/decisions/072)", () => {
     const { view } = mount(data(edit("a", "three times", "four times"), edit("b", "raised", "sunken"), edit("c", "three", "two")))
 
     expect(applyProposals(view, ["a", "b", "c"])).toEqual(["a", "b"])
+    settle(view)
 
     expect(view.state.doc.toString()).toBe(NOTE.replace("three times", "four times").replace("raised", "sunken"))
     expect([...view.dom.querySelectorAll(".sy-applied")].map((e) => e.textContent)).toEqual(["four times", "sunken"])
@@ -909,5 +917,205 @@ describe("a change that replaces a whole table (a row or a column added or remov
 
     expect(widget.pos).toBe(doc.indexOf("Carrots") + "Carrots".length)
     expect(widget.toDOM(view).querySelector(".sy-change-add")?.textContent).toBe("Parsnips")
+  })
+})
+
+describe("revealing an applied change (docs/decisions/072, amendment 2026-10-24)", () => {
+  const data = (...proposals: Proposal[]): ReviewData => ({ proposals, annotations: [] })
+  // "three times" (11 characters) takes 44 ms to take away; "four times" (10) takes 100 ms to type.
+  const swap = () => mount(data(edit("a", "three times", "four times")))
+  const tick = (view: EditorView, at: number) => view.dispatch({ effects: tickReveal.of(at) })
+  const drawn = (view: EditorView) => view.contentDOM.textContent ?? ""
+  const old = (view: EditorView) => view.dom.querySelector(".sy-reveal-old")?.textContent
+  const typed = (view: EditorView) => view.dom.querySelector(".sy-reveal-new")?.textContent
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.useRealTimers()
+  })
+
+  it("starts by drawing the old words and none of the new, though the text is already final", () => {
+    const { view } = swap()
+
+    applyProposals(view, ["a"])
+
+    expect(view.state.doc.toString()).toBe(NOTE.replace("three times", "four times"))
+    expect(old(view)).toBe("three times")
+    expect(drawn(view)).not.toContain("four")
+    expect(drawn(view)).toContain("three times")
+  })
+
+  it("takes the old words away from the end, then types the new ones from the start", () => {
+    const { view } = swap()
+    applyProposals(view, ["a"])
+
+    tick(view, 0)
+    tick(view, 20)
+    expect(old(view)).toBe("three ") // 5 of 11 gone
+    expect(typed(view)).toBeUndefined()
+    tick(view, 23)
+    expect(old(view)).toBe("three ") // a part of a character does not count yet
+
+    tick(view, 44 + 30)
+    expect(old(view)).toBeUndefined()
+    expect(typed(view)).toBe("fou")
+    expect(drawn(view)).toContain("I run fou")
+    expect(drawn(view)).not.toContain("four")
+  })
+
+  it("ends with the new words whole and nothing left of the show", () => {
+    const { view } = swap()
+    applyProposals(view, ["a"])
+
+    tick(view, 0)
+    tick(view, 143)
+    expect(typed(view)).toBe("four time")
+    tick(view, 144)
+
+    expect(drawn(view)).toContain("I run four times a week")
+    expect(view.dom.querySelector(".sy-reveal-old, .sy-reveal-new")).toBeNull()
+    expect(view.dom.querySelector(".sy-applied")?.textContent).toBe("four times")
+  })
+
+  it("speeds a long change up to fit in 0.9 s", () => {
+    const long = "word ".repeat(200)
+    const { view } = mount(data(edit("a", "raised", long)))
+    applyProposals(view, ["a"])
+
+    tick(view, 0)
+    tick(view, 899)
+    expect(drawn(view)).not.toContain(long.trim())
+    tick(view, 900)
+
+    expect(drawn(view)).toContain(long.trim())
+  })
+
+  it("shows a deletion as the old words shrinking away", () => {
+    const { view } = mount(data(edit("a", " The beds are raised.", "")))
+    applyProposals(view, ["a"])
+
+    expect(old(view)).toBe(" The beds are raised.")
+    tick(view, 0)
+    tick(view, 40)
+    expect(old(view)).toBe(" The beds are raised.".slice(0, 21 - 10))
+    tick(view, 1000)
+    expect(old(view)).toBeUndefined()
+    expect(drawn(view)).toContain("I run three times a week.")
+    expect(drawn(view)).not.toContain("beds")
+  })
+
+  it("keeps each change in its own place when several are applied (the first one is longer)", () => {
+    const { view } = mount(data(edit("a", "three times", "four times and more"), edit("b", "raised", "sunken")))
+    applyProposals(view, ["a", "b"])
+
+    expect(drawn(view)).not.toContain("sunken")
+    tick(view, 0)
+    tick(view, 1000)
+
+    expect(drawn(view)).toContain("I run four times and more a week. The beds are sunken.")
+  })
+
+  it("keeps each change in its own place on Accept even when the changes are not listed in order", () => {
+    const { view } = mount(data(edit("b", "raised", "sunken"), edit("a", "three times", "four times and more")))
+
+    acceptChanges(view, ["a", "b"])
+
+    expect(drawn(view)).not.toContain("sunken")
+    tick(view, 0)
+    tick(view, 1000)
+    expect(drawn(view)).toContain("I run four times and more a week. The beds are sunken.")
+  })
+
+  it("shows the change of a user's Accept too", () => {
+    const { view } = swap()
+
+    acceptChanges(view, ["a"])
+
+    expect(old(view)).toBe("three times")
+    expect(drawn(view)).not.toContain("four")
+    tick(view, 0)
+    tick(view, 1000)
+    expect(drawn(view)).toContain("I run four times a week")
+  })
+
+  it("is over at once when the user types, so it never draws over a later edit", () => {
+    const { view } = swap()
+    applyProposals(view, ["a"])
+
+    view.dispatch({ changes: { from: 0, insert: "X" }, userEvent: "input.type" })
+
+    expect(old(view)).toBeUndefined()
+    expect(drawn(view)).toContain("XI run four times a week")
+  })
+
+  it("is over at once when the change is undone", () => {
+    const { view } = swap()
+    applyProposals(view, ["a"])
+
+    undo(view)
+
+    expect(view.state.doc.toString()).toBe(NOTE)
+    expect(view.dom.querySelector(".sy-reveal-old, .sy-reveal-new")).toBeNull()
+    tick(view, 0)
+    expect(view.dom.querySelector(".sy-reveal-old, .sy-reveal-new")).toBeNull()
+  })
+
+  it("is not shown to someone who asked for less motion", () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({ matches: query.includes("reduce"), addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} }))
+    const { view } = swap()
+
+    applyProposals(view, ["a"])
+
+    expect(old(view)).toBeUndefined()
+    expect(drawn(view)).toContain("I run four times a week")
+  })
+
+  it("is not shown when the words are the same", () => {
+    const { view } = mount(data(edit("a", "three times", "three times")))
+
+    applyProposals(view, ["a"])
+
+    expect(view.dom.querySelector(".sy-reveal-old")).toBeNull()
+  })
+
+  it("is not shown for a whole table, which is drawn in its source", () => {
+    const table = "| a | b |\n| - | - |\n| 1 | 2 |"
+    const grown = "| a | b |\n| - | - |\n| 1 | 2 |\n| 3 | 4 |"
+    const { view } = mount(data(edit("a", table, grown, `${table}\n`)), { doc: `${table}\n` })
+
+    applyProposals(view, ["a"])
+
+    expect(view.dom.querySelector(".sy-reveal-old")).toBeNull()
+    expect(drawn(view)).toContain("| 3 | 4 |")
+  })
+
+  it("plays itself out frame by frame, and the text changes only once", () => {
+    vi.useFakeTimers({ toFake: ["requestAnimationFrame", "cancelAnimationFrame", "performance"] })
+    const edits = vi.fn()
+    const { view } = swap()
+    view.dispatch({ effects: StateEffect.appendConfig.of(EditorView.updateListener.of((u) => u.docChanged && edits())) })
+    applyProposals(view, ["a"])
+    expect(edits).toHaveBeenCalledTimes(1)
+
+    vi.advanceTimersByTime(60)
+    expect(drawn(view)).not.toContain("four") // under way
+    view.dispatch({ selection: { anchor: 3 } }) // an update that is not a frame
+    expect(vi.getTimerCount()).toBe(1) // one frame is asked for, not two
+    vi.advanceTimersByTime(300)
+
+    expect(drawn(view)).toContain("I run four times a week")
+    expect(view.dom.querySelector(".sy-reveal-old, .sy-reveal-new")).toBeNull()
+    expect(edits).toHaveBeenCalledTimes(1)
+    expect(vi.getTimerCount()).toBe(0) // no frame is left asked for
+  })
+
+  it("asks for no more frames once the editor is gone", () => {
+    vi.useFakeTimers({ toFake: ["requestAnimationFrame", "cancelAnimationFrame", "performance"] })
+    const { view } = swap()
+    applyProposals(view, ["a"])
+
+    view.destroy()
+
+    expect(vi.getTimerCount()).toBe(0)
   })
 })

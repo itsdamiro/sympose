@@ -196,7 +196,7 @@ describe("MarkdownPanel with the persona's suggested changes", () => {
 
     await act(async () => fireEvent.click(screen.getByTestId("cm").querySelector(".sy-change-accept") as HTMLElement))
 
-    expect(doc()).toContain("four times a week")
+    expect(editorView().state.doc.toString()).toContain("four times a week")
     await waitFor(() => expect(changesApi.resolveChanges).toHaveBeenCalledWith("Garden plan.md", "samantha", ["p1"], true))
     expect(api.saveVaultNote).not.toHaveBeenCalled()
   })
