@@ -38,7 +38,7 @@ A note that was cut, or only named, has no buttons: read and accept it in the we
 
 ## I pressed Accept in Slack but the note is not in the web app
 
-The note is saved in the vault, and the web app shows it in its folder once you switch back to the window. If the list still looks old, reload the page.
+The note is saved in the vault, and the web app shows it in its folder once you switch back to the window. If the draft was open in the editor, it opens as the note (or closes, if you pressed Decline). If the list still looks old, reload the page.
 
 ## Pressing Accept in Slack does nothing, why?
 
