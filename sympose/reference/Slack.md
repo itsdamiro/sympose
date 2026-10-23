@@ -44,7 +44,7 @@ If Slack warns that the app is not configured, the App was made before the butto
 
 Yes. Share a PDF, image, sound or video with your message and the persona reads it as in the web chat: the `media` approval, a model that can read files and the same limits (3 files, 50 MB together) apply, and the file is kept in memory only. A file Sympose cannot read is answered with one line saying why.
 
-If the line mentions `files:read`, the Slack App cannot download files. Add that bot scope under OAuth & Permissions, reinstall the App and send the file again.
+If the line mentions `files:read`, the Slack App cannot download files. Add that bot scope under OAuth & Permissions, reinstall the App, copy the bot token into `.env` if it changed, restart `sympose slack` and send the file again.
 
 ## What does /new do in Slack?
 
