@@ -51,6 +51,8 @@ _RAW = [
     ("sympose", "how do I change which persona I talk to?", True, None),
     ("sympose", "what model are you running on?", True, None),
     ("sympose", "why is the reply so slow?", True, "Troubleshooting.md"),
+    ("sympose", "I saved a note from another program and it is not in my notes list", True, "Troubleshooting.md"),
+    ("sympose", "I pressed Accept in Slack but the note is not in the web app", True, "Slack.md"),
     ("sympose", "what is Sympose?", True, "What is Sympose.md"),
     ("sympose", "who made Sympose?", True, "History and author.md"),
     ("sympose", "can I use a cloud model?", True, "Choosing a model.md"),

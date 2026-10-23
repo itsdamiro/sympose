@@ -105,3 +105,6 @@ Asking a persona twice for the same note stored two drafts (two "Collaborative W
 
 The rule above ("else the folder the user is in, else the top of the vault") is replaced by ADR 094: a new note with no folder named is given the persona's `Inbox` folder when it is proposed, so its place is known before Accept and the web app no longer asks which folder is in view. A folder she was asked for still wins; a draft already waiting with no folder is made in her main folder.
 
+## Amendment (2026-10-23): the notes list follows what another program saves
+
+A note made by Accept pressed in Slack (ADR 093) was in the vault but not in the folder's list, and the draft the editor had open stayed on screen: the Drafts list is read again when the window regains focus (above), the tree was not. `useVaultTree` now reads the tree on focus too and refreshes the rest of the vault (graph, lists, search, bin, drafts) only when that tree differs from the one shown, so a visit with no change rebuilds nothing; a failed read says nothing. This covers whatever else writes into the vault while the web app is open (Obsidian, an editor in another project). There is still no polling: a window that stays in focus beside the other program does not see the change until it is focused again. What the editor does with a draft that was decided elsewhere is not part of this amendment.

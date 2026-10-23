@@ -49,3 +49,7 @@ If a persona still says it cannot, it may be a small model that edits poorly: tr
 ## A reply stops mid-sentence
 
 It reached its length limit. Raise `reply_limit` in `settings.json`.
+
+## A note I saved somewhere else is not in my notes list
+
+The notes list reads the vault again when you come back to the Sympose window, so a note saved by another program (Obsidian, an editor in another project, or Accept pressed in Slack) shows up as soon as you switch back to the window. If it still does not, reload the page. A note saved inside Sympose shows at once.

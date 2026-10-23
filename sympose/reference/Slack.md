@@ -36,6 +36,10 @@ Under a note shown in full, a short message asks to save it, with Accept and Dec
 
 A note that was cut, or only named, has no buttons: read and accept it in the web app, under Drafts.
 
+## I pressed Accept in Slack but the note is not in the web app
+
+The note is saved in the vault, and the web app shows it in its folder once you switch back to the window. If the list still looks old, reload the page.
+
 ## Pressing Accept in Slack does nothing, why?
 
 If Slack warns that the app is not configured, the App was made before the buttons. Switch Interactivity on under Interactivity & Shortcuts in the App's settings, or paste the manifest again, then press once more. If the line says the draft is not waiting any more, it was decided already, in the web app or by an earlier press.
