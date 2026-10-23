@@ -28,7 +28,7 @@ import { useNoteDocument, type PanelFile } from "@/lib/use-note-document"
 import type { Proposal } from "@/lib/persona-changes-api"
 import { usePersonaChanges } from "@/lib/use-persona-changes"
 import { announceDraftsChanged } from "@/lib/use-drafts"
-import { applyProposals, cellMarks, cellWidgets, classify, clearApplied, isTableChange, pendingIds, restoreAppliedMarks, reviewExtensions, setReviewData, type ReviewData } from "@/lib/review-extensions"
+import { applyProposals, cellMarks, cellWidgets, classify, clearApplied, holdsReview, isTableChange, pendingIds, restoreAppliedMarks, reviewExtensions, setReviewData, type ReviewData } from "@/lib/review-extensions"
 import { useEditMode } from "@/lib/use-edit-mode"
 import { OutdatedChanges } from "@/components/sympose/outdated-changes"
 import { CommentPopover, type CommentBox } from "@/components/sympose/comment-popover"
@@ -345,7 +345,7 @@ function MarkdownPanel({
   React.useEffect(() => {
     savedRef.current = () => {
       const view = styloRef.current?.getView()
-      const ids = new Set([...(view ? clearApplied(view) : []), ...appliedRef.current.ids])
+      const ids = new Set([...(view && holdsReview(view.state) ? clearApplied(view) : []), ...appliedRef.current.ids])
       appliedRef.current = { ids: [], untouched: true }
       setApplied({ path: pathRef.current, ids: [] })
       if (ids.size > 0) void resolveRef.current([...ids])
@@ -374,15 +374,16 @@ function MarkdownPanel({
   // A new editor over text that holds her applied edits (another surface, or back from read mode) shows their marks again.
   React.useEffect(() => {
     const view = styloRef.current?.getView()
-    if (view && appliedRef.current.ids.length > 0) restoreAppliedMarks(view, proposalsRef.current, appliedRef.current.ids, appliedRef.current.untouched)
+    if (view && holdsReview(view.state) && appliedRef.current.ids.length > 0) restoreAppliedMarks(view, proposalsRef.current, appliedRef.current.ids, appliedRef.current.untouched)
   }, [editorMade])
   // `accept`: her placed, waiting edits go into the text as soon as they are here, once the editor holds the note. Run
-  // when any of that changes, and when the editor itself is made (it can come last, after a lazy load).
+  // when any of that changes, and when the editor itself is made (it can come last, after a lazy load). Not while the
+  // panel still holds the editor of a draft that was just accepted into this note, which has no review extensions.
   const { info: editInfo } = useEditMode(persona, persona)
   const acceptMode = editInfo?.mode === "accept" && !readOnly && !file
   React.useEffect(() => {
     const view = styloRef.current?.getView()
-    if (!acceptMode || !view || note.status !== "ready" || loadedPathRef.current !== path) return
+    if (!acceptMode || !view || !holdsReview(view.state) || note.status !== "ready" || loadedPathRef.current !== path) return
     applyProposals(view, pendingIds(view.state))
   }, [acceptMode, note.status, path, loadedPathRef, reviewData, body, editorMade])
   // A change that replaces a whole table (a row or a column added or removed, docs/decisions/069) is read in the table's source, where

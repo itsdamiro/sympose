@@ -32,6 +32,8 @@ vi.mock("@damiro/stylo", async () => {
     const [, force] = React.useReducer((n: number) => n + 1, 0)
     React.useImperativeHandle(ref, () => ({ getView: () => viewRef.current, focus() {} }))
     const compartment = React.useRef(new Compartment())
+    // `bareView` stands in for the editor of a draft that the panel still holds just after the draft was accepted: made without the review extensions.
+    const held = () => ((globalThis as { bareView?: boolean }).bareView ? [] : props.extensions ?? [])
     React.useEffect(() => {
       // The real stylo makes its view after a lazy chunk loads; `lateView` stands in for that.
       const make = () => {
@@ -39,7 +41,7 @@ vi.mock("@damiro/stylo", async () => {
         state: EditorState.create({
           doc: props.value,
           extensions: [
-            compartment.current.of(props.extensions ?? []),
+            compartment.current.of(held()),
             EditorView.updateListener.of((u) => {
               if (u.docChanged) latest.current.onChange(u.state.doc.toString())
               force()
@@ -62,7 +64,7 @@ vi.mock("@damiro/stylo", async () => {
     }, [])
     // Like stylo 0.17: a changed `extensions` array reconfigures the live editor, no remount.
     React.useEffect(() => {
-      viewRef.current?.dispatch({ effects: compartment.current.reconfigure(props.extensions ?? []) })
+      viewRef.current?.dispatch({ effects: compartment.current.reconfigure(held()) })
     }, [props.extensions])
     const view = viewRef.current
     const items = props.toolbar?.items ?? []
@@ -443,6 +445,21 @@ describe("MarkdownPanel with the persona's suggested changes", () => {
   })
 })
 
+describe("MarkdownPanel on a draft, which has no review extensions", () => {
+  it("saves the words typed into it without asking its editor about her changes", async () => {
+    const file = { load: vi.fn().mockResolvedValue({ content: "# Seeds", mtime: 40 }), save: vi.fn().mockResolvedValue({ ok: true, mtime: 41 }), title: "Seeds" }
+    open({ path: "draft:samantha/new/abc", file })
+    await waitFor(() => expect(screen.getByTestId("cm").querySelector(".cm-editor")).not.toBeNull())
+    act(() => editorView().dispatch({ changes: { from: 0, insert: "More. " }, userEvent: "input.type" }))
+
+    await act(async () => {
+      expect(await getUnsavedGuard()!.save()).toBe(true)
+    })
+
+    expect(file.save).toHaveBeenCalledWith("draft:samantha/new/abc", expect.stringContaining("More. # Seeds"), 40)
+  })
+})
+
 describe("MarkdownPanel in accept mode (docs/decisions/072)", () => {
   const inAccept = () => editModeApi.fetchEditMode.mockResolvedValue({ mode: "accept", source: "persona", modes: [], notes: { accept: null, auto: null }, model: "m" })
   const appliedMark = () => screen.getByTestId("cm").querySelector(".sy-applied")
@@ -477,6 +494,22 @@ describe("MarkdownPanel in accept mode (docs/decisions/072)", () => {
       expect(editorView().state.doc.toString()).toContain("four times a week")
     } finally {
       delete (globalThis as { lateView?: number }).lateView
+    }
+  })
+
+  it("leaves an editor that holds no review extensions alone, as the one a draft just accepted into this note was made with", async () => {
+    ;(globalThis as { bareView?: boolean }).bareView = true
+    try {
+      open()
+      await waitFor(() => expect(changesApi.fetchChanges).toHaveBeenCalled())
+      await waitFor(() => expect(editModeApi.fetchEditMode).toHaveBeenCalled())
+      await waitFor(() => expect(screen.getByTestId("cm").querySelector(".cm-editor")).not.toBeNull())
+      await act(async () => new Promise((r) => setTimeout(r, 100)))
+
+      expect(editorView().state.doc.toString()).toContain("three times a week")
+      expect(appliedMark()).toBeNull()
+    } finally {
+      delete (globalThis as { bareView?: boolean }).bareView
     }
   })
 
