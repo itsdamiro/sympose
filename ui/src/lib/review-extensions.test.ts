@@ -765,6 +765,7 @@ describe("cellMarks (stylo's marks inside table cells)", () => {
   it("marks the words of an edit she has applied, with her explanation as the title", () => {
     const { view } = mount({ proposals: [edit("p", "three times", "four times")], annotations: [] })
     applyProposals(view, ["p"])
+    settle(view)
 
     const marks = cellMarks(view.state)
 
@@ -860,6 +861,7 @@ describe("a change of hers inside a table cell (stylo's cellMarks and cellWidget
   it("gives an applied edit's Undo button as a widget after the new words, and undoing from it puts the old words back", () => {
     const view = inTable({ proposals: [swap()], annotations: [] })
     applyProposals(view, ["p"])
+    settle(view)
 
     const widgets = cellWidgets(view.state)
 
@@ -1118,6 +1120,109 @@ describe("revealing an applied change (docs/decisions/072, amendment 2026-10-24)
     view.destroy()
 
     expect(vi.getTimerCount()).toBe(0)
+  })
+})
+
+describe("revealing an applied change inside a table cell (docs/decisions/072)", () => {
+  const TABLE = "The beds are raised.\n\n| Item | Qty |\n|------|-----|\n| Carrots | 3 |\n"
+  // "Carrots" (7 characters) takes 28 ms to take away; "Parsnips" (8) takes 80 ms to type.
+  const swap = () => {
+    const { view } = mount({ proposals: [edit("p", "Carrots", "Parsnips", TABLE)], annotations: [] }, { doc: TABLE })
+    applyProposals(view, ["p"])
+    return view
+  }
+  const tick = (view: EditorView, at: number) => view.dispatch({ effects: tickReveal.of(at) })
+  const reveal = (view: EditorView) => cellMarks(view.state).filter((m) => m.class.startsWith("sy-reveal"))
+  const old = (view: EditorView) => cellWidgets(view.state).filter((w) => w.key.startsWith("reveal:"))
+  const said = (view: EditorView, mark: { from: number; to: number }) => view.state.doc.sliceString(mark.from, mark.to)
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it("hides all the new words at first and draws the old ones after the cell's start", () => {
+    const view = swap()
+
+    const [hidden] = reveal(view)
+    const [widget] = old(view)
+
+    expect(hidden.class).toBe("sy-reveal-hidden")
+    expect(said(view, hidden)).toBe("Parsnips")
+    expect(widget.toDOM(view).textContent).toBe("Carrots")
+    expect(widget.pos).toBe(hidden.from)
+  })
+
+  it("takes the old words away, then types the new ones in, as marks of the cell", () => {
+    const view = swap()
+    tick(view, 0)
+
+    tick(view, 12) // 3 of 7 gone
+    expect(old(view)[0].toDOM(view).textContent).toBe("Carr")
+    tick(view, 28 + 30) // all gone, 3 typed
+    const [typed, hidden] = reveal(view)
+
+    expect(old(view)).toEqual([])
+    expect(typed.class).toBe("sy-reveal-new")
+    expect(said(view, typed)).toBe("Par")
+    expect(said(view, hidden)).toBe("snips")
+  })
+
+  it("marks the first typed character as soon as it is typed", () => {
+    const view = swap()
+    tick(view, 0)
+    tick(view, 28 + 10) // one character typed
+
+    const [typed, hidden] = reveal(view)
+
+    expect(said(view, typed)).toBe("P")
+    expect(said(view, hidden)).toBe("arsnips")
+  })
+
+  it("marks no stretch that holds only syntax, which stylo would turn into a mark on the whole cell", () => {
+    const doc = "| Item | Note |\n|------|------|\n| Carrots | sow in **April** |\n"
+    const { view } = mount({ proposals: [edit("p", "sow in **April**", "plant **May**", doc)], annotations: [] }, { doc })
+    applyProposals(view, ["p"])
+    tick(view, 0)
+    tick(view, 16 * 4 + 10 * 11) // the old words gone, "plant **May" typed: only "**" is left
+
+    expect(reveal(view).map((m) => m.class)).toEqual(["sy-reveal-new"])
+    tick(view, 16 * 4 + 10 * 1) // one character typed: "p"
+    expect(reveal(view).map((m) => said(view, m))).toEqual(["p", "lant **May**"])
+  })
+
+  it("marks nothing as typed while only the opening syntax of the new words is typed", () => {
+    const doc = "| Item | Note |\n|------|------|\n| Carrots | sow in April |\n"
+    const { view } = mount({ proposals: [edit("p", "sow in April", "**May** sow", doc)], annotations: [] }, { doc })
+    applyProposals(view, ["p"])
+    tick(view, 0)
+    tick(view, 12 * 4 + 10 * 2) // the old words gone, "**" typed
+
+    expect(reveal(view).map((m) => [m.class, said(view, m)])).toEqual([["sy-reveal-hidden", "May** sow"]])
+  })
+
+  it("changes the widget's key as it shrinks, so the cell is repainted", () => {
+    const view = swap()
+    tick(view, 0)
+    const first = old(view)[0].key
+    tick(view, 12)
+
+    expect(old(view)[0].key).not.toBe(first)
+  })
+
+  it("ends with nothing but the applied mark left", () => {
+    const view = swap()
+    tick(view, 0)
+    tick(view, 1000)
+
+    expect(reveal(view)).toEqual([])
+    expect(old(view)).toEqual([])
+  })
+
+  it("draws nothing when the user asked for less motion", () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({ matches: query.includes("reduce"), addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} }))
+    const view = swap()
+
+    expect(reveal(view)).toEqual([])
   })
 })
 

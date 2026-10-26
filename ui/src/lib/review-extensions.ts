@@ -320,17 +320,47 @@ class RemovedWidget extends WidgetType {
   }
 }
 
-function revealDecorations(state: EditorState): DecorationSet {
-  const { items, startedAt, now } = state.field(revealField)
-  const ranges: Range<Decoration>[] = []
-  for (const item of items) {
+/** What each change being shown has drawn right now: how much of the old words is left and how much of the new is typed. */
+function revealFrame(state: EditorState): { item: Reveal; oldLeft: number; typed: number }[] {
+  const { items, startedAt, now } = state.field(revealField, false) ?? NO_REVEAL
+  return items.flatMap((item) => {
     const progress = revealProgress(item, startedAt === null ? 0 : now - startedAt)
-    if (!progress) continue
-    if (progress.oldLeft > 0) ranges.push(Decoration.widget({ widget: new RemovedWidget(item.old.slice(0, progress.oldLeft)), side: -1 }).range(item.from))
-    if (progress.typed > 0) ranges.push(Decoration.mark({ class: "sy-reveal-new" }).range(item.from, item.from + progress.typed))
-    if (item.from + progress.typed < item.to) ranges.push(Decoration.replace({}).range(item.from + progress.typed, item.to))
+    return progress ? [{ item, ...progress }] : []
+  })
+}
+
+function revealDecorations(state: EditorState): DecorationSet {
+  const ranges: Range<Decoration>[] = []
+  for (const { item, oldLeft, typed } of revealFrame(state)) {
+    if (oldLeft > 0) ranges.push(Decoration.widget({ widget: new RemovedWidget(item.old.slice(0, oldLeft)), side: -1 }).range(item.from))
+    if (typed > 0) ranges.push(Decoration.mark({ class: "sy-reveal-new" }).range(item.from, item.from + typed))
+    if (item.from + typed < item.to) ranges.push(Decoration.replace({}).range(item.from + typed, item.to))
   }
   return Decoration.set(ranges, true)
+}
+
+/** The same frame for the words inside table cells (stylo's `cellMarks`, which a decoration cannot reach): the typed words are
+ *  marked and the others hidden. Stylo ignores a mark that is not inside a cell, where `revealDecorations` has drawn it. */
+function revealCellMarks(state: EditorState): CellMark[] {
+  const text = state.doc.toString()
+  // Stylo marks the whole cell for a mark that covers no visible character (only `**`, a bracket or a space), which would hide
+  // or tint all of it for a frame or two: such a stretch is left unmarked until a visible character joins it.
+  const visible = (from: number, to: number) => from < to && !/^[\s*_~`[\]|\\]*$/.test(text.slice(from, to))
+  return revealFrame(state).flatMap(({ item, typed }) => {
+    const marks: CellMark[] = []
+    if (visible(item.from, item.from + typed)) marks.push({ from: item.from, to: item.from + typed, class: "sy-reveal-new" })
+    if (visible(item.from + typed, item.to)) marks.push({ from: item.from + typed, to: item.to, class: "sy-reveal-hidden" })
+    return marks
+  })
+}
+
+/** The old words still drawn, for a cell (stylo's `cellWidgets`); the key holds what is drawn, so a cell is repainted as they shrink. */
+function revealCellWidgets(state: EditorState): CellWidget[] {
+  return revealFrame(state).flatMap(({ item, oldLeft }) => {
+    if (oldLeft === 0) return []
+    const text = item.old.slice(0, oldLeft)
+    return [{ pos: item.from, key: `reveal:${item.from}:${text}`, toDOM: () => new RemovedWidget(text).toDOM() }]
+  })
 }
 
 // Sends a frame while a reveal is on; the frames change no text. One frame is asked for at a time: the update that a frame
@@ -668,7 +698,7 @@ export function cellMarks(state: EditorState): CellMark[] {
   for (const item of state.field(appliedField).items) {
     if (item.from < item.to) marks.push({ from: item.from, to: item.to, class: "sy-applied", ...(item.say ? { attributes: { title: item.say } } : {}) })
   }
-  return [...struck, ...marks]
+  return [...struck, ...marks, ...revealCellMarks(state)]
 }
 
 /**
@@ -703,7 +733,7 @@ export function cellWidgets(state: EditorState): CellWidget[] {
       widgets.push({ pos: to, key: `clip:${annotations[0].id}:${annotations[0].quote}`, toDOM: (view) => widget.toDOM(view) })
     }
   }
-  return widgets
+  return [...widgets, ...revealCellWidgets(state)]
 }
 
 function decorate(state: EditorState): DecorationSet {
@@ -742,6 +772,7 @@ const theme = EditorView.baseTheme({
     backgroundColor: "color-mix(in srgb, var(--ok) 20%, transparent)",
   },
   ".sy-reveal-old": { whiteSpace: "pre-wrap" },
+  ".sy-reveal-hidden": { display: "none" },
   ".sy-change": { whiteSpace: "pre-wrap", position: "relative" },
   ".sy-anchor": { position: "relative" },
   // The tab with the buttons, above the words it is about: a short line joins it to them.

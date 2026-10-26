@@ -244,5 +244,17 @@ Scratch data and invented notes only, local models, manual mode with the product
 
 **Decided here, say if it should differ.** "First time" means the first opening since the page was loaded, not the first since the draft was made: a draft that was waiting before a reload is typed in once when first opened after it. Knowing a draft was made in this page would need the Drafts list to remember what it had shown.
 
-**Not done.** A change inside a rendered table cell still swaps at once; stylo draws a table as its own widget and its cells cannot show half of a change.
+**Not done here.** A change inside a rendered table cell still swapped at once; see the next amendment.
+
+## Amendment (2026-10-26): a change inside a table cell is revealed too (issue 33)
+
+**Decision (his word: build it from stylo's cell hooks, no new surface).** An applied change that sits inside one rendered table cell is shown as it is anywhere else: the old words shrink away and the new ones are typed in, in the cell.
+
+**Why it needed its own route.** The reveal hides the not-yet-typed words with a decoration, and CodeMirror drops a decoration that falls inside the table's widget. Stylo (0.20 and 0.21) already draws what a host gives it for cells, in document positions, so no request to stylo was needed.
+
+**How.** `cellMarks` adds a `sy-reveal-new` mark for the typed words and a `sy-reveal-hidden` mark (`display: none`) for the rest; `cellWidgets` draws the old words still left, with their text in the key so the cell is repainted as they shrink. Both read the same frame as the decorations (`revealFrame`), and stylo ignores a mark or widget that is not inside a cell, so one frame feeds both drawings. Checked in headless Chrome against a scratch server: a plain cell and a cell with `**bold**` both shrink, pause for one frame with nothing drawn and type in to the last character, and the bold drawn at the end. A range that holds only syntax (`**`, a bracket, a space) is left unmarked, because stylo turns a mark with no visible character into a mark on the whole cell, which blanked a cell for two or three frames when the new words ended in `**` (found in review, fixed, checked again in Chrome).
+
+**Known limit.** Stylo does not repaint a cell while it is being edited, so a cell the user clicks into during the reveal (under a second) keeps the frame it had until it loses focus. Not handled: it needs a hook in stylo and the case is rare.
+
+**Still not shown.** A change that replaces a whole table (the old table cannot be drawn as one widget), and a new-note draft that holds a table (the text before the table would be typed with the finished table already on screen, and hiding the table needs another route). Both swap at once.
 
