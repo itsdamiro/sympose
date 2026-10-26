@@ -236,7 +236,7 @@ Scratch data and invented notes only, local models, manual mode with the product
 
 ## Amendment (2026-10-26): a new-note draft is typed in the first time it opens (issue 33)
 
-**Decision (his word: a whole note written in reply to a chat instruction is typed in).** The first time a new-note draft opens in the editor on a page, its whole text is typed in from the start, with nothing to take away: about 10 ms a character, never more than 0.9 s, the same constants and drawing as an applied change. A draft opened again, or one the user has edited, is shown at once. Not shown at all: with `prefers-reduced-motion`, for an empty text, or for a text with a table (a rendered table cannot hide half of a row, as above).
+**Decision (his word: a whole note written in reply to a chat instruction is typed in).** The first time a new-note draft opens in the editor on a page, its whole text is typed in from the start, with nothing to take away: about 10 ms a character, never more than 0.9 s, the same constants and drawing as an applied change. A draft opened again, or one the user has edited, is shown at once. Not shown at all: with `prefers-reduced-motion` or for an empty text. A text with a table is typed in too, cell by cell (the amendment after the next).
 
 **Why on opening.** A draft is not opened for the user when the persona makes it; it waits in the Drafts section until the user opens it, so that is the moment the words arrive in front of them. The editor is made over the loaded text (stylo is not mounted until the note is ready), so there is no change to stage: the reveal starts from the editor's own first moment, before the first paint, and the whole text is never drawn first. Measured in headless Chrome against a scratch server (a faked draft): the first frame holds 2 to 8 characters, the text reaches its 136 characters in 0.9 s, and a draft opened again shows all 136 on its first frame.
 
@@ -256,5 +256,14 @@ Scratch data and invented notes only, local models, manual mode with the product
 
 **Known limit.** Stylo does not repaint a cell while it is being edited, so a cell the user clicks into during the reveal (under a second) keeps the frame it had until it loses focus. Not handled: it needs a hook in stylo and the case is rare.
 
-**Still not shown.** A change that replaces a whole table (the old table cannot be drawn as one widget), and a new-note draft that holds a table (the text before the table would be typed with the finished table already on screen, and hiding the table needs another route). Both swap at once.
+**Still not shown.** A change that replaces a whole table (the old table cannot be drawn as one widget) swaps at once. A new-note draft that holds a table is typed in, see the next amendment.
 
+## Amendment (2026-10-26): a new-note draft that holds a table is typed in, cell by cell (issue 33)
+
+**Decision (his word that the rest of #33 is worth doing; no new surface).** A draft with a table is typed in like any other: the words before the table, then the table, one cell at a time, then the words after it. The table guard in `revealOnOpen` is gone.
+
+**What the check showed.** The earlier worry was that the finished table would be on screen before the typing reached it. It is not: the hide of the untyped text starts before the table, and CodeMirror lets the earlier-starting replace win, so the table is not drawn at all until the typing enters it. At that moment the table widget wins and is drawn whole, and its cells are marked only a frame later (stylo paints cell marks in a measure step), so one frame showed the finished table.
+
+**How.** The draft editor passes the reveal's cell marks to stylo as `inPlace.cellMarks` (`revealCellMarks`, the same function the cell change uses), so the cells are hidden and typed in as in a cell change. The one frame is covered by a class on the content (`sy-reveal-draft`, present while a reveal runs) with a rule that keeps a table invisible until one of its cells carries a mark. The range of a draft runs over many cells, so the "no mark for syntax alone" rule is now asked per cell piece (split at an unescaped `|` and at a line break); asked once for the whole range it let a cell whose typed words were only `**` be marked whole, and the cell blanked for a frame. Checked in headless Chrome against a scratch server (a table in the middle, at the end with bold cells and an unfinished `**`, two tables, a cell change again): every cell grows monotonically with no blank frame, and the first frame of the table is empty.
+
+**Known limits.** A table at the very start of a draft is shown as its source (stylo draws the source while the caret is inside a table, and the caret starts at 0), so it is typed in as source; that is stylo's own behaviour, not the reveal's. The columns' widths change as the cells fill (stylo re-aligns).

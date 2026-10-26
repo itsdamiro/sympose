@@ -23,6 +23,7 @@ import {
   holdsReview,
   pendingIds,
   restoreAppliedMarks,
+  revealCellMarks,
   revealOnOpen,
   reviewExtensions,
   selectionTarget,
@@ -1302,9 +1303,39 @@ describe("a new-note draft typed in as it opens (docs/decisions/072, amendment 2
     expect(drawn(view)).toContain("Buy seeds.")
   })
 
-  it("is not shown for a text with a table, which a rendered table cannot hide half of", async () => {
-    const view = await opened(() => true, "| a | b |\n| - | - |\n| 1 | 2 |\n")
+  it("types a text with a table in as well, and hides each cell's words until they are typed", async () => {
+    const doc = "Intro.\n\n| a | b |\n| - | - |\n| one | **two** |\n"
+    const view = await opened(() => true, doc)
+    const said = (marks: { from: number; to: number }[]) => marks.map((m) => view.state.doc.sliceString(m.from, m.to).trim())
+    const classed = (cls: string) => revealCellMarks(view.state).filter((m) => m.class === cls)
 
-    expect(drawn(view)).toContain("| 1 | 2 |")
+    tick(view, 0)
+    expect(said(classed("sy-reveal-hidden"))).toEqual(["Intro.", "a", "b", "-", "-", "one", "**two**"])
+    expect(classed("sy-reveal-new")).toEqual([])
+
+    tick(view, 10 * doc.indexOf("one") + 20) // "one" is typed up to its second letter: "on"
+    expect(said(classed("sy-reveal-new"))).toEqual(["Intro.", "a", "b", "-", "-", "on"])
+    expect(said(classed("sy-reveal-hidden"))).toEqual(["e", "**two**"])
+  })
+
+  it("asks stylo for no mark on a cell whose typed words are only syntax", async () => {
+    const doc = "Intro.\n\n| a | b |\n| - | - |\n| one | **two** |\n"
+    const view = await opened(() => true, doc)
+
+    tick(view, 0)
+    tick(view, 10 * (doc.indexOf("**two") + 2)) // "**" of the last cell is typed, nothing more
+    const marks = revealCellMarks(view.state)
+
+    expect(marks.some((m) => view.state.doc.sliceString(m.from, m.to).trim() === "**")).toBe(false)
+    expect(marks.filter((m) => m.class === "sy-reveal-hidden").map((m) => view.state.doc.sliceString(m.from, m.to).trim())).toEqual(["two**"])
+  })
+
+  it("keeps the table invisible until its cells are marked, which stylo does a frame after drawing it", async () => {
+    const view = await opened(() => true, "| a |\n| - |\n| 1 |\n")
+
+    expect(view.contentDOM.classList.contains("sy-reveal-draft")).toBe(true)
+    tick(view, 0)
+    tick(view, 5000)
+    expect(view.contentDOM.classList.contains("sy-reveal-draft")).toBe(false)
   })
 })

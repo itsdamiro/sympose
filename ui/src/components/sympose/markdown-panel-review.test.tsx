@@ -182,11 +182,11 @@ describe("MarkdownPanel with the persona's suggested changes", () => {
     expect(container.querySelector("[data-cellwidgets]")!.getAttribute("data-cellwidgets")).toBe("none")
   })
 
-  it("gives stylo no cell marks for a persona's own file", async () => {
+  it("gives stylo only the draft reveal's cell marks for a persona's own file, none while no reveal runs", async () => {
     const file = { load: async () => ({ content: NOTE }), save: async () => ({ ok: true as const }), title: "soul.md" }
     const { container } = open({ file })
     await waitFor(() => expect(screen.getByTestId("cm").querySelector(".cm-content")).not.toBeNull())
-    expect(container.querySelector("[data-cellmarks]")!.getAttribute("data-cellmarks")).toBe("none")
+    expect(container.querySelector("[data-cellmarks]")!.getAttribute("data-cellmarks")).toBe("[]")
   })
 
   it("accepts one change from its own button: the text changes, the server forgets it, and nothing is saved yet", async () => {

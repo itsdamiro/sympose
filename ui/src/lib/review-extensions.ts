@@ -341,17 +341,30 @@ function revealDecorations(state: EditorState): DecorationSet {
 
 /** The same frame for the words inside table cells (stylo's `cellMarks`, which a decoration cannot reach): the typed words are
  *  marked and the others hidden. Stylo ignores a mark that is not inside a cell, where `revealDecorations` has drawn it. */
-function revealCellMarks(state: EditorState): CellMark[] {
+export function revealCellMarks(state: EditorState): CellMark[] {
+  const frame = revealFrame(state)
+  if (frame.length === 0) return []
   const text = state.doc.toString()
   // Stylo marks the whole cell for a mark that covers no visible character (only `**`, a bracket or a space), which would hide
-  // or tint all of it for a frame or two: such a stretch is left unmarked until a visible character joins it.
-  const visible = (from: number, to: number) => from < to && !/^[\s*_~`[\]|\\]*$/.test(text.slice(from, to))
-  return revealFrame(state).flatMap(({ item, typed }) => {
+  // or tint all of it for a frame or two: such a stretch is left unmarked until a visible character joins it. A range can run
+  // over many cells (a draft's whole text), so each cell's part of it is asked on its own.
+  const pieces = (from: number, to: number, cls: string): CellMark[] => {
     const marks: CellMark[] = []
-    if (visible(item.from, item.from + typed)) marks.push({ from: item.from, to: item.from + typed, class: "sy-reveal-new" })
-    if (visible(item.from + typed, item.to)) marks.push({ from: item.from + typed, to: item.to, class: "sy-reveal-hidden" })
+    const add = (start: number, end: number) => {
+      if (start < end && !/^[\s*_~`[\]|\\]*$/.test(text.slice(start, end))) marks.push({ from: start, to: end, class: cls })
+    }
+    let start = from
+    for (const cut of text.slice(from, to).matchAll(/(?<!\\)\||\n/g)) {
+      add(start, from + cut.index)
+      start = from + cut.index + 1
+    }
+    add(start, to)
     return marks
-  })
+  }
+  return frame.flatMap(({ item, typed }) => [
+    ...pieces(item.from, item.from + typed, "sy-reveal-new"),
+    ...pieces(item.from + typed, item.to, "sy-reveal-hidden"),
+  ])
 }
 
 /** The old words still drawn, for a cell (stylo's `cellWidgets`); the key holds what is drawn, so a cell is repainted as they shrink. */
@@ -387,19 +400,21 @@ const revealExtensions: Extension[] = [revealField, EditorView.decorations.compu
 /**
  * For an editor that holds a new-note draft (docs/decisions/072, amendment 2026-10-26): the first time it opens, its whole text
  * is typed in, with nothing to take away. `take` is asked once, as the editor is made, and says whether this opening is the
- * first one. Not shown for an empty text, when the user asked for less motion, or for a text with a table (the reveal cannot
- * hide half of a rendered table's row).
+ * first one. Not shown for an empty text or when the user asked for less motion. A table in the text is hidden until the typing
+ * reaches it, then typed in cell by cell through `revealCellMarks`, which the editor must pass to stylo as `inPlace.cellMarks`.
  */
 export function revealOnOpen(take: () => boolean): Extension[] {
   return [
     revealExtensions,
+    // A table is drawn whole when the typing reaches it and gets its cell marks a frame later: until then it stays invisible.
+    EditorView.contentAttributes.compute([revealField], (state) => ({ class: state.field(revealField).items.length > 0 ? "sy-reveal-draft" : "" })),
     ViewPlugin.define((view) => {
       let gone = false
       queueMicrotask(() => {
         // Before the first paint, so the whole text is never drawn first; the editor may be gone by now.
         const length = view.state.doc.length
         if (gone || length === 0 || !take()) return
-        if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches || /^\s*\|?\s*:?-+:?\s*\|/m.test(view.state.doc.toString())) return
+        if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
         view.dispatch({ effects: startReveal.of([{ from: 0, to: length, old: "" }]) })
       })
       return {
@@ -773,6 +788,7 @@ const theme = EditorView.baseTheme({
   },
   ".sy-reveal-old": { whiteSpace: "pre-wrap" },
   ".sy-reveal-hidden": { display: "none" },
+  ".sy-reveal-draft .cm-inplace-table:not(:has([data-stylo-cell-mark]))": { visibility: "hidden" },
   ".sy-change": { whiteSpace: "pre-wrap", position: "relative" },
   ".sy-anchor": { position: "relative" },
   // The tab with the buttons, above the words it is about: a short line joins it to them.
