@@ -17,6 +17,9 @@ export interface PanelFile {
   banner?: React.ReactNode
   /** The file opens with a `---` properties block (a scheduled job's file, docs/decisions/091): the card shows it, as for a note. */
   properties?: boolean
+  /** Asked once each time the editor is made over this file: true when its text is to be typed in as it opens (a new-note draft,
+   *  docs/decisions/072), false to show it at once. */
+  reveal?: () => boolean
 }
 
 /**

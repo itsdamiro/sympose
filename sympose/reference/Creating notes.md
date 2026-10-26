@@ -12,6 +12,10 @@ In the Drafts group at the top of the notes list. A new note is listed there, ma
 
 You can change the draft's text before you accept. What you change is kept with the draft, not in your vault.
 
+## Are the words of a proposed note typed in when I open it?
+
+The first time you open a new note from the Drafts group, its words are typed in over a second or less. Opened again, or after you have edited it, it shows at once. If your system is set to reduce motion it always shows at once.
+
 ## Where is the note saved when I accept it?
 
 The file is saved in your vault with the text as it is now, and opened, in the folder you asked for or else in a folder called Inbox. The file takes the note's title. If a note with that title is already there, Sympose adds a number, such as Plan (2), and never replaces your note.

@@ -351,6 +351,36 @@ const revealFrames = ViewPlugin.define((view) => {
   }
 })
 
+/** The reveal's field, its drawing and its frame loop: what any editor needs to show a change being typed in. */
+const revealExtensions: Extension[] = [revealField, EditorView.decorations.compute([revealField], revealDecorations), revealFrames]
+
+/**
+ * For an editor that holds a new-note draft (docs/decisions/072, amendment 2026-10-26): the first time it opens, its whole text
+ * is typed in, with nothing to take away. `take` is asked once, as the editor is made, and says whether this opening is the
+ * first one. Not shown for an empty text, when the user asked for less motion, or for a text with a table (the reveal cannot
+ * hide half of a rendered table's row).
+ */
+export function revealOnOpen(take: () => boolean): Extension[] {
+  return [
+    revealExtensions,
+    ViewPlugin.define((view) => {
+      let gone = false
+      queueMicrotask(() => {
+        // Before the first paint, so the whole text is never drawn first; the editor may be gone by now.
+        const length = view.state.doc.length
+        if (gone || length === 0 || !take()) return
+        if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches || /^\s*\|?\s*:?-+:?\s*\|/m.test(view.state.doc.toString())) return
+        view.dispatch({ effects: startReveal.of([{ from: 0, to: length, old: "" }]) })
+      })
+      return {
+        destroy() {
+          gone = true
+        },
+      }
+    }),
+  ]
+}
+
 /** Where each of these changes (sorted, none overlapping) lands in the new text once all are applied. */
 function landing(chosen: Placed[]): { proposal: Proposal; from: number; to: number }[] {
   let shift = 0
@@ -834,9 +864,7 @@ export function reviewExtensions({ initial, onResolve, onOpenComment, onAttach, 
   return [
     reviewField.init(() => initial()),
     decorations,
-    revealField,
-    EditorView.decorations.compute([revealField], revealDecorations),
-    revealFrames,
+    revealExtensions,
     theme,
     resolveFacet.of(onResolve),
     appliedField,

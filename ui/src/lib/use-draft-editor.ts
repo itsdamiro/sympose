@@ -30,6 +30,9 @@ export function useDraftEditor({
   // The text of each draft as the user has it: the proposal's own until the editor saves an edit.
   const texts = React.useRef(new Map<string, string>())
 
+  // The drafts whose text has been typed in once this page: a draft opened again is shown at once, as is one the user has edited.
+  const revealed = React.useRef(new Set<string>())
+
   const open = React.useCallback((path: string) => setOpened({ handle, path }), [handle])
   const close = React.useCallback(() => setOpened(null), [])
 
@@ -40,6 +43,12 @@ export function useDraftEditor({
         ? {
             title: `${personaName} · draft`,
             properties: true, // a note's draft opens with its properties card, as the note will
+            reveal: () => {
+              const key = `${handle}:${notePath}`
+              if (revealed.current.has(key) || texts.current.has(key)) return false
+              revealed.current.add(key)
+              return true
+            },
             load: async () => {
               const kept = texts.current.get(`${handle}:${notePath}`)
               if (kept !== undefined) return { content: kept }

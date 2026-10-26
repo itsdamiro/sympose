@@ -233,3 +233,16 @@ Scratch data and invented notes only, local models, manual mode with the product
 **Alternatives rejected.** Feeding frames through stylo's `value` (above). Dispatching the real change in steps (above). A CSS-only wipe on the new words: no typing, no removal, and it draws wrongly across a line break. A request to stylo for an animated diff: stylo already hands the host the editor and its extensions, so it would add a surface there for nothing.
 
 **Not checked when written:** how it looks in stylo's in-place canvas (to be tried in the real app).
+
+## Amendment (2026-10-26): a new-note draft is typed in the first time it opens (issue 33)
+
+**Decision (his word: a whole note written in reply to a chat instruction is typed in).** The first time a new-note draft opens in the editor on a page, its whole text is typed in from the start, with nothing to take away: about 10 ms a character, never more than 0.9 s, the same constants and drawing as an applied change. A draft opened again, or one the user has edited, is shown at once. Not shown at all: with `prefers-reduced-motion`, for an empty text, or for a text with a table (a rendered table cannot hide half of a row, as above).
+
+**Why on opening.** A draft is not opened for the user when the persona makes it; it waits in the Drafts section until the user opens it, so that is the moment the words arrive in front of them. The editor is made over the loaded text (stylo is not mounted until the note is ready), so there is no change to stage: the reveal starts from the editor's own first moment, before the first paint, and the whole text is never drawn first. Measured in headless Chrome against a scratch server (a faked draft): the first frame holds 2 to 8 characters, the text reaches its 136 characters in 0.9 s, and a draft opened again shows all 136 on its first frame.
+
+**How.** `revealOnOpen(take)` in `review-extensions.ts` adds the reveal's field, drawing and frame loop to an editor that has no review extensions, and starts one reveal over the whole text from a microtask when the editor is made. `take` is the file's `reveal` function (`PanelFile.reveal`), which `useDraftEditor` answers true once for each draft on a page and never for one with a text kept from an edit.
+
+**Decided here, say if it should differ.** "First time" means the first opening since the page was loaded, not the first since the draft was made: a draft that was waiting before a reload is typed in once when first opened after it. Knowing a draft was made in this page would need the Drafts list to remember what it had shown.
+
+**Not done.** A change inside a rendered table cell still swaps at once; stylo draws a table as its own widget and its cells cannot show half of a change.
+

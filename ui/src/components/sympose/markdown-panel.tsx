@@ -28,7 +28,7 @@ import { useNoteDocument, type PanelFile } from "@/lib/use-note-document"
 import type { Proposal } from "@/lib/persona-changes-api"
 import { usePersonaChanges } from "@/lib/use-persona-changes"
 import { announceDraftsChanged } from "@/lib/use-drafts"
-import { applyProposals, cellMarks, cellWidgets, classify, clearApplied, holdsReview, isTableChange, pendingIds, restoreAppliedMarks, reviewExtensions, setReviewData, type ReviewData } from "@/lib/review-extensions"
+import { applyProposals, cellMarks, cellWidgets, classify, clearApplied, holdsReview, isTableChange, pendingIds, restoreAppliedMarks, revealOnOpen, reviewExtensions, setReviewData, type ReviewData } from "@/lib/review-extensions"
 import { useEditMode } from "@/lib/use-edit-mode"
 import { OutdatedChanges } from "@/components/sympose/outdated-changes"
 import { CommentPopover, type CommentBox } from "@/components/sympose/comment-popover"
@@ -367,6 +367,9 @@ function MarkdownPanel({
       }),
     []
   )
+  // A new-note draft is typed in the first time it opens (docs/decisions/072); it has no review extensions otherwise.
+  const revealDraft = file?.reveal
+  const draftExt = React.useMemo(() => (revealDraft ? revealOnOpen(revealDraft) : undefined), [revealDraft])
   // New data reaches an editor that is already open; one that opens later starts from `initial`.
   React.useEffect(() => {
     styloRef.current?.getView()?.dispatch({ effects: setReviewData.of(reviewData) })
@@ -631,7 +634,7 @@ function MarkdownPanel({
       softBreaks
       inPlace={{ reveal, selectionUI, table: tableEditing, ...(file ? {} : { contextMenu: { items: commentMenu }, cellMarks, cellWidgets }) }}
       canvasHeader={readOnly ? undefined : canvasHeader}
-      extensions={readOnly || file ? undefined : reviewExt}
+      extensions={readOnly ? undefined : file ? draftExt : reviewExt}
       toolbar={{
         items: readOnly || file ? toolbarItems : toolbarWithReview,
         // One row: what does not fit folds into a trailing `⋯` menu instead of wrapping (stylo >=0.18.0).

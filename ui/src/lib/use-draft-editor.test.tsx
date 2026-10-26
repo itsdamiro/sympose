@@ -50,6 +50,21 @@ describe("useDraftEditor", () => {
     expect(result.current.file!.properties).toBe(true)
   })
 
+  it("says to type a draft in the first time it opens, and not again", () => {
+    const { result } = setup()
+    expect(result.current.file!.reveal!()).toBe(true)
+    expect(result.current.file!.reveal!()).toBe(false)
+    act(() => result.current.close())
+    act(() => result.current.open(PATH))
+    expect(result.current.file!.reveal!()).toBe(false)
+  })
+
+  it("does not type in a draft the user has edited", async () => {
+    const { result } = setup()
+    await result.current.file!.save("x", "# New plan\n\nEdited\n")
+    expect(result.current.file!.reveal!()).toBe(false)
+  })
+
   it("has nothing to load when the proposal is gone", async () => {
     const { result } = setup()
     changes.fetchChanges.mockResolvedValue({ proposals: [] })

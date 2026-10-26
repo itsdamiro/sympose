@@ -23,6 +23,7 @@ import {
   holdsReview,
   pendingIds,
   restoreAppliedMarks,
+  revealOnOpen,
   reviewExtensions,
   selectionTarget,
   setReviewData,
@@ -1117,5 +1118,88 @@ describe("revealing an applied change (docs/decisions/072, amendment 2026-10-24)
     view.destroy()
 
     expect(vi.getTimerCount()).toBe(0)
+  })
+})
+
+describe("a new-note draft typed in as it opens (docs/decisions/072, amendment 2026-10-26)", () => {
+  const DRAFT = "# Plan\n\nBuy seeds.\nSow in May.\n"
+  const opened = async (take: () => boolean = () => true, doc = DRAFT) => {
+    const view = new EditorView({ state: EditorState.create({ doc, extensions: [history(), revealOnOpen(take)] }), parent: document.body })
+    views.push(view)
+    await Promise.resolve()
+    return view
+  }
+  const tick = (view: EditorView, at: number) => view.dispatch({ effects: tickReveal.of(at) })
+  const drawn = (view: EditorView) => view.contentDOM.textContent ?? ""
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it("draws none of the text at first, though the document holds it all", async () => {
+    const view = await opened()
+
+    expect(view.state.doc.toString()).toBe(DRAFT)
+    expect(drawn(view)).not.toContain("Buy seeds")
+  })
+
+  it("types the text in from the start, with nothing taken away first, and ends with all of it", async () => {
+    const view = await opened()
+
+    tick(view, 0)
+    tick(view, 50) // 10 ms a character
+    expect(view.dom.querySelector(".sy-reveal-old")).toBeNull()
+    expect(view.dom.querySelector(".sy-reveal-new")?.textContent).toBe("# Pla")
+    tick(view, 5000)
+
+    expect(drawn(view)).toContain("Buy seeds.")
+    expect(drawn(view)).toContain("Sow in May.")
+    expect(view.dom.querySelector(".sy-reveal-new")).toBeNull()
+  })
+
+  it("is asked once as the editor is made, and shows nothing when it says no", async () => {
+    const take = vi.fn(() => false)
+    const view = await opened(take)
+
+    expect(take).toHaveBeenCalledTimes(1)
+    expect(drawn(view)).toContain("Buy seeds.")
+  })
+
+  it("does not ask for an empty text", async () => {
+    const take = vi.fn(() => true)
+    await opened(take, "")
+
+    expect(take).not.toHaveBeenCalled()
+  })
+
+  it("does not ask when the editor was already gone", async () => {
+    const take = vi.fn(() => true)
+    const view = new EditorView({ state: EditorState.create({ doc: DRAFT, extensions: [revealOnOpen(take)] }), parent: document.body })
+    view.destroy()
+    await Promise.resolve()
+
+    expect(take).not.toHaveBeenCalled()
+  })
+
+  it("is over at once when the user types", async () => {
+    const view = await opened()
+
+    view.dispatch({ changes: { from: 0, insert: "X" }, userEvent: "input.type" })
+
+    expect(drawn(view)).toContain("Buy seeds.")
+    expect(drawn(view)).toContain("Sow in May.")
+  })
+
+  it("is not shown to someone who asked for less motion", async () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({ matches: query.includes("reduce"), addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} }))
+    const view = await opened()
+
+    expect(drawn(view)).toContain("Buy seeds.")
+  })
+
+  it("is not shown for a text with a table, which a rendered table cannot hide half of", async () => {
+    const view = await opened(() => true, "| a | b |\n| - | - |\n| 1 | 2 |\n")
+
+    expect(drawn(view)).toContain("| 1 | 2 |")
   })
 })
