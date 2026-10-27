@@ -256,7 +256,7 @@ Scratch data and invented notes only, local models, manual mode with the product
 
 **Known limit.** Stylo does not repaint a cell while it is being edited, so a cell the user clicks into during the reveal (under a second) keeps the frame it had until it loses focus. Not handled: it needs a hook in stylo and the case is rare.
 
-**Still not shown.** A change that replaces a whole table (the old table cannot be drawn as one widget) swaps at once. A new-note draft that holds a table is typed in, see the next amendment.
+**Still not shown.** A change that replaces a whole table (the old table cannot be drawn as one widget) swaps at once; see the amendment of 2026-10-27. A new-note draft that holds a table is typed in, see the amendment of 2026-10-26.
 
 ## Amendment (2026-10-26): a new-note draft that holds a table is typed in, cell by cell (issue 33)
 
@@ -267,3 +267,13 @@ Scratch data and invented notes only, local models, manual mode with the product
 **How.** The draft editor passes the reveal's cell marks to stylo as `inPlace.cellMarks` (`revealCellMarks`, the same function the cell change uses), so the cells are hidden and typed in as in a cell change. The one frame is covered by a class on the content (`sy-reveal-draft`, present while a reveal runs) with a rule that keeps a table invisible until one of its cells carries a mark. The range of a draft runs over many cells, so the "no mark for syntax alone" rule is now asked per cell piece (split at an unescaped `|` and at a line break); asked once for the whole range it let a cell whose typed words were only `**` be marked whole, and the cell blanked for a frame. Checked in headless Chrome against a scratch server (a table in the middle, at the end with bold cells and an unfinished `**`, two tables, a cell change again): every cell grows monotonically with no blank frame, and the first frame of the table is empty.
 
 **Known limits.** A table at the very start of a draft is shown as its source (stylo draws the source while the caret is inside a table, and the caret starts at 0), so it is typed in as source; that is stylo's own behaviour, not the reveal's. The columns' widths change as the cells fill (stylo re-aligns).
+
+## Amendment (2026-10-27): a change that replaces a whole table types in only its new cells (issue 33)
+
+**Decision (his choice among three shapes: only the new cells, leave it instant, or type the whole new table; no new surface).** When an applied change replaces a whole table (a row or a column added or removed, a cell changed inside it; ADR 069), the rows and cells that were taken away go at once and only the cells whose words are new are typed in. Cells that are unchanged stay as they are. The separator row is syntax and is never typed.
+
+**How.** `newTableCells(old, next)` pairs the old and new rows in order so that the most cells are shared, then pairs the cells inside a pair of rows; a row with nothing in common is all new. The reveal's effect carries the old table's range, not positions: the editor may re-pad the table's columns in the same transaction (stylo does when a change lands in a table), which moves every cell, so the cells are looked up in the text as the change left it (`typedCells`, through `tr.changes.mapPos`). The new cells are typed one after another at the same speed per character, and the whole run is sped up as one against `REVEAL_MAX_MS` (`Reveal.after`, `Reveal.total`). A table that is drawn as source (the caret is inside it, as after Accept in `manual` mode) shows the same typing in the source; a rendered table shows it through the cell marks.
+
+**Checked in real Chrome** (scratch vault, dev server on a scratch API; the cells sampled each frame and the DOM watched with a `MutationObserver`): a row and a column added at once, in `manual` mode with the table in source and in `accept` mode with the table rendered. The new cells grew one after another in order, the unchanged cells never moved, and the finished table was never on screen before the typing. In `accept` mode the table first shows about 100 ms into the reveal, and a plain cell change does the same: the note's mount takes that long, so the start of a reveal on open is not seen (headless Chrome; not measured on his Mac).
+
+**Known limits.** A table that loses rows or columns and gains nothing shows no motion (nothing is new). A change that rewrites most of a table is typed in nearly whole. Rows are paired in order, so a table whose rows were reordered shows the moved rows as new.

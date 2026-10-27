@@ -1,6 +1,6 @@
 import { ArrowTurnBackwardIcon, Attachment01Icon } from "@hugeicons/core-free-icons"
 import { Decoration, EditorView, ViewPlugin, WidgetType, type DecorationSet } from "@codemirror/view"
-import { Facet, StateEffect, StateField, type EditorState, type Extension, type Range } from "@codemirror/state"
+import { Facet, StateEffect, StateField, type EditorState, type Extension, type Range, type Transaction } from "@codemirror/state"
 import type { CellMark, CellWidget } from "@damiro/stylo"
 
 import { captureContext, locate } from "@/lib/passage-finder"
@@ -252,6 +252,13 @@ interface Reveal {
   from: number
   to: number
   old: string
+  /** For one of several stretches typed in one after another (the new cells of a table): when this one starts, and how long all of
+   *  them take together, in unscaled milliseconds, so that the whole run is sped up as one. */
+  after?: number
+  total?: number
+  /** Not yet placed: a table that was replaced, as it was (`find`) and where it was in the text before the change. The cells that
+   *  are new are looked for in the text as the change left it, since the editor may have re-padded the table's columns. */
+  table?: { find: string; from: number; to: number }
 }
 
 interface RevealState {
@@ -273,10 +280,25 @@ export const tickReveal = StateEffect.define<number>()
 function revealProgress(item: Reveal, elapsed: number): { oldLeft: number; typed: number } | null {
   const removing = item.old.length * REMOVE_MS
   const full = removing + (item.to - item.from) * TYPE_MS
-  const t = elapsed * Math.max(1, full / REVEAL_MAX_MS)
+  const t = elapsed * Math.max(1, (item.total ?? full) / REVEAL_MAX_MS) - (item.after ?? 0)
   if (t >= full) return null
+  if (t < 0) return { oldLeft: item.old.length, typed: 0 }
   if (t < removing) return { oldLeft: item.old.length - Math.floor(t / REMOVE_MS), typed: 0 }
   return { oldLeft: 0, typed: Math.floor((t - removing) / TYPE_MS) }
+}
+
+/** The new cells of a table this transaction replaced, typed in one after another (`Reveal.after`, `Reveal.total`). */
+function typedCells(tr: Transaction, table: { find: string; from: number; to: number }): Reveal[] {
+  const from = tr.changes.mapPos(table.from, -1)
+  const to = tr.changes.mapPos(table.to, 1)
+  const cells = newTableCells(table.find, tr.newDoc.sliceString(from, to))
+  const total = cells.reduce((sum, cell) => sum + (cell.to - cell.from) * TYPE_MS, 0)
+  let after = 0
+  return cells.map((cell) => {
+    const item = { from: from + cell.from, to: from + cell.to, old: "", after, total }
+    after += (cell.to - cell.from) * TYPE_MS
+    return item
+  })
 }
 
 const NO_REVEAL: RevealState = { items: [], startedAt: null, now: 0 }
@@ -284,7 +306,9 @@ const NO_REVEAL: RevealState = { items: [], startedAt: null, now: 0 }
 const revealField = StateField.define<RevealState>({
   create: () => NO_REVEAL,
   update(value, tr) {
-    for (const effect of tr.effects) if (effect.is(startReveal)) return { items: effect.value, startedAt: null, now: 0 }
+    for (const effect of tr.effects) {
+      if (effect.is(startReveal)) return { items: effect.value.flatMap((item) => (item.table ? typedCells(tr, item.table) : [item])), startedAt: null, now: 0 }
+    }
     if (tr.docChanged) return NO_REVEAL // the text was changed some other way (typing, undo): never draw over it
     for (const effect of tr.effects) {
       if (!effect.is(tickReveal)) continue
@@ -427,24 +451,35 @@ export function revealOnOpen(take: () => boolean): Extension[] {
 }
 
 /** Where each of these changes (sorted, none overlapping) lands in the new text once all are applied. */
-function landing(chosen: Placed[]): { proposal: Proposal; from: number; to: number }[] {
+function landing(chosen: Placed[]): Landed[] {
   let shift = 0
   return chosen.map(({ proposal, from, to }) => {
     const replace = proposal.replace ?? ""
     const start = from + shift
     shift += replace.length - (to - from)
-    return { proposal, from: start, to: start + replace.length }
+    return { proposal, from: start, to: start + replace.length, was: { from, to } }
   })
 }
 
+/** A change as it lands in the new text, with where its old words were before the change. */
+interface Landed {
+  proposal: Proposal
+  from: number
+  to: number
+  was: { from: number; to: number }
+}
+
 /** The effect that shows these applied changes as they go in; it shows none when the user asked for less motion. A change of a
- *  whole table is not shown (it is drawn in the table's source, and a rendered table cannot hide half a row). */
-function revealing(landed: { proposal: Proposal; from: number; to: number }[]): StateEffect<Reveal[]> {
+ *  whole table cannot take its old table away (a rendered table cannot hide half a row): the old rows go at once and only the
+ *  cells that are new are typed in. */
+function revealing(landed: Landed[]): StateEffect<Reveal[]> {
   if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return startReveal.of([])
   return startReveal.of(
-    landed.flatMap(({ proposal, from, to }) => {
+    landed.flatMap(({ proposal, from, to, was }): Reveal[] => {
       const old = proposal.find ?? ""
-      return old === (proposal.replace ?? "") || isTableChange(proposal) ? [] : [{ from, to, old }]
+      if (old === (proposal.replace ?? "")) return []
+      if (isTableChange(proposal)) return [{ from, to, old, table: { find: old, ...was } }]
+      return [{ from, to, old }]
     })
   )
 }
@@ -503,6 +538,87 @@ export function clearApplied(view: EditorView): string[] {
 export function isTableChange(proposal: { find?: string; replace?: string | null }): boolean {
   const rows = (text: string | null | undefined) => (text ?? "").split("\n")
   return rows(proposal.find).length > 1 && rows(proposal.replace).length > 1 && rows(proposal.find).every((line) => line.includes("|"))
+}
+
+interface TableCell {
+  text: string
+  from: number
+  to: number
+}
+
+/** The cells of each row of a table's source (its separator row left out): the words of a cell, trimmed, and where they are. */
+function tableRows(table: string): TableCell[][] {
+  const rows: TableCell[][] = []
+  let offset = 0
+  for (const line of table.split("\n")) {
+    const lineStart = offset
+    offset += line.length + 1
+    if (!line.includes("|")) continue
+    const cells: TableCell[] = []
+    let start = 0
+    const cut = (end: number) => {
+      const raw = line.slice(start, end)
+      const text = raw.trim()
+      if (text) cells.push({ text, from: lineStart + start + raw.indexOf(text), to: lineStart + start + raw.indexOf(text) + text.length })
+    }
+    for (const bar of line.matchAll(/(?<!\\)\|/g)) {
+      cut(bar.index)
+      start = bar.index + 1
+    }
+    cut(line.length)
+    if (cells.length > 0 && !cells.every((cell) => /^:?-+:?$/.test(cell.text))) rows.push(cells)
+  }
+  return rows
+}
+
+/** The longest run of cells two rows share, in order: which cells of `next` are kept (`true`) and how many. */
+function sharedCells(old: TableCell[], next: TableCell[]): { kept: boolean[]; count: number } {
+  const best = Array.from({ length: old.length + 1 }, () => new Array<number>(next.length + 1).fill(0))
+  for (let i = old.length - 1; i >= 0; i--) {
+    for (let j = next.length - 1; j >= 0; j--) {
+      best[i][j] = old[i].text === next[j].text ? best[i + 1][j + 1] + 1 : Math.max(best[i + 1][j], best[i][j + 1])
+    }
+  }
+  const kept = next.map(() => false)
+  for (let i = 0, j = 0; i < old.length && j < next.length; ) {
+    if (old[i].text === next[j].text) {
+      kept[j] = true
+      i++
+      j++
+    } else if (best[i + 1][j] >= best[i][j + 1]) i++
+    else j++
+  }
+  return { kept, count: best[0][0] }
+}
+
+/**
+ * Where the words that are new are in `next`, when it replaces the table `old` (a row or a column added or removed, a cell
+ * changed): rows are paired by the cells they share, then cells within a pair; a row with nothing in common is all new. What
+ * was taken away has no place in the answer, and the separator row is syntax and never new.
+ */
+export function newTableCells(old: string, next: string): { from: number; to: number }[] {
+  const before = tableRows(old)
+  const after = tableRows(next)
+  // Pair the rows in order so that the most cells are shared (a plain alignment over rows; tables are small).
+  const shared = before.map((o) => after.map((n) => sharedCells(o, n).count))
+  const total = Array.from({ length: before.length + 1 }, () => new Array<number>(after.length + 1).fill(0))
+  for (let i = before.length - 1; i >= 0; i--) {
+    for (let j = after.length - 1; j >= 0; j--) {
+      const pair = shared[i][j] > 0 ? total[i + 1][j + 1] + shared[i][j] : 0
+      total[i][j] = Math.max(pair, total[i + 1][j], total[i][j + 1])
+    }
+  }
+  const paired = new Map<number, number>() // row of `after` -> row of `before`
+  for (let i = 0, j = 0; i < before.length && j < after.length; ) {
+    if (shared[i][j] > 0 && total[i][j] === total[i + 1][j + 1] + shared[i][j]) paired.set(j++, i++)
+    else if (total[i + 1][j] >= total[i][j + 1]) i++
+    else j++
+  }
+  return after.flatMap((row, j) => {
+    const mate = paired.get(j)
+    const kept = mate === undefined ? [] : sharedCells(before[mate], row).kept
+    return row.filter((_, k) => !kept[k]).map(({ from, to }) => ({ from, to }))
+  })
 }
 
 /** A position inside the last cell of the table a change covers, for what the editor draws in a rendered table: the end of the

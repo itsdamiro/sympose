@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest"
-import { EditorState, StateEffect } from "@codemirror/state"
+import { EditorState, StateEffect, type Extension } from "@codemirror/state"
 import { EditorView } from "@codemirror/view"
 import { history, undo } from "@codemirror/commands"
 
@@ -19,6 +19,7 @@ import {
   classify,
   declineChanges,
   isTableChange,
+  newTableCells,
   lastCellEnd,
   holdsReview,
   pendingIds,
@@ -62,10 +63,11 @@ function mount(
     onOpenComment,
     onAttach,
     onApplied,
-  }: { doc?: string; onResolve?: (ids: string[]) => void; onOpenComment?: (id: string, rect: DOMRect, ids: string[]) => void; onAttach?: (p: { quote: string; before: string; after: string }) => void; onApplied?: (ids: string[], untouched: boolean) => void } = {}
+    extensions = [],
+  }: { doc?: string; extensions?: Extension[]; onResolve?: (ids: string[]) => void; onOpenComment?: (id: string, rect: DOMRect, ids: string[]) => void; onAttach?: (p: { quote: string; before: string; after: string }) => void; onApplied?: (ids: string[], untouched: boolean) => void } = {}
 ) {
   const view = new EditorView({
-    state: EditorState.create({ doc, extensions: [history(), reviewExtensions({ initial: () => data, onResolve, onOpenComment, onAttach, onApplied })] }),
+    state: EditorState.create({ doc, extensions: [history(), ...extensions, reviewExtensions({ initial: () => data, onResolve, onOpenComment, onAttach, onApplied })] }),
     parent: document.body,
   })
   views.push(view)
@@ -1224,6 +1226,97 @@ describe("revealing an applied change inside a table cell (docs/decisions/072)",
     const view = swap()
 
     expect(reveal(view)).toEqual([])
+  })
+})
+
+describe("revealing an applied change that replaces a whole table (docs/decisions/072)", () => {
+  const OLD = "| Item | Qty |\n|------|-----|\n| Carrots | 3 |\n| Beets | 5 |"
+  const said = (next: string, cells: { from: number; to: number }[]) => cells.map((c) => next.slice(c.from, c.to))
+
+  it("finds only the cells of an added row", () => {
+    const next = `${OLD}\n| Leeks | 2 |`
+    expect(said(next, newTableCells(OLD, next))).toEqual(["Leeks", "2"])
+  })
+
+  it("finds the new cell in every row when a column is added, and never the separator", () => {
+    const next = "| Item | Bed | Qty |\n|------|-----|-----|\n| Carrots | A | 3 |\n| Beets | B | 5 |"
+    expect(said(next, newTableCells(OLD, next))).toEqual(["Bed", "A", "B"])
+  })
+
+  it("finds nothing when a row or a column is taken away", () => {
+    expect(newTableCells(OLD, "| Item | Qty |\n|------|-----|\n| Beets | 5 |")).toEqual([])
+    expect(newTableCells(OLD, "| Item |\n|------|\n| Carrots |\n| Beets |")).toEqual([])
+  })
+
+  it("finds a cell that changed inside a row that is otherwise kept", () => {
+    const next = OLD.replace("| 3 |", "| 4 |")
+    expect(said(next, newTableCells(OLD, next))).toEqual(["4"])
+  })
+
+  it("pairs rows in order, so a row added in the middle is the only new one", () => {
+    const next = OLD.replace("| Beets | 5 |", "| Leeks | 2 |\n| Beets | 5 |")
+    expect(said(next, newTableCells(OLD, next))).toEqual(["Leeks", "2"])
+  })
+
+  it("treats a row with nothing in common as all new, and escaped pipes as words", () => {
+    const next = `${OLD}\n| a\\|b | z |`
+    expect(said(next, newTableCells(OLD, next))).toEqual(["a\\|b", "z"])
+  })
+
+  describe("once applied", () => {
+    const DOC = `The beds are raised.\n\n${OLD}\n\nDone.\n`
+    const NEXT = `${OLD}\n| Leeks | 2 |`
+    const tick = (view: EditorView, at: number) => view.dispatch({ effects: tickReveal.of(at) })
+    const reveal = (view: EditorView) => cellMarks(view.state).filter((m) => m.class.startsWith("sy-reveal"))
+    const applied = () => {
+      const { view } = mount({ proposals: [edit("t", OLD, NEXT, DOC)], annotations: [] }, { doc: DOC })
+      applyProposals(view, ["t"])
+      return view
+    }
+
+    afterEach(() => {
+      vi.unstubAllGlobals()
+    })
+
+    it("hides the new cells at first, draws no old words, and leaves the kept cells alone", () => {
+      const view = applied()
+
+      expect(reveal(view).map((m) => [m.class, view.state.doc.sliceString(m.from, m.to)])).toEqual([
+        ["sy-reveal-hidden", "Leeks"],
+        ["sy-reveal-hidden", "2"],
+      ])
+      expect(cellWidgets(view.state).filter((w) => w.key.startsWith("reveal:"))).toEqual([])
+    })
+
+    it("types the new cells in one after another and ends with only the applied mark", () => {
+      const view = applied()
+      const state = () => reveal(view).map((m) => [m.class, view.state.doc.sliceString(m.from, m.to)])
+      tick(view, 0)
+
+      tick(view, 20) // "Leeks" is 50 ms: two characters typed, "2" waits
+      expect(state()).toEqual([["sy-reveal-new", "Le"], ["sy-reveal-hidden", "eks"], ["sy-reveal-hidden", "2"]])
+      tick(view, 55) // "Leeks" is shown, "2" has not started
+      expect(state()).toEqual([["sy-reveal-hidden", "2"]])
+      tick(view, 65) // all shown
+      expect(state()).toEqual([])
+    })
+
+    it("finds the new cells in the text as the change left it, when the editor re-pads the table's columns", () => {
+      const padded = "| Item    | Qty |\n|---------|-----|\n| Carrots | 3   |\n| Beets   | 5   |\n| Leeks   | 2   |"
+      // What stylo does to a change inside a table: the same transaction, with the inserted rows aligned.
+      const align = EditorState.transactionFilter.of((tr) => (tr.docChanged && tr.isUserEvent("input.accept") ? [{ changes: { from: DOC.indexOf(OLD), to: DOC.indexOf(OLD) + OLD.length, insert: padded }, userEvent: "input.accept", effects: tr.effects }] : tr))
+      const { view } = mount({ proposals: [edit("t", OLD, NEXT, DOC)], annotations: [] }, { doc: DOC, extensions: [align] })
+      acceptChanges(view, ["t"])
+
+      expect(view.state.doc.toString()).toContain(padded)
+      expect(reveal(view).map((m) => view.state.doc.sliceString(m.from, m.to))).toEqual(["Leeks", "2"])
+    })
+
+    it("draws nothing when the user asked for less motion", () => {
+      vi.stubGlobal("matchMedia", (query: string) => ({ matches: query.includes("reduce"), addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} }))
+
+      expect(reveal(applied())).toEqual([])
+    })
   })
 })
 
