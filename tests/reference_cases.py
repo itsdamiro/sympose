@@ -529,6 +529,9 @@ REF_CASES: list[RefCase] = [
     # Gaps measured 2026-10-06: an identifier alone, and the open note she cannot edit
     RefCase("identifier-edit-mode", "what does `edit_mode` do?", find=("`edit_mode` setting",), first="Settings.md"),
     RefCase("cannot-edit-open-note", "why can't you edit the note I have open?", find=("check four things",)),  # the Troubleshooting entry; the notes on editing may rank above it
+    # Typing in a table (ADR 072, amendments 2026-10-26 and 2026-10-27)
+    RefCase("table-change-typed-cells", "is a table typed in when you change it?", find=("only the cells with new words are typed in",), first="The web app.md"),
+    RefCase("draft-table-typed-cell-by-cell", "is a table in a new note you propose typed in all at once?", find=("a table in it cell by cell",), first="The web app.md"),
 ]
 
 @dataclass(frozen=True)

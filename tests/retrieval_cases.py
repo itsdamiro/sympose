@@ -107,6 +107,10 @@ _RAW = [
     ("sympose", "how do I accept a note the persona proposed in Slack?", True, "Slack.md"),
     ("sympose", "I pressed Accept under a note in Slack and nothing happened", True, "Slack.md"),
     ("sympose", "my terminal says sympose command not found", True, "Troubleshooting.md"),
+    ("sympose", "when you add a row to my table, does the whole table get retyped?", True, "The web app.md"),
+    ("sympose", "why did only some cells in my table get typed in when you changed it?", True, "The web app.md"),
+    ("sympose", "does a new note you propose appear all at once or get typed in?", True, "The web app.md"),
+    ("sympose", "how do I turn off the typing effect when you change my note?", True, "The web app.md"),
 ]
 
 _VAULT = [

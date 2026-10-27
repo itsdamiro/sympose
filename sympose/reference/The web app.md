@@ -52,6 +52,10 @@ In a table, a persona can change the words of one cell. A model that can use too
 
 You then see the table's source, the old rows struck and the new ones beside them, with one Accept and Decline for the whole table, and she says in her reply what she changed. She cannot remove the table or reshape it in other ways, so she says so and leaves a comment.
 
+## Is a changed table typed in too?
+
+Yes. A changed cell is typed in the same way as other words. When a change replaces a whole table, for a row or a column added or removed, only the cells with new words are typed in, one after another, and the cells that stay as they were do not move. A new note the persona proposed is typed in the first time you open it, a table in it cell by cell. Reduced motion swaps them at once.
+
 ## Where do I click Accept or Decline on a change?
 
 In the note, a small tab above the changed words holds Accept and Decline, and a paperclip. For a new note the persona proposed, the block above the draft has Accept and Decline. For the whole note, the block at the top has Accept all and Decline all.
