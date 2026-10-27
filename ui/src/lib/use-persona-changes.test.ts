@@ -190,6 +190,37 @@ describe("usePersonaChanges", () => {
     await waitFor(() => expect(api.fetchChanges).toHaveBeenCalledTimes(3))
   })
 
+  it("does not put a declined change back when a focus read that began before the decline lands after it", async () => {
+    const stale = noteChanges("a.md", ["1", "2"])
+    let answerFocusRead: (v: unknown) => void = () => {}
+    let answerDecline: (v: unknown) => void = () => {}
+    api.fetchChanges
+      .mockResolvedValueOnce(noteChanges("a.md", ["1", "2"]))
+      .mockImplementationOnce(() => new Promise((resolve) => (answerFocusRead = resolve)))
+      .mockResolvedValue(noteChanges("a.md", ["2"]))
+    api.resolveChanges.mockImplementation(() => new Promise((resolve) => (answerDecline = resolve)))
+    const { result } = renderHook(() => usePersonaChanges({ path: "a.md", persona: "samantha" }))
+    await waitFor(() => expect(result.current.changes?.proposals).toHaveLength(2))
+
+    act(() => {
+      window.dispatchEvent(new Event("focus"))
+    })
+    await waitFor(() => expect(api.fetchChanges).toHaveBeenCalledTimes(2))
+    let declining: Promise<void> = Promise.resolve()
+    act(() => {
+      declining = result.current.resolve(["1"])
+    })
+    await act(async () => answerFocusRead(stale)) // the server had not yet heard of the decline when it answered
+    expect(result.current.changes?.proposals.map((p) => p.id)).toEqual(["2"])
+
+    await act(async () => {
+      answerDecline({ ok: true, resolved: ["1"] })
+      await declining
+    })
+    await waitFor(() => expect(api.fetchChanges).toHaveBeenCalledTimes(3)) // the dropped read is made again, now true
+    expect(result.current.changes?.proposals.map((p) => p.id)).toEqual(["2"])
+  })
+
   it("does nothing to resolve when no note is open", async () => {
     const { result } = renderHook(() => usePersonaChanges({ path: undefined, persona: "samantha" }))
     await act(async () => {
