@@ -56,6 +56,39 @@ def test_install_writes_an_entry_that_runs_the_due_jobs_every_five_minutes(launc
     assert entry["StandardOutPath"] == str(tmp_path / "Logs" / "jobs.log") and (tmp_path / "Logs").is_dir()
 
 
+def test_a_log_over_the_limit_is_set_aside_replacing_the_older_copy(tmp_path):
+    log = tmp_path / "Logs" / "jobs.log"
+    log.parent.mkdir()
+    log.write_text("new" * 10)
+    (tmp_path / "Logs" / "jobs.log.1").write_text("old")
+
+    job_launchd.rotate_log(limit=29)
+
+    assert not log.exists() and (tmp_path / "Logs" / "jobs.log.1").read_text() == "new" * 10
+
+
+def test_a_log_at_the_limit_or_missing_is_left_alone(tmp_path):
+    job_launchd.rotate_log(limit=10)  # no log at all: nothing to do, nothing raised
+    log = tmp_path / "Logs" / "jobs.log"
+    log.parent.mkdir()
+    log.write_text("x" * 10)
+
+    job_launchd.rotate_log(limit=10)
+
+    assert log.read_text() == "x" * 10 and not (tmp_path / "Logs" / "jobs.log.1").exists()
+
+
+def test_a_log_that_cannot_be_moved_does_not_stop_the_run(tmp_path, monkeypatch):
+    log = tmp_path / "Logs" / "jobs.log"
+    log.parent.mkdir()
+    log.write_text("x" * 20)
+    monkeypatch.setattr(job_launchd.os, "replace", lambda *a: (_ for _ in ()).throw(PermissionError("no")))
+
+    job_launchd.rotate_log(limit=10)
+
+    assert log.read_text() == "x" * 20
+
+
 def test_install_loads_the_entry_after_unloading_an_old_one(launchctl):
     job_launchd.install()
     assert [c[0] for c in launchctl.calls] == ["bootout", "bootstrap"]

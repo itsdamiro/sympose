@@ -107,7 +107,7 @@ Settings gets a Jobs section: one row per job (name, schedule, model icon, last 
 
 ## As built: review fixes and the persona writing a job's file (2026-10-21)
 
-- From `/code-review high` of slice 4: the entry no longer copies a value the `.env` file gives (it went stale against later edits, and the CLI and the web app wrote different entries); a refused reinstall no longer loses a working entry; the timer's per-job log line is gone (the outcome is in the job's own run state, which Settings shows, and the web process shows no `info` logs); the On/Off row is disabled while a change is made. Not changed: `jobs.log` is not rotated (`run --due` prints only when a job ran, so it grows slowly).
+- From `/code-review high` of slice 4: the entry no longer copies a value the `.env` file gives (it went stale against later edits, and the CLI and the web app wrote different entries); a refused reinstall no longer loses a working entry; the timer's per-job log line is gone (the outcome is in the job's own run state, which Settings shows, and the web process shows no `info` logs); the On/Off row is disabled while a change is made. `jobs.log` was not rotated then (`run --due` prints only when a job ran, so it grows slowly); see the amendment of 2026-10-28.
 - **The persona helps to set up a job, by the skill `setting-up-a-job`** (ADR 077; no tool, carried by Samantha). It asks for the task and the time if either is missing, writes only the five schedule forms, leaves `model` and `max_runs_per_day` out unless the user names them, and gives the file as one block with `enabled: false`; the user adds a job in Settings, pastes it over the template, saves and switches it On. She cannot see, create or change a job file herself. `The web app.md` has an entry with the schedule forms and the properties.
 - Next, not built: a confirmation card (ADR 078 and 080) so the persona files the job herself and the user clicks Accept, which amends ADR 080's "not a persona's files". It needs its own decision with damiro.
 
@@ -166,6 +166,12 @@ The model's mark on a job's row in Settings is the same `ModelPicker` the compos
 
 - **Cost, his to reverse:** a job can no longer have a limit of its own, and Slack's default went from 10 to 5 (a default I chose; the one number is what the user changes). A `max_waiting_drafts:` line left in a job's file is ignored, not a problem; a value saved under the old setting names is not read. The Settings row of a job shows the one number as its limit.
 - **The source no longer rides on the thread.** `note_changes.from_source` and `new_notes_made` (two thread-locals) are gone. A turn is given a `draft_limit.Filing` (`source`: `slack` or `job:<name>`, and `made`, the drafts it filed in order), passed from `run_turn` down to `propose_create` through the tool, the marker and a folder's definition, and given to the health job's report. A draft filed with no `Filing` is untagged and never counted, as a web chat's was; a tool run on another thread now lists its drafts too, which the thread-local could not.
+
+## Amendment (2026-10-28): the jobs log is kept under a size
+
+**Decided with damiro ("lets build it").** This replaces "Not changed: `jobs.log` is not rotated" in the review fixes. `sympose run --due` moves `jobs.log` to `jobs.log.1` (replacing an older one) when it holds more than 1 MB, before it runs the jobs. launchd opened the file before the run started, so that run's own lines go to `jobs.log.1` and the next run starts a fresh `jobs.log`: at most two files, about 2 MB and one run's output over, in all. Rotating is best-effort: a file that cannot be moved is left as it is and the jobs still run.
+
+- **Cost, his to reverse:** the lines older than the previous file are gone for good. Nothing reads the log (a job's outcome is in its own run state, which Settings shows), so this loses nothing the app uses.
 
 ## Alternatives rejected
 

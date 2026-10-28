@@ -86,7 +86,7 @@ def _run_vault(args: argparse.Namespace) -> int:
 
 
 def _run_jobs(args: argparse.Namespace) -> int:
-    from sympose import job_run
+    from sympose import job_launchd, job_run
     from sympose.envfile import load_env
 
     load_env()
@@ -94,6 +94,7 @@ def _run_jobs(args: argparse.Namespace) -> int:
         args.run_parser.print_help()
         return 0 if not args.job and not args.due else 1
     if args.due:
+        job_launchd.rotate_log()
         outcomes = job_run.run_due()
     else:
         handle, _, name = args.job.partition("/")

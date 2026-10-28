@@ -2,7 +2,7 @@
 
 import pytest
 
-from sympose import launcher
+from sympose import job_launchd, launcher
 
 
 class _ImmediateTimer:
@@ -191,8 +191,10 @@ def test_web_reads_the_env_file_of_the_folder_it_runs_in(ran, monkeypatch, tmp_p
 
 
 @pytest.fixture
-def jobs_run(monkeypatch):
+def jobs_run(monkeypatch, tmp_path):
     from sympose import job_run
+
+    monkeypatch.setenv("SYMPOSE_LOG_DIR", str(tmp_path / "Logs"))  # a run of --due sets a big log aside: never the real one
 
     calls = []
     monkeypatch.setattr(job_run, "run_due", lambda: calls.append("due") or [job_run.Outcome("samantha/a", job_run.RAN, "Done.")])
@@ -205,6 +207,22 @@ def jobs_run(monkeypatch):
 def test_run_due_runs_what_is_due_and_says_so(jobs_run, capsys):
     assert launcher.main(["run", "--due"]) == 0
     assert jobs_run == ["due"] and capsys.readouterr().out == "samantha/a: ran (Done.)\n"
+
+
+def test_run_due_sets_a_big_log_aside_before_running(jobs_run, tmp_path, monkeypatch):
+    from sympose import job_run
+
+    log = tmp_path / "Logs" / "jobs.log"
+    log.parent.mkdir()
+    log.write_text("x" * (job_launchd.LOG_LIMIT + 1))
+
+    seen = []
+    monkeypatch.setattr(job_run, "run_due", lambda: seen.append(log.exists()) or [])
+
+    launcher.main(["run", "--due"])
+
+    assert seen == [False]  # set aside before the jobs start, not after
+    assert not log.exists() and (tmp_path / "Logs" / "jobs.log.1").stat().st_size == job_launchd.LOG_LIMIT + 1
 
 
 def test_run_with_a_job_runs_it_now_and_exits_one_when_it_did_not_run(jobs_run, capsys):

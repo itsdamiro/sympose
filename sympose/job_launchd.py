@@ -17,6 +17,7 @@ from sympose.envfile import file_values
 from sympose.job_timer import EVERY_SECONDS
 
 LABEL = "com.sympose.jobs"
+LOG_LIMIT = 1_000_000  # bytes a log may hold before `rotate_log` sets it aside
 _ENV_KEPT = ("VAULT_PATHS", "SYMPOSE_PROFILES_DIR", "SYMPOSE_SETTINGS_PATH")
 
 
@@ -42,6 +43,16 @@ def installed() -> bool:
 
 def _log_path() -> Path:
     return Path(os.environ.get("SYMPOSE_LOG_DIR") or Path.home() / "Library" / "Logs" / "Sympose") / "jobs.log"
+
+
+def rotate_log(limit: int = LOG_LIMIT) -> None:
+    """Keep the log under `limit` bytes: a larger one becomes `jobs.log.1`, replacing an older copy, and the next run
+    starts a fresh file. launchd opened the file before this run began, so this run's own lines go to the set-aside copy.
+    A file that cannot be moved is left as it is."""
+    log = _log_path()
+    with contextlib.suppress(OSError):
+        if log.stat().st_size > limit:
+            os.replace(log, log.with_name(log.name + ".1"))
 
 
 def entry() -> dict:
