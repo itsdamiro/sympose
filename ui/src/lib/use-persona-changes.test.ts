@@ -221,6 +221,64 @@ describe("usePersonaChanges", () => {
     expect(result.current.changes?.proposals.map((p) => p.id)).toEqual(["2"])
   })
 
+  it("reads the note again when a read that began before a decline lands after the decline ended", async () => {
+    let answerFocusRead: (v: unknown) => void = () => {}
+    api.fetchChanges
+      .mockResolvedValueOnce(noteChanges("a.md", ["1", "2"]))
+      .mockImplementationOnce(() => new Promise((resolve) => (answerFocusRead = resolve)))
+      .mockResolvedValue(noteChanges("a.md", ["2", "3"]))
+    api.resolveChanges.mockResolvedValue({ ok: true, resolved: ["1"] })
+    const { result } = renderHook(() => usePersonaChanges({ path: "a.md", persona: "samantha" }))
+    await waitFor(() => expect(result.current.changes?.proposals).toHaveLength(2))
+    act(() => {
+      window.dispatchEvent(new Event("focus"))
+    })
+    await waitFor(() => expect(api.fetchChanges).toHaveBeenCalledTimes(2))
+    await act(async () => {
+      await result.current.resolve(["1"])
+    })
+
+    await act(async () => answerFocusRead(noteChanges("a.md", ["1", "2"]))) // answered before the decline, lands after it
+
+    expect(api.fetchChanges).toHaveBeenCalledTimes(3)
+    await waitFor(() => expect(result.current.changes?.proposals.map((p) => p.id)).toEqual(["2", "3"]))
+  })
+
+  it("shows another note's changes even when a decline of the first is still out", async () => {
+    api.fetchChanges.mockImplementation(async (path: string) => noteChanges(path, [path === "a.md" ? "A" : "B"]))
+    let answerDecline: (v: unknown) => void = () => {}
+    api.resolveChanges.mockImplementation(() => new Promise((resolve) => (answerDecline = resolve)))
+    const { result, rerender } = renderHook(({ path }) => usePersonaChanges({ path, persona: "samantha" }), { initialProps: { path: "a.md" } })
+    await waitFor(() => expect(result.current.changes?.proposals[0].id).toBe("A"))
+    let declining: Promise<void> = Promise.resolve()
+    act(() => {
+      declining = result.current.resolve(["A"])
+    })
+
+    rerender({ path: "b.md" })
+    await waitFor(() => expect(result.current.changes?.proposals[0].id).toBe("B"))
+
+    await act(async () => {
+      answerDecline({ ok: true, resolved: ["A"] })
+      await declining
+    })
+    expect(result.current.changes?.proposals[0].id).toBe("B")
+  })
+
+  it("keeps reading after a decline that threw", async () => {
+    api.fetchChanges.mockResolvedValueOnce(noteChanges("a.md", ["1"])).mockResolvedValue(noteChanges("a.md", ["1", "2"]))
+    api.resolveChanges.mockRejectedValue(new Error("boom"))
+    const { result } = renderHook(() => usePersonaChanges({ path: "a.md", persona: "samantha" }))
+    await waitFor(() => expect(result.current.changes?.proposals).toHaveLength(1))
+    await act(async () => {
+      await result.current.resolve(["1"]).catch(() => {})
+    })
+
+    act(() => result.current.refresh())
+
+    await waitFor(() => expect(result.current.changes?.proposals).toHaveLength(2))
+  })
+
   it("does nothing to resolve when no note is open", async () => {
     const { result } = renderHook(() => usePersonaChanges({ path: undefined, persona: "samantha" }))
     await act(async () => {

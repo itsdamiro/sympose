@@ -67,6 +67,19 @@ def test_a_log_over_the_limit_is_set_aside_replacing_the_older_copy(tmp_path):
     assert not log.exists() and (tmp_path / "Logs" / "jobs.log.1").read_text() == "new" * 10
 
 
+def test_a_log_that_grows_again_replaces_the_set_aside_copy_so_two_files_are_all_there_are(tmp_path):
+    logs = tmp_path / "Logs"
+    logs.mkdir()
+    (logs / "jobs.log").write_text("first" * 10)
+    job_launchd.rotate_log(limit=20)
+    (logs / "jobs.log").write_text("second" * 10)  # the next run's fresh file, grown past the limit
+
+    job_launchd.rotate_log(limit=20)
+
+    assert not (logs / "jobs.log").exists() and (logs / "jobs.log.1").read_text() == "second" * 10
+    assert sorted(p.name for p in logs.iterdir()) == ["jobs.log.1"]
+
+
 def test_a_log_at_the_limit_or_missing_is_left_alone(tmp_path):
     job_launchd.rotate_log(limit=10)  # no log at all: nothing to do, nothing raised
     log = tmp_path / "Logs" / "jobs.log"
@@ -96,20 +109,29 @@ def test_install_loads_the_entry_after_unloading_an_old_one(launchctl):
     assert job_launchd.installed()
 
 
-def test_the_entry_keeps_only_the_settings_that_point_at_sympose_folders(launchctl, monkeypatch):
+def test_the_entry_keeps_only_the_settings_that_point_at_sympose_folders(launchctl, monkeypatch, tmp_path):
     monkeypatch.setenv("VAULT_PATHS", "/v")
     monkeypatch.setenv("OPENAI_API_KEY", "secret")
     monkeypatch.delenv("SYMPOSE_PROFILES_DIR", raising=False)
     monkeypatch.delenv("SYMPOSE_SETTINGS_PATH", raising=False)
     job_launchd.install()
-    assert plistlib.loads(job_launchd.plist_path().read_bytes())["EnvironmentVariables"] == {"VAULT_PATHS": "/v"}
+    assert plistlib.loads(job_launchd.plist_path().read_bytes())["EnvironmentVariables"] == {"VAULT_PATHS": "/v", "SYMPOSE_LOG_DIR": str(tmp_path / "Logs")}
 
 
-def test_with_no_such_settings_the_entry_has_no_environment(launchctl, monkeypatch):
+def test_with_no_such_settings_the_entry_has_only_the_log_folder(launchctl, monkeypatch, tmp_path):
     for name in ("VAULT_PATHS", "SYMPOSE_PROFILES_DIR", "SYMPOSE_SETTINGS_PATH"):
         monkeypatch.delenv(name, raising=False)
     job_launchd.install()
-    assert "EnvironmentVariables" not in plistlib.loads(job_launchd.plist_path().read_bytes())
+    assert plistlib.loads(job_launchd.plist_path().read_bytes())["EnvironmentVariables"] == {"SYMPOSE_LOG_DIR": str(tmp_path / "Logs")}
+
+
+def test_a_run_finds_the_log_folder_the_entry_wrote_to(launchctl, monkeypatch, tmp_path):
+    """`rotate_log` takes its path from the environment; launchd gives a run only what the entry kept."""
+    monkeypatch.setenv("SYMPOSE_LOG_DIR", str(tmp_path / "elsewhere"))
+    job_launchd.install()
+    entry = plistlib.loads(job_launchd.plist_path().read_bytes())
+    assert entry["StandardOutPath"] == str(tmp_path / "elsewhere" / "jobs.log")
+    assert entry["EnvironmentVariables"]["SYMPOSE_LOG_DIR"] == str(tmp_path / "elsewhere")
 
 
 def test_a_refused_load_leaves_no_entry_and_says_why(launchctl):
@@ -126,7 +148,10 @@ def test_a_setting_the_env_file_gives_is_left_to_it_so_an_edit_of_the_file_appli
     monkeypatch.setenv("SYMPOSE_PROFILES_DIR", "/p-shell")  # exported in the shell, so it won over the file
     monkeypatch.delenv("SYMPOSE_SETTINGS_PATH", raising=False)
     job_launchd.install()
-    assert plistlib.loads(job_launchd.plist_path().read_bytes())["EnvironmentVariables"] == {"SYMPOSE_PROFILES_DIR": "/p-shell"}
+    assert plistlib.loads(job_launchd.plist_path().read_bytes())["EnvironmentVariables"] == {
+        "SYMPOSE_PROFILES_DIR": "/p-shell",
+        "SYMPOSE_LOG_DIR": str(tmp_path / "Logs"),
+    }
 
 
 def test_a_refused_reinstall_puts_the_working_entry_back_and_loads_it(launchctl, monkeypatch, tmp_path):

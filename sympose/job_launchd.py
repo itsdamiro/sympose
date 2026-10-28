@@ -18,7 +18,7 @@ from sympose.job_timer import EVERY_SECONDS
 
 LABEL = "com.sympose.jobs"
 LOG_LIMIT = 1_000_000  # bytes a log may hold before `rotate_log` sets it aside
-_ENV_KEPT = ("VAULT_PATHS", "SYMPOSE_PROFILES_DIR", "SYMPOSE_SETTINGS_PATH")
+_ENV_KEPT = ("VAULT_PATHS", "SYMPOSE_PROFILES_DIR", "SYMPOSE_SETTINGS_PATH", "SYMPOSE_LOG_DIR")  # the last: `rotate_log` must find the file launchd writes
 
 
 class ScheduleRefused(Exception):

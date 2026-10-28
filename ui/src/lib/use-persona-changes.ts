@@ -24,21 +24,22 @@ export function usePersonaChanges({ path, persona, enabled = true }: { path?: st
   const want = path ? `${persona}:${path}` : ""
   const [state, setState] = React.useState<{ key: string; data: NoteChanges | null }>({ key: "", data: null })
   const [reloadKey, setReloadKey] = React.useState(0)
-  // A read that began while a resolve was in flight, or that one began or ended during, may carry what the server held
-  // before the decline: it is dropped, and the read is made again when the resolve is over.
-  const resolving = React.useRef(0)
-  const resolveEpoch = React.useRef(0)
-  const dropped = React.useRef(false)
+  // A read that lands while a resolve of its note is in flight, or after one has ended since the read began, may carry
+  // what the server held before the decline: it is dropped and the note is read again, once the resolve is over.
+  const resolves = React.useRef(new Map<string, { active: number; dropped: boolean }>())
+  const resolvesEnded = React.useRef(0)
 
   React.useEffect(() => {
     if (!path || !enabled) return
     let cancelled = false
-    const epoch = resolveEpoch.current
-    const inFlight = resolving.current > 0
+    const key = `${persona}:${path}`
+    const endedBefore = resolvesEnded.current
     void fetchChanges(path, persona).then((data) => {
       if (cancelled) return
-      if (inFlight || epoch !== resolveEpoch.current) dropped.current = true
-      else setState({ key: `${persona}:${path}`, data })
+      const resolving = resolves.current.get(key)
+      if (resolving) resolving.dropped = true // read again when that resolve ends
+      else if (resolvesEnded.current !== endedBefore) setReloadKey((k) => k + 1) // one ended while this read was out
+      else setState({ key, data })
     })
     return () => {
       cancelled = true
@@ -63,14 +64,20 @@ export function usePersonaChanges({ path, persona, enabled = true }: { path?: st
           ? { ...s, data: { ...s.data, proposals: which === "all" ? [] : s.data.proposals.filter((p) => !which.includes(p.id)) } }
           : s
       )
-      resolving.current += 1
-      resolveEpoch.current += 1
-      const result = await (accepted ? resolveChanges(path, persona, which, true) : resolveChanges(path, persona, which))
-      resolving.current -= 1
-      resolveEpoch.current += 1
-      if (dropped.current && resolving.current === 0) {
-        dropped.current = false
-        setReloadKey((k) => k + 1)
+      const key = `${persona}:${path}`
+      const resolving = resolves.current.get(key) ?? { active: 0, dropped: false }
+      resolving.active += 1
+      resolves.current.set(key, resolving)
+      let result
+      try {
+        result = await (accepted ? resolveChanges(path, persona, which, true) : resolveChanges(path, persona, which))
+      } finally {
+        resolving.active -= 1
+        resolvesEnded.current += 1
+        if (resolving.active === 0) {
+          resolves.current.delete(key)
+          if (resolving.dropped) setReloadKey((k) => k + 1)
+        }
       }
       announceDraftsChanged() // the note may no longer be a draft
       if (!result.ok) {

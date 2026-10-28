@@ -171,6 +171,7 @@ The model's mark on a job's row in Settings is the same `ModelPicker` the compos
 
 **Decided with damiro ("lets build it").** This replaces "Not changed: `jobs.log` is not rotated" in the review fixes. `sympose run --due` moves `jobs.log` to `jobs.log.1` (replacing an older one) when it holds more than 1 MB, before it runs the jobs. launchd opened the file before the run started, so that run's own lines go to `jobs.log.1` and the next run starts a fresh `jobs.log`: at most two files, about 2 MB and one run's output over, in all. Rotating is best-effort: a file that cannot be moved is left as it is and the jobs still run.
 
+- **From `/code-review high` of the rotation:** the entry also carries `SYMPOSE_LOG_DIR` over when it is set, so a run finds the folder launchd writes to (without it a run looked in the default folder and the real log never rotated).
 - **Cost, his to reverse:** the lines older than the previous file are gone for good. Nothing reads the log (a job's outcome is in its own run state, which Settings shows), so this loses nothing the app uses.
 
 ## Alternatives rejected
