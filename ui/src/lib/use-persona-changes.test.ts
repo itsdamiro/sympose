@@ -12,6 +12,13 @@ import { announcePersonaActed, usePersonaChanges } from "./use-persona-changes"
 const proposal = (id: string) => ({ id, time: "t", kind: "edit", say: "", find: "x", replace: "y", before: "", after: "", status: "pending" })
 const noteChanges = (path: string, ids: string[]) => ({ path, exists: true, mtime: 1, proposals: ids.map(proposal), annotations: [] })
 
+/** A promise the test settles by hand, to land an answer at the moment it chooses. */
+const deferred = <T,>() => {
+  let resolve!: (v: T) => void
+  const promise = new Promise<T>((r) => (resolve = r))
+  return { promise, resolve }
+}
+
 afterEach(cleanup) // unmount every hook, so none keeps listening for focus into the next test
 
 beforeEach(() => {
@@ -191,14 +198,13 @@ describe("usePersonaChanges", () => {
   })
 
   it("does not put a declined change back when a focus read that began before the decline lands after it", async () => {
-    const stale = noteChanges("a.md", ["1", "2"])
-    let answerFocusRead: (v: unknown) => void = () => {}
-    let answerDecline: (v: unknown) => void = () => {}
+    const focusRead = deferred<unknown>()
+    const decline = deferred<unknown>()
     api.fetchChanges
       .mockResolvedValueOnce(noteChanges("a.md", ["1", "2"]))
-      .mockImplementationOnce(() => new Promise((resolve) => (answerFocusRead = resolve)))
+      .mockImplementationOnce(() => focusRead.promise)
       .mockResolvedValue(noteChanges("a.md", ["2"]))
-    api.resolveChanges.mockImplementation(() => new Promise((resolve) => (answerDecline = resolve)))
+    api.resolveChanges.mockImplementation(() => decline.promise)
     const { result } = renderHook(() => usePersonaChanges({ path: "a.md", persona: "samantha" }))
     await waitFor(() => expect(result.current.changes?.proposals).toHaveLength(2))
 
@@ -210,11 +216,11 @@ describe("usePersonaChanges", () => {
     act(() => {
       declining = result.current.resolve(["1"])
     })
-    await act(async () => answerFocusRead(stale)) // the server had not yet heard of the decline when it answered
+    await act(async () => focusRead.resolve(noteChanges("a.md", ["1", "2"]))) // the server had not yet heard of the decline when it answered
     expect(result.current.changes?.proposals.map((p) => p.id)).toEqual(["2"])
 
     await act(async () => {
-      answerDecline({ ok: true, resolved: ["1"] })
+      decline.resolve({ ok: true, resolved: ["1"] })
       await declining
     })
     await waitFor(() => expect(api.fetchChanges).toHaveBeenCalledTimes(3)) // the dropped read is made again, now true
@@ -222,10 +228,10 @@ describe("usePersonaChanges", () => {
   })
 
   it("reads the note again when a read that began before a decline lands after the decline ended", async () => {
-    let answerFocusRead: (v: unknown) => void = () => {}
+    const focusRead = deferred<unknown>()
     api.fetchChanges
       .mockResolvedValueOnce(noteChanges("a.md", ["1", "2"]))
-      .mockImplementationOnce(() => new Promise((resolve) => (answerFocusRead = resolve)))
+      .mockImplementationOnce(() => focusRead.promise)
       .mockResolvedValue(noteChanges("a.md", ["2", "3"]))
     api.resolveChanges.mockResolvedValue({ ok: true, resolved: ["1"] })
     const { result } = renderHook(() => usePersonaChanges({ path: "a.md", persona: "samantha" }))
@@ -238,7 +244,7 @@ describe("usePersonaChanges", () => {
       await result.current.resolve(["1"])
     })
 
-    await act(async () => answerFocusRead(noteChanges("a.md", ["1", "2"]))) // answered before the decline, lands after it
+    await act(async () => focusRead.resolve(noteChanges("a.md", ["1", "2"]))) // answered before the decline, lands after it
 
     expect(api.fetchChanges).toHaveBeenCalledTimes(3)
     await waitFor(() => expect(result.current.changes?.proposals.map((p) => p.id)).toEqual(["2", "3"]))
@@ -246,8 +252,8 @@ describe("usePersonaChanges", () => {
 
   it("shows another note's changes even when a decline of the first is still out", async () => {
     api.fetchChanges.mockImplementation(async (path: string) => noteChanges(path, [path === "a.md" ? "A" : "B"]))
-    let answerDecline: (v: unknown) => void = () => {}
-    api.resolveChanges.mockImplementation(() => new Promise((resolve) => (answerDecline = resolve)))
+    const decline = deferred<unknown>()
+    api.resolveChanges.mockImplementation(() => decline.promise)
     const { result, rerender } = renderHook(({ path }) => usePersonaChanges({ path, persona: "samantha" }), { initialProps: { path: "a.md" } })
     await waitFor(() => expect(result.current.changes?.proposals[0].id).toBe("A"))
     let declining: Promise<void> = Promise.resolve()
@@ -259,7 +265,7 @@ describe("usePersonaChanges", () => {
     await waitFor(() => expect(result.current.changes?.proposals[0].id).toBe("B"))
 
     await act(async () => {
-      answerDecline({ ok: true, resolved: ["A"] })
+      decline.resolve({ ok: true, resolved: ["A"] })
       await declining
     })
     expect(result.current.changes?.proposals[0].id).toBe("B")
