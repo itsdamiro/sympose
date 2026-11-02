@@ -244,7 +244,7 @@ export function appliedState(state: EditorState): { ids: string[]; untouched: bo
 }
 
 // A change that is applied is shown, not swapped (docs/decisions/072, amendment 2026-10-24): the words it replaced are drawn for a
-// moment and shrink away, then the new words are typed in. The text is final from the first frame; only what is drawn is staged,
+// moment and shrink away, then the new words are typed in; only the part that differs (docs/decisions/098), the rest stays as it was. The text is final from the first frame; only what is drawn is staged,
 // so undo, the applied marks and the save see one change, and a frame that changes no text is not reported as an edit.
 
 /** One applied change being shown: where its new words are now, and the words they replaced. */
@@ -256,6 +256,8 @@ interface Reveal {
    *  them take together, in unscaled milliseconds, so that the whole run is sped up as one. */
   after?: number
   total?: number
+  /** An applied change of words (not a whole text typed in, nor a table's cells): slowed to take at least `REVEAL_MIN_MS`. */
+  slow?: boolean
   /** Not yet placed: a table that was replaced, as it was (`find`) and where it was in the text before the change. The cells that
    *  are new are looked for in the text as the change left it, since the editor may have re-padded the table's columns. */
   table?: { find: string; from: number; to: number }
@@ -268,9 +270,10 @@ interface RevealState {
   now: number
 }
 
-const REMOVE_MS = 4 // per character taken away
-const TYPE_MS = 10 // per character typed in
+const REMOVE_MS = 4 // per character taken away, before the change is slowed or sped up to fit the limits below
+const TYPE_MS = 10 // per character typed in, likewise
 const REVEAL_MAX_MS = 900 // a long change is sped up to fit
+const REVEAL_MIN_MS = 450 // a short one (a word) is slowed to take at least this, or it is over before it can be seen
 
 const startReveal = StateEffect.define<Reveal[]>()
 /** One frame of the reveal, at this time in milliseconds (`performance.now()`). */
@@ -280,7 +283,8 @@ export const tickReveal = StateEffect.define<number>()
 function revealProgress(item: Reveal, elapsed: number): { oldLeft: number; typed: number } | null {
   const removing = item.old.length * REMOVE_MS
   const full = removing + (item.to - item.from) * TYPE_MS
-  const t = elapsed * Math.max(1, (item.total ?? full) / REVEAL_MAX_MS) - (item.after ?? 0)
+  const length = item.total ?? full
+  const t = elapsed * (length > REVEAL_MAX_MS ? length / REVEAL_MAX_MS : item.slow && length < REVEAL_MIN_MS ? length / REVEAL_MIN_MS : 1) - (item.after ?? 0)
   if (t >= full) return null
   if (t < 0) return { oldLeft: item.old.length, typed: 0 }
   if (t < removing) return { oldLeft: item.old.length - Math.floor(t / REMOVE_MS), typed: 0 }
@@ -469,6 +473,21 @@ interface Landed {
   was: { from: number; to: number }
 }
 
+const isWord = (char: string | undefined) => char !== undefined && /[\p{L}\p{N}_]/u.test(char)
+
+/** How much of `old` and of `next` is the same at the start and at the end, so that only the part between is shown: the unchanged words
+ *  stay as they are. Whole words only (`four` to `five` is one word changing, not `our` to `ive`). */
+function unchangedEnds(old: string, next: string): { lead: number; trail: number } {
+  const most = Math.min(old.length, next.length)
+  let lead = 0
+  while (lead < most && old[lead] === next[lead]) lead++
+  while (lead > 0 && isWord(old[lead - 1]) && (isWord(old[lead]) || isWord(next[lead]))) lead--
+  let trail = 0
+  while (trail < most - lead && old[old.length - 1 - trail] === next[next.length - 1 - trail]) trail++
+  while (trail > 0 && isWord(old[old.length - trail]) && (isWord(old[old.length - trail - 1]) || isWord(next[next.length - trail - 1]))) trail--
+  return { lead, trail }
+}
+
 /** The effect that shows these applied changes as they go in; it shows none when the user asked for less motion. A change of a
  *  whole table cannot take its old table away (a rendered table cannot hide half a row): the old rows go at once and only the
  *  cells that are new are typed in. */
@@ -479,7 +498,8 @@ function revealing(landed: Landed[]): StateEffect<Reveal[]> {
       const old = proposal.find ?? ""
       if (old === (proposal.replace ?? "")) return []
       if (isTableChange(proposal)) return [{ from, to, old, table: { find: old, ...was } }]
-      return [{ from, to, old }]
+      const { lead, trail } = unchangedEnds(old, proposal.replace ?? "")
+      return [{ from: from + lead, to: to - trail, old: old.slice(lead, old.length - trail), slow: true }]
     })
   )
 }

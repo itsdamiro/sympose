@@ -928,8 +928,10 @@ describe("a change that replaces a whole table (a row or a column added or remov
 
 describe("revealing an applied change (docs/decisions/072, amendment 2026-10-24)", () => {
   const data = (...proposals: Proposal[]): ReviewData => ({ proposals, annotations: [] })
-  // "three times" (11 characters) takes 44 ms to take away; "four times" (10) takes 100 ms to type.
+  // Only the words that differ are shown (docs/decisions/098): "three" (5 characters) takes 20 ms to take away and "four" (4) 40 ms to type, and a
+  // change that short is stretched to 450 ms. `real` is the time on the clock at which `unscaled` ms of that change have gone by.
   const swap = () => mount(data(edit("a", "three times", "four times")))
+  const real = (unscaled: number, full = 60) => (unscaled * 450) / full + 0.01
   const tick = (view: EditorView, at: number) => view.dispatch({ effects: tickReveal.of(at) })
   const drawn = (view: EditorView) => view.contentDOM.textContent ?? ""
   const old = (view: EditorView) => view.dom.querySelector(".sy-reveal-old")?.textContent
@@ -946,9 +948,9 @@ describe("revealing an applied change (docs/decisions/072, amendment 2026-10-24)
     applyProposals(view, ["a"])
 
     expect(view.state.doc.toString()).toBe(NOTE.replace("three times", "four times"))
-    expect(old(view)).toBe("three times")
+    expect(old(view)).toBe("three")
     expect(drawn(view)).not.toContain("four")
-    expect(drawn(view)).toContain("three times")
+    expect(drawn(view)).toContain("I run three times a week")
   })
 
   it("takes the old words away from the end, then types the new ones from the start", () => {
@@ -956,16 +958,16 @@ describe("revealing an applied change (docs/decisions/072, amendment 2026-10-24)
     applyProposals(view, ["a"])
 
     tick(view, 0)
-    tick(view, 20)
-    expect(old(view)).toBe("three ") // 5 of 11 gone
+    tick(view, real(10))
+    expect(old(view)).toBe("thr") // 2 of 5 gone
     expect(typed(view)).toBeUndefined()
-    tick(view, 23)
-    expect(old(view)).toBe("three ") // a part of a character does not count yet
+    tick(view, real(11))
+    expect(old(view)).toBe("thr") // a part of a character does not count yet
 
-    tick(view, 44 + 30)
+    tick(view, real(20 + 20))
     expect(old(view)).toBeUndefined()
-    expect(typed(view)).toBe("fou")
-    expect(drawn(view)).toContain("I run fou")
+    expect(typed(view)).toBe("fo")
+    expect(drawn(view)).toContain("I run fo times")
     expect(drawn(view)).not.toContain("four")
   })
 
@@ -974,9 +976,9 @@ describe("revealing an applied change (docs/decisions/072, amendment 2026-10-24)
     applyProposals(view, ["a"])
 
     tick(view, 0)
-    tick(view, 143)
-    expect(typed(view)).toBe("four time")
-    tick(view, 144)
+    tick(view, real(59))
+    expect(typed(view)).toBe("fou")
+    tick(view, real(60))
 
     expect(drawn(view)).toContain("I run four times a week")
     expect(view.dom.querySelector(".sy-reveal-old, .sy-reveal-new")).toBeNull()
@@ -1002,7 +1004,7 @@ describe("revealing an applied change (docs/decisions/072, amendment 2026-10-24)
 
     expect(old(view)).toBe(" The beds are raised.")
     tick(view, 0)
-    tick(view, 40)
+    tick(view, real(40, 84))
     expect(old(view)).toBe(" The beds are raised.".slice(0, 21 - 10))
     tick(view, 1000)
     expect(old(view)).toBeUndefined()
@@ -1037,11 +1039,56 @@ describe("revealing an applied change (docs/decisions/072, amendment 2026-10-24)
 
     acceptChanges(view, ["a"])
 
-    expect(old(view)).toBe("three times")
+    expect(old(view)).toBe("three")
     expect(drawn(view)).not.toContain("four")
     tick(view, 0)
     tick(view, 1000)
     expect(drawn(view)).toContain("I run four times a week")
+  })
+
+  it("shows only the words that differ: what is the same stays drawn as it is", () => {
+    const { view } = mount(data(edit("a", "three times", "three times and more")))
+
+    applyProposals(view, ["a"])
+
+    expect(old(view)).toBeUndefined() // nothing was taken away
+    tick(view, 0)
+    tick(view, real(30, 90))
+    expect(typed(view)).toBe(" an") // only the added words are typed; "three times" was never hidden
+    tick(view, 1000)
+    expect(typed(view)).toBeUndefined()
+    expect(view.state.doc.toString()).toContain("I run three times and more a week")
+  })
+
+  it("takes away only the words that were deleted", () => {
+    const { view } = mount(data(edit("a", "three times a week", "three times")))
+    applyProposals(view, ["a"])
+
+    expect(old(view)).toBe(" a week")
+    expect(drawn(view)).toContain("I run three times a week.")
+  })
+
+  it("changes a whole word, never the middle of one", () => {
+    const { view } = mount(data(edit("a", "three times", "tree times")))
+    applyProposals(view, ["a"])
+
+    expect(old(view)).toBe("three")
+    tick(view, 0)
+    tick(view, 1000)
+    expect(typed(view)).toBeUndefined()
+    expect(drawn(view)).toContain("I run tree times a week")
+  })
+
+  it("takes at least 0.45 s for a short change, so that it can be seen", () => {
+    const { view } = swap()
+    applyProposals(view, ["a"])
+
+    tick(view, 0)
+    tick(view, 440)
+    expect(old(view) ?? typed(view)).toBeDefined() // still going
+    tick(view, 450)
+
+    expect(view.dom.querySelector(".sy-reveal-old, .sy-reveal-new")).toBeNull()
   })
 
   it("is over at once when the user types, so it never draws over a later edit", () => {
@@ -1103,11 +1150,11 @@ describe("revealing an applied change (docs/decisions/072, amendment 2026-10-24)
     applyProposals(view, ["a"])
     expect(edits).toHaveBeenCalledTimes(1)
 
-    vi.advanceTimersByTime(60)
+    vi.advanceTimersByTime(300) // the old words are gone and the new are being typed (the editor's own measuring frame, asked for while the old shrink, is over)
     expect(drawn(view)).not.toContain("four") // under way
     view.dispatch({ selection: { anchor: 3 } }) // an update that is not a frame
     expect(vi.getTimerCount()).toBe(1) // one frame is asked for, not two
-    vi.advanceTimersByTime(300)
+    vi.advanceTimersByTime(500)
 
     expect(drawn(view)).toContain("I run four times a week")
     expect(view.dom.querySelector(".sy-reveal-old, .sy-reveal-new")).toBeNull()
@@ -1128,7 +1175,8 @@ describe("revealing an applied change (docs/decisions/072, amendment 2026-10-24)
 
 describe("revealing an applied change inside a table cell (docs/decisions/072)", () => {
   const TABLE = "The beds are raised.\n\n| Item | Qty |\n|------|-----|\n| Carrots | 3 |\n"
-  // "Carrots" (7 characters) takes 28 ms to take away; "Parsnips" (8) takes 80 ms to type.
+  // "Carrots" (7 characters) takes 28 ms to take away; "Parsnips" (8) takes 80 ms to type; stretched to 450 ms in all.
+  const real = (unscaled: number, full = 108) => (unscaled * 450) / full + 0.01
   const swap = () => {
     const { view } = mount({ proposals: [edit("p", "Carrots", "Parsnips", TABLE)], annotations: [] }, { doc: TABLE })
     applyProposals(view, ["p"])
@@ -1159,9 +1207,9 @@ describe("revealing an applied change inside a table cell (docs/decisions/072)",
     const view = swap()
     tick(view, 0)
 
-    tick(view, 12) // 3 of 7 gone
+    tick(view, real(12)) // 3 of 7 gone
     expect(old(view)[0].toDOM(view).textContent).toBe("Carr")
-    tick(view, 28 + 30) // all gone, 3 typed
+    tick(view, real(28 + 30)) // all gone, 3 typed
     const [typed, hidden] = reveal(view)
 
     expect(old(view)).toEqual([])
@@ -1173,7 +1221,7 @@ describe("revealing an applied change inside a table cell (docs/decisions/072)",
   it("marks the first typed character as soon as it is typed", () => {
     const view = swap()
     tick(view, 0)
-    tick(view, 28 + 10) // one character typed
+    tick(view, real(28 + 10)) // one character typed
 
     const [typed, hidden] = reveal(view)
 
@@ -1182,14 +1230,14 @@ describe("revealing an applied change inside a table cell (docs/decisions/072)",
   })
 
   it("marks no stretch that holds only syntax, which stylo would turn into a mark on the whole cell", () => {
-    const doc = "| Item | Note |\n|------|------|\n| Carrots | sow in **April** |\n"
-    const { view } = mount({ proposals: [edit("p", "sow in **April**", "plant **May**", doc)], annotations: [] }, { doc })
+    const doc = "| Item | Note |\n|------|------|\n| Carrots | sow in April |\n"
+    const { view } = mount({ proposals: [edit("p", "sow in April", "plant **May**", doc)], annotations: [] }, { doc })
     applyProposals(view, ["p"])
     tick(view, 0)
-    tick(view, 16 * 4 + 10 * 11) // the old words gone, "plant **May" typed: only "**" is left
+    tick(view, real(12 * 4 + 10 * 11, 178)) // the old words gone, "plant **May" typed: only "**" is left
 
     expect(reveal(view).map((m) => m.class)).toEqual(["sy-reveal-new"])
-    tick(view, 16 * 4 + 10 * 1) // one character typed: "p"
+    tick(view, real(12 * 4 + 10 * 1, 178)) // one character typed: "p"
     expect(reveal(view).map((m) => said(view, m))).toEqual(["p", "lant **May**"])
   })
 
@@ -1198,7 +1246,7 @@ describe("revealing an applied change inside a table cell (docs/decisions/072)",
     const { view } = mount({ proposals: [edit("p", "sow in April", "**May** sow", doc)], annotations: [] }, { doc })
     applyProposals(view, ["p"])
     tick(view, 0)
-    tick(view, 12 * 4 + 10 * 2) // the old words gone, "**" typed
+    tick(view, real(12 * 4 + 10 * 2, 158)) // the old words gone, "**" typed
 
     expect(reveal(view).map((m) => [m.class, said(view, m)])).toEqual([["sy-reveal-hidden", "May** sow"]])
   })
@@ -1207,7 +1255,7 @@ describe("revealing an applied change inside a table cell (docs/decisions/072)",
     const view = swap()
     tick(view, 0)
     const first = old(view)[0].key
-    tick(view, 12)
+    tick(view, real(12))
 
     expect(old(view)[0].key).not.toBe(first)
   })

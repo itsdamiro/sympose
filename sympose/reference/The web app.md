@@ -42,7 +42,7 @@ The colour is kept in the top-level folder's own note, like Projects/Projects.md
 
 When a persona proposes a change to the note you have open, the editor shows it as a tracked change: the old text struck through and the new text beside it. A small tab above it holds Accept and Decline (and a paperclip). A block at the top says how many changes the persona suggested, with Accept all (which saves) and Decline all. A change you edited underneath is marked outdated, not merged.
 
-When a change is applied to the open note, by your Accept or because the persona is in accept mode, the old words shrink away and the new words are typed in, in under a second. If your system is set to reduce motion, the words are swapped at once. Undo still takes the whole change back in one step.
+When a change is applied to the open note, by your Accept or because the persona is in accept mode, only the words that differ move: the old ones shrink away and the new ones are typed in, in about half a second to a second, and the words around them stay as they are. If your system is set to reduce motion, the words are swapped at once. Undo still takes the whole change back in one step.
 
 To leave a comment, select text and choose Comment; the persona reads your open comments with your next message and can reply or propose a change. A comment can be resolved, and a persona's own comment can be accepted or declined (a reason is optional). Nothing reaches the file until you accept or save. This is web app only.
 
