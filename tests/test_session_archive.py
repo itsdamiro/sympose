@@ -181,7 +181,7 @@ def test_a_cloud_model_the_user_has_not_allowed_is_not_sent_the_messages(env, as
 
     refused = post(client, "cloudy")
 
-    assert refused.status_code == 422 and "Settings > Sharing" in refused.json()["detail"] and asked == []
+    assert refused.status_code == 422 and "Settings > Models and privacy" in refused.json()["detail"] and asked == []
 
 
 def test_a_persona_name_with_a_colon_keeps_the_front_matter_valid(env, asked):

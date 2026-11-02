@@ -40,7 +40,7 @@ function NotificationsSection({
   ) => void
 }) {
   return (
-    <ControlSection title="Notifications" defaultOpen>
+    <ControlSection title="Notifications">
       <ControlRow label="Feedback messages">
         <SegmentedControl
           size="sm"

@@ -82,7 +82,7 @@ function EditorPreferencesSection({
   const inPlace = prefs.surface === "in-place"
 
   return (
-    <ControlSection title="Markdown editor" defaultOpen>
+    <ControlSection title="Markdown editor">
       <PrefToggle
         field="surface"
         label="Editing surface"

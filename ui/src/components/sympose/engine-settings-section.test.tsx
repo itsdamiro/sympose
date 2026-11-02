@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 const { notifyError } = vi.hoisted(() => ({ notifyError: vi.fn() }))
 vi.mock("@/lib/notify", () => ({ notify: { error: notifyError } }))
 
+import { Clock01Icon } from "@hugeicons/core-free-icons"
+
 import { EngineSettingsSections } from "./engine-settings-section"
 
 const SECTIONS = ["memory", "context", "search", "note-lookup", "jobs"]
@@ -60,6 +62,36 @@ describe("EngineSettingsSections", () => {
     const extra = await screen.findByText("an extra row")
     expect(screen.queryByText("never drawn")).toBeNull()
     expect(extra.closest("[data-slot=control-section]")?.textContent).toContain("Adding to decisions.md")
+  })
+
+  it("places a setting inside a lead's own rows, and not a second time in the list", async () => {
+    stubBackend(() => ok({}))
+    render(
+      <EngineSettingsSections
+        leads={{ Memory: { keys: ["memory_remember"], render: (placed) => <div data-testid="lead">{placed.memory_remember}</div> } }}
+      />
+    )
+    const lead = await screen.findByTestId("lead")
+    expect(lead.textContent).toContain("Adding to decisions.md")
+    expect(screen.getAllByText("Adding to decisions.md")).toHaveLength(1)
+  })
+
+  it("draws a lead and the extras in a section of their own when the settings cannot be loaded", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 500, json: async () => ({}) }) as Response))
+    render(<EngineSettingsSections leads={{ Memory: { keys: [], render: () => <p>a lead row</p> } }} extras={{ Memory: <p>an extra row</p> }} />)
+    const lead = await screen.findByText("a lead row")
+    expect(lead.closest("[data-slot=control-section]")?.textContent).toContain("an extra row")
+  })
+
+  it("opens only the sections it is told to open, and draws a section's icon before its title", async () => {
+    stubBackend(() => ok({}))
+    document.cookie = "sympose:pref.section.memory=; max-age=0"
+    document.cookie = "sympose:pref.section.search=; max-age=0"
+    render(<EngineSettingsSections open={["Memory"]} icons={{ Memory: Clock01Icon }} />)
+    const memory = (await screen.findByText("Memory")).closest("[data-slot=control-section]")!
+    expect(memory.querySelector("button span > svg")).not.toBeNull() // the icon, not the chevron
+    expect(memory.querySelector("[data-open]")).not.toBeNull()
+    expect(screen.getByText("Search").closest("[data-slot=control-section]")!.querySelector("[data-open]")).toBeNull()
   })
 
   it("flips a toggle through the backend and shows what it now reports", async () => {

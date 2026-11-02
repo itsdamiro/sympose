@@ -6,11 +6,11 @@ Settings are stored in `settings.json`, in the folder where Sympose runs. `SYMPO
 
 Type /settings for a list of the common ones, each with its value. Choose a row to change it: a true or false one flips, one with a few values moves to the next, and for a number the chat box asks for it. Enter saves, an empty line puts the default back and Esc leaves it as it was. A number that cannot be used is refused.
 
-The list has `show_grounding`, `show_trim_notice`, `show_context_meter`, `show_background_status`, `status_typing`, `reply_reveal`, `context_window`, `reply_limit`, `history_tokens`, `model_timeout`, `grounding_followups`, `session_recaps`, `recap_count`, `recap_chars` and `past_chats`.
+The list has `show_grounding`, `show_trim_notice`, `show_context_meter`, `show_background_status`, `status_typing`, `reply_reveal`, `web_access`, `model_timeout`, `context_window`, `reply_limit`, `grounding_search`, `vault_lookup`, `connections_by_meaning`, `connections_relevance` and `grounding_followups`.
 
-It also has `grounding_search`, `embedding_min_similarity`, `embedding_margin`, `library_sync_limit`, `vault_lookup`, `vault_lookup_rounds`, `auto_compact`, `compact_at`, `compact_to` and `parallel_replies`.
+It also has `vault_lookup_rounds`, `embedding_min_similarity`, `embedding_margin`, `library_sync_limit`, `session_recaps`, `past_chats`, `auto_compact`, `parallel_replies`, `recap_count`, `recap_chars`, `history_tokens`, `compact_at` and `compact_to`.
 
-`edit_mode`, `show_note_marker`, `open_note_cap` and `annotations_cap` are the editing settings. `memory_remember`, `memory_rewrite` and `memory_auto_refresh` are the memory settings. The model, the persona and what a cloud model may receive have /model, /persona and /share.
+`memory_remember`, `memory_rewrite` and `memory_auto_refresh` are the memory settings. `edit_mode`, `show_note_marker`, `open_note_cap` and `annotations_cap` are the editing settings, then come `skill_lookup`, `skill_cap`, `waiting_drafts` and `slack`. The model, the persona and what a cloud model may receive have /model, /persona and /share.
 
 ## Can Samantha change a setting for me?
 
@@ -224,7 +224,7 @@ The `annotations_cap` setting is how many of your open comments on the open note
 
 The `skill_lookup` setting decides whether a persona follows a skill: `"auto"` (the default) picks the skill whose description fits your message, if there is one, and adds its steps to that message; `"off"` never does.
 
-A skill is a folder with a `SKILL.md` that says what it does and the steps to follow. It is only text: nothing in it is ever run. In Settings, under Skills, every skill a persona could carry has a switch, and a persona follows only the skills that are on; Samantha starts with the bundled ones on.
+A skill is a folder with a `SKILL.md` that says what it does and the steps to follow. It is only text: nothing in it is ever run. In Settings, under Persona, every skill a persona could carry has a switch, and a persona follows only the skills that are on; Samantha starts with the bundled ones on.
 
 To add a skill of your own, paste the full path of its folder in the same place. Sympose copies its `SKILL.md` (nothing else in the folder) into the persona's profile, turned off, and opens it so you can read it before you turn it on. A skill of your own goes only to a model on your computer, never to a cloud model.
 
@@ -240,7 +240,7 @@ The `skill_cap` setting is the most characters of a skill's steps that go with o
 
 ## web_access
 
-The `web_access` setting decides whether a link you share is opened. `"asked"`, the default, opens a YouTube video or a web page when your message has its link, and keeps it in front of the persona for your questions about it afterwards. `"auto"` also lets the persona search the web by herself on every turn. `"off"` never does.
+The `web_access` setting decides whether a link you share is opened. In Settings it sits right under the `web` switch. `"asked"`, the default, opens a YouTube video or a web page when your message has its link, and keeps it in front of the persona for your questions about it afterwards. `"auto"` also lets the persona search the web by herself on every turn. `"off"` never does.
 
 Gemini Flash watches the video, reads the page and searches: the link is sent to Google, and the persona sees what is shown as well as what is said.
 
@@ -250,7 +250,7 @@ All of it needs `"web"` allowed under `cloud_share`. When a search backs a sente
 
 With captions the persona cannot see what is shown and not said, and a very long video is cut, with the persona saying where it stops. A video with no captions, or one YouTube will not hand out, cannot be read this way, and the persona says so and why.
 
-With a cloud model, `"web"` must be allowed in `cloud_share`, which it is not until you allow it with /share or in Settings under Cloud models; the link goes to Google, or the captions go to the model's maker. Without that permission she says she could not open the link, and how to allow it. A model on your computer needs no permission.
+With a cloud model, `"web"` must be allowed in `cloud_share`, which it is not until you allow it with /share or in Settings under Models and privacy; the link goes to Google, or the captions go to the model's maker. Without that permission she says she could not open the link, and how to allow it. A model on your computer needs no permission.
 
 A video costs more than a message: with Gemini Flash each question that needs the video makes Google look at it again, and with captions they ride with every message while the conversation is about the video. What a persona says about a video comes from the video and not from your notes. In a message with a video link it does not add anything to its memory.
 
@@ -264,7 +264,7 @@ While it is off, `sympose slack` will not start and a message in Slack is answer
 
 ## waiting_drafts
 
-A job or Slack that nobody watches could leave a pile of drafts. `waiting_drafts` is how many each may leave waiting before it stops making new ones: 5 unless you change it, for each scheduled job and for Slack as a whole, each counted on its own. It is a whole number from 1 to 100; set it in Settings, under Jobs.
+A job or Slack that nobody watches could leave a pile of drafts. `waiting_drafts` is how many each may leave waiting before it stops making new ones: 5 unless you change it, for each scheduled job and for Slack as a whole, each counted on its own. It is a whole number from 1 to 100; set it in Settings, under Persona.
 
 Accepting or declining a draft makes room again; nothing is deleted for you. A draft you asked for in the chat is never counted.
 

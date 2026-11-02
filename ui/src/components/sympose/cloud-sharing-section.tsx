@@ -1,27 +1,32 @@
-import { ControlRow, ControlSection } from "@/components/sympose/control-section"
+import * as React from "react"
+
+import { ControlRow } from "@/components/sympose/control-section"
 import { SegmentedControl } from "@/components/sympose/segmented-control"
 import type { SharingState } from "@/lib/sharing-api"
 
 /**
- * Settings → Cloud models (docs/decisions/031, 044): what a cloud model may receive from the user's vault, the
- * same switches as the notice above the message box and the terminal's `/share`, kept in the one `cloud_share`
- * list. Always reachable from here, whichever model is in use and whether or not the notice is closed. Takes
- * the chat's own sharing state, not a copy, so a switch here and the notice always agree. Everything starts off.
+ * Settings → Models and privacy, the permission rows (docs/decisions/031, 044, 097): what a cloud model may receive
+ * from the user's vault, the same switches as the notice above the message box and the terminal's `/share`, kept in
+ * the one `cloud_share` list. Always reachable from here, whichever model is in use and whether or not the notice is
+ * closed. Takes the chat's own sharing state, not a copy, so a switch here and the notice always agree. Everything
+ * starts off. `after` draws a row directly under a category's switch (`web_access`, under `web`).
  */
-function CloudSharingSection({
+function CloudSharingRows({
   state,
   onChange,
   noticeOpen,
   onNoticeOpenChange,
+  after = {},
 }: {
   state: SharingState | null
   onChange: (category: string, shared: boolean) => void
   /** The notice above the message box is shown (while the model is a cloud one). */
   noticeOpen: boolean
   onNoticeOpenChange: (open: boolean) => void
+  after?: Record<string, React.ReactNode>
 }) {
   return (
-    <ControlSection title="Cloud models">
+    <>
       <p className="text-xs text-fg-muted">
         A cloud model always receives your messages and the conversation. From your vault it may receive only what is
         switched on here; everything starts off. A model on your own computer receives all of it, and nothing leaves.
@@ -45,6 +50,7 @@ function CloudSharingSection({
                 />
               </ControlRow>
               <p className="text-xs text-fg-muted">{c.description}</p>
+              {after[c.name]}
             </div>
           ))}
           <ControlRow label="Notice above the message box">
@@ -66,8 +72,8 @@ function CloudSharingSection({
           </p>
         </>
       )}
-    </ControlSection>
+    </>
   )
 }
 
-export { CloudSharingSection }
+export { CloudSharingRows }

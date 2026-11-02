@@ -55,7 +55,7 @@ _ARCHIVE_ERRORS = {
     session_archive.WAITING: (409, "A note with the same name or words is already waiting among the drafts, so a second one was not made."),
     session_archive.TOO_SHORT: (422, "That conversation is too short to archive."),
     session_archive.NO_VAULT: (422, "This persona has no vault to put a note in."),
-    session_archive.NOT_ALLOWED: (422, "This model would send your messages to the cloud, and recaps are not allowed there. You can allow them in Settings > Sharing."),
+    session_archive.NOT_ALLOWED: (422, "This model would send your messages to the cloud, and recaps are not allowed there. You can allow them in Settings > Models and privacy."),
     session_archive.NOTHING_TO_KEEP: (422, "There was nothing in that conversation worth keeping."),
     session_archive.MODEL_FAILED: (502, "The model could not write the note. Try again."),
     session_archive.REPLY_LIMIT: (502, "The model used up its reply limit before writing the note. Try another model."),

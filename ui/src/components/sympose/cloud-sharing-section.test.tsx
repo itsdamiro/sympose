@@ -1,16 +1,10 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from "@testing-library/react"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { CloudSharingSection } from "./cloud-sharing-section"
+import { CloudSharingRows } from "./cloud-sharing-section"
 
-beforeEach(() => {
-  document.cookie = "sympose:pref.section.cloud-models=1"
-})
-afterEach(() => {
-  cleanup()
-  document.cookie = "sympose:pref.section.cloud-models=; max-age=0"
-})
+afterEach(cleanup)
 
 const state = (over: Record<string, unknown> = {}) => ({
   model: "gemini/gemini-flash-latest",
@@ -25,11 +19,11 @@ const state = (over: Record<string, unknown> = {}) => ({
 const setup = (s: ReturnType<typeof state> | null, noticeOpen = true) => {
   const onChange = vi.fn()
   const onNoticeOpenChange = vi.fn()
-  render(<CloudSharingSection state={s} onChange={onChange} noticeOpen={noticeOpen} onNoticeOpenChange={onNoticeOpenChange} />)
+  render(<CloudSharingRows state={s} onChange={onChange} noticeOpen={noticeOpen} onNoticeOpenChange={onNoticeOpenChange} />)
   return { onChange, onNoticeOpenChange }
 }
 
-describe("CloudSharingSection", () => {
+describe("CloudSharingRows", () => {
   it("lists every category with what it is and its state", () => {
     setup(state())
     expect(screen.getByText("passages of your notes")).toBeTruthy()
@@ -37,6 +31,13 @@ describe("CloudSharingSection", () => {
     expect(notes.querySelector('[aria-checked="true"]')?.textContent).toBe("Off")
     const recaps = screen.getByRole("radiogroup", { name: "Share recaps with cloud models" })
     expect(recaps.querySelector('[aria-checked="true"]')?.textContent).toBe("On")
+  })
+
+  it("draws a row of the page's own directly under the category it is named for", () => {
+    render(<CloudSharingRows state={state()} onChange={vi.fn()} noticeOpen onNoticeOpenChange={vi.fn()} after={{ recaps: <p>after recaps</p>, nowhere: <p>never drawn</p> }} />)
+    const note = screen.getByText("after recaps")
+    expect(note.previousElementSibling?.textContent).toBe("recaps of earlier conversations")
+    expect(screen.queryByText("never drawn")).toBeNull()
   })
 
   it("switches a category from the other side, whatever the model in use", () => {

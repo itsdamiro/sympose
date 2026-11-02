@@ -43,7 +43,7 @@ function NebulaAppearanceSection({
   ) => void
 }) {
   return (
-    <ControlSection title="Knowledge Nebula" defaultOpen>
+    <ControlSection title="Knowledge Nebula">
       <ControlRow label="Vault graph">
         <SegmentedControl
           size="sm"

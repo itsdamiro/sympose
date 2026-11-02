@@ -14,13 +14,13 @@ Small models make more mistakes editing, so read each change before you accept i
 
 ## Can Samantha watch a YouTube video if I paste the link?
 
-Yes. Gemini Flash, a cloud model, watches it once you allow `"web"` with /share or in Settings under Cloud models: the link goes to Google. Any other model, one on your computer included, is given the video's captions instead.
+Yes. Gemini Flash, a cloud model, watches it once you allow `"web"` with /share or in Settings under Models and privacy: the link goes to Google. Any other model, one on your computer included, is given the video's captions instead.
 
 Ask for a note and it proposes one: an outline with times that link to that moment of the video, and the video's address as its source. Your Accept files it. Gemini Flash also reads a web page you link to, and with `web_access` on `"auto"` searches the web.
 
 ## Can I give Samantha a file to look at, such as a PDF, a picture, a recording or a video?
 
-Yes, with Gemini Flash. Attach it: drop the file onto the web app's message box, or paste it, or in the terminal type /attach and its path. She reads PDFs, images, sounds and videos, up to three files and 50 MB in one message. The file goes to Google, so it needs `"media"` allowed with /share or in Settings under Cloud models.
+Yes, with Gemini Flash. Attach it: drop the file onto the web app's message box, or paste it, or in the terminal type /attach and its path. She reads PDFs, images, sounds and videos, up to three files and 50 MB in one message. The file goes to Google, so it needs `"media"` allowed with /share or in Settings under Models and privacy.
 
 Sympose keeps no copy of an attached file. It stays with the conversation for five more messages, then it is gone. Ask for a note made from it and she proposes one with the file as its source; your Accept files it. A model on your computer cannot read files, and she says so.
 

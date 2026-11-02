@@ -28,7 +28,7 @@ def rows(client):
 
 def test_lists_every_engine_setting_in_its_groups_and_no_terminal_display_knob(client):
     groups = client.get("/api/settings").json()["groups"]
-    assert [g["name"] for g in groups] == ["Conversation memory", "Search", "Searching notes", "Memory", "Conversations", "Editing", "Skills", "Links", "Slack", "Jobs"]
+    assert [g["name"] for g in groups] == ["Models and privacy", "Finding notes", "Memory and past chats", "Editing", "Persona", "Slack"]
     assert sum(len(g["settings"]) for g in groups) == len(settings_registry.SETTINGS)
     assert "show_grounding" not in rows(client) and "reply_reveal" not in rows(client)
 
@@ -60,9 +60,9 @@ def test_a_toggle_refuses_a_non_boolean(client):
     assert client.put("/api/settings/memory_remember", json={"value": "yes"}).status_code == 422
 
 
-def test_the_draft_limit_is_one_number_in_the_jobs_group_with_its_default(client):
+def test_the_draft_limit_is_one_number_in_the_persona_group_with_its_default(client):
     groups = {g["name"]: [s["key"] for s in g["settings"]] for g in client.get("/api/settings").json()["groups"]}
-    assert groups["Jobs"] == ["waiting_drafts"] and "waiting_drafts" not in groups["Slack"]
+    assert "waiting_drafts" in groups["Persona"] and "waiting_drafts" not in groups["Slack"]
     limit = rows(client)["waiting_drafts"]
     assert (limit["kind"], limit["value"], limit["default"], limit["is_default"]) == ("number", 5, 5, True)
     assert client.put("/api/settings/waiting_drafts", json={"value": 3}).json()["setting"]["value"] == 3

@@ -1,10 +1,20 @@
 import * as React from "react"
-import { Search01Icon } from "@hugeicons/core-free-icons"
+import { HugeiconsIcon } from "@hugeicons/react"
+import {
+  Clock01Icon,
+  CloudIcon,
+  Edit01Icon,
+  Message01Icon,
+  PaintBoardIcon,
+  Search01Icon,
+  UserIcon,
+} from "@hugeicons/core-free-icons"
 
 import {
-  CloudSharingSection,
+  CloudSharingRows,
   ChatDisplaySection,
   CollapseAllButton,
+  ControlSection,
   ControlSearchProvider,
   ControlSectionsProvider,
   EditorPreferencesSection,
@@ -19,6 +29,16 @@ import {
 } from "@/components/sympose"
 import { EmptyState } from "@/components/sympose/empty-state"
 import { setShowDefinitionNotes } from "@/lib/vault-hidden-api"
+
+/** The icon of each section the registry names (docs/decisions/097), beside the app's own "Appearance". */
+const SECTION_ICONS = {
+  "Models and privacy": CloudIcon,
+  "Finding notes": Search01Icon,
+  "Memory and past chats": Clock01Icon,
+  Editing: Edit01Icon,
+  Persona: UserIcon,
+  Slack: Message01Icon,
+}
 
 /**
  * The Settings section of the content panel: every preference the web app has,
@@ -78,8 +98,8 @@ export function SettingsView({
   changeHidden: (change: ReturnType<typeof setShowDefinitionNotes>) => unknown
   chatDisplayPrefs: React.ComponentProps<typeof ChatDisplaySection>["prefs"]
   setChatDisplayPref: React.ComponentProps<typeof ChatDisplaySection>["setPref"]
-  sharingState: React.ComponentProps<typeof CloudSharingSection>["state"]
-  setShared: React.ComponentProps<typeof CloudSharingSection>["onChange"]
+  sharingState: React.ComponentProps<typeof CloudSharingRows>["state"]
+  setShared: React.ComponentProps<typeof CloudSharingRows>["onChange"]
   cloudNotice: { open: boolean; reopen: () => void; close: () => void }
   /** The persona that is open: the skills listed under Skills are hers. */
   persona: string | null
@@ -104,43 +124,60 @@ export function SettingsView({
           </h1>
           <CollapseAllButton />
         </div>
-        <WorkspaceSection
-          brandMarkLabel={brandMarkLabel}
-          setBrandMarkLabel={setBrandMarkLabel}
-        />
-        <EditorPreferencesSection
-          prefs={editorPrefs}
-          setPref={setEditorPref}
-          toolbarItems={toolbarItems}
-          onToolbarItemsChange={setToolbarItems}
-        />
-        <NotificationsSection prefs={notifyPrefs} setPref={setNotifyPref} />
-        <NebulaAppearanceSection prefs={nebulaPrefs} setPref={setNebulaPref} />
-        <RecentNotesPreferencesSection
-          enabled={recentsEnabled}
-          setEnabled={setRecentsEnabled}
-          shownCount={shownCount}
-          setShownCount={setShownCount}
-        />
-        <HiddenSection
-          hidden={hiddenState.hidden}
-          showDefinitionNotes={hiddenState.showDefinitionNotes}
-          onUnhide={unhideFromView}
-          onShowDefinitionNotes={(show) =>
-            changeHidden(setShowDefinitionNotes(show))
-          }
-        />
-        <ChatDisplaySection prefs={chatDisplayPrefs} setPref={setChatDisplayPref} />
-        <CloudSharingSection
-          state={sharingState}
-          onChange={setShared}
-          noticeOpen={cloudNotice.open}
-          onNoticeOpenChange={(open) => (open ? cloudNotice.reopen() : cloudNotice.close())}
-        />
+        <ControlSection title="Appearance" icon={<HugeiconsIcon icon={PaintBoardIcon} />}>
+          <WorkspaceSection
+            brandMarkLabel={brandMarkLabel}
+            setBrandMarkLabel={setBrandMarkLabel}
+          />
+          <EditorPreferencesSection
+            prefs={editorPrefs}
+            setPref={setEditorPref}
+            toolbarItems={toolbarItems}
+            onToolbarItemsChange={setToolbarItems}
+          />
+          <NotificationsSection prefs={notifyPrefs} setPref={setNotifyPref} />
+          <NebulaAppearanceSection prefs={nebulaPrefs} setPref={setNebulaPref} />
+          <RecentNotesPreferencesSection
+            enabled={recentsEnabled}
+            setEnabled={setRecentsEnabled}
+            shownCount={shownCount}
+            setShownCount={setShownCount}
+          />
+          <HiddenSection
+            hidden={hiddenState.hidden}
+            showDefinitionNotes={hiddenState.showDefinitionNotes}
+            onUnhide={unhideFromView}
+            onShowDefinitionNotes={(show) =>
+              changeHidden(setShowDefinitionNotes(show))
+            }
+          />
+          <ChatDisplaySection prefs={chatDisplayPrefs} setPref={setChatDisplayPref} />
+        </ControlSection>
         <EngineSettingsSections
+          icons={SECTION_ICONS}
+          open={["Models and privacy"]}
+          leads={{
+            // the permission to reach the web and the setting that makes it happen are one feature (docs/decisions/097)
+            "Models and privacy": {
+              keys: ["web_access"],
+              render: (placed) => (
+                <CloudSharingRows
+                  state={sharingState}
+                  onChange={setShared}
+                  noticeOpen={cloudNotice.open}
+                  onNoticeOpenChange={(open) => (open ? cloudNotice.reopen() : cloudNotice.close())}
+                  after={{ web: placed.web_access }}
+                />
+              ),
+            },
+          }}
           extras={{
-            Skills: <SkillsRows persona={persona} personaName={personaName} />,
-            Jobs: <JobsRows persona={persona} personaName={personaName} version={jobsVersion} onOpen={onOpenJob} onRenamed={onJobRenamed} onRemoved={onJobRemoved} />,
+            Persona: (
+              <>
+                <SkillsRows persona={persona} personaName={personaName} />
+                <JobsRows persona={persona} personaName={personaName} version={jobsVersion} onOpen={onOpenJob} onRenamed={onJobRenamed} onRemoved={onJobRemoved} />
+              </>
+            ),
           }}
         />
         {query.trim() !== "" && (

@@ -15,7 +15,7 @@ function WorkspaceSection({
   setBrandMarkLabel: (value: BrandMarkLabel) => void
 }) {
   return (
-    <ControlSection title="Workspace" defaultOpen>
+    <ControlSection title="Workspace">
       <ControlRow label="Brand mark">
         <SegmentedControl
           size="sm"

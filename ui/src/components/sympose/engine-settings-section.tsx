@@ -1,4 +1,5 @@
 import * as React from "react"
+import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react"
 
 import { ControlRow, ControlSection } from "@/components/sympose/control-section"
 import { SegmentedControl } from "@/components/sympose/segmented-control"
@@ -109,17 +110,48 @@ function Control({ setting, change }: { setting: EngineSetting; change: Change }
   )
 }
 
+function SettingRow({ setting, change }: { setting: EngineSetting; change: Change }) {
+  return (
+    <ControlRow
+      label={label(setting)}
+      keywords={setting.hint}
+      hint={setting.kind === "number" && setting.hint ? <p className="text-xs text-fg-muted">{setting.hint}</p> : undefined}
+    >
+      <Control setting={setting} change={change} />
+    </ControlRow>
+  )
+}
+
+/** Rows of the page's own drawn first in a group, with some of the group's settings placed inside them
+ *  (`keys`, given to `render` by key) instead of in the list below: a setting sits next to the switch it depends on. */
+type Lead = { keys: string[]; render: (placed: Record<string, React.ReactNode>) => React.ReactNode }
+
 /**
- * Settings → the engine settings, one section per group (docs/decisions/044). The same list the terminal's
+ * Settings → the engine settings, one section per group (docs/decisions/044, 097). The same list the terminal's
  * `/settings` shows, described by the backend, which also decides what a value may be: this only draws each
- * row as a switch, a set of choices or a number field, and shows the reason when a value is refused. `extras` adds rows
- * of the page's own under a group by its name (the skills and the jobs, which belong to the persona that is open); they are drawn in a section of their own when the settings cannot be loaded.
+ * row as a switch, a set of choices or a number field, and shows the reason when a value is refused. The page adds
+ * its own rows to a group by its name: `leads` before the settings (the cloud permissions, with `web_access` placed
+ * among them) and `extras` after them (the skills and the jobs, which belong to the persona that is open); they are
+ * drawn in a section of their own when the settings cannot be loaded. `icons` and `open` (the sections open on first
+ * sight) are by group name too.
  */
-function EngineSettingsSections({ extras = {} }: { extras?: Record<string, React.ReactNode> }) {
+function EngineSettingsSections({
+  extras = {},
+  leads = {},
+  icons = {},
+  open = [],
+}: {
+  extras?: Record<string, React.ReactNode>
+  leads?: Record<string, Lead>
+  icons?: Record<string, IconSvgElement>
+  open?: string[]
+}) {
   const { state, change } = useEngineSettings()
+  const iconFor = (name: string) => (icons[name] ? <HugeiconsIcon icon={icons[name]} /> : undefined)
 
   if (state.status === "loading") return null
   if (state.status === "error") {
+    const names = [...new Set([...Object.keys(leads), ...Object.keys(extras)])]
     return (
       <>
         <ControlSection title="Advanced" defaultOpen>
@@ -127,9 +159,10 @@ function EngineSettingsSections({ extras = {} }: { extras?: Record<string, React
             Couldn&apos;t load these: {state.error}.
           </p>
         </ControlSection>
-        {Object.entries(extras).map(([name, rows]) => (
-          <ControlSection key={name} title={name}>
-            {rows}
+        {names.map((name) => (
+          <ControlSection key={name} title={name} icon={iconFor(name)}>
+            {leads[name]?.render({})}
+            {extras[name]}
           </ControlSection>
         ))}
       </>
@@ -137,21 +170,23 @@ function EngineSettingsSections({ extras = {} }: { extras?: Record<string, React
   }
   return (
     <>
-      {state.groups.map((group) => (
-        <ControlSection key={group.name} title={group.name}>
-          {group.settings.map((s) => (
-            <ControlRow
-              key={s.key}
-              label={label(s)}
-              keywords={s.hint}
-              hint={s.kind === "number" && s.hint ? <p className="text-xs text-fg-muted">{s.hint}</p> : undefined}
-            >
-              <Control setting={s} change={change} />
-            </ControlRow>
-          ))}
-          {extras[group.name]}
-        </ControlSection>
-      ))}
+      {state.groups.map((group) => {
+        const lead = leads[group.name]
+        const placed = Object.fromEntries(
+          group.settings.filter((s) => lead?.keys.includes(s.key)).map((s) => [s.key, <SettingRow key={s.key} setting={s} change={change} />])
+        )
+        return (
+          <ControlSection key={group.name} title={group.name} icon={iconFor(group.name)} defaultOpen={open.includes(group.name)}>
+            {lead?.render(placed)}
+            {group.settings
+              .filter((s) => !(s.key in placed))
+              .map((s) => (
+                <SettingRow key={s.key} setting={s} change={change} />
+              ))}
+            {extras[group.name]}
+          </ControlSection>
+        )
+      })}
     </>
   )
 }

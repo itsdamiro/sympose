@@ -291,8 +291,8 @@ READING_SEARCH = (
 WITHHELD_WEB = (
     "The user's message links to a video or a page, but the user has not allowed the maker of this cloud model to open "
     "links, so you did not open it. Don't say you cannot watch videos or read pages, and don't guess what it is about: say "
-    "you could not open it this time, and tell the person you are talking to that they can allow it under Settings, Cloud "
-    "models, \"web\" (in the terminal, with /share); write \"you\", not \"the user\"."
+    "you could not open it this time, and tell the person you are talking to that they can allow it under Settings, Models "
+    "and privacy, \"web\" (in the terminal, with /share); write \"you\", not \"the user\"."
 )
 # Files attached to the message (docs/decisions/089, `media`): read by the maker's model, and outside content like a video.
 ATTACHED_FILES = (
@@ -313,7 +313,7 @@ UNSUPPORTED_FILES = (
 WITHHELD_FILES = (
     "The user attached {names}, but the user has not allowed files to be sent to this cloud model, so none was sent to "
     "you. Don't say you cannot read files, and don't guess what is in it: say you could not open it this time, and tell "
-    "the person you are talking to that they can allow it under Settings, Cloud models, \"media\" (in the terminal, "
+    "the person you are talking to that they can allow it under Settings, Models and privacy, \"media\" (in the terminal, "
     "with /share); write \"you\", not \"the user\"."
 )
 WITHHELD_CHATS = (

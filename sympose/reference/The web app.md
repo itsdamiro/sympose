@@ -90,7 +90,7 @@ Right-click it, or long-press on a touch screen, and choose "Hide from view". It
 
 ## How do I show a hidden note again?
 
-Choose Unhide beside it in the search results, or in the "Hidden from view" part of Settings, which lists everything you hid. That part also decides whether the folder definition notes, left out of the tree by default, are listed.
+Choose Unhide beside it in the search results, or in the "Hidden from view" part of Settings (under Appearance), which lists everything you hid. That part also decides whether the folder definition notes, left out of the tree by default, are listed.
 
 ## Can I go back to an older conversation while a persona is replying?
 
@@ -106,7 +106,7 @@ The summary does not exist as a file yet. It waits in Drafts, filed for a folder
 
 ## Can a persona do something by itself on a schedule?
 
-Yes, as a job. A job is a small file in the persona's own folder, never in your vault. In Settings, under Jobs, Add a job makes one that starts off. Open it from the ⋯ menu on its row, write when it runs (such as `weekly sun 18:00` or `daily 07:30`) and what to do, then switch it On.
+Yes, as a job. A job is a small file in the persona's own folder, never in your vault. In Settings, under Persona, Add a job makes one that starts off. Open it from the ⋯ menu on its row, write when it runs (such as `weekly sun 18:00` or `daily 07:30`) and what to do, then switch it On.
 
 Whatever a job produces waits in Drafts for you to accept, so a job never touches your vault by itself. A job can propose notes to add but not alterations to one you already have. A job that uses a cloud model runs once a day unless its file says otherwise.
 
@@ -116,11 +116,11 @@ In the job's one conversation. Every run of a job is added to it, so it is a sin
 
 ## How do I rename or delete a job?
 
-In Settings, under Jobs, open the ⋯ menu on the job's row. Rename turns what you type into a file name (`Weekly review` becomes `weekly-review`) and keeps its last run. Delete asks first and keeps a copy of the file beside the others, with .bak added to its name. A job that is running right now has to finish first.
+In Settings, under Persona, open the ⋯ menu on the job's row. Rename turns what you type into a file name (`Weekly review` becomes `weekly-review`) and keeps its last run. Delete asks first and keeps a copy of the file beside the others, with .bak added to its name. A job that is running right now has to finish first.
 
 ## How do I give a job another model?
 
-In Settings, under Jobs, click the model on the job's row and pick another. The choice is written in the job's file as `model`, so it is the same as editing the file. "Use the default" takes it off, and the job follows the persona's model again. A job that uses no model, such as the notes check, has no picker. A cloud model still receives only what you allow in Settings.
+In Settings, under Persona, click the model on the job's row and pick another. The choice is written in the job's file as `model`, so it is the same as editing the file. "Use the default" takes it off, and the job follows the persona's model again. A job that uses no model, such as the notes check, has no picker. A cloud model still receives only what you allow in Settings.
 
 ## What goes in a job's file?
 
@@ -132,7 +132,7 @@ A job's file has a few lines of properties, then what to write for the job to do
 
 ## Do jobs run when Sympose is closed?
 
-While the web app is open, yes, and a time missed while it was closed runs when you next open it. On a Mac, switch on Run while Sympose is closed under Jobs in Settings, or run `sympose schedule install`, and the computer checks every 5 minutes with the app closed.
+While the web app is open, yes, and a time missed while it was closed runs when you next open it. On a Mac, switch on Run while Sympose is closed under Persona in Settings, or run `sympose schedule install`, and the computer checks every 5 minutes with the app closed.
 
 `sympose schedule remove` takes that away. `sympose run --due` runs what is due now and `sympose run persona/job` runs one job now.
 

@@ -34,89 +34,73 @@ def toggle(key: str, summary: str, current: Callable[[], bool], default: bool = 
     return Setting(key, TOGGLE, summary, current, lambda: default, group=group, user_only=user_only)
 
 
-CONTEXT, SEARCH, LOOKUP, MEMORY, CONVERSATIONS, EDITING, SKILLS, WEB, SLACK, JOBS = (
-    "Conversation memory", "Search", "Searching notes", "Memory", "Conversations", "Editing", "Skills", "Links", "Slack", "Jobs",
+MODELS, FINDING, MEMORY, EDITING, PERSONA, SLACK = (
+    "Models and privacy", "Finding notes", "Memory and past chats", "Editing", "Persona", "Slack",
 )
-GROUPS = (CONTEXT, SEARCH, LOOKUP, MEMORY, CONVERSATIONS, EDITING, SKILLS, WEB, SLACK, JOBS)
+GROUPS = (MODELS, FINDING, MEMORY, EDITING, PERSONA, SLACK)
 
 SETTINGS: list[Setting] = [
     Setting(
-        budget.CONTEXT_SETTING, NUMBER, "how much text a local model takes", budget.context_setting,
-        hint="a number, 2048 or more (a token is roughly a word); leave empty for automatic", whole=True, group=CONTEXT,
-    ),
-    Setting(
-        budget.REPLY_SETTING, NUMBER, "space kept for the reply", budget.reply_setting,
-        hint="a number, 64 or more (a token is roughly a word); leave empty for automatic", whole=True, group=CONTEXT,
-    ),
-    Setting(
-        history_cap.SETTING, NUMBER, "most earlier chat sent per message", history_cap.chosen,
-        hint=f"a number, {history_cap.MIN_TOKENS} or more (a token is roughly a word); leave empty for no limit", whole=True, group=CONTEXT,
+        web_access.SETTING, CHOICE, "links and web searches (cloud needs \"web\")",
+        web_access.mode, lambda: web_access.ASKED, choices=web_access.MODES, group=MODELS,
     ),
     Setting(
         model_wait.SETTING, NUMBER, "how long a model may take to answer", model_wait.chosen,
-        hint=f"seconds, {model_wait.MIN_SECONDS} to {model_wait.MAX_SECONDS}; empty for automatic", whole=True, group=CONTEXT,
+        hint=f"seconds, {model_wait.MIN_SECONDS} to {model_wait.MAX_SECONDS}; empty for automatic", whole=True, group=MODELS,
     ),
     Setting(
-        followup.SETTING, CHOICE, "a second search for follow-up questions",
-        lambda: ON if followup.enabled() else OFF, lambda: ON, choices=(ON, OFF), group=CONTEXT,
-    ),
-    toggle(recap.SETTING, "recaps of your earlier conversations", recap.enabled, group=CONTEXT),
-    Setting(
-        recap.COUNT_SETTING, NUMBER, "how many recaps are read", recap.read_count,
-        lambda: recap.DEFAULT_COUNT, hint=f"a whole number, {recap.COUNT_RANGE[0]} to {recap.COUNT_RANGE[1]}", whole=True, group=CONTEXT,
+        budget.CONTEXT_SETTING, NUMBER, "how much text a local model takes", budget.context_setting,
+        hint="a number, 2048 or more (a token is roughly a word); leave empty for automatic", whole=True, group=MODELS,
     ),
     Setting(
-        recap.CHARS_SETTING, NUMBER, "how much of each recap is read", recap.read_chars,
-        lambda: recap.DEFAULT_CHARS, hint=f"characters, {recap.CHARS_RANGE[0]} to {recap.CHARS_RANGE[1]}", whole=True, group=CONTEXT,
-    ),
-    Setting(
-        past_chats.SETTING, CHOICE, "past chats word for word (auto: local, ask: cloud)", past_chats.mode,
-        lambda: past_chats.OFF, choices=past_chats.MODES, group=CONTEXT,
-    ),
-    Setting(
-        related.SETTING, CHOICE, "suggest related notes", related.mode,
-        lambda: related.AUTO, choices=related.MODES, group=CONTEXT,
-    ),
-    Setting(
-        related.LEVEL_SETTING, CHOICE, "how similar they must be", related.level,
-        lambda: related.BALANCED, choices=related.LEVELS, group=CONTEXT,
-    ),
-    toggle(compaction.SETTING, "condensing a long conversation on its own", compaction.enabled, group=CONTEXT),
-    Setting(
-        compaction.AT_SETTING, NUMBER, "percent full when it is condensed", compaction.at_percent,
-        lambda: compaction.DEFAULT_AT, hint="percent of the space the model has for the conversation, 10 to 95", whole=True, group=CONTEXT,
-    ),
-    Setting(
-        compaction.TO_SETTING, NUMBER, "percent full after it is condensed", compaction.to_percent,
-        lambda: compaction.DEFAULT_TO, hint="percent, 10 to 95, below the one above", whole=True, group=CONTEXT,
+        budget.REPLY_SETTING, NUMBER, "space kept for the reply", budget.reply_setting,
+        hint="a number, 64 or more (a token is roughly a word); leave empty for automatic", whole=True, group=MODELS,
     ),
     Setting(
         embeddings.MODE_SETTING, CHOICE, "how notes are searched", embeddings.mode,
-        lambda: embeddings.DEFAULT_MODE, group=SEARCH,
+        lambda: embeddings.DEFAULT_MODE, group=FINDING,
         choices=(embeddings.AUTO, embeddings.KEYWORDS, embeddings.EMBEDDINGS, embeddings.HYBRID),
     ),
     Setting(
-        embeddings.THRESHOLD_SETTING, NUMBER, "how alike a note must be", embeddings.min_similarity,
-        lambda: embeddings.DEFAULT_THRESHOLD, hint="a number between 0 and 1, not including them", group=SEARCH,
-    ),
-    Setting(
-        embeddings.MARGIN_SETTING, NUMBER, "how near the best a note must be", embeddings.margin,
-        lambda: embeddings.DEFAULT_MARGIN, hint="a number from 0 to 1", group=SEARCH,
-    ),
-    Setting(
-        semantic.LIBRARY_SYNC_SETTING, NUMBER, "help passages searched at once", semantic.library_sync_limit,
-        lambda: semantic.DEFAULT_LIBRARY_SYNC_LIMIT, group=SEARCH, whole=True,
-        hint=f"a whole number, {semantic.MIN_LIBRARY_SYNC_LIMIT} or more; below the library's size (about 260) its first searches use keywords",
-    ),
-    Setting(
         lookup.SETTING, CHOICE, "who searches your notes (persona/auto/ask)",
-        lookup.mode, lambda: lookup.BY_MODEL, choices=(lookup.BY_MODEL, lookup.AUTO, lookup.ASK), group=LOOKUP,
+        lookup.mode, lambda: lookup.BY_MODEL, choices=(lookup.BY_MODEL, lookup.AUTO, lookup.ASK), group=FINDING,
+    ),
+    Setting(
+        related.SETTING, CHOICE, "suggest related notes", related.mode,
+        lambda: related.AUTO, choices=related.MODES, group=FINDING,
+    ),
+    Setting(
+        related.LEVEL_SETTING, CHOICE, "how similar they must be", related.level,
+        lambda: related.BALANCED, choices=related.LEVELS, group=FINDING,
+    ),
+    Setting(
+        followup.SETTING, CHOICE, "a second search for follow-up questions",
+        lambda: ON if followup.enabled() else OFF, lambda: ON, choices=(ON, OFF), group=FINDING,
     ),
     Setting(
         lookup.ROUNDS_SETTING, NUMBER, "searches allowed per message",
-        lookup.rounds, lambda: lookup.DEFAULT_ROUNDS, group=LOOKUP,
+        lookup.rounds, lambda: lookup.DEFAULT_ROUNDS, group=FINDING,
         hint=f"a whole number, 1 to {lookup.MAX_ROUNDS}", whole=True,
     ),
+    Setting(
+        embeddings.THRESHOLD_SETTING, NUMBER, "how alike a note must be", embeddings.min_similarity,
+        lambda: embeddings.DEFAULT_THRESHOLD, hint="a number between 0 and 1, not including them", group=FINDING,
+    ),
+    Setting(
+        embeddings.MARGIN_SETTING, NUMBER, "how near the best a note must be", embeddings.margin,
+        lambda: embeddings.DEFAULT_MARGIN, hint="a number from 0 to 1", group=FINDING,
+    ),
+    Setting(
+        semantic.LIBRARY_SYNC_SETTING, NUMBER, "help passages searched at once", semantic.library_sync_limit,
+        lambda: semantic.DEFAULT_LIBRARY_SYNC_LIMIT, group=FINDING, whole=True,
+        hint=f"a whole number, {semantic.MIN_LIBRARY_SYNC_LIMIT} or more; below the library's size (about 260) its first searches use keywords",
+    ),
+    toggle(recap.SETTING, "recaps of your earlier conversations", recap.enabled, group=MEMORY),
+    Setting(
+        past_chats.SETTING, CHOICE, "past chats word for word (auto: local, ask: cloud)", past_chats.mode,
+        lambda: past_chats.OFF, choices=past_chats.MODES, group=MEMORY,
+    ),
+    toggle(compaction.SETTING, "condensing a long conversation on its own", compaction.enabled, group=MEMORY),
     toggle(
         memory.REMEMBER_SETTING, "adding to decisions.md when asked to remember",
         memory.remember_enabled, default=False, group=MEMORY,
@@ -132,7 +116,27 @@ SETTINGS: list[Setting] = [
     ),
     Setting(
         parallel.SETTING, CHOICE, "replies in several conversations at once",
-        parallel.mode, lambda: parallel.AUTO, choices=(parallel.AUTO, parallel.ON, parallel.OFF), group=CONVERSATIONS,
+        parallel.mode, lambda: parallel.AUTO, choices=(parallel.AUTO, parallel.ON, parallel.OFF), group=MEMORY,
+    ),
+    Setting(
+        recap.COUNT_SETTING, NUMBER, "how many recaps are read", recap.read_count,
+        lambda: recap.DEFAULT_COUNT, hint=f"a whole number, {recap.COUNT_RANGE[0]} to {recap.COUNT_RANGE[1]}", whole=True, group=MEMORY,
+    ),
+    Setting(
+        recap.CHARS_SETTING, NUMBER, "how much of each recap is read", recap.read_chars,
+        lambda: recap.DEFAULT_CHARS, hint=f"characters, {recap.CHARS_RANGE[0]} to {recap.CHARS_RANGE[1]}", whole=True, group=MEMORY,
+    ),
+    Setting(
+        history_cap.SETTING, NUMBER, "most earlier chat sent per message", history_cap.chosen,
+        hint=f"a number, {history_cap.MIN_TOKENS} or more (a token is roughly a word); leave empty for no limit", whole=True, group=MEMORY,
+    ),
+    Setting(
+        compaction.AT_SETTING, NUMBER, "percent full when it is condensed", compaction.at_percent,
+        lambda: compaction.DEFAULT_AT, hint="percent of the space the model has for the conversation, 10 to 95", whole=True, group=MEMORY,
+    ),
+    Setting(
+        compaction.TO_SETTING, NUMBER, "percent full after it is condensed", compaction.to_percent,
+        lambda: compaction.DEFAULT_TO, hint="percent, 10 to 95, below the one above", whole=True, group=MEMORY,
     ),
     Setting(
         edit_mode.SETTING, CHOICE, "what the persona does to notes before you accept",
@@ -152,23 +156,19 @@ SETTINGS: list[Setting] = [
     ),
     Setting(
         skills.LOOKUP_SETTING, CHOICE, "skills used when a message calls for one",
-        skills.mode, lambda: skills.AUTO, choices=skills.MODES, group=SKILLS,
+        skills.mode, lambda: skills.AUTO, choices=skills.MODES, group=PERSONA,
     ),
     Setting(
         skills.CAP_SETTING, NUMBER, "most text of a skill sent per message", skills.cap,
-        lambda: skills.DEFAULT_CAP, hint=f"characters, {skills.MIN_CAP} or more", whole=True, group=SKILLS,
+        lambda: skills.DEFAULT_CAP, hint=f"characters, {skills.MIN_CAP} or more", whole=True, group=PERSONA,
     ),
     Setting(
-        web_access.SETTING, CHOICE, "reading links you share, and searching the web",
-        web_access.mode, lambda: web_access.ASKED, choices=web_access.MODES, group=WEB,
+        draft_limit.SETTING, NUMBER, "drafts a job or Slack may leave waiting", draft_limit.limit,
+        lambda: draft_limit.DEFAULT, hint=f"a whole number, {draft_limit.RANGE[0]} to {draft_limit.RANGE[1]}; more are not filed until you decide some", whole=True, group=PERSONA,
     ),
     toggle(
         slack_approval.SETTING, "answering in Slack (replies leave this computer)",
         slack_approval.approved, default=False, group=SLACK, user_only=True,
-    ),
-    Setting(
-        draft_limit.SETTING, NUMBER, "drafts a job or Slack may leave waiting", draft_limit.limit,
-        lambda: draft_limit.DEFAULT, hint=f"a whole number, {draft_limit.RANGE[0]} to {draft_limit.RANGE[1]}; more are not filed until you decide some", whole=True, group=JOBS,
     ),
 ]
 

@@ -13,8 +13,8 @@ import { SettingsView } from "./settings-view"
 const setShowDefinitionNotes = vi.fn()
 vi.mock("@/lib/vault-hidden-api", () => ({ setShowDefinitionNotes: (...a: unknown[]) => setShowDefinitionNotes(...a) }))
 
-const OPEN = ["hidden-from-view", "cloud-models", "recent-notes", "workspace", "jobs"]
-const SETTINGS = { ok: true, json: async () => ({ groups: [{ name: "Jobs", settings: [] }] }) }
+const OPEN = ["appearance", "hidden-from-view", "models-and-privacy", "recent-notes", "workspace", "persona"]
+const SETTINGS = { ok: true, json: async () => ({ groups: [{ name: "Models and privacy", settings: [] }, { name: "Persona", settings: [] }] }) }
 beforeEach(() => {
   vi.stubGlobal("fetch", vi.fn(async (url: string) => (url === "/api/settings" ? SETTINGS : { ok: false, json: async () => ({}) })))
   for (const k of OPEN) document.cookie = `sympose:pref.section.${k}=1`
@@ -91,10 +91,24 @@ describe("SettingsView", () => {
 
   it("lists every group of preferences", async () => {
     setup()
-    for (const name of ["Workspace", "Markdown editor", "Notifications", "Knowledge Nebula", "Recent notes", "Hidden from view", "Chat", "Cloud models"]) {
+    await screen.findByText("Models and privacy")
+    for (const name of ["Workspace", "Markdown editor", "Notifications", "Knowledge Nebula", "Recent notes", "Hidden from view", "Chat", "Appearance", "Models and privacy"]) {
       expect(screen.getAllByText(name).length, name).toBeGreaterThan(0)
     }
-    expect((await screen.findAllByText("Jobs")).length).toBeGreaterThan(0)  // the jobs are the rows of the engine settings' Jobs group
+    expect((await screen.findAllByText("Persona")).length).toBeGreaterThan(0)  // the skills and the jobs are the rows of the engine settings' Persona group
+  })
+
+  it("draws web_access directly under the web permission it depends on", async () => {
+    const web = { name: "web", description: "links and web searches", shared: false }
+    const withWeb = { ...state, categories: [web, { name: "media", description: "files you attach", shared: false }] }
+    const access = { key: "web_access", kind: "choice", summary: "reading links you share, and searching the web", value: "asked", default: "asked", is_default: true, text: "asked", choices: ["asked", "auto", "off"], hint: "", whole: false }
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => (url === "/api/settings" ? { ok: true, json: async () => ({ groups: [{ name: "Models and privacy", settings: [access] }] }) } : { ok: false, json: async () => ({}) })))
+    setup({ sharingState: withWeb })
+    const row = (await screen.findByRole("radiogroup", { name: "Reading links you share, and searching the web" })).closest("[data-slot=control-row]")!
+    const permission = screen.getByRole("radiogroup", { name: "Share web with cloud models" }).closest("[data-slot=control-row]")!
+    expect(permission.parentElement?.contains(row)).toBe(true)
+    expect(permission.parentElement?.textContent).toContain("links and web searches")
+    expect(screen.getAllByText("Reading links you share, and searching the web")).toHaveLength(1)
   })
 
   it("opens a job's file in the editor through the shell, from the row's menu", async () => {
@@ -121,33 +135,38 @@ describe("SettingsView", () => {
     expect(s.changeHidden).toHaveBeenCalledExactlyOnceWith("the-request")
   })
 
-  it("changes what a cloud model may receive through the shell's setter", () => {
+  it("changes what a cloud model may receive through the shell's setter", async () => {
     const s = setup()
+    await screen.findByRole("radiogroup", { name: "Share notes with cloud models" })
     fireEvent.click(radio("Share notes with cloud models", "On"))
     expect(s.setShared).toHaveBeenCalledWith("notes", true)
   })
 
-  it("shows the notice and the definition-notes switch as they stand", () => {
+  it("shows the notice and the definition-notes switch as they stand", async () => {
     setup()
+    await screen.findByRole("radiogroup", { name: "Notice above the message box" })
     expect(radio("Notice above the message box", "Shown").getAttribute("aria-checked")).toBe("true")
     expect(radio("Show folder description notes", "Hidden").getAttribute("aria-checked")).toBe("true")
     cleanup()
     setup({ cloudNotice: { open: false, reopen: vi.fn(), close: vi.fn() }, hiddenState: { hidden: [], showDefinitionNotes: true } })
+    await screen.findByRole("radiogroup", { name: "Notice above the message box" })
     expect(radio("Notice above the message box", "Hidden").getAttribute("aria-checked")).toBe("true")
     expect(radio("Show folder description notes", "Shown").getAttribute("aria-checked")).toBe("true")
   })
 
-  it("closes the cloud notice when it is switched to hidden", () => {
+  it("closes the cloud notice when it is switched to hidden", async () => {
     const s = setup()
+    await screen.findByRole("radiogroup", { name: "Notice above the message box" })
     fireEvent.click(radio("Notice above the message box", "Hidden"))
     expect(s.close).toHaveBeenCalledTimes(1)
     expect(s.reopen).not.toHaveBeenCalled()
   })
 
-  it("reopens the cloud notice when it is switched to shown", () => {
+  it("reopens the cloud notice when it is switched to shown", async () => {
     const reopen = vi.fn()
     const close = vi.fn()
     setup({ cloudNotice: { open: false, reopen, close } })
+    await screen.findByRole("radiogroup", { name: "Notice above the message box" })
     fireEvent.click(radio("Notice above the message box", "Shown"))
     expect(reopen).toHaveBeenCalledTimes(1)
     expect(close).not.toHaveBeenCalled()
