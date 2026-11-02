@@ -277,3 +277,13 @@ Scratch data and invented notes only, local models, manual mode with the product
 **Checked in real Chrome** (scratch vault, dev server on a scratch API; the cells sampled each frame and the DOM watched with a `MutationObserver`): a row and a column added at once, in `manual` mode with the table in source and in `accept` mode with the table rendered. The new cells grew one after another in order, the unchanged cells never moved, and the finished table was never on screen before the typing. In `accept` mode the table first shows about 100 ms into the reveal, and a plain cell change does the same: the note's mount takes that long, so the start of a reveal on open is not seen (headless Chrome; not measured on his Mac).
 
 **Known limits.** A table that loses rows or columns and gains nothing shows no motion (nothing is new). A change that rewrites most of a table is typed in nearly whole. Rows are paired in order, so a table whose rows were reordered shows the moved rows as new.
+
+## Amendment (2026-11-02): she can change a new-note draft
+
+A draft of a new note is the open note under its own key, and her `propose_edit` becomes a change inside it, drawn and decided as in a note; see ADR 098. Comments on a draft are not built.
+
+## Amendment (2026-11-02): only the words that differ are shown, and never faster than 0.45 s
+
+**Decision (his word: animate only the edited part; deleted text vanishing, added text typed on).** An applied change no longer redraws its whole passage. The start and the end the old and the new words share are left as they are, cut back to whole words (`four` to `five` is one word changing, not `our` to `ive`), so a sentence with one word changed shrinks away and types only that word, a pure deletion only shrinks, and a pure insertion only types. The applied mark and Undo still cover the whole change.
+
+**Why a minimum.** At 4 ms a removed character and 10 ms a typed one, a changed word took about 70 ms and read as appearing (damiro, 2026-11-02, in `accept` mode). A change of words now takes at least 450 ms, with its per-character times stretched in proportion; the 900 ms cap for a long change is unchanged. The minimum does not apply to a draft typed in as it opens, nor to the cells of a whole table typed in. `REVEAL_MIN_MS` is damiro's to tune, with `REMOVE_MS`, `TYPE_MS` and `REVEAL_MAX_MS`.
