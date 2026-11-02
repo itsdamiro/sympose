@@ -36,12 +36,14 @@ tags: [type/decision, status/accepted, project/sympose, topic/web-app, topic/eng
 4. **The sections open when first seen are the ones a user changes; Look and feel starts closed.** The slice checks what each section does today and changes only that.
 5. **The group names are the registry's `group=`.** The web app, the terminal and the persona's own `propose_setting` (which names a key, not a group) read the same registry, so the regrouping is one change to the group constants and their order, plus the web page's section order. No key is renamed, so no stored setting changes.
 6. **The reference library follows the change.** Whatever `sympose/reference/` says about where a setting is found is brought up to date in the same slice, and the retrieval eval is run before and after, because the persona quotes it as truth.
+7. **Each section carries an icon before its title** (damiro, 2026-11-02: icons over words), each already meaning the same thing elsewhere in the app, one icon per concept (ADR 088): Look and feel `PaintBoardIcon`, Models and privacy `CloudIcon` (the cloud model's own icon in the picker and chip), Finding notes `Search01Icon`, Memory and past chats `Clock01Icon` (history), Editing `Edit01Icon`, Persona `UserIcon` (the persona card's), Slack `Message01Icon`. `BrainIcon` is left out because a persona may choose it as its own icon, and `SlackIcon` because ADR 088 keeps brand logos out. The slice looks at them on the real page and may swap one that reads wrong. `ControlSection` takes an optional `icon`; the sections it draws inside others (the Nebula's Toggles, Display and Forces) take none.
 
 ## Consequences
 
 - A person looking for "search the web" finds `web` and `web_access` in one place, in a section whose name says what it is for.
 - The terminal's `/settings` changes with the web page; both show seven groups, and the terminal's own display settings (`cli/display_settings.py`) are unchanged.
 - Rows that used to be one-row groups (Conversations, Links, Jobs) are folded into larger sections. Slack stays a one-row section on purpose and may grow.
+- A section's open or closed state is remembered in a cookie keyed by its title (`control-section.tsx`), so each renamed or merged section opens in its default state once and then remembers again. That is accepted; the old cookies are left to expire.
 - A test that names a group or the order of groups changes with it; a grep of docs and tests for the old names (Conversation memory, Searching notes, Links, Conversations) is part of the slice.
 - `extras` (Skills, Jobs) and the cloud permission switches are drawn by the page, not the registry, so putting a registry row inside the cloud section or the cloud switches inside a registry group needs a small change to how the page composes them. How is for the slice to find; the outcome is fixed here.
 
