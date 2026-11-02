@@ -220,3 +220,14 @@ def test_a_model_with_tools_is_told_how_far_a_change_goes_in_a_table_only_when_t
 def test_a_model_without_tools_gets_no_table_line_which_cost_it_edits_in_the_measurement():
     assert "table" not in edit_turn.message(edit_turn.resolve(SAMANTHA, False, TABLE_NOTE), "x").split("The user's request:")[1]
 
+
+
+def test_an_open_new_note_draft_is_named_as_a_draft_not_by_its_key():
+    draft = OpenNote("new/abc123.md", "# Seeds\n\nSow in March.\n")
+    edit = edit_turn.resolve(SAMANTHA, can_call_tools=True, open_note=draft)
+
+    sent = edit_turn.message(edit, "Make it April.")
+
+    assert "a new note you drafted that is not in the vault yet" in sent and "new/abc123" not in sent
+    assert "Sow in March." in sent and "call propose_edit" in sent
+    assert "The open note, Garden plan.md:" in edit_turn.message(edit_turn.resolve(SAMANTHA, can_call_tools=True, open_note=NOTE), "Hi")

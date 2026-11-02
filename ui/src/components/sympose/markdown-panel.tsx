@@ -245,17 +245,21 @@ function MarkdownPanel({
   React.useEffect(() => {
     heldRef.current = () => appliedRef.current.ids.length > 0 && appliedRef.current.untouched && !frontmatterEditedRef.current
   })
+  // A new-note draft takes her changes too (docs/decisions/098), kept under the draft's own key and not the editor's `draft:` path;
+  // not comments, which need a note on disk.
+  const draftKey = file?.draftKey
+  const reviewable = !file || !!draftKey
   // The chat sends the note as the editor holds it, with the user's message (docs/decisions/072). Not for a persona's
-  // own file or a draft (`file`): there is no vault note to propose changes to.
+  // own file: there is no vault note to propose changes to. A new-note draft is sent under its draft key (docs/decisions/098).
   const bodyRef = React.useRef(body)
   React.useEffect(() => {
     bodyRef.current = body
   })
   React.useEffect(() => {
-    if (!path || file) return
-    setOpenNoteSource(() => (loadedPathRef.current === path ? { path, text: bodyRef.current } : null))
+    if (!path || !reviewable) return
+    setOpenNoteSource(() => (loadedPathRef.current === path ? { path: draftKey ?? path, text: bodyRef.current } : null))
     return () => setOpenNoteSource(null)
-  }, [path, file, loadedPathRef])
+  }, [path, reviewable, draftKey, loadedPathRef])
   // Expanded/collapsed state of the frontmatter card — toggled from the `⋯`
   // row, persisted globally (same convention as `app-shell.tsx`'s rail /
   // auto-collapse cookies).
@@ -298,7 +302,7 @@ function MarkdownPanel({
   // changes, so a new array per render would redo that every keystroke); what they read is kept in refs.
   const styloRef = React.useRef<StyloHandle>(null)
   const personaLabel = personaName ?? persona.charAt(0).toUpperCase() + persona.slice(1)
-  const { changes, resolve: resolveChanges, refresh: refreshChanges } = usePersonaChanges({ path, persona, enabled: !file })
+  const { changes, resolve: resolveChanges, refresh: refreshChanges } = usePersonaChanges({ path: draftKey ?? path, persona, enabled: reviewable })
   const [commentBox, setCommentBox] = React.useState<CommentBox | null>(null)
   // A box opened on one note is closed when another is opened, or a comment written for one could be saved onto the other.
   const [commentBoxPath, setCommentBoxPath] = React.useState(path)
@@ -311,6 +315,13 @@ function MarkdownPanel({
   // Counts the editors made (stylo makes its editor after a lazy load, possibly after everything else has arrived).
   const [editorMade, setEditorMade] = React.useState(0)
   const [applied, setApplied] = React.useState<{ path?: string; ids: string[] }>({ ids: [] })
+  // What was applied on a note is forgotten when another is opened: left held (the server still has it waiting), it is applied again on
+  // coming back, which a list that remembered the path would hide.
+  const [appliedPath, setAppliedPath] = React.useState(path)
+  if (appliedPath !== path) {
+    setAppliedPath(path)
+    setApplied({ ids: [] })
+  }
   const appliedIds = applied.path === path ? applied.ids : NO_IDS
   const reviewData = React.useMemo<ReviewData>(
     () => ({
@@ -367,9 +378,11 @@ function MarkdownPanel({
       }),
     []
   )
-  // A new-note draft is typed in the first time it opens (docs/decisions/072); it has no review extensions otherwise.
+  // A new-note draft is typed in the first time it opens (docs/decisions/072); one that takes no changes of hers has no review extensions otherwise.
   const revealDraft = file?.reveal
   const draftExt = React.useMemo(() => (revealDraft ? revealOnOpen(revealDraft) : undefined), [revealDraft])
+  // A draft that takes her changes has the review extensions too; they already hold the reveal that types an applied change in.
+  const draftReviewExt = React.useMemo(() => (draftExt ? [reviewExt, draftExt] : reviewExt), [reviewExt, draftExt])
   // New data reaches an editor that is already open; one that opens later starts from `initial`.
   React.useEffect(() => {
     styloRef.current?.getView()?.dispatch({ effects: setReviewData.of(reviewData) })
@@ -381,9 +394,9 @@ function MarkdownPanel({
   }, [editorMade])
   // `accept`: her placed, waiting edits go into the text as soon as they are here, once the editor holds the note. Run
   // when any of that changes, and when the editor itself is made (it can come last, after a lazy load). Not while the
-  // panel still holds the editor of a draft that was just accepted into this note, which has no review extensions.
+  // panel still holds the editor of a draft that was just accepted into this note, which may have none.
   const { info: editInfo } = useEditMode(persona, persona)
-  const acceptMode = editInfo?.mode === "accept" && !readOnly && !file
+  const acceptMode = editInfo?.mode === "accept" && !readOnly && reviewable
   React.useEffect(() => {
     const view = styloRef.current?.getView()
     if (!acceptMode || !view || !holdsReview(view.state) || note.status !== "ready" || loadedPathRef.current !== path) return
@@ -394,12 +407,12 @@ function MarkdownPanel({
   const revealedRef = React.useRef(new Set<string>())
   React.useEffect(() => {
     const view = styloRef.current?.getView()
-    if (!view || acceptMode || file || readOnly || note.status !== "ready" || loadedPathRef.current !== path) return
+    if (!view || acceptMode || !reviewable || readOnly || note.status !== "ready" || loadedPathRef.current !== path) return
     const next = classify(view.state.doc.toString(), reviewData.proposals).placed.find(({ proposal }) => isTableChange(proposal) && !revealedRef.current.has(proposal.id))
     if (!next) return
     revealedRef.current.add(next.proposal.id)
     view.dispatch({ selection: { anchor: next.from }, scrollIntoView: true })
-  }, [acceptMode, file, readOnly, note.status, path, loadedPathRef, reviewData, body, editorMade])
+  }, [acceptMode, reviewable, readOnly, note.status, path, loadedPathRef, reviewData, body, editorMade])
   const classified = React.useMemo(() => classify(body, reviewData.proposals), [body, reviewData])
   const outdatedProposals = classified.outdated
   const waitingCount = classified.placed.length
@@ -456,9 +469,9 @@ function MarkdownPanel({
     readOnly,
     banner: file?.banner,
     hasCard: !!file?.properties,
-    outdated: readOnly || file ? [] : outdatedProposals,
+    outdated: readOnly || !reviewable ? [] : outdatedProposals,
     onDecline: (ids: string[]) => void resolveChanges(ids),
-    waiting: readOnly || file ? 0 : waitingCount,
+    waiting: readOnly || !reviewable ? 0 : waitingCount,
     personaLabel,
     onAcceptAll: acceptAll,
     onDeclineAll: declineNote,
@@ -632,9 +645,9 @@ function MarkdownPanel({
       onTaskToggle={handleTaskToggle}
       mode={readOnly ? "preview" : surface}
       softBreaks
-      inPlace={{ reveal, selectionUI, table: tableEditing, ...(file ? { cellMarks: revealCellMarks } : { contextMenu: { items: commentMenu }, cellMarks, cellWidgets }) }}
+      inPlace={{ reveal, selectionUI, table: tableEditing, ...(file ? (draftKey ? { cellMarks, cellWidgets } : { cellMarks: revealCellMarks }) : { contextMenu: { items: commentMenu }, cellMarks, cellWidgets }) }}
       canvasHeader={readOnly ? undefined : canvasHeader}
-      extensions={readOnly ? undefined : file ? draftExt : reviewExt}
+      extensions={readOnly ? undefined : file ? (draftKey ? draftReviewExt : draftExt) : reviewExt}
       toolbar={{
         items: readOnly || file ? toolbarItems : toolbarWithReview,
         // One row: what does not fit folds into a trailing `⋯` menu instead of wrapping (stylo >=0.18.0).

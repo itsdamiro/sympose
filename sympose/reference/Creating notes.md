@@ -12,6 +12,12 @@ In the Drafts group at the top of the notes list. A new note is listed there, ma
 
 You can change the draft's text before you accept. What you change is kept with the draft, not in your vault.
 
+## Will the persona edit a draft that is waiting under Drafts?
+
+Yes, with the draft open in the editor: ask for the change and it is made inside the draft, shown as tracked changes with Accept and Decline on each.
+
+Nothing reaches your vault until you accept the draft. Accepting it makes the note from the words it holds then, and a change you have not decided is dropped. A draft cannot take comments.
+
 ## Are the words of a proposed note typed in when I open it?
 
 The first time you open a new note from the Drafts group, its words are typed in over a second or less. Opened again, or after you have edited it, it shows at once. If your system is set to reduce motion it always shows at once.

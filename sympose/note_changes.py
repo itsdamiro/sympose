@@ -325,6 +325,21 @@ def discard_proposal(handle: str, note_path: str, proposal_id: str) -> None:
     store.update(handle, note_path, remove)
 
 
+def discard_draft(handle: str, note_path: str, proposal_id: str) -> None:
+    """The new-note draft `proposal_id` was decided: it is forgotten with the changes of hers still waiting inside it, which are
+    only about its words and have nothing to apply to now. `KeyError` when the draft is not there."""
+    def remove(entry: dict[str, Any]) -> None:
+        _pick(entry["proposals"], proposal_id)
+        entry["proposals"] = []
+
+    store.update(handle, note_path, remove)
+
+
+def draft_text(entry: dict[str, Any]) -> str | None:
+    """The text of the entry's new-note draft as it waits now, `None` for a note that has no draft."""
+    return next((str(p.get("text") or "") for p in entry["proposals"] if p.get("kind") == "create"), None)
+
+
 def drafts(handle: str, text_of: Callable[[str], str | None] | None = None) -> list[dict[str, Any]]:
     """The notes with something for the user to look at, newest first: what the Drafts section lists (ADR 071, amended
     2026-10-05 and 2026-10-06). `items` is how many different marks the note shows: a change waiting, a new note proposed, or
@@ -336,6 +351,11 @@ def drafts(handle: str, text_of: Callable[[str], str | None] | None = None) -> l
         text = text_of(entry["path"]) if text_of else None
         creates = [p for p in entry["proposals"] if p.get("kind") == "create"]
         edits = [p for p in entry["proposals"] if p.get("kind") != "create" and (text is None or status(p, text) == PENDING)]
+        if creates:  # a change inside a new-note draft is part of that draft: one item, as the note's file will be one
+            drafted = [p for p in edits if status(p, draft_text(entry) or "") == PENDING]
+            edits, inside = [], drafted
+        else:
+            inside = []
         spans = []
         if text is not None:
             for p in edits:
@@ -361,7 +381,7 @@ def drafts(handle: str, text_of: Callable[[str], str | None] | None = None) -> l
             "count": count,
             "comments": len(comments),
             "items": count + len(comments),
-            "time": max(str(x.get("time", "")) for x in [*creates, *edits, *comments]),
+            "time": max(str(x.get("time", "")) for x in [*creates, *inside, *edits, *comments]),
         })
     return sorted(found, key=lambda d: d["time"], reverse=True)
 

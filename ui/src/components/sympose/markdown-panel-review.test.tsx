@@ -445,7 +445,7 @@ describe("MarkdownPanel with the persona's suggested changes", () => {
   })
 })
 
-describe("MarkdownPanel on a draft, which has no review extensions", () => {
+describe("MarkdownPanel on a draft that takes none of her changes (no draft key)", () => {
   it("saves the words typed into it without asking its editor about her changes", async () => {
     const file = { load: vi.fn().mockResolvedValue({ content: "# Seeds", mtime: 40 }), save: vi.fn().mockResolvedValue({ ok: true, mtime: 41 }), title: "Seeds" }
     open({ path: "draft:samantha/new/abc", file })
@@ -457,6 +457,61 @@ describe("MarkdownPanel on a draft, which has no review extensions", () => {
     })
 
     expect(file.save).toHaveBeenCalledWith("draft:samantha/new/abc", expect.stringContaining("More. # Seeds"), 40)
+  })
+})
+
+describe("MarkdownPanel on a new-note draft that takes her changes (docs/decisions/098)", () => {
+  const draft = () => ({ load: vi.fn().mockResolvedValue({ content: NOTE.trimEnd() }), save: vi.fn().mockResolvedValue({ ok: true }), title: "Seeds", draftKey: "new/abc.md" })
+  const openDraft = () => open({ path: "draft:samantha/new/abc.md", file: draft() })
+
+  it("reads her changes under the draft's own key and draws one in the text with its Accept", async () => {
+    changesApi.fetchChanges.mockResolvedValue(changes([edit("p1", "three times", "four times")]))
+    openDraft()
+
+    await waitFor(() => expect(screen.getByTestId("cm").querySelector(".sy-change-accept")).not.toBeNull())
+
+    expect(changesApi.fetchChanges).toHaveBeenCalledWith("new/abc.md", "samantha")
+    expect(changesApi.fetchChanges).not.toHaveBeenCalledWith("draft:samantha/new/abc.md", "samantha")
+  })
+
+  it("accepts a change into the draft's text and forgets it under the draft's key, saving nothing to the vault", async () => {
+    changesApi.fetchChanges.mockResolvedValue(changes([edit("p1", "three times", "four times")]))
+    openDraft()
+    await waitFor(() => expect(screen.getByTestId("cm").querySelector(".sy-change-accept")).not.toBeNull())
+
+    await act(async () => fireEvent.click(screen.getByTestId("cm").querySelector(".sy-change-accept") as HTMLElement))
+
+    expect(editorView().state.doc.toString()).toContain("four times a week")
+    await waitFor(() => expect(changesApi.resolveChanges).toHaveBeenCalledWith("new/abc.md", "samantha", ["p1"], true))
+    expect(api.saveVaultNote).not.toHaveBeenCalled()
+  })
+
+  it("tells the chat the draft is the open note, under its draft key, so she can change it", async () => {
+    const { unmount } = openDraft()
+    await waitFor(() => expect(getOpenNote()?.path).toBe("new/abc.md"))
+    expect(getOpenNote()?.text.trimEnd()).toBe(NOTE.trimEnd())
+
+    unmount()
+
+    expect(getOpenNote()).toBeNull()
+  })
+
+  it("draws the review notice and has no Comment button or menu entry: a comment needs a note on disk", async () => {
+    changesApi.fetchChanges.mockResolvedValue(changes([edit("p1", "three times", "four times")]))
+    openDraft()
+
+    expect(await screen.findByRole("button", { name: "Accept all" })).toBeTruthy()
+    expect(screen.queryByRole("button", { name: "Comment" })).toBeNull()
+    expect(screen.queryAllByRole("menuitem")).toHaveLength(0)
+  })
+
+  it("applies her waiting edit at once in accept mode, as it does in a note", async () => {
+    editModeApi.fetchEditMode.mockResolvedValue({ mode: "accept", source: "persona", modes: [], notes: { accept: null, auto: null }, model: "m" })
+    changesApi.fetchChanges.mockResolvedValue(changes([edit("p1", "three times", "four times")]))
+    openDraft()
+
+    await waitFor(() => expect(screen.getByTestId("cm").querySelector(".sy-applied")?.textContent).toBe("four times"))
+    expect(changesApi.resolveChanges).not.toHaveBeenCalled()
   })
 })
 
@@ -556,6 +611,37 @@ describe("MarkdownPanel in accept mode (docs/decisions/072)", () => {
     await act(async () => {})
 
     expect(api.saveVaultNote).not.toHaveBeenCalled()
+  })
+
+  it("applies her edit again when the user goes to another note without touching this one and comes back to it", async () => {
+    const view = open()
+    await waitApplied()
+    const other = <MarkdownPanel path="Other.md" persona="samantha" preferences={PREFERENCES} toolbarItems={["undo"]} />
+
+    view.rerender(other)
+    await act(async () => {})
+    api.fetchVaultNote.mockResolvedValue({ path: "Garden plan.md", content: NOTE.trimEnd(), mtime: 100 })
+    view.rerender(<MarkdownPanel path="Garden plan.md" persona="samantha" preferences={PREFERENCES} toolbarItems={["undo"]} />)
+
+    await waitApplied()
+    expect(doc()).toContain("four times a week")
+    expect(api.saveVaultNote).not.toHaveBeenCalled()
+    expect(changesApi.resolveChanges).not.toHaveBeenCalled()
+  })
+
+  it("does the same for a new-note draft: her held change is applied again when the user comes back to it", async () => {
+    const file = { load: vi.fn().mockResolvedValue({ content: NOTE.trimEnd() }), save: vi.fn().mockResolvedValue({ ok: true }), title: "Seeds", draftKey: "new/abc.md" }
+    const draft = <MarkdownPanel path="draft:samantha/new/abc.md" file={file} persona="samantha" preferences={PREFERENCES} toolbarItems={["undo"]} />
+    const view = render(draft)
+    await waitApplied()
+
+    view.rerender(<MarkdownPanel path="Other.md" persona="samantha" preferences={PREFERENCES} toolbarItems={["undo"]} />)
+    await act(async () => {})
+    view.rerender(draft)
+
+    await waitApplied()
+    expect(doc()).toContain("four times a week")
+    expect(file.save).not.toHaveBeenCalled()
   })
 
   it("saves everything, hers included, when the user has touched the note and then leaves it, and forgets her edit", async () => {

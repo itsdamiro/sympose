@@ -441,3 +441,16 @@ def test_a_note_marker_still_files_a_draft_when_there_is_no_editor(vault):
 
     assert [(r["tool"], r["saved"]) for r in records] == [("propose_note", True), ("show_note", False)]
     assert [d["name"] for d in nc.drafts(H)] == ["Kept"]
+
+
+def test_a_tool_call_changes_a_new_note_draft_in_place_as_a_proposal_inside_it_and_the_draft_text_stays():
+    key = nc.new_note_path() + ".md"
+    text = "# Seeds\n\nSow in March.\n"
+    nc.propose_create(H, key, text, say="")
+
+    result = et.run(H, key, text, "propose_edit", {"find": "March", "replace": "April", "say": "Later."})
+
+    assert result.lookup["saved"] is True
+    held = store.read(H, key)["proposals"]
+    assert [(p["kind"], p.get("replace")) for p in held] == [("create", None), ("edit", "April")]
+    assert held[0]["text"] == text

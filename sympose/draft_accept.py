@@ -89,7 +89,7 @@ def accept(handle: str, path: str, proposal_id: str) -> Decided:
             if not (made := _MADE.search(result)):
                 raise Refused(f"{name} could not be saved: the vault could not be written.")
             try:
-                note_changes.discard_proposal(handle, path, proposal_id)
+                note_changes.discard_draft(handle, path, proposal_id)
             except KeyError:
                 pass  # forgotten at the same moment elsewhere: the note is made all the same
             return Decided(name, made.group(1))
@@ -102,7 +102,7 @@ def decline(handle: str, path: str, proposal_id: str) -> Decided:
     with _one_at_a_time(handle):
         name = str(_waiting(handle, path, proposal_id).get("name") or "Untitled")
         try:
-            note_changes.discard_proposal(handle, path, proposal_id)
+            note_changes.discard_draft(handle, path, proposal_id)
         except KeyError:
             raise Gone(proposal_id) from None
         return Decided(name, None)

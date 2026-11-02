@@ -43,6 +43,7 @@ export function useDraftEditor({
         ? {
             title: `${personaName} · draft`,
             properties: true, // a note's draft opens with its properties card, as the note will
+            draftKey: notePath, // her changes inside the draft are kept under this key (docs/decisions/098)
             reveal: () => {
               const key = `${handle}:${notePath}`
               if (revealed.current.has(key) || texts.current.has(key)) return false

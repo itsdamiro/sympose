@@ -65,6 +65,8 @@ def get_changes(path: str, persona: str | None) -> dict[str, Any]:
     if exists:
         nc.prune(handle, path, text, mtime)
     entry = store.read(handle, path)
+    if not exists and (drafted := nc.draft_text(entry)) is not None:
+        text = drafted  # a change inside a new-note draft is placed in the draft's own words
     return {
         "path": path,
         "exists": exists,

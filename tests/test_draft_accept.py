@@ -174,8 +174,8 @@ def test_a_persona_that_is_gone_is_refused_and_the_draft_waits(vault, monkeypatc
 
 def test_a_draft_forgotten_in_the_same_moment_elsewhere_still_gives_the_note(vault, monkeypatch):
     path, proposal_id = draft()
-    real = note_changes.discard_proposal
-    monkeypatch.setattr(draft_accept.note_changes, "discard_proposal", lambda *a: (real(*a), real(*a)))
+    real = note_changes.discard_draft
+    monkeypatch.setattr(draft_accept.note_changes, "discard_draft", lambda *a: (real(*a), real(*a)))
 
     assert draft_accept.accept(H, path, proposal_id).path == "Inbox/Seeds.md"
 
@@ -198,7 +198,26 @@ def test_two_presses_at_once_make_one_note(vault):
     assert sorted(os.listdir(vault / "Inbox")) == ["Seeds.md"]
 
 
+def test_accepting_a_draft_forgets_the_changes_still_waiting_inside_it(vault):
+    path, proposal_id = draft(text="# Seeds\n\nSow in March.\n")
+    note_changes.propose_edit(H, path, "# Seeds\n\nSow in March.\n", find="March", replace="April", say="")
+
+    draft_accept.accept(H, path, proposal_id)
+
+    assert (vault / "Inbox" / "Seeds.md").read_text() == "# Seeds\n\nSow in March.\n"
+    assert note_changes.store.read(H, path)["proposals"] == [] and waiting() == 0
+
+
 # --- decline --------------------------------------------------------------------------------------
+def test_declining_a_draft_forgets_the_changes_waiting_inside_it_too(vault):
+    path, proposal_id = draft()
+    note_changes.propose_edit(H, path, "# Seeds\n\nSow in March.\n", find="March", replace="April", say="")
+
+    draft_accept.decline(H, path, proposal_id)
+
+    assert note_changes.store.read(H, path)["proposals"] == [] and waiting() == 0
+
+
 def test_declining_forgets_the_draft_and_writes_nothing(vault):
     path, proposal_id = draft()
 
@@ -221,7 +240,7 @@ def test_declining_a_draft_forgotten_between_the_look_and_the_forgetting_says_so
     def gone(*args):
         raise KeyError(proposal_id)
 
-    monkeypatch.setattr(draft_accept.note_changes, "discard_proposal", gone)
+    monkeypatch.setattr(draft_accept.note_changes, "discard_draft", gone)
 
     with pytest.raises(draft_accept.Gone):
         draft_accept.decline(H, path, proposal_id)

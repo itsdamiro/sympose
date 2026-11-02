@@ -128,6 +128,35 @@ def test_a_new_note_that_is_not_on_disk_yet_is_still_readable_as_a_draft(env):
     assert not (vault / "Compost.md").exists()
 
 
+def test_a_change_she_proposes_inside_a_new_note_draft_is_placed_in_the_drafts_own_words(env):
+    client, vault = env
+    text = "# Compost\n\nIn autumn.\n"
+    key = nc.new_note_path()
+    nc.propose_create("samantha", key, text, say="New.")
+    nc.propose_edit("samantha", key, text, find="autumn", replace="spring", say="Season.")
+
+    body = client.get("/api/vault/changes", params={"path": key, "persona": "samantha"}).json()
+
+    assert body["exists"] is False
+    assert [(p["kind"], p["status"]) for p in body["proposals"]] == [("create", "pending"), ("edit", "pending")]
+    nc.edit_draft("samantha", key, "# Compost\n\nIn winter.\n")  # the user rewrote those words
+    body = client.get("/api/vault/changes", params={"path": key, "persona": "samantha"}).json()
+    assert [p["status"] for p in body["proposals"]] == ["pending", "outdated"]
+    assert list(os.listdir(vault)) == ["Garden plan.md"]
+
+
+def test_the_drafts_list_counts_a_draft_with_changes_inside_it_once(env):
+    client, _ = env
+    text = "# Compost\n\nIn autumn.\n"
+    key = nc.new_note_path()
+    nc.propose_create("samantha", key, text, say="New.")
+    nc.propose_edit("samantha", key, text, find="autumn", replace="spring", say="")
+
+    (listed,) = client.get("/api/vault/drafts", params={"persona": "samantha"}).json()["drafts"]
+
+    assert (listed["path"], listed["is_new"], listed["count"], listed["items"]) == (f"{key}.md", True, 1, 1)
+
+
 def test_resolving_forgets_the_named_proposal_and_leaves_the_note_alone(env):
     client, vault = env
     before = vault_files(vault)

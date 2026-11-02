@@ -183,6 +183,8 @@ _TABLES = (
     "the table: say so plainly and leave a comment instead of offering the edit. If the cell's words are also found elsewhere in the "
     "note, so that they are not found once, quote the whole table instead."
 )
+DRAFT_PREFIX = "new/"  # the key of a new-note draft (`note_changes.new_note_path`): not a path in the vault
+_DRAFT_NAMED = "The open note, a new note you drafted that is not in the vault yet (the user decides whether it is made):"
 _REVIEW = "The user reviews each change before anything is saved. Do not rewrite the note."
 _ASKED = (
     "If the request needs information that is neither in the note nor in the request, propose nothing and say what you "
@@ -235,5 +237,6 @@ def message(edit: Edit, user_message: str) -> str:
         comments = open_comments.block(open_comments.Found(edit.comments, edit.comments_left_out, edit.decided), edit.persona_name) + "\n\n"
     elif edit.comments_withheld:
         comments = _COMMENTS_WITHHELD.format(n=edit.comments_withheld) + "\n\n"
-    head = f"The open note, {edit.note.path}:\n\n{fence}\n{edit.note.text}\n{fence}\n\n{comments}The user's request: {user_message}\n\n"
+    named = _DRAFT_NAMED if edit.note.path.startswith(DRAFT_PREFIX) else f"The open note, {edit.note.path}:"
+    head = f"{named}\n\n{fence}\n{edit.note.text}\n{fence}\n\n{comments}The user's request: {user_message}\n\n"
     return head + " ".join(rules)
