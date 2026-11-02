@@ -24,7 +24,7 @@ tags: [type/decision, status/accepted, project/sympose, topic/web-app, topic/eng
 ## Decision
 
 1. **Seven sections, in this order:**
-   1. **Look and feel** (what this browser draws): Workspace, Markdown editor and Toolbar buttons, Notifications, Knowledge Nebula, Recent notes, Hidden from view, Chat display.
+   1. **Appearance** (what this browser draws): Workspace, Markdown editor and Toolbar buttons, Notifications, Knowledge Nebula, Recent notes, Hidden from view, Chat display.
    2. **Models and privacy**: the cloud permission switches (`cloud_share`) with `web_access` directly under `web`, then `model_timeout`, `context_window` and `reply_limit`.
    3. **Finding notes**: `grounding_search`, `embedding_min_similarity`, `embedding_margin`, `library_sync_limit`, `vault_lookup`, `vault_lookup_rounds`, `connections_by_meaning`, `connections_relevance`, `grounding_followups`.
    4. **Memory and past chats**: `session_recaps`, `recap_count`, `recap_chars`, `past_chats`, `history_tokens`, `auto_compact`, `compact_at`, `compact_to`, `memory_remember`, `memory_rewrite`, `memory_auto_refresh`, `parallel_replies`.
@@ -33,10 +33,17 @@ tags: [type/decision, status/accepted, project/sympose, topic/web-app, topic/eng
    7. **Slack**: `slack` stays a section of its own, because it is the one place where replies leave the computer and only the user changes it (ADR 093).
 2. **A feature's switch and its permission sit together.** `web_access` is drawn in Models and privacy next to the `web` permission it depends on, and its description names the permission. No setting is split from the switch that makes it work.
 3. **Within a section the choices and switches come first and the numbers last.** A number is folded under the rest only if the section component already can, without a new element; the slice looks at the real page before deciding.
-4. **The sections open when first seen are the ones a user changes; Look and feel starts closed.** The slice checks what each section does today and changes only that.
+4. **The sections open when first seen are the ones a user changes; Appearance starts closed.** The slice checks what each section does today and changes only that.
 5. **The group names are the registry's `group=`.** The web app, the terminal and the persona's own `propose_setting` (which names a key, not a group) read the same registry, so the regrouping is one change to the group constants and their order, plus the web page's section order. No key is renamed, so no stored setting changes.
 6. **The reference library follows the change.** Whatever `sympose/reference/` says about where a setting is found is brought up to date in the same slice, and the retrieval eval is run before and after, because the persona quotes it as truth.
-7. **Each section carries an icon before its title** (damiro, 2026-11-02: icons over words), each already meaning the same thing elsewhere in the app, one icon per concept (ADR 088): Look and feel `PaintBoardIcon`, Models and privacy `CloudIcon` (the cloud model's own icon in the picker and chip), Finding notes `Search01Icon`, Memory and past chats `Clock01Icon` (history), Editing `Edit01Icon`, Persona `UserIcon` (the persona card's), Slack `Message01Icon`. `BrainIcon` is left out because a persona may choose it as its own icon, and `SlackIcon` because ADR 088 keeps brand logos out. The slice looks at them on the real page and may swap one that reads wrong. `ControlSection` takes an optional `icon`; the sections it draws inside others (the Nebula's Toggles, Display and Forces) take none.
+7. **Each section carries an icon before its title** (damiro, 2026-11-02: icons over words), each already meaning the same thing elsewhere in the app, one icon per concept (ADR 088): Appearance `PaintBoardIcon`, Models and privacy `CloudIcon` (the cloud model's own icon in the picker and chip), Finding notes `Search01Icon`, Memory and past chats `Clock01Icon` (history), Editing `Edit01Icon`, Persona `UserIcon` (the persona card's), Slack `Message01Icon`. `BrainIcon` is left out because a persona may choose it as its own icon, and `SlackIcon` because ADR 088 keeps brand logos out. The slice looks at them on the real page and may swap one that reads wrong. `ControlSection` takes an optional `icon`; the sections it draws inside others (the Nebula's Toggles, Display and Forces) take none.
+
+## Built (2026-11-02)
+
+- Appearance is one closed section holding the app's own sections (Workspace, Markdown editor, Notifications, Knowledge Nebula, Recent notes, Hidden from view, Chat), which now start closed too: four of them opened by default before, and four open sections inside a closed one would be a wall. Models and privacy is the only section open on first sight, because it is where the web switch problem was; the others start closed.
+- `EngineSettingsSections` takes `leads` (page rows drawn first in a group, with named settings placed inside them), `icons` and `open`, all by group name; `CloudSharingSection` became `CloudSharingRows` (rows, no section) and draws `web_access` directly under the `web` switch. Skills and Jobs are both `extras` of Persona.
+- The `web_access` summary reads "links and web searches (cloud needs "web")", the longest that still fits an 80-column terminal row.
+- Within a section the choices and switches come first and the numbers last, in the registry's order, which the terminal's `/settings` follows too (its digits moved: `context_window` is now 9).
 
 ## Consequences
 
