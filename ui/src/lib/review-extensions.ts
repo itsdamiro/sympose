@@ -256,7 +256,7 @@ interface Reveal {
    *  them take together, in unscaled milliseconds, so that the whole run is sped up as one. */
   after?: number
   total?: number
-  /** An applied change of words (not a whole text typed in, nor a table's cells): slowed to take at least `REVEAL_MIN_MS`. */
+  /** An applied change of words (not a whole text typed in, nor a table's cells): shown at the slower pace (`SLOW_*`). */
   slow?: boolean
   /** Not yet placed: a table that was replaced, as it was (`find`) and where it was in the text before the change. The cells that
    *  are new are looked for in the text as the change left it, since the editor may have re-padded the table's columns. */
@@ -270,10 +270,14 @@ interface RevealState {
   now: number
 }
 
-const REMOVE_MS = 4 // per character taken away, before the change is slowed or sped up to fit the limits below
+const REMOVE_MS = 4 // per character taken away, before the change is sped up to fit the limit below
 const TYPE_MS = 10 // per character typed in, likewise
 const REVEAL_MAX_MS = 900 // a long change is sped up to fit
-const REVEAL_MIN_MS = 450 // a short one (a word) is slowed to take at least this, or it is over before it can be seen
+// An applied change of words (`Reveal.slow`) is the one the user watches for what changed, so it has a pace of its own, slower:
+const SLOW_REMOVE_MS = 15
+const SLOW_TYPE_MS = 40
+const SLOW_MAX_MS = 2500
+const SLOW_MIN_MS = 1000 // a short one (a word) is slowed to take at least this, or it is over before it can be seen
 
 const startReveal = StateEffect.define<Reveal[]>()
 /** One frame of the reveal, at this time in milliseconds (`performance.now()`). */
@@ -281,14 +285,17 @@ export const tickReveal = StateEffect.define<number>()
 
 /** How much of the old words is left and how much of the new is typed at `elapsed` ms, or `null` when the change is shown. */
 function revealProgress(item: Reveal, elapsed: number): { oldLeft: number; typed: number } | null {
-  const removing = item.old.length * REMOVE_MS
-  const full = removing + (item.to - item.from) * TYPE_MS
+  const removeMs = item.slow ? SLOW_REMOVE_MS : REMOVE_MS
+  const typeMs = item.slow ? SLOW_TYPE_MS : TYPE_MS
+  const removing = item.old.length * removeMs
+  const full = removing + (item.to - item.from) * typeMs
   const length = item.total ?? full
-  const t = elapsed * (length > REVEAL_MAX_MS ? length / REVEAL_MAX_MS : item.slow && length < REVEAL_MIN_MS ? length / REVEAL_MIN_MS : 1) - (item.after ?? 0)
+  const max = item.slow ? SLOW_MAX_MS : REVEAL_MAX_MS
+  const t = elapsed * (length > max ? length / max : item.slow && length < SLOW_MIN_MS ? length / SLOW_MIN_MS : 1) - (item.after ?? 0)
   if (t >= full) return null
   if (t < 0) return { oldLeft: item.old.length, typed: 0 }
-  if (t < removing) return { oldLeft: item.old.length - Math.floor(t / REMOVE_MS), typed: 0 }
-  return { oldLeft: 0, typed: Math.floor((t - removing) / TYPE_MS) }
+  if (t < removing) return { oldLeft: item.old.length - Math.floor(t / removeMs), typed: 0 }
+  return { oldLeft: 0, typed: Math.floor((t - removing) / typeMs) }
 }
 
 /** The new cells of a table this transaction replaced, typed in one after another (`Reveal.after`, `Reveal.total`). */

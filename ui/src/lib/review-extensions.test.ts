@@ -928,10 +928,11 @@ describe("a change that replaces a whole table (a row or a column added or remov
 
 describe("revealing an applied change (docs/decisions/072, amendment 2026-10-24)", () => {
   const data = (...proposals: Proposal[]): ReviewData => ({ proposals, annotations: [] })
-  // Only the words that differ are shown (docs/decisions/098): "three" (5 characters) takes 20 ms to take away and "four" (4) 40 ms to type, and a
-  // change that short is stretched to 450 ms. `real` is the time on the clock at which `unscaled` ms of that change have gone by.
+  // Only the words that differ are shown (docs/decisions/098) at 15 ms a character taken away and 40 ms a character typed: "three" (5
+  // characters) takes 75 ms to take away and "four" (4) 160 ms to type, and a change that short is stretched to 1 s. `real` is the time on
+  // the clock at which `unscaled` ms of that change have gone by.
   const swap = () => mount(data(edit("a", "three times", "four times")))
-  const real = (unscaled: number, full = 60) => (unscaled * 450) / full + 0.01
+  const real = (unscaled: number, full = 235) => (unscaled * 1000) / full + 0.01
   const tick = (view: EditorView, at: number) => view.dispatch({ effects: tickReveal.of(at) })
   const drawn = (view: EditorView) => view.contentDOM.textContent ?? ""
   const old = (view: EditorView) => view.dom.querySelector(".sy-reveal-old")?.textContent
@@ -958,13 +959,13 @@ describe("revealing an applied change (docs/decisions/072, amendment 2026-10-24)
     applyProposals(view, ["a"])
 
     tick(view, 0)
-    tick(view, real(10))
+    tick(view, real(30))
     expect(old(view)).toBe("thr") // 2 of 5 gone
     expect(typed(view)).toBeUndefined()
-    tick(view, real(11))
+    tick(view, real(31))
     expect(old(view)).toBe("thr") // a part of a character does not count yet
 
-    tick(view, real(20 + 20))
+    tick(view, real(75 + 80))
     expect(old(view)).toBeUndefined()
     expect(typed(view)).toBe("fo")
     expect(drawn(view)).toContain("I run fo times")
@@ -976,24 +977,24 @@ describe("revealing an applied change (docs/decisions/072, amendment 2026-10-24)
     applyProposals(view, ["a"])
 
     tick(view, 0)
-    tick(view, real(59))
+    tick(view, real(75 + 120))
     expect(typed(view)).toBe("fou")
-    tick(view, real(60))
+    tick(view, real(235))
 
     expect(drawn(view)).toContain("I run four times a week")
     expect(view.dom.querySelector(".sy-reveal-old, .sy-reveal-new")).toBeNull()
     expect(view.dom.querySelector(".sy-applied")?.textContent).toBe("four times")
   })
 
-  it("speeds a long change up to fit in 0.9 s", () => {
+  it("speeds a long change up to fit in 2.5 s", () => {
     const long = "word ".repeat(200)
     const { view } = mount(data(edit("a", "raised", long)))
     applyProposals(view, ["a"])
 
     tick(view, 0)
-    tick(view, 899)
+    tick(view, 2400)
     expect(drawn(view)).not.toContain(long.trim())
-    tick(view, 900)
+    tick(view, 2500)
 
     expect(drawn(view)).toContain(long.trim())
   })
@@ -1004,9 +1005,9 @@ describe("revealing an applied change (docs/decisions/072, amendment 2026-10-24)
 
     expect(old(view)).toBe(" The beds are raised.")
     tick(view, 0)
-    tick(view, real(40, 84))
+    tick(view, real(150, 315))
     expect(old(view)).toBe(" The beds are raised.".slice(0, 21 - 10))
-    tick(view, 1000)
+    tick(view, 1100)
     expect(old(view)).toBeUndefined()
     expect(drawn(view)).toContain("I run three times a week.")
     expect(drawn(view)).not.toContain("beds")
@@ -1018,7 +1019,7 @@ describe("revealing an applied change (docs/decisions/072, amendment 2026-10-24)
 
     expect(drawn(view)).not.toContain("sunken")
     tick(view, 0)
-    tick(view, 1000)
+    tick(view, 1100)
 
     expect(drawn(view)).toContain("I run four times and more a week. The beds are sunken.")
   })
@@ -1030,7 +1031,7 @@ describe("revealing an applied change (docs/decisions/072, amendment 2026-10-24)
 
     expect(drawn(view)).not.toContain("sunken")
     tick(view, 0)
-    tick(view, 1000)
+    tick(view, 1100)
     expect(drawn(view)).toContain("I run four times and more a week. The beds are sunken.")
   })
 
@@ -1042,7 +1043,7 @@ describe("revealing an applied change (docs/decisions/072, amendment 2026-10-24)
     expect(old(view)).toBe("three")
     expect(drawn(view)).not.toContain("four")
     tick(view, 0)
-    tick(view, 1000)
+    tick(view, 1100)
     expect(drawn(view)).toContain("I run four times a week")
   })
 
@@ -1053,9 +1054,9 @@ describe("revealing an applied change (docs/decisions/072, amendment 2026-10-24)
 
     expect(old(view)).toBeUndefined() // nothing was taken away
     tick(view, 0)
-    tick(view, real(30, 90))
+    tick(view, real(120, 360))
     expect(typed(view)).toBe(" an") // only the added words are typed; "three times" was never hidden
-    tick(view, 1000)
+    tick(view, 1100)
     expect(typed(view)).toBeUndefined()
     expect(view.state.doc.toString()).toContain("I run three times and more a week")
   })
@@ -1074,19 +1075,19 @@ describe("revealing an applied change (docs/decisions/072, amendment 2026-10-24)
 
     expect(old(view)).toBe("three")
     tick(view, 0)
-    tick(view, 1000)
+    tick(view, 1100)
     expect(typed(view)).toBeUndefined()
     expect(drawn(view)).toContain("I run tree times a week")
   })
 
-  it("takes at least 0.45 s for a short change, so that it can be seen", () => {
+  it("takes at least 1 s for a short change, so that it can be seen", () => {
     const { view } = swap()
     applyProposals(view, ["a"])
 
     tick(view, 0)
-    tick(view, 440)
+    tick(view, 990)
     expect(old(view) ?? typed(view)).toBeDefined() // still going
-    tick(view, 450)
+    tick(view, 1001)
 
     expect(view.dom.querySelector(".sy-reveal-old, .sy-reveal-new")).toBeNull()
   })
@@ -1150,11 +1151,11 @@ describe("revealing an applied change (docs/decisions/072, amendment 2026-10-24)
     applyProposals(view, ["a"])
     expect(edits).toHaveBeenCalledTimes(1)
 
-    vi.advanceTimersByTime(300) // the old words are gone and the new are being typed (the editor's own measuring frame, asked for while the old shrink, is over)
+    vi.advanceTimersByTime(400) // the old words are gone and the new are being typed (the editor's own measuring frame, asked for while the old shrink, is over)
     expect(drawn(view)).not.toContain("four") // under way
     view.dispatch({ selection: { anchor: 3 } }) // an update that is not a frame
     expect(vi.getTimerCount()).toBe(1) // one frame is asked for, not two
-    vi.advanceTimersByTime(500)
+    vi.advanceTimersByTime(700)
 
     expect(drawn(view)).toContain("I run four times a week")
     expect(view.dom.querySelector(".sy-reveal-old, .sy-reveal-new")).toBeNull()
@@ -1175,8 +1176,8 @@ describe("revealing an applied change (docs/decisions/072, amendment 2026-10-24)
 
 describe("revealing an applied change inside a table cell (docs/decisions/072)", () => {
   const TABLE = "The beds are raised.\n\n| Item | Qty |\n|------|-----|\n| Carrots | 3 |\n"
-  // "Carrots" (7 characters) takes 28 ms to take away; "Parsnips" (8) takes 80 ms to type; stretched to 450 ms in all.
-  const real = (unscaled: number, full = 108) => (unscaled * 450) / full + 0.01
+  // "Carrots" (7 characters) takes 105 ms to take away; "Parsnips" (8) takes 320 ms to type; stretched to 1 s in all.
+  const real = (unscaled: number, full = 425) => (unscaled * 1000) / full + 0.01
   const swap = () => {
     const { view } = mount({ proposals: [edit("p", "Carrots", "Parsnips", TABLE)], annotations: [] }, { doc: TABLE })
     applyProposals(view, ["p"])
@@ -1207,9 +1208,9 @@ describe("revealing an applied change inside a table cell (docs/decisions/072)",
     const view = swap()
     tick(view, 0)
 
-    tick(view, real(12)) // 3 of 7 gone
+    tick(view, real(45)) // 3 of 7 gone
     expect(old(view)[0].toDOM(view).textContent).toBe("Carr")
-    tick(view, real(28 + 30)) // all gone, 3 typed
+    tick(view, real(105 + 120)) // all gone, 3 typed
     const [typed, hidden] = reveal(view)
 
     expect(old(view)).toEqual([])
@@ -1221,7 +1222,7 @@ describe("revealing an applied change inside a table cell (docs/decisions/072)",
   it("marks the first typed character as soon as it is typed", () => {
     const view = swap()
     tick(view, 0)
-    tick(view, real(28 + 10)) // one character typed
+    tick(view, real(105 + 40)) // one character typed
 
     const [typed, hidden] = reveal(view)
 
@@ -1234,10 +1235,10 @@ describe("revealing an applied change inside a table cell (docs/decisions/072)",
     const { view } = mount({ proposals: [edit("p", "sow in April", "plant **May**", doc)], annotations: [] }, { doc })
     applyProposals(view, ["p"])
     tick(view, 0)
-    tick(view, real(12 * 4 + 10 * 11, 178)) // the old words gone, "plant **May" typed: only "**" is left
+    tick(view, real(180 + 40 * 11, 700)) // the old words gone, "plant **May" typed: only "**" is left
 
     expect(reveal(view).map((m) => m.class)).toEqual(["sy-reveal-new"])
-    tick(view, real(12 * 4 + 10 * 1, 178)) // one character typed: "p"
+    tick(view, real(180 + 40, 700)) // one character typed: "p"
     expect(reveal(view).map((m) => said(view, m))).toEqual(["p", "lant **May**"])
   })
 
@@ -1246,7 +1247,7 @@ describe("revealing an applied change inside a table cell (docs/decisions/072)",
     const { view } = mount({ proposals: [edit("p", "sow in April", "**May** sow", doc)], annotations: [] }, { doc })
     applyProposals(view, ["p"])
     tick(view, 0)
-    tick(view, real(12 * 4 + 10 * 2, 158)) // the old words gone, "**" typed
+    tick(view, real(180 + 40 * 2, 620)) // the old words gone, "**" typed
 
     expect(reveal(view).map((m) => [m.class, said(view, m)])).toEqual([["sy-reveal-hidden", "May** sow"]])
   })
@@ -1255,7 +1256,7 @@ describe("revealing an applied change inside a table cell (docs/decisions/072)",
     const view = swap()
     tick(view, 0)
     const first = old(view)[0].key
-    tick(view, real(12))
+    tick(view, real(45))
 
     expect(old(view)[0].key).not.toBe(first)
   })
@@ -1263,7 +1264,7 @@ describe("revealing an applied change inside a table cell (docs/decisions/072)",
   it("ends with nothing but the applied mark left", () => {
     const view = swap()
     tick(view, 0)
-    tick(view, 1000)
+    tick(view, 1100)
 
     expect(reveal(view)).toEqual([])
     expect(old(view)).toEqual([])

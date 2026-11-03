@@ -34,7 +34,7 @@ tags: [type/decision, status/accepted, project/sympose, topic/web-app, topic/eng
 ## Found in use (2026-11-02)
 
 - damiro, in `accept` mode, saw her change land in the draft, opened another note and came back to the draft: the change was gone. Cause, already there for notes: the panel kept its list of applied changes for a path after leaving it, so on coming back the change the server still held was taken as applied and hidden. The list is now cleared when another note is opened; a test for a note and for a draft.
-- He also saw no animation. The reveal ran (checked in the real app), but a one-sentence change lasts about 0.3 s at 4 ms a removed character and 10 ms a typed one (`REMOVE_MS`, `TYPE_MS`), so it reads as appearing. The speed stays his call (ADR 072).
+- He also saw no animation. The reveal ran (checked in the real app), but a one-sentence change lasts about 0.3 s at 4 ms a removed character and 10 ms a typed one (`REMOVE_MS`, `TYPE_MS`), so it reads as appearing. The speed stays his call (ADR 072): first a 450 ms minimum, then, as that still read as instant to him, a pace of its own for a change of words, a second at least (ADR 072 amendment of 2026-11-03).
 
 ## Consequences
 

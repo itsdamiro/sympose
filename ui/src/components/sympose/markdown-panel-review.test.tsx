@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { getOpenNote } from "@/lib/open-note-source"
 import { getUnsavedGuard } from "@/lib/unsaved-guard"
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { act, cleanup, configure, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import { EditorView } from "@codemirror/view"
 
@@ -121,6 +121,7 @@ const edit = (id: string, find: string, replace: string): Proposal => {
 const changes = (proposals: Proposal[], annotations: unknown[] = []) => ({ path: "Garden plan.md", exists: true, mtime: 100, proposals, annotations })
 
 beforeEach(() => {
+  configure({ asyncUtilTimeout: 4000 }) // an applied change is revealed for about a second (docs/decisions/072) before its mark is final
   vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} })
   api.fetchVaultNote.mockResolvedValue({ path: "Garden plan.md", content: NOTE.trimEnd(), mtime: 100 })
   api.saveVaultNote.mockResolvedValue({ ok: true, mtime: 200 })
