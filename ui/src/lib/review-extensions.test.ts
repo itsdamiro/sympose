@@ -494,6 +494,27 @@ describe("selectionTarget", () => {
   it("is nothing when nothing is selected", () => {
     expect(selectionTarget(mount(NO_REVIEW).view)).toBeNull()
   })
+
+  it("leaves out the line breaks a triple click takes along, at the end and at the start", () => {
+    const { view } = mount(NO_REVIEW)
+    const at = NOTE.indexOf("- Pack charger")
+    const end = NOTE.indexOf("\n", at)
+    view.dispatch({ selection: { anchor: at - 1, head: end + 1 } })
+
+    const target = selectionTarget(view)
+
+    expect(target?.quote).toBe(NOTE.slice(at, end))
+    expect(target?.before.endsWith("\n\n")).toBe(true)
+    expect(target?.after.startsWith("\n")).toBe(true)
+  })
+
+  it("is nothing when only line breaks are selected", () => {
+    const { view } = mount(NO_REVIEW)
+    const at = NOTE.indexOf("\n\n")
+    view.dispatch({ selection: { anchor: at, head: at + 2 } })
+
+    expect(selectionTarget(view)).toBeNull()
+  })
 })
 
 describe("holdsReview", () => {

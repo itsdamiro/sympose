@@ -4,7 +4,7 @@ status: accepted
 date: 2026-11-02
 projects: [sympose]
 concepts: [Persona edits]
-amends: [70, 71, 72]
+amends: [69, 70, 71, 72]
 supersedes: []
 tags: [type/decision, status/accepted, project/sympose, topic/web-app, topic/engine]
 ---
@@ -28,7 +28,7 @@ tags: [type/decision, status/accepted, project/sympose, topic/web-app, topic/eng
 - **Accepting a change changes the draft's text only.** It is saved in the persona's folder like the user's own edits to a draft (ADR 071). The vault is written only when the draft itself is accepted, as before.
 - **Accepting or declining the draft forgets the changes still waiting inside it.** Accept makes the note from the draft's text as it stands, so a change not yet decided is not part of it and is dropped; Decline drops everything. The same holds for Accept and Decline in Slack (ADR 093), which show the draft's text and not the waiting changes.
 - **One item in the Drafts list.** A draft with changes inside it is still one row, counted once, listed by its working name; its time is that of the latest change. The changes are read when the draft is open, as for a note.
-- **No comments on a draft.** A comment needs a note on disk (ADR 069), so a draft has no Comment button or menu entry, and `comment_on` has nothing to anchor to. Not built; a later slice may add it.
+- **Comments on a draft (2026-11-03, damiro: "comment to collab edit is most useful for a draft").** A draft takes comments as a note does: the user's Comment button and menu entry, her `comment_on`, a highlight that opens its thread. They are kept under the draft's key, anchored in the draft's words (the editor's own context, as for a note), and listed as open comments on the draft's one row in Drafts. Declining the draft forgets its comments with it. Accepting it moves them to the note that was made (they stay open, on the same words, for the pruning of ADR 069 to judge against the new file). Comments need no file for the user to write: `POST /api/vault/annotations` reads the draft's text when the note is not on disk.
 - **Not Slack.** Slack has no editor, so she is not given an open draft there.
 
 ## Found in use (2026-11-02)

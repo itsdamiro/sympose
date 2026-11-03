@@ -66,7 +66,8 @@ def _waiting(handle: str, path: str, proposal_id: str) -> dict:
 
 
 def accept(handle: str, path: str, proposal_id: str) -> Decided:
-    """Make the note the draft `proposal_id` under `path` proposes, with the text it holds now, and forget the draft."""
+    """Make the note the draft `proposal_id` under `path` proposes, with the text it holds now, and forget the draft; the comments on
+    it are kept, on the note."""
     with _one_at_a_time(handle):
         proposal = _waiting(handle, path, proposal_id)
         name = str(proposal.get("name") or "Untitled")
@@ -89,7 +90,7 @@ def accept(handle: str, path: str, proposal_id: str) -> Decided:
             if not (made := _MADE.search(result)):
                 raise Refused(f"{name} could not be saved: the vault could not be written.")
             try:
-                note_changes.discard_draft(handle, path, proposal_id)
+                note_changes.discard_draft(handle, path, proposal_id, made_at=made.group(1))  # its comments are now the note's
             except KeyError:
                 pass  # forgotten at the same moment elsewhere: the note is made all the same
             return Decided(name, made.group(1))

@@ -143,3 +143,7 @@ A user asked the persona to delete a table; she could not (a change across cells
 - **Limits:** one change per table (no per-row decision); a column change means writing out every row, which a small model may get wrong, and then the refusal above stops it; a table with a margin is still comment-only.
 - **Measured on a tool-calling model (2026-10-07, `gemma4:e4b` on Ollama, invented 5-row garden table, four runs per request, the product's own tools and prompt, a change counts only if the resulting note is exactly right):** with the old table rule, adding a row 0 of 4 and removing a column 0 of 4 (the rule told her she could not), one cell 4 of 4, "delete the whole table" 4 of 4 (no change proposed); with the new rule 4 of 4, 4 of 4, 4 of 4, 4 of 4 (16 of 16 against 8 of 16). **Gemini Flash, the same run (invented data only): 0, 0, 4, 4 of 4 with the old rule and 4, 4, 4, 4 with the new, 16 of 16 against 8 of 16.** Not run through `gemma2:9b`, which does not get the table rule.
 
+
+## Amendment (2026-11-03): a new-note draft takes comments
+
+A comment needs the words it is on, not a file: a new-note draft (ADR 098) is commented on in its own text, under its key, by the user and by her. Declining the draft forgets its comments; accepting it moves them to the note made. See ADR 098.

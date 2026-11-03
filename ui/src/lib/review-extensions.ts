@@ -822,9 +822,14 @@ export interface CommentTarget {
  * `coordsAtPos` can only answer with the table's edge.
  */
 export function selectionTarget(view: EditorView, anchor?: DOMRect): CommentTarget | null {
-  const { from, to } = view.state.selection.main
-  if (from === to) return null
+  const selected = view.state.selection.main
   const text = view.state.doc.toString()
+  // The line breaks a triple click takes along are not the user's words: a quote that ends in one is not found once the draft is a
+  // note, whose file is read without its last line break (docs/decisions/098).
+  let { from, to } = selected
+  while (from < to && text[from] === "\n") from++
+  while (to > from && text[to - 1] === "\n") to--
+  if (from === to) return null
   const [before, after] = captureContext(text, from, to)
   const start = view.coordsAtPos(from)
   const end = view.coordsAtPos(to)

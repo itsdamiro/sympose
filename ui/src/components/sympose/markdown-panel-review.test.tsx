@@ -459,6 +459,13 @@ describe("MarkdownPanel on a draft that takes none of her changes (no draft key)
 
     expect(file.save).toHaveBeenCalledWith("draft:samantha/new/abc", expect.stringContaining("More. # Seeds"), 40)
   })
+
+  it("has no Comment button: a comment needs a note or a draft to stay with", async () => {
+    open({ path: "draft:samantha/new/abc", file: { load: vi.fn().mockResolvedValue({ content: "# Seeds", mtime: 40 }), save: vi.fn(), title: "Seeds" } })
+    await waitFor(() => expect(screen.getByTestId("cm").querySelector(".cm-editor")).not.toBeNull())
+
+    expect(commentButton()).toBeNull()
+  })
 })
 
 describe("MarkdownPanel on a new-note draft that takes her changes (docs/decisions/098)", () => {
@@ -497,13 +504,35 @@ describe("MarkdownPanel on a new-note draft that takes her changes (docs/decisio
     expect(getOpenNote()).toBeNull()
   })
 
-  it("draws the review notice and has no Comment button or menu entry: a comment needs a note on disk", async () => {
+  it("draws the review notice", async () => {
     changesApi.fetchChanges.mockResolvedValue(changes([edit("p1", "three times", "four times")]))
     openDraft()
 
     expect(await screen.findByRole("button", { name: "Accept all" })).toBeTruthy()
-    expect(screen.queryByRole("button", { name: "Comment" })).toBeNull()
-    expect(screen.queryAllByRole("menuitem")).toHaveLength(0)
+  })
+
+  it("comments on selected words of the draft, kept under the draft's key with the editor's own context", async () => {
+    openDraft()
+    await waitFor(() => expect(screen.getByTestId("cm").querySelector(".cm-content")).not.toBeNull())
+    await waitFor(() => expect(commentButton()).not.toBeNull())
+    const at = NOTE.indexOf("raised")
+    await act(async () => editorView().dispatch({ selection: { anchor: at, head: at + 6 } }))
+    await waitFor(() => expect(commentButton()?.disabled).toBe(false))
+    await act(async () => fireEvent.click(commentButton() as HTMLButtonElement))
+
+    await screen.findByTestId("comment-compose")
+    fireEvent.change(screen.getByLabelText("Comment"), { target: { value: "why raised?" } })
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Comment" })))
+
+    expect(changesApi.addComment).toHaveBeenCalledWith({ path: "new/abc.md", persona: "samantha", quote: "raised", before: NOTE.slice(0, at), after: NOTE.trimEnd().slice(at + 6, at + 46), text: "why raised?" })
+    await waitFor(() => expect(screen.queryByTestId("comment-compose")).toBeNull())
+  })
+
+  it("draws a comment already on the draft as a highlight", async () => {
+    changesApi.fetchChanges.mockResolvedValue(changes([], [{ id: "c1", time: "t", author: "user", quote: "raised", before: "", after: "", text: "why?", state: "open", reply_to: null, status: "attached" }]))
+    openDraft()
+
+    await waitFor(() => expect(screen.getByTestId("cm").querySelector(".sy-comment-hl")?.textContent).toBe("raised"))
   })
 
   it("applies her waiting edit at once in accept mode, as it does in a note", async () => {

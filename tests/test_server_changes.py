@@ -692,3 +692,80 @@ def test_a_draft_that_cannot_be_made_into_a_note_says_why_and_waits(env):
 
     assert res.status_code == 409 and "Seeds could not be saved" in res.json()["detail"]
     assert len(nc.drafts("samantha")) == 1
+
+
+# --- Comments on a new-note draft (docs/decisions/098, amended 2026-11-03) ---------------------------------------
+DRAFT = "# Seeds\n\nSow in March.\n"
+
+
+def _comment(client, path, quote="March", text="Check the frost date.", **more):
+    body = {"path": path, "persona": "samantha", "quote": quote, "text": text, **more}
+    return client.post("/api/vault/annotations", json=body)
+
+
+def test_the_user_can_comment_on_a_draft_that_is_not_in_the_vault_and_the_comment_is_attached_to_its_words(env):
+    client, vault = env
+    path = _draft()
+
+    made = _comment(client, path)
+
+    assert made.status_code == 201
+    body = client.get("/api/vault/changes", params={"path": path, "persona": "samantha"}).json()
+    assert [(a["quote"], a["text"], a["status"]) for a in body["annotations"]] == [("March", "Check the frost date.", "attached")]
+    assert list(os.listdir(vault)) == ["Garden plan.md"]  # nothing of it reached the vault
+
+
+def test_a_comment_on_a_path_with_neither_a_note_nor_a_draft_is_still_a_404(env):
+    client, _ = env
+
+    assert _comment(client, "Nowhere.md").status_code == 404
+
+
+def test_the_draft_is_one_row_in_the_drafts_list_counting_its_comment_and_a_comment_on_words_that_were_rewritten_does_not_count(env):
+    client, _ = env
+    path = _draft()
+    _comment(client, path)
+    _comment(client, path, quote="Sow")
+
+    (listed,) = client.get("/api/vault/drafts", params={"persona": "samantha"}).json()["drafts"]
+    assert (listed["count"], listed["comments"]) == (1, 2)
+
+    nc.edit_draft("samantha", path, "# Seeds\n\nPlant in spring.\n")  # both passages are gone from the draft
+    (listed,) = client.get("/api/vault/drafts", params={"persona": "samantha"}).json()["drafts"]
+    assert (listed["count"], listed["comments"]) == (1, 0)
+
+
+def test_declining_a_draft_through_resolve_forgets_its_comments_too_so_no_row_is_left(env):
+    client, _ = env
+    path = _draft()
+    _comment(client, path)
+
+    res = client.post("/api/vault/changes/resolve", json={"path": path, "all": True, "persona": "samantha"})
+
+    assert res.status_code == 200
+    assert client.get("/api/vault/drafts", params={"persona": "samantha"}).json()["drafts"] == []
+    assert nc.store.read("samantha", path)["annotations"] == []
+
+
+def test_accepting_a_draft_moves_its_comments_to_the_note_that_was_made(env):
+    client, vault = env
+    path = _draft()
+    _comment(client, path)
+    client.post("/api/vault/annotations", json={"path": path, "persona": "samantha", "reply_to": nc.store.read("samantha", path)["annotations"][0]["id"], "text": "Done."})
+
+    res = client.post("/api/vault/changes/accept", json={"path": path, "persona": "samantha"})
+
+    assert res.status_code == 200 and res.json()["path"] == "Inbox/Seeds.md"
+    body = client.get("/api/vault/changes", params={"path": "Inbox/Seeds.md", "persona": "samantha"}).json()
+    assert [(a["quote"], a["text"], a["status"]) for a in body["annotations"]] == [("March", "Check the frost date.", "attached"), ("March", "Done.", "attached")]
+    assert [d["path"] for d in nc.drafts("samantha", lambda p: (vault / p).read_text() if (vault / p).exists() else None)] == ["Inbox/Seeds.md"]
+    assert not any(e["path"].startswith("new/") for e in nc.store.entries("samantha"))
+
+
+def test_accepting_a_draft_with_no_comments_leaves_no_empty_file_in_her_folder(env):
+    client, _ = env
+    path = _draft()
+
+    client.post("/api/vault/changes/accept", json={"path": path, "persona": "samantha"})
+
+    assert os.listdir(nc.store._folder("samantha")) == []  # the draft's file went and none was made for the note

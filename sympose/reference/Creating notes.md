@@ -16,7 +16,7 @@ You can change the draft's text before you accept. What you change is kept with 
 
 Yes, with the draft open in the editor: ask for the change and it is made inside the draft, shown as tracked changes with Accept and Decline on each.
 
-Nothing reaches your vault until you accept the draft. Accepting it makes the note from the words it holds then, and a change you have not decided is dropped. A draft cannot take comments.
+Nothing reaches your vault until you accept the draft. Accepting it makes the note from the words it holds then, and a change you have not decided is dropped. You can comment on the words of a draft, and the persona can too; the comments stay on the note when you accept, and go when you decline.
 
 ## Are the words of a proposed note typed in when I open it?
 

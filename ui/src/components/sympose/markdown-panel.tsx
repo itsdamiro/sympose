@@ -645,11 +645,11 @@ function MarkdownPanel({
       onTaskToggle={handleTaskToggle}
       mode={readOnly ? "preview" : surface}
       softBreaks
-      inPlace={{ reveal, selectionUI, table: tableEditing, ...(file ? (draftKey ? { cellMarks, cellWidgets } : { cellMarks: revealCellMarks }) : { contextMenu: { items: commentMenu }, cellMarks, cellWidgets }) }}
+      inPlace={{ reveal, selectionUI, table: tableEditing, ...(file && !draftKey ? { cellMarks: revealCellMarks } : { contextMenu: { items: commentMenu }, cellMarks, cellWidgets }) }}
       canvasHeader={readOnly ? undefined : canvasHeader}
       extensions={readOnly ? undefined : file ? (draftKey ? draftReviewExt : draftExt) : reviewExt}
       toolbar={{
-        items: readOnly || file ? toolbarItems : toolbarWithReview,
+        items: readOnly || (file && !draftKey) ? toolbarItems : toolbarWithReview,
         // One row: what does not fit folds into a trailing `⋯` menu instead of wrapping (stylo >=0.18.0).
         overflow: "menu",
         render: (bar) => (
@@ -954,15 +954,15 @@ function MarkdownPanel({
           <span className="absolute inset-y-0 right-0 w-px bg-transparent transition-colors group-hover/md-handle:bg-border group-focus-visible/md-handle:bg-brand group-data-dragging/md:bg-brand" />
         </div>
       )}
-      {/* comments on the open note (docs/decisions/069): opens on the selected words or on a highlighted passage; a
-          persona's own file has none */}
-      {path && !file && (
+      {/* comments on the open note (docs/decisions/069) or on a new-note draft, under its key (docs/decisions/098): opens on the
+          selected words or on a highlighted passage; a persona's own file has none */}
+      {path && reviewable && (
         <CommentPopover
           key={path}
           box={commentBox}
           annotations={reviewData.annotations}
           personaName={personaLabel}
-          path={path}
+          path={draftKey ?? path}
           persona={persona}
           onClose={() => setCommentBox(null)}
           onChanged={() => {

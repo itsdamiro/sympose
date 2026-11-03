@@ -71,6 +71,7 @@ _RAW = [
     ("sympose", "where does a new note go if I do not say which folder?", True, "Creating notes.md"),
     ("sympose", "can you change the draft you made, I want it shorter?", True, "Creating notes.md"),
     ("sympose", "will you edit a draft that is still waiting under Drafts?", True, "Creating notes.md"),
+    ("sympose", "can I leave a comment on a draft that is not a note yet?", True, "Creating notes.md"),
     ("sympose", "how do I open a comment you left on my note?", True, "The web app.md"),
     ("sympose", "can you delete a table from my note?", True, "The web app.md"),
     ("sympose", "can I attach a PDF for you to read?", True, "Not built yet.md"),

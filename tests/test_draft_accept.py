@@ -175,7 +175,7 @@ def test_a_persona_that_is_gone_is_refused_and_the_draft_waits(vault, monkeypatc
 def test_a_draft_forgotten_in_the_same_moment_elsewhere_still_gives_the_note(vault, monkeypatch):
     path, proposal_id = draft()
     real = note_changes.discard_draft
-    monkeypatch.setattr(draft_accept.note_changes, "discard_draft", lambda *a: (real(*a), real(*a)))
+    monkeypatch.setattr(draft_accept.note_changes, "discard_draft", lambda *a, **k: (real(*a, **k), real(*a, **k)))
 
     assert draft_accept.accept(H, path, proposal_id).path == "Inbox/Seeds.md"
 

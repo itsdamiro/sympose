@@ -325,14 +325,20 @@ def discard_proposal(handle: str, note_path: str, proposal_id: str) -> None:
     store.update(handle, note_path, remove)
 
 
-def discard_draft(handle: str, note_path: str, proposal_id: str) -> None:
+def discard_draft(handle: str, note_path: str, proposal_id: str, *, made_at: str | None = None) -> None:
     """The new-note draft `proposal_id` was decided: it is forgotten with the changes of hers still waiting inside it, which are
-    only about its words and have nothing to apply to now. `KeyError` when the draft is not there."""
-    def remove(entry: dict[str, Any]) -> None:
+    only about its words and have nothing to apply to now. The comments on the draft go with it, unless it was accepted as the
+    note `made_at`: they are then on that note. `KeyError` when the draft is not there."""
+    def remove(entry: dict[str, Any]) -> bool:
         _pick(entry["proposals"], proposal_id)
         entry["proposals"] = []
+        if made_at is not None and entry["annotations"]:
+            return True
+        entry["annotations"] = []
+        return False
 
-    store.update(handle, note_path, remove)
+    if store.update(handle, note_path, remove):
+        store.move(handle, note_path, made_at)
 
 
 def draft_text(entry: dict[str, Any]) -> str | None:
@@ -350,15 +356,16 @@ def drafts(handle: str, text_of: Callable[[str], str | None] | None = None) -> l
     for entry in store.entries(handle):
         text = text_of(entry["path"]) if text_of else None
         creates = [p for p in entry["proposals"] if p.get("kind") == "create"]
+        if creates and text is None and text_of:
+            text = draft_text(entry)  # a draft has no file: its comments are on the words it holds now
         edits = [p for p in entry["proposals"] if p.get("kind") != "create" and (text is None or status(p, text) == PENDING)]
         if creates:  # a change inside a new-note draft is part of that draft: one item, as the note's file will be one
-            drafted = [p for p in edits if status(p, draft_text(entry) or "") == PENDING]
-            edits, inside = [], drafted
+            edits, inside = [], [p for p in edits if status(p, draft_text(entry) or "") == PENDING]
         else:
             inside = []
         spans = []
         if text is not None:
-            for p in edits:
+            for p in [*edits, *inside]:
                 here = finder.locate(text, p["find"], p.get("before", ""), p.get("after", ""))
                 spans.append((here.start, here.end))
         comments = []

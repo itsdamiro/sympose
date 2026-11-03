@@ -454,3 +454,18 @@ def test_a_tool_call_changes_a_new_note_draft_in_place_as_a_proposal_inside_it_a
     held = store.read(H, key)["proposals"]
     assert [(p["kind"], p.get("replace")) for p in held] == [("create", None), ("edit", "April")]
     assert held[0]["text"] == text
+
+
+def test_a_comment_of_hers_on_a_new_note_draft_is_kept_under_the_draft_and_travels_with_the_open_draft_next_turn():
+    from sympose.engine import open_comments
+    from sympose.engine.edit_turn import OpenNote
+
+    key = nc.new_note_path() + ".md"
+    text = "# Seeds\n\nSow in March.\n"
+    nc.propose_create(H, key, text, say="")
+
+    result = et.run(H, key, text, "comment_on", {"find": "March", "text": "Is that right for your frost date?"})
+
+    assert result.lookup["saved"] is True
+    (found,) = open_comments.gather(H, OpenNote(key, text)).items
+    assert (found.quote, found.thread) == ("March", (("persona", "Is that right for your frost date?"),))

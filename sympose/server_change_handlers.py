@@ -81,6 +81,13 @@ def resolve_changes(body: ChangesResolve) -> dict[str, Any]:
     path = _key(body.path)
     entry = store.read(handle, path)
     ids = [p["id"] for p in entry["proposals"]] if body.all else body.ids
+    drafts = [p["id"] for p in entry["proposals"] if p.get("kind") == "create" and p["id"] in ids]
+    if drafts and not body.accepted:  # declining a draft forgets what is inside it, its comments too
+        try:
+            nc.discard_draft(handle, path, drafts[0])
+        except KeyError:
+            pass
+        return {"path": path, "resolved": ids}
     if body.accepted:
         exists, text, _ = _on_disk(path, body.persona)
         if exists:
@@ -126,8 +133,9 @@ def add_annotation(body: AnnotationCreate) -> dict[str, Any]:
     handle = _handle(body.persona)
     path = _key(body.path)
     exists, text, _ = _on_disk(path, body.persona)
-    if not exists:
+    if not exists and (drafted := nc.draft_text(store.read(handle, path))) is None:
         raise HTTPException(status_code=404, detail=f"Note `{path}` not found.")
+    text = text if exists else drafted  # a new-note draft is commented on in its own words (docs/decisions/098)
     try:
         if body.reply_to:
             return nc.reply(handle, path, body.reply_to, text=body.text, author="user")
