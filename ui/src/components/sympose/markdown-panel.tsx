@@ -245,8 +245,8 @@ function MarkdownPanel({
   React.useEffect(() => {
     heldRef.current = () => appliedRef.current.ids.length > 0 && appliedRef.current.untouched && !frontmatterEditedRef.current
   })
-  // A new-note draft takes her changes too (docs/decisions/098), kept under the draft's own key and not the editor's `draft:` path;
-  // not comments, which need a note on disk.
+  // A new-note draft takes her changes and comments too (docs/decisions/098), kept under the draft's own key and not the editor's
+  // `draft:` path.
   const draftKey = file?.draftKey
   const reviewable = !file || !!draftKey
   // The chat sends the note as the editor holds it, with the user's message (docs/decisions/072). Not for a persona's
@@ -331,12 +331,12 @@ function MarkdownPanel({
     [changes, appliedIds]
   )
   // What the user attaches to the next chat message belongs to the note that is open (docs/decisions/076); not for a
-  // persona's own file or a draft.
+  // persona's own file.
   React.useEffect(() => {
-    if (!path || file) return
-    setAttachmentsNote(path)
+    if (!path || !reviewable) return
+    setAttachmentsNote(draftKey ?? path)
     return () => setAttachmentsNote(undefined)
-  }, [path, file])
+  }, [path, reviewable, draftKey])
   const reviewDataRef = React.useRef(reviewData)
   const resolveRef = React.useRef(resolveChanges)
   const proposalsRef = React.useRef<Proposal[]>([])
@@ -427,7 +427,11 @@ function MarkdownPanel({
   const acceptNote = React.useCallback(() => {
     saveAfterAcceptRef.current = true
   }, [])
-  const declineNote = React.useCallback(() => void resolveRef.current("all"), [])
+  // On a draft "all" would be the draft itself (its `create` proposal), so only the changes inside it are named.
+  const declineNote = React.useCallback(
+    () => void resolveRef.current(draftKey ? proposalsRef.current.filter((p) => p.kind !== "create").map((p) => p.id) : "all"),
+    [draftKey]
+  )
   const acceptAll = React.useCallback(() => {
     const view = styloRef.current?.getView()
     if (view && acceptAllIn(view)) acceptNote()

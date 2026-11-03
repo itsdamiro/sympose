@@ -1090,6 +1090,17 @@ describe("revealing an applied change (docs/decisions/072, amendment 2026-10-24)
     expect(drawn(view)).toContain("I run three times a week.")
   })
 
+  it("never cuts the middle of a character that takes two units, such as an emoji", () => {
+    const doc = "I run three times \u{1F600} a week.\n"
+    const { view } = mount(data(edit("a", "three times \u{1F600}", "three times \u{1F601}", doc)), { doc })
+    applyProposals(view, ["a"])
+
+    expect(old(view)).toBe("\u{1F600}")
+    tick(view, 0)
+    tick(view, 1100)
+    expect(drawn(view)).toContain("three times \u{1F601}")
+  })
+
   it("changes a whole word, never the middle of one", () => {
     const { view } = mount(data(edit("a", "three times", "tree times")))
     applyProposals(view, ["a"])

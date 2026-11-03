@@ -20,8 +20,8 @@ export interface PanelFile {
   /** Asked once each time the editor is made over this file: true when its text is to be typed in as it opens (a new-note draft,
    *  docs/decisions/072), false to show it at once. */
   reveal?: () => boolean
-  /** The note path a new-note draft's changes are kept under (docs/decisions/098): set, the persona's changes inside the draft are drawn
-   *  and she can edit it, as for a note; unset, the file has none. */
+  /** The note path a new-note draft's changes are kept under (docs/decisions/098): set, the persona's changes and the comments inside the draft
+   *  are drawn and she can edit it, as for a note; unset, the file has none. */
   draftKey?: string
 }
 

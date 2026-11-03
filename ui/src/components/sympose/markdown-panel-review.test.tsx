@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { getOpenNote } from "@/lib/open-note-source"
 import { getUnsavedGuard } from "@/lib/unsaved-guard"
-import { act, cleanup, configure, fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import { EditorView } from "@codemirror/view"
 
@@ -121,7 +121,8 @@ const edit = (id: string, find: string, replace: string): Proposal => {
 const changes = (proposals: Proposal[], annotations: unknown[] = []) => ({ path: "Garden plan.md", exists: true, mtime: 100, proposals, annotations })
 
 beforeEach(() => {
-  configure({ asyncUtilTimeout: 4000 }) // an applied change is revealed for about a second (docs/decisions/072) before its mark is final
+  // The reveal of an applied change takes about a second (docs/decisions/072); these tests are not about it.
+  vi.stubGlobal("matchMedia", (query: string) => ({ matches: query.includes("reduce"), addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} }))
   vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} })
   api.fetchVaultNote.mockResolvedValue({ path: "Garden plan.md", content: NOTE.trimEnd(), mtime: 100 })
   api.saveVaultNote.mockResolvedValue({ ok: true, mtime: 200 })
@@ -533,6 +534,27 @@ describe("MarkdownPanel on a new-note draft that takes her changes (docs/decisio
     openDraft()
 
     await waitFor(() => expect(screen.getByTestId("cm").querySelector(".sy-comment-hl")?.textContent).toBe("raised"))
+  })
+
+  it("declines only the changes inside the draft from the review notice, never the draft itself", async () => {
+    changesApi.fetchChanges.mockResolvedValue(changes([{ id: "c0", kind: "create", text: NOTE } as unknown as Proposal, edit("p1", "three times", "four times")]))
+    openDraft()
+
+    await screen.findByRole("status")
+    await act(async () => fireEvent.click(await screen.findByRole("button", { name: "Decline all" })))
+
+    expect(changesApi.resolveChanges).toHaveBeenCalledWith("new/abc.md", "samantha", ["p1"])
+    expect(changesApi.resolveChanges).not.toHaveBeenCalledWith("new/abc.md", "samantha", "all")
+  })
+
+  it("attaches a passage of the draft to the next message, under the draft's key", async () => {
+    const { attach, takeAttached } = await import("@/lib/attachments")
+    openDraft()
+    await waitFor(() => expect(getOpenNote()?.path).toBe("new/abc.md"))
+
+    attach({ quote: "raised", before: "The beds are ", after: "." })
+
+    expect(takeAttached()).toEqual([{ quote: "raised", before: "The beds are ", after: "." }])
   })
 
   it("applies her waiting edit at once in accept mode, as it does in a note", async () => {

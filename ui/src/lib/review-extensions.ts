@@ -481,6 +481,8 @@ interface Landed {
 }
 
 const isWord = (char: string | undefined) => char !== undefined && /[\p{L}\p{N}_]/u.test(char)
+/** Whether `at` falls between the two halves of one character (an emoji is two UTF-16 units). */
+const splitsPair = (text: string, at: number) => /[\uD800-\uDBFF]/.test(text[at - 1] ?? "") && /[\uDC00-\uDFFF]/.test(text[at] ?? "")
 
 /** How much of `old` and of `next` is the same at the start and at the end, so that only the part between is shown: the unchanged words
  *  stay as they are. Whole words only (`four` to `five` is one word changing, not `our` to `ive`). */
@@ -488,9 +490,11 @@ function unchangedEnds(old: string, next: string): { lead: number; trail: number
   const most = Math.min(old.length, next.length)
   let lead = 0
   while (lead < most && old[lead] === next[lead]) lead++
+  while (lead > 0 && splitsPair(old, lead)) lead--
   while (lead > 0 && isWord(old[lead - 1]) && (isWord(old[lead]) || isWord(next[lead]))) lead--
   let trail = 0
   while (trail < most - lead && old[old.length - 1 - trail] === next[next.length - 1 - trail]) trail++
+  while (trail > 0 && (splitsPair(old, old.length - trail) || splitsPair(next, next.length - trail))) trail--
   while (trail > 0 && isWord(old[old.length - trail]) && (isWord(old[old.length - trail - 1]) || isWord(next[next.length - trail - 1]))) trail--
   return { lead, trail }
 }

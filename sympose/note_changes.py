@@ -356,13 +356,12 @@ def drafts(handle: str, text_of: Callable[[str], str | None] | None = None) -> l
     for entry in store.entries(handle):
         text = text_of(entry["path"]) if text_of else None
         creates = [p for p in entry["proposals"] if p.get("kind") == "create"]
+        drafted = draft_text(entry)  # a draft has no file: its comments and the changes inside it are on the words it holds now
         if creates and text is None and text_of:
-            text = draft_text(entry)  # a draft has no file: its comments are on the words it holds now
-        edits = [p for p in entry["proposals"] if p.get("kind") != "create" and (text is None or status(p, text) == PENDING)]
-        if creates:  # a change inside a new-note draft is part of that draft: one item, as the note's file will be one
-            edits, inside = [], [p for p in edits if status(p, draft_text(entry) or "") == PENDING]
-        else:
-            inside = []
+            text = drafted
+        judged = drafted if creates else text
+        edits = [p for p in entry["proposals"] if p.get("kind") != "create" and (judged is None or status(p, judged) == PENDING)]
+        inside, edits = (edits, []) if creates else ([], edits)  # a change inside a draft is part of it: one item, as the note's file will be one
         spans = []
         if text is not None:
             for p in [*edits, *inside]:

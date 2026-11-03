@@ -86,7 +86,7 @@ def resolve_changes(body: ChangesResolve) -> dict[str, Any]:
         try:
             nc.discard_draft(handle, path, drafts[0])
         except KeyError:
-            pass
+            return {"path": path, "resolved": []}  # already forgotten (the other window got there first): not an error
         return {"path": path, "resolved": ids}
     if body.accepted:
         exists, text, _ = _on_disk(path, body.persona)
