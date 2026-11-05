@@ -48,3 +48,15 @@ tags: [type/decision, status/accepted, project/sympose, topic/engine, topic/priv
 - **Buy API credit.** Does what the user asked not to do.
 - **Build Claude-specific features now (prompt caching, Anthropic's web tools, a balance meter).** No measurement says they are needed. Each is right once the first slice shows a cost or a gap that it would fix.
 - **Do nothing and leave it undocumented.** The entries and the key already exist, but nobody would know that a Max plan pays for them, nor that the other route is closed.
+
+## Amendment (2026-11-05): the first measurement
+
+Decision 2's measurement was run once on damiro's own Console key, on scratch data only (the fixture vault, a copy of the shipped Samantha persona, a temporary settings file). Single runs: each figure is one sample, and cost is litellm's estimate, not a Console reading.
+
+- **The ids resolve.** `anthropic/claude-sonnet-5` and `anthropic/claude-sonnet-5-5` both answered; the picker row needs no change. A Sonnet 5.5 row is not added.
+- **One chat turn costs about half a cent** ($0.004 to $0.008, about 1,900 input tokens) and waits 1 to 3 seconds on Claude. The 53 calls of the 35 prompt cases cost $0.24 (mean wait 2.6 s).
+- **Tool use works.** In `vault_lookup` `"ask"`, Claude looked a note up on 8 of 9 turns that needed one and looked nothing up on 6 of 7 that needed none; 34 calls cost $0.27. Both cases it passed cited the right note.
+- **Grounding held.** No reply invented a source or a fact about the vault. Of 35 prompt cases 33 passed on the first run, and of 18 `ask` cases 17. One failure is a stale case, not a fault: `sympose-not-built-is-said-plainly` expects "not yet" for Slack, which is built (ADR 093). The other is a mild leak that the case `general-knowledge-with-no-notes` forbids: after a correct general-knowledge answer Claude added a remark about the vault ("Nothing in your vault came up for this", "No need to dig through your notes"), in both modes.
+- **An unattended job costs about 11 cents a run:** five model calls, 38,153 tokens in and 3,506 out, 39 seconds. A second run the same day was refused by the cloud default of one run a day (ADR 091) before any model call. At that cap a daily job is about $3.30 a month and a weekly one about 45 cents. The job's output waited as a draft and the vault was untouched. The draft's text was not read.
+- **Not measured:** whether these calls drew on the plan's API credit or were charged to the organization's own balance (the response does not say; only the Console shows it), `tests/live_prompt_cases.py` against `gemma4:e4b` in the sense the decision meant (the cases were run on Claude itself), and what the used-up-credit refusal looks like (it was not provoked: that would spend the whole credit). Decision 3's one line is therefore not written.
+- **Not changed:** `Choosing a model.md`, the reference library and the retrieval eval still say nothing about Claude; Claude stays out of `lookup.MEASURED` until a larger sample (decision 6).
