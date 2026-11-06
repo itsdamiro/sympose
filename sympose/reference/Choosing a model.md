@@ -20,6 +20,14 @@ Yes. `chat_model` and a persona's `model` accept any model name litellm understa
 
 Cloud models are opt-in and need the provider's API key in `.env`: `ANTHROPIC_API_KEY` for Claude, `OPENAI_API_KEY` for GPT, `GEMINI_API_KEY` for Gemini and `OPENROUTER_API_KEY` for the OpenRouter ones.
 
+## Can I use my Claude subscription, such as Pro or Max, for Claude in Sympose?
+
+No. A subscription covers the Claude apps and Claude Code, and Anthropic's terms do not let another app sign in with it. Claude in Sympose runs on an API key from the Anthropic Console, put in `.env` as `ANTHROPIC_API_KEY`, billed apart from the subscription. Max and Team plans include a monthly API credit you can link to a Console organization; on other plans you pay from that account's balance.
+
+## How much does Claude cost?
+
+Claude is billed per use, by Anthropic, to the Console account the key belongs to. A normal chat turn costs a fraction of a cent, and a persona's unattended job costs more because it makes several calls. Sympose never turns on auto-reload or buys credit for you: leave auto-reload off in the Console, and what you put in is the most you can spend.
+
 ## What does a cloud model receive?
 
 Your messages and the conversation are sent to that provider. Your notes, their properties and your recaps are sent only if you allow them: Sympose asks when you switch from a local model to a cloud one, and /share changes it later.
@@ -38,7 +46,7 @@ Looking in your notes herself, `vault_lookup` `"ask"`, or by default on a tested
 
 ## Which models can call tools?
 
-Gemini Flash can, and most cloud models can. Of local models, Sympose asks Ollama: qwen3:8b and gemma4 can, gemma2:9b cannot. Those that can are often thinking models, which are slow on a laptop, so a cloud model is the smoother choice for `"ask"`.
+Gemini Flash can, and most cloud models can, Claude Sonnet 5 among them. Of local models, Sympose asks Ollama: qwen3:8b and gemma4 can, gemma2:9b cannot. Those that can are often thinking models, which are slow on a laptop, so a cloud model is the smoother choice for `"ask"`.
 
 ## What can a local model not do as well as a cloud one?
 

@@ -120,8 +120,8 @@ LIVE_CASES: list[LiveCase] = [
     LiveCase("sympose-how-to", ("how do I add a second vault?",), expect=(r"switcher|VAULT_PATHS",)),
     LiveCase(
         "sympose-not-built-is-said-plainly",
-        ("does Sympose work in Slack?",),
-        expect=(r"not yet|planned|isn't|no slack|not available|doesn't|does not",),
+        ("can you delete a note from my vault for me?",),
+        expect=(r"not (?:yet|built|available)|can't|cannot|isn't|aren't|doesn't|does not|don't|no way|unable",),
     ),
     # The real failure: agreeing that she is supposed to do what is not built.
     LiveCase(

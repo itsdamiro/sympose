@@ -56,6 +56,8 @@ _RAW = [
     ("sympose", "what is Sympose?", True, "What is Sympose.md"),
     ("sympose", "who made Sympose?", True, "History and author.md"),
     ("sympose", "can I use a cloud model?", True, "Choosing a model.md"),
+    ("sympose", "can I use my Claude Pro plan to run Claude in Sympose?", True, "Choosing a model.md"),
+    ("sympose", "how much will it cost me to run Claude?", True, "Choosing a model.md"),
     ("sympose", "how do I change your name?", True, None),
     ("sympose", "how do I set up a new vault?", True, "Add or switch vaults.md"),
     ("sympose", "can you show me the settings for the model?", True, None),

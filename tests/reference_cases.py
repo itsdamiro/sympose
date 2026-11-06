@@ -186,6 +186,18 @@ REF_CASES: list[RefCase] = [
         find=("/model",),
         first="Choosing a model.md",
     ),
+    RefCase(
+        "claude-subscription",
+        "can I use my Claude Pro subscription to run Claude in Sympose?",
+        find=("ANTHROPIC_API_KEY",),
+        first="Choosing a model.md",
+    ),
+    RefCase(
+        "claude-cost",
+        "how much does Claude cost to use?",
+        find=("auto-reload",),
+        first="Choosing a model.md",
+    ),
     # Commands and settings
     RefCase(
         "list-commands",
